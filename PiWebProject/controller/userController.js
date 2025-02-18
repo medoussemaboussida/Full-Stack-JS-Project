@@ -9,14 +9,15 @@ return jwt.sign({id},'randa',{expiresIn:maxAge})
 }
 
 //signup
-module.exports.addUser = async (req,res) => { 
+module.exports.addStudent = async (req,res) => { 
 
     try{
         console.log(req.body);
-        const{ username , dob , email ,role, password }=req.body;
+        const{ username , dob , email, password,speciality,level}=req.body;
         const etatUser = "Actif"
         const photoUser= "Null"
-        const user = new userModel({username , email , dob , password , role , etat:etatUser , user_photo:photoUser});
+        const roleUser = "student";
+        const user = new userModel({username , email , dob , password , role:roleUser , etat:etatUser , user_photo:photoUser,speciality:speciality,level:level});
         const userAdded = await user.save()
         res.status(201).json(userAdded);
     }catch(err){
