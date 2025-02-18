@@ -1,4 +1,4 @@
-const userModel = require('../model/user');
+const User = require('../model/user');
 const bcrypt = require("bcrypt"); 
 const jwt=require("jsonwebtoken")
 
@@ -17,7 +17,7 @@ module.exports.addStudent = async (req,res) => {
         const etatUser = "Actif"
         const photoUser= "Null"
         const roleUser = "student";
-        const user = new userModel({username , email , dob , password , role:roleUser , etat:etatUser , user_photo:photoUser,speciality:speciality,level:level});
+        const user = new User({username , email , dob , password , role:roleUser , etat:etatUser , user_photo:photoUser,speciality:speciality,level:level});
         const userAdded = await user.save()
         res.status(201).json(userAdded);
     }catch(err){
@@ -42,7 +42,7 @@ module.exports.login = async (req, res) => {
 
                 // Retourner l'utilisateur et le token
                 return res.status(200).json({ user, token });
-            }
+            } 
             throw new Error("Incorrect password");
         }
         throw new Error("Incorrect email");
