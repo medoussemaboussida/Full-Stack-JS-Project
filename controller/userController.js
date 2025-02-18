@@ -24,7 +24,6 @@ module.exports.addStudent = async (req,res) => {
         res.status(500).json({message: err.message})
     }
 } 
-
 //login
 module.exports.login = async (req, res) => {
     try {
@@ -33,8 +32,8 @@ module.exports.login = async (req, res) => {
         // Trouver l'utilisateur par email
         const user = await userModel.findOne({ email });
         if (user) {
-            const auth = await bcrypt.compare(password, user.password);
-            if (auth) {
+            // Comparer le mot de passe en clair
+            if (password === user.password) {
                 // Générer le token
                 const token = createtoken(user._id);
 
