@@ -5,6 +5,7 @@ var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 const http=require('http')
 const mongo=require('mongoose')
+const cors = require('cors');
 
 //database connection
 const db=require('./config/dbconnection.json')
@@ -22,7 +23,11 @@ var app = express();
 // view engine setup
 //app.set('views', path.join(__dirname, 'views'));
 //app.set('view engine', 'jade');
-
+app.use(cors({
+  origin: 'http://localhost:3000', // Autoriser uniquement votre frontend React
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Autoriser les méthodes HTTP
+  allowedHeaders: ['Content-Type', 'Authorization'], // Autoriser les en-têtes
+}));
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -53,4 +58,4 @@ const server=http.createServer(app,console.log('run server'))
 
 
 server.listen(5000)
- 
+  

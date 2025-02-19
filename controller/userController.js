@@ -3,9 +3,9 @@ const bcrypt = require("bcrypt");
 const jwt=require("jsonwebtoken")
 
 //jwt config
-const maxAge=2 * 60 ; //2mins
-const createtoken=(id)=>{
-return jwt.sign({id},'randa',{expiresIn:maxAge})
+const maxAge=1 * 60 * 60 ; //1hrs
+const createtoken=(id,username)=>{
+return jwt.sign({id,username},'randa',{expiresIn:maxAge})
 }
 
 //signup
@@ -30,10 +30,10 @@ module.exports.login = async (req, res) => {
         const { email, password } = req.body;
 
         // Trouver l'utilisateur par email
-        const user = await userModel.findOne({ email });
+        const user = await User.findOne({ email });
         if (user) {
             // Comparer le mot de passe en clair
-            if (password === user.password) {
+            if (password === user.password && user.role === "student") {
                 // Générer le token
                 const token = createtoken(user._id);
 
@@ -43,10 +43,23 @@ module.exports.login = async (req, res) => {
                 // Retourner l'utilisateur et le token
                 return res.status(200).json({ user, token });
             } 
-            throw new Error("Incorrect password");
+            throw new Error("Incorrect password or unauthorized role");
         }
         throw new Error("Incorrect email");
     } catch (err) {
         res.status(400).json({ message: err.message });
+    }
+};
+
+//utilise se methode pour recuperer le utiliseateur depuis token recuperé
+module.exports.Session = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id); // Récupérer l'utilisateur par son ID
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.json({ username: user.username }); // Retourner le username
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error });
     }
 };

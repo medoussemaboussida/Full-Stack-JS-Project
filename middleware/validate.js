@@ -18,6 +18,8 @@ async function validateUser(req, res, next) {
 
             password: yup.string()
                 .min(6, "Password must be at least 6 characters long.")
+                .matches(/[0-9]/, "Password must contain at least one number.")
+                .matches(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least one special character.")
                 .required("Password is required."),
 
 

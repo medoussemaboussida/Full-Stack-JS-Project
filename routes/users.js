@@ -6,6 +6,7 @@ const validate = require('../middleware/validate')
 
 router.post('/addStudent',validate,userController.addStudent);
 router.post('/login',userController.login);
+router.get('/session/:id',userController.Session);
 
 
 

@@ -1,0 +1,273 @@
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import * as yup from 'yup'; // Importer yup
+
+function Register() {
+    const [formData, setFormData] = useState({
+        username: '',
+        email: '',
+        password: '',
+        dob: '',
+        level: '',
+        speciality: '',
+    });
+
+    const [errors, setErrors] = useState({}); // Pour stocker les erreurs de validation
+    const [showPassword, setShowPassword] = useState(false);
+
+    const { username, dob, email, password, speciality, level } = formData;
+
+    // Schéma de validation avec yup
+    const validationSchema = yup.object().shape({
+        username: yup.string()
+            .matches(/^[A-Za-z\s]+$/, "Username must start with an uppercase letter and contain only letters.")
+            .required("Username is required."),
+
+        email: yup.string()
+            .email("Invalid email format.")
+            .matches(/^[a-zA-Z0-9._%+-]+@esprit\.tn$/, "Email must end with @esprit.tn.")
+            .required("Email is required."),
+
+        dob: yup.date()
+            .max(new Date(), "Date of birth cannot be in the future.")
+            .required("Date of birth is required."),
+
+        password: yup.string()
+            .min(6, "Password must be at least 6 characters long.")
+            .matches(/[0-9]/, "Password must contain at least one number.")
+            .matches(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least one special character.")
+            .required("Password is required."),
+
+        speciality: yup.string()
+            .oneOf(["A", "B", "TWIN", "SAE", "SE", "BI", "DS", "IOSYS", "SLEAM", "SIM", "NIDS", "INFINI"], "Invalid speciality.")
+            .required("Speciality is required."),
+
+        level: yup.number()
+            .integer("Level must be a number.")
+            .min(1, "Level must be at least 1.")
+            .max(5, "Level must be at most 5.")
+            .required("Level is required."),
+    });
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData({ ...formData, [name]: value });
+
+        // Effacer l'erreur correspondante lorsqu'un champ est modifié
+        if (errors[name]) {
+            setErrors({ ...errors, [name]: '' });
+        }
+    };
+
+    const togglePasswordVisibility = () => {
+        setShowPassword(!showPassword);
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+
+        try {
+            // Valider les données du formulaire avec yup
+            await validationSchema.validate(formData, { abortEarly: false });
+
+            // Si la validation réussit, envoyer les données au serveur
+            const response = await fetch('http://localhost:5000/users/addStudent', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData),
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                alert('Student registered successfully!');
+                window.location.href = '/login'; // Rediriger vers la page de connexion
+            } else {
+                alert(`Error: ${result.message || 'Failed to register student'}`);
+            }
+        } catch (err) {
+            // Gestion des erreurs de validation
+            if (err.name === 'ValidationError') {
+                const validationErrors = {};
+                err.inner.forEach((error) => {
+                    validationErrors[error.path] = error.message;
+                });
+                setErrors(validationErrors);
+            } else {
+                console.error(err);
+                alert('An error occurred while registering the student.');
+            }
+        }
+    };
+
+    useEffect(() => {
+        const navbar = document.querySelector(".header");
+        const footer = document.querySelector("footer");
+        if (navbar) navbar.style.display = "none";
+        if (footer) footer.style.display = "none";
+
+        return () => {
+            if (navbar) navbar.style.display = "block";
+            if (footer) footer.style.display = "block";
+        };
+    }, []);
+
+    return (
+        <div>
+            <main className="main">
+                <div className="auth-area py-120">
+                    <div className="container">
+                        <div className="col-md-5 mx-auto">
+                            <div className="auth-form">
+                                <div className="auth-header">
+                                    <img src="assets/img/logo/logo.png" alt="" />
+                                    <p>Create your free lovcare account</p>
+                                </div>
+                                <form onSubmit={handleSubmit}>
+                                    {/* Username */}
+                                    <div className="form-group">
+                                        <div className="form-icon">
+                                            <i className="far fa-user-tie"></i>
+                                            <input 
+                                                type="text" 
+                                                className="form-control" 
+                                                name="username" 
+                                                placeholder="Your Name" 
+                                                value={username} 
+                                                onChange={handleChange} 
+                                            />
+                                        </div>
+                                        {errors.username && <p className="text-danger">{errors.username}</p>}
+                                    </div>
+
+                                    {/* Email */}
+                                    <div className="form-group">
+                                        <div className="form-icon">
+                                            <i className="far fa-envelope"></i>
+                                            <input 
+                                                type="email" 
+                                                className="form-control" 
+                                                name="email" 
+                                                placeholder="Your Email" 
+                                                value={email} 
+                                                onChange={handleChange} 
+                                            />
+                                        </div>
+                                        {errors.email && <p className="text-danger">{errors.email}</p>}
+                                    </div>
+
+                                    {/* Password */}
+                                    <div className="form-group">
+                                        <div className="form-icon">
+                                            <i className="far fa-key"></i>
+                                            <input 
+                                                type={showPassword ? "text" : "password"} 
+                                                id="password" 
+                                                className="form-control" 
+                                                name="password" 
+                                                placeholder="Your Password" 
+                                                value={password} 
+                                                onChange={handleChange} 
+                                            />
+                                            <span className="password-view" onClick={togglePasswordVisibility}>
+                                                <i className={`far ${showPassword ? "fa-eye" : "fa-eye-slash"}`}></i>
+                                            </span>
+                                        </div>
+                                        {errors.password && <p className="text-danger">{errors.password}</p>}
+                                    </div>
+
+                                    {/* Date of Birth */}
+                                    <div className="form-group">
+                                        <div className="form-icon">
+                                            <i className="far fa-calendar-alt"></i>
+                                            <input 
+                                                type="date" 
+                                                className="form-control" 
+                                                name="dob" 
+                                                value={dob} 
+                                                onChange={handleChange} 
+                                            />
+                                        </div>
+                                        {errors.dob && <p className="text-danger">{errors.dob}</p>}
+                                    </div>
+
+                                    {/* Level */}
+                                    <div className="form-group">
+                                        <div className="form-icon">
+                                            <i className="far fa-graduation-cap"></i>
+                                            <select 
+                                                className="form-control" 
+                                                name="level" 
+                                                value={level} 
+                                                onChange={handleChange}
+                                            >
+                                                <option value="">Select Level</option>
+                                                <option value="1">1</option>
+                                                <option value="2">2</option>
+                                                <option value="3">3</option>
+                                                <option value="4">4</option>
+                                                <option value="5">5</option>
+                                            </select>
+                                        </div>
+                                        {errors.level && <p className="text-danger">{errors.level}</p>}
+                                    </div>
+
+                                    {/* Speciality */}
+                                    <div className="form-group">
+                                        <div className="form-icon">
+                                            <i className="far fa-cogs"></i>
+                                            <select 
+                                                className="form-control" 
+                                                name="speciality" 
+                                                value={speciality} 
+                                                onChange={handleChange}
+                                            >
+                                                <option value="">Select Speciality</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="P">P</option>
+                                                <option value="TWIN">TWIN</option>
+                                                <option value="SAE">SAE</option>
+                                                <option value="SE">SE</option>
+                                                <option value="BI">BI</option>
+                                                <option value="DS">DS</option>
+                                                <option value="IOSYS">IOSYS</option>
+                                                <option value="SLEAM">SLEAM</option>
+                                                <option value="SIM">SIM</option>
+                                                <option value="NIDS">NIDS</option>
+                                                <option value="INFINI">INFINI</option>
+                                            </select>
+                                        </div>
+                                        {errors.speciality && <p className="text-danger">{errors.speciality}</p>}
+                                    </div>
+
+                                    <div className="auth-btn">
+                                        <button type="submit" className="theme-btn">
+                                            <span className="far fa-paper-plane"></span> Register
+                                        </button>
+                                    </div>
+                                </form>
+                                <div className="auth-bottom">
+                                    <div className="auth-social">
+                                        <p>Continue with social media</p>
+                                        <div className="auth-social-list">
+                                            <a href="#"><i className="fab fa-facebook-f"></i></a>
+                                            <a href="#"><i className="fab fa-google"></i></a>
+                                            <a href="#"><i className="fab fa-x-twitter"></i></a>
+                                        </div>
+                                    </div>
+                                    <p className="auth-bottom-text">
+                                        Already have an account <Link to="/login">Log in</Link>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    );
+}
+
+export default Register;
