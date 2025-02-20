@@ -32,8 +32,12 @@ module.exports.login = async (req, res) => {
         // Trouver l'utilisateur par email
         const user = await User.findOne({ email });
         if (user) {
-            // Comparer le mot de passe en clair
-            if (password === user.password && user.role === "student") {
+             // Vérifier le mot de passe crypté
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: "Mot de passe incorrect" });
+        }
+        else {
                 // Générer le token
                 const token = createtoken(user._id);
 

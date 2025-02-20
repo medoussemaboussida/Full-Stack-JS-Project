@@ -24,7 +24,18 @@ user.post("save", async function (req,res,next) {
     next();
 });
 
-
+//*******************************cryptage ************************************
+user.pre("save", async function (next) {
+    try{
+        const salt = await bcrypt.genSalt();
+        const User = this;
+        User.password = await bcrypt.hash(User.password,salt);
+        next();
+    }catch (err)
+    {
+        next(err);
+    }
+});
 
 
 const User = mongoose.model("User", user);
