@@ -15,10 +15,14 @@ const Team = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const [users, setUsers] = useState([]);
+  const [archivedUsers, setArchivedUsers] = useState([]);  // Nouvel état pour les utilisateurs archivés
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({ username: "", email: "", role: "student", dob: "", level: "", password: "" });
-  const [error, setError] = useState("");  // Ajout d'un état pour gérer les erreurs
-
+  const [error, setError] = useState("");
+  const [showArchived, setShowArchived] = useState(false);  // Etat pour afficher la liste des utilisateurs archivés
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [openProfileModal, setOpenProfileModal] = useState(false);
+  
   // Charger les utilisateurs depuis l'API
   useEffect(() => {
     fetch("http://localhost:5001/users/all")
@@ -36,81 +40,158 @@ const Team = () => {
       })
       .catch((err) => console.error("❌ Erreur lors de la récupération :", err));
   }, []);
-  
 
+  // Charger les utilisateurs archivés depuis l'API
+  useEffect(() => {
+    fetch("http://localhost:5001/users/archived")
+        .then((res) => res.json())
+        .then((data) => {
+            if (Array.isArray(data)) {
+                const formattedData = data
+                    .filter(user => user.isArchived) // On ne prend que les utilisateurs archivés
+                    .map((user) => ({
+                        id: user._id,
+                        username: user.username,
+                        age: new Date().getFullYear() - new Date(user.dob).getFullYear(),
+                        email: user.email,
+                        role: user.role,
+                        verified: user.isVerified ? "✔️" : "❌",
+                    }));
+                setArchivedUsers(formattedData);
+            } else {
+                console.error("Les données retournées ne sont pas un tableau.");
+            }
+        })
+        .catch((err) => {
+            console.error("❌ Erreur lors de la récupération des utilisateurs archivés :", err);
+        });
+}, []);
+
+  
   // Ouvrir la modal (Ajout ou Modification)
   const handleOpen = (user = null) => {
     setFormData(user || { username: "", email: "", role: "student", dob: "", level: "", password: "" });
     setOpen(true);
-    setError("");  // Réinitialiser l'erreur lors de l'ouverture de la modal
+    setError("");
   };
-  
+
   const handleClose = () => setOpen(false);
 
   // Modifier les champs du formulaire
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
-  
 
   // Ajouter ou Modifier un utilisateur
   const handleSubmit = () => {
     if (!formData.username) {  
-      setError("Le nom d'utilisateur est requis !");
-      return;
+        setError("Le nom d'utilisateur est requis !");
+        return;
     }
     
     if (!formData.email || !/\S+@\S+\.\S+/.test(formData.email)) {
-      setError("L'email est requis et doit être valide !");
-      return;
+        setError("L'email est requis et doit être valide !");
+        return;
     }
-    
-    // Ajoute d'autres validations si nécessaire
-  
+
+    // Assurez-vous que le rôle est valide
+    if (!["student", "teacher", "psychiatrist"].includes(formData.role)) {
+        setError("Le rôle est invalide !");
+        return;
+    }
+
+    console.log("🚀 Données envoyées au backend :", formData);
+
     const method = formData.id ? "PUT" : "POST";
     const url = formData.id ? `http://localhost:5001/users/${formData.id}` : "http://localhost:5001/users/create";
-  
+
     fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formData),
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
     })
-      .then((res) => res.json())
-      .then((data) => {
-        alert(formData.id ? "Utilisateur mis à jour !" : "Utilisateur ajouté !");
-        setUsers((prev) => (formData.id ? prev.map((u) => (u.id === data.id ? data : u)) : [...prev, data]));
+    .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.message || "Erreur inconnue");
+        }
+        return data;
+    })
+    .then((data) => {
+        console.log("✔️ Réponse reçue du backend :", data);
+        alert("Utilisateur ajouté avec succès !");
+        setUsers((prev) => [...prev, { ...data.user, id: data.user._id }]); // Mise à jour de la liste avec l'utilisateur ajouté
         handleClose();
-      })
-      .catch((err) => console.error("❌ Erreur :", err));
-  };
-  
+    })
+    .catch((err) => {
+        console.error("❌ Erreur lors de la création de l'utilisateur :", err);
+        setError(err.message || "Une erreur est survenue !");
+    });
+};
+
 
   // Archiver un utilisateur
   const handleArchive = (id) => {
     if (window.confirm("Voulez-vous vraiment archiver cet utilisateur ?")) {
-      fetch(`http://localhost:5001/users/archive/${id}`, { method: "PATCH" })
-        .then((res) => res.json())
-        .then(() => {
-          alert("Utilisateur archivé !");
-          setUsers(users.filter((user) => user.id !== id));
-        })
-        .catch((err) => console.error("❌ Erreur lors de l'archivage :", err));
+        fetch(`http://localhost:5001/users/archive/${id}`, { method: "PATCH" })
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.message === "Utilisateur archivé avec succès.") {
+                    alert("Utilisateur archivé !");
+                    setUsers((prevUsers) => prevUsers.filter(user => user.id !== id)); // Supprime de la liste active
+
+                    fetch(`http://localhost:5001/users/${id}`) // Recharger les infos de l'utilisateur archivé
+                        .then((res) => res.json())
+                        .then((archivedUser) => {
+                            setArchivedUsers(prevArchived => [...prevArchived, {
+                                id: archivedUser._id,
+                                username: archivedUser.username,
+                                age: new Date().getFullYear() - new Date(archivedUser.dob).getFullYear(),
+                                email: archivedUser.email,
+                                role: archivedUser.role,
+                                verified: archivedUser.isVerified ? "✔️" : "❌",
+                            }]);
+                        })
+                        .catch(err => console.error("❌ Erreur lors de la récupération de l'utilisateur archivé :", err));
+                }
+            })
+            .catch((err) => console.error("❌ Erreur lors de l'archivage :", err));
     }
-  };
+};
+
+  
+useEffect(() => {
+  console.log("📢 État de openProfileModal :", openProfileModal);
+}, [openProfileModal]);
+
 
   // Voir le profil d'un utilisateur
   const handleViewProfile = (id) => {
-    window.location.href = `/profile/${id}`;
+    fetch(`http://localhost:5001/users/${id}`)
+        .then((res) => res.json())
+        .then((data) => {
+            if (data && data._id) {
+                console.log("✅ Utilisateur récupéré :", data);
+                setSelectedUser(data);
+
+                setTimeout(() => {
+                    setOpenProfileModal(true);
+                }, 200); // Petit délai pour éviter les erreurs d'affichage
+            } else {
+                console.error("⚠️ Erreur: Utilisateur non trouvé !");
+                alert("Utilisateur non trouvé !");
+            }
+        })
+        .catch((err) => console.error("❌ Erreur lors de la récupération de l'utilisateur :", err));
   };
+
 
   // Colonnes du tableau
   const columns = [
     { field: "id", headerName: "ID", flex: 1 },
     { field: "username", headerName: "Nom", flex: 1 },
-    { field: "age", headerName: "Âge", type: "number", headerAlign: "left", align: "left" },
     { field: "email", headerName: "Email", flex: 1 },
     { field: "role", headerName: "Rôle", flex: 1 },
-    { field: "verified", headerName: "Vérifié", flex: 1 },
     {
       field: "actions",
       headerName: "Actions",
@@ -124,8 +205,8 @@ const Team = () => {
             Archiver
           </Button>
           <Button variant="contained" color="info" size="small" startIcon={<VisibilityIcon />} onClick={() => handleViewProfile(params.row.id)}>
-            Voir
-          </Button>
+                  Voir
+                </Button>
         </Box>
       ),
     },
@@ -140,6 +221,12 @@ const Team = () => {
         Ajouter un utilisateur
       </Button>
 
+      {/* Bouton pour afficher les utilisateurs archivés */}
+      <Button variant="contained" color="secondary" onClick={() => setShowArchived(!showArchived)} sx={{ mb: 2 }}>
+  {showArchived ? "Retour à la liste des utilisateurs" : "Afficher les utilisateurs archivés"}
+</Button>
+
+
       <Box
         m="40px 0 0 0"
         height="75vh"
@@ -151,9 +238,28 @@ const Team = () => {
           "& .MuiDataGrid-footerContainer": { borderTop: "none", backgroundColor: colors.blueAccent[700] },
         }}
       >
-        <DataGrid checkboxSelection rows={users} columns={columns}  />
+        <DataGrid checkboxSelection rows={showArchived ? archivedUsers : users} columns={columns}  />
       </Box>
-
+{/* 🔹 Modale de profil de l'utilisateur */}
+<Dialog open={openProfileModal} onClose={() => setOpenProfileModal(false)}
+        sx={{ visibility: openProfileModal ? "visible" : "hidden", opacity: openProfileModal ? 1 : 0, transition: "opacity 0.3s" }}>
+        <DialogTitle>Profil de l'utilisateur</DialogTitle>
+        <DialogContent>
+            {selectedUser ? (
+                <Box>
+                    <Typography><strong>Nom :</strong> {selectedUser.username}</Typography>
+                    <Typography><strong>Email :</strong> {selectedUser.email}</Typography>
+                    <Typography><strong>Rôle :</strong> {selectedUser.role}</Typography>
+                    <Typography><strong>Âge :</strong> {new Date().getFullYear() - new Date(selectedUser.dob).getFullYear()} ans</Typography>
+                </Box>
+            ) : (
+                <Typography>Chargement...</Typography>
+            )}
+        </DialogContent>
+        <DialogActions>
+            <Button onClick={() => setOpenProfileModal(false)}>Fermer</Button>
+        </DialogActions>
+      </Dialog>
       {/* Modal d'Ajout/Modification */}
       <Dialog open={open} onClose={handleClose}>
         <DialogTitle>{formData.id ? "Modifier l'utilisateur" : "Ajouter un utilisateur"}</DialogTitle>
