@@ -1,20 +1,19 @@
 import { Link } from "react-router-dom";
-import React, {  useEffect } from "react";
+import React, { useEffect } from "react";
 
-
-  
 function AccountDisabled() {
-    useEffect(() => {
-        const navbar = document.querySelector(".header");
-        const footer = document.querySelector("footer");
-        if (navbar) navbar.style.display = "none";
-        if (footer) footer.style.display = "none";
-    
-        return () => {
-          if (navbar) navbar.style.display = "block";
-          if (footer) footer.style.display = "block";
-        };
-      }, []);
+  useEffect(() => {
+    const navbar = document.querySelector(".header");
+    const footer = document.querySelector("footer");
+    if (navbar) navbar.style.display = "none";
+    if (footer) footer.style.display = "none";
+
+    return () => {
+      if (navbar) navbar.style.display = "block";
+      if (footer) footer.style.display = "block";
+    };
+  }, []);
+
   return (
     <div className="account-disabled-page">
       <div className="container">
@@ -27,9 +26,12 @@ function AccountDisabled() {
             </p>
             <div className="support-link">
               <p>If you think this is a mistake, you can:</p>
-              <Link to="/contact-support" className="btn btn-primary">
+              <a
+                href="mailto:espritcare@gmail.com?subject=Account Disabled&body=Hello, I believe my account has been mistakenly disabled. Please assist."
+                className="btn btn-primary"
+              >
                 Contact Support
-              </Link>
+              </a>
             </div>
             <div className="back-to-home">
               <p>Go back to the <Link to="/login">Login Page</Link></p>
