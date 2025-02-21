@@ -1,0 +1,152 @@
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+
+//appeler express js methode login
+function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const navbar = document.querySelector(".header");
+    const footer = document.querySelector("footer");
+    if (navbar) navbar.style.display = "none";
+    if (footer) footer.style.display = "none";
+
+    return () => {
+      if (navbar) navbar.style.display = "block";
+      if (footer) footer.style.display = "block";
+    };
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+  
+    try {
+      const response = await fetch("http://localhost:5000/users/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+  
+      const data = await response.json();
+  
+      if (response.ok) {
+        // Stocker le token pour l'utiliser après
+        localStorage.setItem("jwt-token", data.token);
+  
+        // Vérifier l'état du compte
+        if (data.user.etat === "Désactivé") {
+          // Rediriger vers la page accountdisabled si le compte est désactivé
+          navigate("/accountdisabled");
+        } else {
+          // Rediriger vers la page d'accueil si le compte est actif
+          navigate("/Home");
+        }
+      } else {
+        setError(data.message || "Login failed. Please check your credentials.");
+      }
+    } catch (err) {
+      setError("An error occurred while logging in.");
+      console.error(err);
+    }
+  };
+  
+
+  return (
+    <div>
+      <main className="main">
+        <div className="auth-area py-120">
+          <div className="container">
+            <div className="col-md-5 mx-auto">
+              <div className="auth-form">
+                <div className="auth-header">
+                  <img src="assets/img/logo/logo.png" alt="" />
+                  <p>Login with your lovcare account</p>
+                </div>
+                <form onSubmit={handleSubmit}>
+                  <div className="form-group">
+                    <div className="form-icon">
+                      <i className="far fa-envelope"></i>
+                      <input
+                        type="email"
+                        className="form-control"
+                        placeholder="Your Email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <div className="form-icon">
+                      <i className="far fa-key"></i>
+                      <input
+                        type="password"
+                        id="password"
+                        className="form-control"
+                        placeholder="Your Password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
+                      <span className="password-view">
+                        <i className="far fa-eye-slash"></i>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="auth-group">
+                    <div className="form-check">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        value=""
+                        id="remember"
+                      />
+                      <label className="form-check-label" htmlFor="remember">
+                        Remember Me
+                      </label>
+                    </div>
+                    <a href="forgot-password" className="auth-group-link">
+                      Forgot Password?
+                    </a>
+                  </div>
+                  {error && <p className="text-danger">{error}</p>}
+                  <div className="auth-btn">
+                    <button type="submit" className="theme-btn">
+                      <span className="far fa-sign-in"></span> Login
+                    </button>
+                  </div>
+                </form>
+                <div className="auth-bottom">
+                  <div className="auth-social">
+                    <p>Continue with social media</p>
+                    <div className="auth-social-list">
+                      <a href="#">
+                        <i className="fab fa-facebook-f"></i>
+                      </a>
+                      <a href="#">
+                        <i className="fab fa-google"></i>
+                      </a>
+                      <a href="#">
+                        <i className="fab fa-x-twitter"></i>
+                      </a>
+                    </div>
+                  </div>
+                  <p className="auth-bottom-text">
+                    Don't have an account? <Link to="/register">Register</Link>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+export default Login;
