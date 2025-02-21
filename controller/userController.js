@@ -3,7 +3,7 @@ const bcrypt = require("bcrypt");
 const jwt=require("jsonwebtoken")
 
 //jwt config
-const maxAge=1 * 60 * 60 ; //1hrs
+const maxAge=1 * 60 ; //1hrs
 const createtoken=(id,username)=>{
 return jwt.sign({id,username},'randa',{expiresIn:maxAge})
 }

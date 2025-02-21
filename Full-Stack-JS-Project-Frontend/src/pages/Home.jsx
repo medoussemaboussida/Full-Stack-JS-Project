@@ -8,33 +8,45 @@ const useAuth = () => {
         const token = localStorage.getItem('jwt-token');
         if (token) {
             try {
-                const decoded = jwtDecode(token); // Décoder le token
-                console.log('Decoded user:', decoded); // Afficher le contenu du token
+                const decoded = jwtDecode(token);
+                const currentTime = Date.now() / 1000; // Temps actuel en secondes
 
-                // Récupérer les informations de l'utilisateur depuis le backend
+                if (decoded.exp < currentTime) {
+                    console.warn('Token expiré. Redirection vers /login');
+                    localStorage.removeItem('jwt-token');
+                    window.location.href = '/login';
+                    return;
+                }
+
                 const fetchUser = async () => {
                     try {
                         const response = await fetch(`http://localhost:5000/users/session/${decoded.id}`);
                         const data = await response.json();
                         if (response.ok) {
-                            setUser(data); // Stocker les informations de l'utilisateur
+                            setUser(data);
                         } else {
-                            console.error('Failed to fetch user:', data.message);
+                            console.error('Session invalide, redirection...');
+                            localStorage.removeItem('jwt-token');
+                            window.location.href = '/login';
                         }
                     } catch (error) {
-                        console.error('Error fetching user:', error);
+                        console.error('Erreur lors de la récupération de l’utilisateur:', error);
+                        window.location.href = '/login';
                     }
                 };
 
                 fetchUser();
             } catch (error) {
-                console.error('Invalid token:', error);
-                localStorage.removeItem('jwt-token'); // Supprimer le token invalide
+                console.error('Token invalide:', error);
+                localStorage.removeItem('jwt-token');
+                window.location.href = '/login';
             }
+        } else {
+            window.location.href = '/login'; // Rediriger si aucun token
         }
     }, []);
 
-    return user; // Retourner les informations de l'utilisateur
+    return user;
 };
 
 function Home() {
