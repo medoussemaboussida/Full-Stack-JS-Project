@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import ReCAPTCHA from "react-google-recaptcha"; // Ensure you import the ReCAPTCHA component
 
-//appeler express js methode login
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [recaptchaToken, setRecaptchaToken] = useState(null); // State to hold reCAPTCHA token
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -20,24 +21,33 @@ function Login() {
     };
   }, []);
 
+  const onRecaptchaChange = (token) => {
+    setRecaptchaToken(token); // Set the reCAPTCHA token when the user passes the check
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+
+    if (!recaptchaToken) {
+      setError("Please complete the reCAPTCHA.");
+      return; // Prevent login if reCAPTCHA is not completed
+    }
+
     try {
       const response = await fetch("http://localhost:5000/users/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, recaptchaToken }), // Send the token to the backend
       });
-  
+
       const data = await response.json();
-  
+
       if (response.ok) {
         // Stocker le token pour l'utiliser après
         localStorage.setItem("jwt-token", data.token);
-  
+
         // Vérifier l'état du compte
         if (data.user.etat === "Désactivé") {
           // Rediriger vers la page accountdisabled si le compte est désactivé
@@ -54,7 +64,6 @@ function Login() {
       console.error(err);
     }
   };
-  
 
   return (
     <div>
@@ -115,6 +124,12 @@ function Login() {
                     </a>
                   </div>
                   {error && <p className="text-danger">{error}</p>}
+
+                  <ReCAPTCHA
+                    sitekey="6LdClt4qAAAAAKi0ZNeubhh769yQXit1T4Zf29gG"
+                    onChange={onRecaptchaChange}
+                  />
+
                   <div className="auth-btn">
                     <button type="submit" className="theme-btn">
                       <span className="far fa-sign-in"></span> Login
