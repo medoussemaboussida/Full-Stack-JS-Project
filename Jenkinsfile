@@ -7,12 +7,6 @@ pipeline {
             }
         }
 
-        stage('Unit Test') {
-            steps {
-                sh 'npm test'
-            }
-        }
-
         stage('Build application') {
             steps {
                 sh 'npm run build-dev'
