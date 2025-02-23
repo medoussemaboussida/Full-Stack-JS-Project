@@ -7,6 +7,11 @@ pipeline {
             }
         }
 
+         stage('run') {
+            steps {
+                sh 'npm run'
+            }
+        }
         stage('Unit Test') {
             steps {
                 sh 'npm test'
@@ -19,12 +24,5 @@ pipeline {
             }
         }
     }
-    post {
-        success {
-            echo 'Pipeline executed successfully!'
-        }
-        failure {
-            echo 'Pipeline failed!'
-        }
-    }
+
 }
