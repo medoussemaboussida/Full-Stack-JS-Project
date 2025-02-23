@@ -1,61 +1,118 @@
+require('dotenv').config();
 var createError = require('http-errors');
 var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
-const http=require('http')
-const mongo=require('mongoose')
+const http = require('http');
+const mongo = require('mongoose');
 const cors = require('cors');
+const passport = require('passport');
+const session = require('express-session');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
-//database connection
-const db=require('./config/dbconnection.json')
-mongo.connect(db.url).then(()=>{
-    console.log('database connect')
-}).catch(()=>console.log('database error'))
-
+// Connexion à la base de données
+const db = require('./config/dbconnection.json');
+mongo.connect(db.url).then(() => {
+    console.log('✅ Database connectée');
+}).catch(() => console.log('❌ Erreur de connexion à la database'));
 
 var indexRouter = require('./routes/index');
-//userRoute
 var usersRouter = require('./routes/users');
 
 var app = express();
 
-// view engine setup
-//app.set('views', path.join(__dirname, 'views'));
-//app.set('view engine', 'jade');
+// ✅ CORS - Unifier les origines
 app.use(cors({
-  origin: 'http://localhost:3000', // Autoriser uniquement votre frontend React
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Autoriser les méthodes HTTP
-  allowedHeaders: ['Content-Type', 'Authorization'], // Autoriser les en-têtes
+    origin: ["http://localhost:3000", "http://localhost:5001"], // Autoriser frontend et back-office
+    credentials: true,
 }));
+
+// Configurer le moteur de vue
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
+// Middleware
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ✅ Configuration de session pour Passport
+app.use(session({ secret: "secret_key", resave: false, saveUninitialized: true }));
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Route pour reset-password avec rendu de la vue
+app.get('/reset-password/:token', (req, res) => {
+    const { token } = req.params;
+    res.render('reset-password', { token });
+});
+
+// Configuration de Passport Google OAuth
+passport.use(
+    new GoogleStrategy(
+        {
+            clientID: "388289107358-ud1mrbl4bp79ail2kafaftkd8v39632b.apps.googleusercontent.com",
+            clientSecret: "OCSPX-_Z8VDIt6cmBNVyQnIdJqD0S_fcV4é",
+            callbackURL: "http://localhost:5000/auth/google/callback", // ✅ Corrigé pour pointer vers le backend
+        },
+        (accessToken, refreshToken, profile, done) => {
+            return done(null, profile);
+        }
+    )
+);
+
+passport.serializeUser((user, done) => {
+    done(null, user);
+});
+
+passport.deserializeUser((obj, done) => {
+    done(null, obj);
+});
+
+// Routes API
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 
-// catch 404 and forward to error handler
+// ✅ Routes d'authentification Google
+app.get(
+    "/auth/google",
+    passport.authenticate("google", { scope: ["profile", "email"] })
+);
+
+app.get(
+    "/auth/google/callback",
+    passport.authenticate("google", { failureRedirect: "/login" }),
+    (req, res) => {
+        res.redirect("http://localhost:3000/Home"); // Redirection frontend React
+    }
+);
+
+// Déconnexion
+app.get("/logout", (req, res) => {
+    req.logout(() => {
+        res.redirect("http://localhost:3000/login");
+    });
+});
+
+// Gestion des erreurs
 app.use(function(req, res, next) {
-  next(createError(404));
+    next(createError(404));
 });
 
-// error handler
 app.use(function(err, req, res, next) {
-  // set locals, only providing error in development
-  res.locals.message = err.message;
-  res.locals.error = req.app.get('env') === 'development' ? err : {};
-
-  // render the error page
-  res.status(err.status || 500);
-  res.render('error');
+    res.locals.message = err.message;
+    res.locals.error = req.app.get('env') === 'development' ? err : {};
+    res.status(err.status || 500);
+    res.render('error');
 });
 
-const server=http.createServer(app,console.log('run server'))
+// ✅ Démarrage du serveur backend sur le bon port
+const PORT = 5000;
+const server = http.createServer(app);
 
-
-
-server.listen(5000)
-  
+server.listen(PORT, () => {
+    console.log(`🚀 Serveur backend démarré sur http://localhost:${PORT}`);
+});

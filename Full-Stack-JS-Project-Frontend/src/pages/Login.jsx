@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import ReCAPTCHA from "react-google-recaptcha"; // Ensure you import the ReCAPTCHA component
 
-//appeler express js methode login
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [recaptchaToken, setRecaptchaToken] = useState(null); // State to hold reCAPTCHA token
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -20,34 +21,51 @@ function Login() {
     };
   }, []);
 
+  const onRecaptchaChange = (token) => {
+    setRecaptchaToken(token); // Set the reCAPTCHA token when the user passes the check
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    try {
-      const response = await fetch("http://localhost:5000/users/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // Stocker le token pour utiliser apres
-        localStorage.setItem("jwt-token", data.token);
-
-        // Rediriger vers le tableau de bord ou une autre page
-        navigate("/Home");
-      } else {
-        setError(data.message || "Login failed. Please check your credentials.");
-      }
-    } catch (err) {
-      setError("An error occurred while logging in.");
-      console.error(err);
+    if (!recaptchaToken) {
+        setError("Veuillez compléter le reCAPTCHA.");
+        return; // Bloquer la connexion si reCAPTCHA non validé
     }
-  };
+
+    try {
+        const response = await fetch("http://localhost:5000/users/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ email, password }), // Envoie uniquement email et password
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          localStorage.setItem("jwt-token", data.token);
+            // Vérifier l'état du compte
+            if (data.user.etat === "Désactivé") {
+                navigate("/accountdisabled"); // Redirection si le compte est désactivé
+            } else {
+              const allowedRoles = ["student", "psychiatrist", "teacher", "association_member"];
+              if (allowedRoles.includes(data.user.role)) {
+                navigate("/Home");
+              } else {
+                window.location.href = "http://localhost:5001/team"; // Redirection vers un autre port
+              }
+            }     
+        } else {
+            setError(data.message || "Échec de connexion. Veuillez vérifier vos identifiants.");
+        }
+    } catch (err) {
+        setError("Une erreur est survenue lors de la connexion.");
+        console.error(err);
+    }
+};
+
 
   return (
     <div>
@@ -103,11 +121,17 @@ function Login() {
                         Remember Me
                       </label>
                     </div>
-                    <a href="forgot-password.html" className="auth-group-link">
+                    <a href="forgot-password" className="auth-group-link">
                       Forgot Password?
                     </a>
                   </div>
                   {error && <p className="text-danger">{error}</p>}
+
+                  <ReCAPTCHA
+                    sitekey="6LdClt4qAAAAAKi0ZNeubhh769yQXit1T4Zf29gG"
+                    onChange={onRecaptchaChange}
+                  />
+
                   <div className="auth-btn">
                     <button type="submit" className="theme-btn">
                       <span className="far fa-sign-in"></span> Login
@@ -121,9 +145,9 @@ function Login() {
                       <a href="#">
                         <i className="fab fa-facebook-f"></i>
                       </a>
-                      <a href="#">
-                        <i className="fab fa-google"></i>
-                      </a>
+                      <a href="http://localhost:5000/auth/google">
+  <i className="fab fa-google"></i>
+</a>
                       <a href="#">
                         <i className="fab fa-x-twitter"></i>
                       </a>

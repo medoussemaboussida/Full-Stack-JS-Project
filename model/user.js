@@ -1,8 +1,7 @@
 const mongoose = require("mongoose");
-const bcrypt = require("bcrypt"); 
+const bcrypt = require("bcrypt");
 
-const user = new mongoose.Schema({
-
+const userSchema = new mongoose.Schema({
     username :{ type: String , required : true},
     dob: { type: Date, required: true },
     email :{ type: String , required : true , unique : true},
@@ -11,33 +10,26 @@ const user = new mongoose.Schema({
     user_photo: {type : String , required: false},
     etat: {type : String , default:'Actif',required: false},
     speciality: { type: String , enum:[ 'A', 'B','P','TWIN','SAE','SE','BI','DS','IOSYS','SLEAM','SIM','NIDS','INFINI'] , required : true},
-    level: { type: Number, required: true } 
-},
-{
-    timestamps:true
-}
-);
+    level: { type: Number, required: true },
+    validationToken: { type: String, required: false },
+
+   
+}, { timestamps: true });
 
 
-user.post("save", async function (req,res,next) {
-    console.log("user created successfully");
+// ✅ Middleware pour hacher le mot de passe avant de sauvegarder
+userSchema.pre("save", async function(next) {
+    if (!this.isModified("password")) return next();
+    this.password = await bcrypt.hash(this.password, 10);
     next();
 });
 
-//*******************************cryptage ************************************
-user.pre("save", async function (next) {
-    try{
-        const salt = await bcrypt.genSalt();
-        const User = this;
-        User.password = await bcrypt.hash(User.password,salt);
-        next();
-    }catch (err)
-    {
-        next(err);
-    }
+
+// ✅ Middleware post-save pour confirmation
+userSchema.post("save", function () {
+    console.log(`✅ Utilisateur ${this.username} créé avec succès.`);
 });
 
 
-const User = mongoose.model("User", user);
-
+const User = mongoose.model("User", userSchema);
 module.exports = User;

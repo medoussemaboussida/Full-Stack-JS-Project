@@ -17,10 +17,68 @@ function Register() {
 
     const { username, dob, email, password, speciality, level } = formData;
 
+
+
+
+
+    const analyzePassword = (password) => {
+        const messages = [];
+    
+        // Vérifier la longueur du mot de passe
+        if (password.length < 8) {
+            messages.push("Password must be at least 8 characters long.");
+        }
+    
+        // Vérifier la présence de majuscules
+        if (!/[A-Z]/.test(password)) {
+            messages.push("Password must contain at least one uppercase letter.");
+        }
+    
+        // Vérifier la présence de minuscules
+        if (!/[a-z]/.test(password)) {
+            messages.push("Password must contain at least one lowercase letter.");
+        }
+    
+        // Vérifier la présence de chiffres
+        if (!/\d/.test(password)) {
+            messages.push("Password must contain at least one number.");
+        }
+    
+        // Vérifier la présence de caractères spéciaux
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+            messages.push("Password must contain at least one special character.");
+        }
+    
+        return messages;
+    };
+
+    const getPasswordStrength = (password) => {
+        // Simuler l'analyse de sentiment (simplifié pour le frontend)
+        const sentimentScore = 1; // Par défaut, neutre
+    
+        // Score basé sur la longueur du mot de passe
+        const lengthScore = password.length >= 12 ? 4 : password.length >= 8 ? 3 : 1;
+    
+        // Score basé sur la complexité du mot de passe
+        let complexityScore = 0;
+        if (/[A-Z]/.test(password)) complexityScore += 2; // Majuscules
+        if (/[a-z]/.test(password)) complexityScore += 2; // Minuscules
+        if (/\d/.test(password)) complexityScore += 2; // Chiffres
+        if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) complexityScore += 2; // Caractères spéciaux
+    
+        // Score total
+        const totalScore = sentimentScore + lengthScore + complexityScore;
+    
+        if (totalScore >= 12) return "STRONG";
+        if (totalScore >= 8) return "MODERATE";
+        return "WEAK";
+    };
+
     // Schéma de validation avec yup
     const validationSchema = yup.object().shape({
         username: yup.string()
-            .matches(/^[A-Za-z\s]+$/, "Username must start with an uppercase letter and contain only letters.")
+            .matches(/^[A-Z][a-zA-Z\s]*$/, "Username must start with an uppercase letter and contain only letters.")
+            .min(6, "Username must be at least 6 characters long.")
             .required("Username is required."),
 
         email: yup.string()
@@ -32,21 +90,36 @@ function Register() {
             .max(new Date(), "Date of birth cannot be in the future.")
             .required("Date of birth is required."),
 
-        password: yup.string()
-            .min(6, "Password must be at least 6 characters long.")
-            .matches(/[0-9]/, "Password must contain at least one number.")
-            .matches(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least one special character.")
+
+            password: yup.string()
+            .test("password-strength", "Password is too weak.", function(value) {
+                const messages = analyzePassword(value);
+                if (messages.length > 0) {
+                    return this.createError({ message: messages.join(" ") });
+                }
+                return true;
+            })
             .required("Password is required."),
+    
+
+        // password: yup.string()
+        //     .min(6, "Password must be at least 6 characters long.")
+        //     .matches(/[0-9]/, "Password must contain at least one number.")
+        //     .matches(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least one special character.")
+        //     .required("Password is required."),
 
         speciality: yup.string()
             .oneOf(["A", "B", "TWIN", "SAE", "SE", "BI", "DS", "IOSYS", "SLEAM", "SIM", "NIDS", "INFINI"], "Invalid speciality.")
             .required("Speciality is required."),
 
-        level: yup.number()
-            .integer("Level must be a number.")
-            .min(1, "Level must be at least 1.")
-            .max(5, "Level must be at most 5.")
-            .required("Level is required."),
+            level: yup.number()
+            .nullable()  // Permet de gérer null ou vide
+            .transform((originalValue) => (originalValue === "" ? null : originalValue))  // Transforme "" en null
+            .typeError("Level is required.")  // Message d'erreur si ce n'est pas un nombre
+            .min(1, "Level must be at least 1.")  // Niveau minimum
+            .max(5, "Level must be at most 5.")  // Niveau maximum
+            .required("Level is required."),  // Validation si vide
+        
     });
 
     const handleChange = (e) => {
@@ -139,7 +212,7 @@ function Register() {
                                             />
                                         </div>
                                         {errors.username && <p className="text-danger">{errors.username}</p>}
-                                    </div>
+                                        </div>
 
                                     {/* Email */}
                                     <div className="form-group">
