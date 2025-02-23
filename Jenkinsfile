@@ -1,6 +1,14 @@
 pipeline{ 
 agent any 
 stages { 
+  stages {
+        stage('Checkout GIT') {
+            steps {
+                echo 'Pulling ...'
+                git branch: 'oussema', 
+                    url: 'https://github.com/medoussemaboussida/Full-Stack-JS-Project.git'
+            }
+        }
 stage('Install dependencies') { 
 steps{ 
 script { 
