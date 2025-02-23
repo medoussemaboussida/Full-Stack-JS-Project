@@ -29,5 +29,10 @@
     "passport-google-oauth20": "^2.0.0",
     "password-strength": "^0.0.1",
     "yup": "^1.6.1"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "mocha": "^11.1.0",
+    "webpack": "^5.98.0"
   }
 }
