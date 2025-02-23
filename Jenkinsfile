@@ -1,7 +1,6 @@
 pipeline{ 
 agent any 
 stages { 
-  stages {
         stage('Checkout GIT') {
             steps {
                 echo 'Pulling ...'
