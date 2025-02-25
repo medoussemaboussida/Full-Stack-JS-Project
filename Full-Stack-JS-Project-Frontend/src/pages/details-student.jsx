@@ -461,6 +461,7 @@ function DetailsStudents() {
                 </div>
 
                 {isChangingPassword && (
+<<<<<<< HEAD
                     <div style={{ marginTop: '20px', textAlign: 'center' }}>
                         <h3>Change Password</h3>
                         <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -540,6 +541,112 @@ function DetailsStudents() {
                         >
                             Cancel
                         </button>
+=======
+                    <div
+                        style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            zIndex: 1000,
+                        }}
+                    >
+                        <div
+                            style={{
+                                backgroundColor: 'white',
+                                padding: '20px',
+                                borderRadius: '8px',
+                                width: '400px',
+                                maxWidth: '90%',
+                                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                            }}
+                        >
+                            <h3 style={{ marginBottom: '20px', textAlign: 'center' }}>Change Password</h3>
+                            <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center' }}>
+                                <input
+                                    type={showCurrentPassword ? "text" : "password"}
+                                    name="currentPassword"
+                                    placeholder="Current Password"
+                                    value={passwordData.currentPassword}
+                                    onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                                    style={{ padding: '10px', width: '100%', borderRadius: '4px', border: '1px solid #ccc' }}
+                                />
+                                <i
+                                    className={`fas ${showCurrentPassword ? 'fa-eye-slash' : 'fa-eye'}`}
+                                    onMouseDown={() => setShowCurrentPassword(true)}
+                                    onMouseUp={() => setShowCurrentPassword(false)}
+                                    style={{ marginLeft: '10px', cursor: 'pointer' }}
+                                />
+                            </div>
+                            <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center' }}>
+                                <input
+                                    type={showNewPassword ? "text" : "password"}
+                                    name="newPassword"
+                                    placeholder="New Password"
+                                    value={passwordData.newPassword}
+                                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                                    style={{ padding: '10px', width: '100%', borderRadius: '4px', border: '1px solid #ccc' }}
+                                />
+                                <i
+                                    className={`fas ${showNewPassword ? 'fa-eye-slash' : 'fa-eye'}`}
+                                    onMouseDown={() => setShowNewPassword(true)}
+                                    onMouseUp={() => setShowNewPassword(false)}
+                                    style={{ marginLeft: '10px', cursor: 'pointer' }}
+                                />
+                            </div>
+                            <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center' }}>
+                                <input
+                                    type={showConfirmNewPassword ? "text" : "password"}
+                                    name="confirmNewPassword"
+                                    placeholder="Confirm New Password"
+                                    value={passwordData.confirmNewPassword}
+                                    onChange={(e) => setPasswordData({ ...passwordData, confirmNewPassword: e.target.value })}
+                                    style={{ padding: '10px', width: '100%', borderRadius: '4px', border: '1px solid #ccc' }}
+                                />
+                                <i
+                                    className={`fas ${showConfirmNewPassword ? 'fa-eye-slash' : 'fa-eye'}`}
+                                    onMouseDown={() => setShowConfirmNewPassword(true)}
+                                    onMouseUp={() => setShowConfirmNewPassword(false)}
+                                    style={{ marginLeft: '10px', cursor: 'pointer' }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+                                <button
+                                    onClick={handleChangePassword}
+                                    style={{
+                                        backgroundColor: '#4CAF50',
+                                        color: 'white',
+                                        padding: '10px 20px',
+                                        fontSize: '16px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        borderRadius: '5px',
+                                    }}
+                                >
+                                    Save New Password
+                                </button>
+                                <button
+                                    onClick={() => setIsChangingPassword(false)}
+                                    style={{
+                                        backgroundColor: '#f44336',
+                                        color: 'white',
+                                        padding: '10px 20px',
+                                        fontSize: '16px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        borderRadius: '5px',
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+>>>>>>> 25ac108 (Crud User + Forgot Password)
                     </div>
                 )}
             </main>

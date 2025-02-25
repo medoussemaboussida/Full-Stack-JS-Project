@@ -374,7 +374,11 @@ module.exports.createUser = async (req, res) => {
 
        // 🔹 Contenu de l'e-mail avec lien d'activation
        const activationLink = `http://localhost:5000/users/activate/${newUser.validationToken}`;
+<<<<<<< HEAD
        const subject = "🔐 Activez votre compte UnmindCare";
+=======
+       const subject = "🔐 Activez votre compte EspritCare";
+>>>>>>> 25ac108 (Crud User + Forgot Password)
        const htmlContent = `
            <h2>Bienvenue, ${username} !</h2>
            <p>Votre compte a été créé, mais il est désactivé.</p>
@@ -388,7 +392,11 @@ module.exports.createUser = async (req, res) => {
                <li><strong>Mot de passe :</strong> ${defaultPassword}</li>
                <li><strong>Rôle :</strong> ${role}</li>
            </ul>
+<<<<<<< HEAD
            <p>UnmindCare</p>
+=======
+           <p>EspritCare</p>
+>>>>>>> 25ac108 (Crud User + Forgot Password)
        `;
 
 
