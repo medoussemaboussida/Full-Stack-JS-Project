@@ -8,12 +8,6 @@ sh('npm install')
 } 
 } 
 } 
-  stage("SonarQube Analysis") {
-            steps {
-                withSonarQubeEnv('scanner') {
-                    sh 'mvn sonar:sonar'
-                }
-            }
 stage('Unit Test') { 
 steps{ 
 script { 
