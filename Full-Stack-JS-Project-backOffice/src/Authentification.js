@@ -40,6 +40,7 @@ const useAuth = () => {
             `http://localhost:5000/users/session/${decoded.id}`
           );
           const data = await response.json();
+          
 
           if (response.ok) {
             console.log("Utilisateur récupéré :", data); // Affiche les données utilisateur récupérées
