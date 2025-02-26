@@ -148,9 +148,9 @@ function Login() {
                       <a href="http://localhost:5000/auth/google">
   <i className="fab fa-google"></i>
 </a>
-                      <a href="#">
-                        <i className="fab fa-x-twitter"></i>
-                      </a>
+<a href="http://localhost:5000/auth/github">
+  <i className="fab fa-github"></i>
+</a>
                     </div>
                   </div>
                   <p className="auth-bottom-text">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { jwtDecode } from 'jwt-decode'; // Correction : importation nommée
+import { jwtDecode } from 'jwt-decode'; 
 
 const useAuth = () => {
     const [user, setUser] = useState(null);
@@ -9,7 +9,7 @@ const useAuth = () => {
         if (token) {
             try {
                 const decoded = jwtDecode(token);
-                const currentTime = Date.now() / 1000; // Temps actuel en secondes
+                const currentTime = Date.now() / 1000; 
 
                 if (decoded.exp < currentTime) {
                     console.warn('Token expiré. Redirection vers /login');
@@ -42,7 +42,7 @@ const useAuth = () => {
                 window.location.href = '/login';
             }
         } else {
-            window.location.href = '/login'; // Rediriger si aucun token
+            window.location.href = '/login'; 
         }
     }, []);
 
@@ -50,107 +50,43 @@ const useAuth = () => {
 };
 
 function Home() {
-    const user = useAuth(); // Utiliser le hook useAuth
+    const user = useAuth(); 
+
+    const handleLogout = () => {
+        localStorage.removeItem('jwt-token');
+        window.location.href = '/login';
+    };
 
     return (
         <div>
-            
-            {/* Popup search */}
-
-            <div className="search-popup">
-                <button className="close-search">
-                    <span className="far fa-times"></span>
-                </button>
-                <form action="#">
-                    <div className="form-group">
-                        <input
-                            type="search"
-                            name="search-field"
-                            className="form-control"
-                            placeholder="Search Here..."
-                            required
-                        />
-                        <button type="submit">
-                            <i className="far fa-search"></i>
-                        </button>
-                        {/* Afficher le username de l'étudiant connecté */}
-                       
-                    </div>
-                </form>
-            </div>
-            {/* Popup search end */}
-
-            {/* Sidebar-popup */}
-            <div className="sidebar-popup offcanvas offcanvas-end" tabIndex="-1" id="sidebarPopup">
-                <div className="offcanvas-header">
-                    <a href="index.html" className="sidebar-popup-logo">
-                        <img src="assets/img/logo/logo.png" alt="" />
-                    </a>
-                    <button type="button" className="btn-close" data-bs-dismiss="offcanvas" aria-label="Close">
-                        <i className="far fa-xmark"></i>
+            {/* Navbar avec bouton de déconnexion à droite, au même niveau que navbar-toggler */}
+            <nav className="navbar navbar-expand-lg navbar-light bg-light">
+                <div className="container-fluid d-flex justify-content-between align-items-center">
+                    <a className="navbar-brand" href="/">Brand</a>
+                    <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                        <span className="navbar-toggler-icon"></span>
                     </button>
-                </div>
-                <div className="sidebar-popup-wrap offcanvas-body">
-                    <div className="sidebar-popup-content">
-                        <div className="sidebar-popup-about">
-                            <h4>About Us</h4>
-                            <p>
-                                There are many variations of passages available sure there majority have suffered
-                                alteration in some form by inject humour or randomised words which don't look even
-                                slightly believable.
-                            </p>
-                        </div>
-                        <div className="sidebar-popup-contact">
-                            <h4>Contact Info</h4>
-                            <ul>
-                                <li>
-                                    <div className="icon">
-                                        <i className="far fa-envelope"></i>
-                                    </div>
-                                    <div className="content">
-                                        <h6>Email</h6>
-                                        <a href="mailto:info@example.com">info@example.com</a>
-                                    </div>
+                    <div className="collapse navbar-collapse" id="navbarNav">
+                        <ul className="navbar-nav ms-auto">
+                            {/* Bouton de déconnexion à droite */}
+                            {user && (
+                                <li className="nav-item">
+                                    <button
+                                        onClick={handleLogout}
+                                        className="btn btn-success"
+                                        style={{
+                                            marginTop: '20px',
+                                            padding: '10px 20px',
+                                        }}
+                                    >
+                                        Logout
+                                    </button>
                                 </li>
-                                <li>
-                                    <div className="icon">
-                                        <i className="far fa-phone"></i>
-                                    </div>
-                                    <div className="content">
-                                        <h6>Phone</h6>
-                                        <a href="tel:+21236547898">+2 123 654 7898</a>
-                                    </div>
-                                </li>
-                                <li>
-                                    <div className="icon">
-                                        <i className="far fa-location-dot"></i>
-                                    </div>
-                                    <div className="content">
-                                        <h6>Address</h6>
-                                        <a href="#">25/B Milford Road, New York</a>
-                                    </div>
-                                </li>
-                            </ul>
-                        </div>
-                        <div className="sidebar-popup-social">
-                            <h4>Follow Us</h4>
-                            <a href="#">
-                                <i className="fab fa-facebook"></i>
-                            </a>
-                            <a href="#">
-                                <i className="fab fa-x-twitter"></i>
-                            </a>
-                            <a href="#">
-                                <i className="fab fa-instagram"></i>
-                            </a>
-                            <a href="#">
-                                <i className="fab fa-linkedin"></i>
-                            </a>
-                        </div>
+                            )}
+                        </ul>
                     </div>
                 </div>
-            </div>
-            {/* Sidebar-popup end */}
+            </nav>
 
             <main className="main">
                 {/* Hero area */}
@@ -161,11 +97,7 @@ function Home() {
                                 <div className="col-md-12 col-lg-6">
                                     <div className="hero-content">
                                         <h6 className="hero-sub-title" data-animation="fadeInUp" data-delay=".25s">
-                                            <i className="far fa-hand-heart"></i>  {user && (
-                            <span style={{ marginLeft: '30px', fontWeight: 'bold' }}>
-                                Welcome, {user.username}!
-                            </span>
-                        )}
+                                            <i className="far fa-hand-heart"></i>
                                         </h6>
                                         <h1 className="hero-title" data-animation="fadeInRight" data-delay=".50s">
                                             We Are Providing Best <span>Quality</span> Care For Seniors

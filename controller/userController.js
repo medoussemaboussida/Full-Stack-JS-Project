@@ -91,38 +91,71 @@ module.exports.Session = async (req, res) => {
     }
 };
 
+//logout
+module.exports.logout = (req, res) => {
+    try {
+      // Supprimer les cookies associés au JWT
+      res.clearCookie("this_is_jstoken", { httpOnly: true });
+  
+      // Si vous utilisez express-session pour gérer les sessions
+      res.clearCookie("connect.sid");
+  
+      // Supprimer l'utilisateur de la session
+      req.session.destroy((err) => {
+        if (err) {
+          return res.status(500).json({ message: "Failed to destroy session" });
+        }
+        
+        // Envoyer une réponse de déconnexion réussie
+        res.status(200).json({ message: "Logged out successfully" });
+      });
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  };
+  
 
 
 
 
 module.exports.updateStudentProfile = async (req, res) => {
     try {
-        const studentId = req.params.id;
+        const userId = req.params.id;
         const { username, email, dob, password, speciality, level } = req.body;
 
         // Vérifier si l'utilisateur existe
-        const student = await User.findById(studentId);
-        if (!student || student.role !== "student") {
-            return res.status(404).json({ message: "Étudiant non trouvé" });
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "Utilisateur non trouvé" });
         }
 
-        // Mise à jour des champs
-        if (username) student.username = username;
-        if (email) student.email = email;
-        if (dob) student.dob = dob;
-        if (speciality) student.speciality = speciality;
-        if (level) student.level = level;
-
-        if (password) {
-            student.password = password;  // Pas de hashage, stockage en clair
+        // Mise à jour des champs en fonction du rôle
+        if (user.role === "student") {
+            // Pour les étudiants, permettre la mise à jour de tous les champs
+            if (username) user.username = username;
+            if (email) user.email = email;
+            if (dob) user.dob = dob;
+            if (speciality) user.speciality = speciality;
+            if (level) user.level = level;
+            if (password) {
+                user.password = password;  // Pas de hashage, stockage en clair
+            }
+        } else {
+            // Pour les autres rôles, permettre uniquement la mise à jour du mot de passe
+            if (password) {
+                user.password = password;  // Pas de hashage, stockage en clair
+            } else {
+                return res.status(403).json({ message: "Action non autorisée pour ce rôle" });
+            }
         }
 
         // Sauvegarder les modifications
-        const updatedStudent = await student.save();
+        const updatedUser = await user.save();
 
+        // Renvoyer les données mises à jour
         res.status(200).json({
             message: "Profil mis à jour avec succès",
-            student: updatedStudent,
+            user: updatedUser.toObject(), // ou updatedUser.toJSON()
         });
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -150,18 +183,19 @@ module.exports.getStudentById = async (req, res) => {
 //supprimer student
 module.exports.deleteStudentById = async (req, res) => {
     try {
-        const studentId = req.params.id;
+        const userId = req.params.id;
 
-        // Vérifier si l'utilisateur est un étudiant avant suppression
-        const student = await User.findOne({ _id: studentId, role: "student" });
+        // Vérifier si l'utilisateur existe
+        const user = await User.findById(userId);
 
-        if (!student) {
-            return res.status(404).json({ message: "Étudiant non trouvé" });
+        if (!user) {
+            return res.status(404).json({ message: "Utilisateur non trouvé" });
         }
 
-        await User.findByIdAndDelete(studentId);
+        // Supprimer l'utilisateur
+        await User.findByIdAndDelete(userId);
 
-        res.status(200).json({ message: "Étudiant supprimé avec succès" });
+        res.status(200).json({ message: "Utilisateur supprimé avec succès" });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
@@ -363,7 +397,7 @@ module.exports.createUser = async (req, res) => {
 
        // 🔹 Contenu de l'e-mail avec lien d'activation
        const activationLink = `http://localhost:5000/users/activate/${newUser.validationToken}`;
-       const subject = "🔐 Activez votre compte UnmindCare";
+       const subject = "🔐 Activez votre compte EspritCare";
        const htmlContent = `
            <h2>Bienvenue, ${username} !</h2>
            <p>Votre compte a été créé, mais il est désactivé.</p>
@@ -377,7 +411,7 @@ module.exports.createUser = async (req, res) => {
                <li><strong>Mot de passe :</strong> ${defaultPassword}</li>
                <li><strong>Rôle :</strong> ${role}</li>
            </ul>
-           <p>UnmindCare</p>
+           <p>EspritCare</p>
        `;
 
 
