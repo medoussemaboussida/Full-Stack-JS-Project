@@ -98,6 +98,11 @@ function Home() {
                                     <div className="hero-content">
                                         <h6 className="hero-sub-title" data-animation="fadeInUp" data-delay=".25s">
                                             <i className="far fa-hand-heart"></i>
+                                            {user && (
+                                                <span style={{ marginLeft: '30px', fontWeight: 'bold' }}>
+                                                    Welcome, {user.username}!
+                                                </span>
+                                            )}
                                         </h6>
                                         <h1 className="hero-title" data-animation="fadeInRight" data-delay=".50s">
                                             We Are Providing Best <span>Quality</span> Care For Seniors

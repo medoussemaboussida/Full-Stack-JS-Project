@@ -45,8 +45,7 @@ function Login() {
         const data = await response.json();
 
         if (response.ok) {
-          const token = data.token;
-          localStorage.setItem("jwt-token", token);
+          localStorage.setItem("jwt-token", data.token);
             // Vérifier l'état du compte
             if (data.user.etat === "Désactivé") {
                 navigate("/accountdisabled"); // Redirection si le compte est désactivé
@@ -55,7 +54,7 @@ function Login() {
               if (allowedRoles.includes(data.user.role)) {
                 navigate("/Home");
               } else {
-                window.location.href = `http://localhost:5001/?token=${token}`;
+                window.location.href = "http://localhost:5001/team"; // Redirection vers un autre port
               }
             }     
         } else {
