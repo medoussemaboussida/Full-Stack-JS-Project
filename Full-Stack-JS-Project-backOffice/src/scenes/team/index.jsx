@@ -152,11 +152,11 @@ useEffect(() => {
           )
         );
       } else {
-        alert(`❌ Error : ${data.message || "Unknown problem"}`);
+        alert(` Error : ${data.message || "Unknown problem"}`);
       }
     } catch (error) {
-      console.error("❌Error when changing state :", error);
-      alert("❌ An error has occurred !");
+      console.error("Error when changing state :", error);
+      alert(" An error has occurred !");
     }
   };
   
