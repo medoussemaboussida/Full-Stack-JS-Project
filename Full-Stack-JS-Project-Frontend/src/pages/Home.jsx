@@ -87,7 +87,6 @@ function Home() {
                     </div>
                 </div>
             </nav>
-
             <main className="main">
                 {/* Hero area */}
                 <div className="hero-section">
@@ -112,7 +111,7 @@ function Home() {
                                             <a href="contact.html" className="theme-btn2">
                                                 Learn More
                                                 <i className="fas fa-circle-arrow-right"></i>
-                                            </a>
+                                            </a> 
                                         </div>
                                     </div>
                                 </div>
