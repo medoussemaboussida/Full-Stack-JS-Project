@@ -139,10 +139,10 @@ useEffect(() => {
       });
   
       const data = await response.json();
-      console.log("📩 Server response :", data);
+      console.log(" Server response :", data);
   
       if (response.ok) {
-        alert(`✅ User ${newEtat.toLowerCase()} successfully !`);
+        alert(` User ${newEtat.toLowerCase()} successfully !`);
   
         // 🔹 Met à jour directement l'é
         // tat React pour éviter un rechargement complet
