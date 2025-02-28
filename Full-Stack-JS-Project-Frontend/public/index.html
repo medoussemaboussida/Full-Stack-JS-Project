@@ -47,8 +47,11 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
+    <script src="https://cdn.jsdelivr.net/npm/jwt-decode@3.1.2/build/jwt-decode.min.js"></script>
+
     <title>React App</title>
   </head>
+ 
   <header class="header">
 
         <!-- navbar -->
@@ -192,10 +195,10 @@
                                     <button type="button" class="nav-right-link search-box-outer"><i
                                             class="far fa-search"></i></button>
                                 </div>
-                                <div class="nav-btn">
+                                <!-- <div class="nav-btn">
                                     <a href="contact.html" class="theme-btn">Let's Talk<i
                                             class="fas fa-circle-arrow-right"></i></a>
-                                </div>
+                                </div> -->
                                 <div style="display: flex; align-items: center; margin-left: 15px;">
                                     <img 
                                         id="user-avatar"
@@ -204,8 +207,54 @@
                                         style="width: 40px; height: 40px; border-radius: 50%; cursor: pointer; object-fit: cover;"
                                         onclick="window.location.href='/student'"
                                     />
+                                    <div id="username-container" style="margin-left: 10px; font-weight: bold;font-size: 12px;"></div>
+
                                 </div>
+                                <script> 
                                 
+                                    // Fonction pour récupérer le nom d'utilisateur à partir du JWT
+                                    function useAuth() {
+                                        const token = localStorage.getItem('jwt-token');
+                                        if (token) {
+                                            try {
+                                                const decoded = jwt_decode(token);
+                                                const currentTime = Date.now() / 1000; 
+                                
+                                                if (decoded.exp < currentTime) {
+                                                    console.warn('Token expiré. Redirection vers /login');
+                                                    localStorage.removeItem('jwt-token');
+                                                    window.location.href = '/login';
+                                                    return;
+                                                }
+                                
+                                                // Récupérer l'utilisateur depuis le serveur si le token est valide
+                                                fetch(`http://localhost:5000/users/session/${decoded.id}`)
+                                                    .then(response => response.json())
+                                                    .then(data => {
+                                                        if (data && data.username) {
+                                                            // Mettre à jour le nom d'utilisateur dans le DOM
+                                                            document.getElementById('username-container').innerText = data.username.toUpperCase();;
+                                                        } else {
+                                                            console.error('Session invalide, redirection...');
+                                                            localStorage.removeItem('jwt-token');
+                                                            window.location.href = '/login';
+                                                        }
+                                                    })
+                                                    .catch(error => {
+                                                        console.error('Erreur lors de la récupération de l’utilisateur:', error);
+                                                        window.location.href = '/login';
+                                                    });
+                                            } catch (error) {
+                                                console.error('Token invalide:', error);
+                                                localStorage.removeItem('jwt-token');
+                                                window.location.href = '/login';
+                                            }
+                                        } 
+                                    }
+                                
+                                    // Appeler la fonction useAuth pour afficher le username
+                                    useAuth();
+                                </script>  
 
                                 
                                 <button type="button" class="sidebar-btn nav-right-link" data-bs-toggle="offcanvas"
