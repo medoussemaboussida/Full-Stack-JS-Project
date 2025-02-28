@@ -22,7 +22,6 @@ function App() {
   const [theme, colorMode] = useMode();
   const [isSidebar, setIsSidebar] = useState(true);
   const location = useLocation();
-
   useEffect(() => {
     // Vérifier si un token est déjà stocké
     let storedToken = localStorage.getItem("jwt-token");
@@ -72,5 +71,4 @@ function App() {
     </ColorModeContext.Provider>
   );
 }
-
 export default App;
