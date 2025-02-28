@@ -23,7 +23,6 @@ function App() {
   const [isSidebar, setIsSidebar] = useState(true);
   const location = useLocation();
 
-  
   useEffect(() => {
     // Vérifier si un token est déjà stocké
     let storedToken = localStorage.getItem("jwt-token");

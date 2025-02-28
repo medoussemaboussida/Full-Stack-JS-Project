@@ -87,7 +87,6 @@ function Home() {
                     </div>
                 </div>
             </nav>
-
             <main className="main">
                 {/* Hero area */}
                 <div className="hero-section">
