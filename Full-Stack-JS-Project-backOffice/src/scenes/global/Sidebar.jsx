@@ -38,6 +38,7 @@ const Item = ({ title, to, icon, selected, setSelected }) => {
 
 };
 
+
 const Sidebar = () => {
   
   const theme = useTheme();
