@@ -112,7 +112,7 @@ function Home() {
                                             <a href="contact.html" className="theme-btn2">
                                                 Learn More
                                                 <i className="fas fa-circle-arrow-right"></i>
-                                            </a>
+                                            </a> 
                                         </div>
                                     </div>
                                 </div>
