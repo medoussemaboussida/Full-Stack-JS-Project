@@ -22,6 +22,8 @@ function App() {
   const [theme, colorMode] = useMode();
   const [isSidebar, setIsSidebar] = useState(true);
   const location = useLocation();
+
+
   useEffect(() => {
     // Vérifier si un token est déjà stocké
     let storedToken = localStorage.getItem("jwt-token");
@@ -43,7 +45,7 @@ function App() {
       console.log("🔄 Token déjà présent dans localStorage !");
     }
   }, [location]);
- 
+  
   return (
     <ColorModeContext.Provider value={colorMode}>
       <ThemeProvider theme={theme}>
