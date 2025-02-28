@@ -111,7 +111,7 @@ useEffect(() => {
         handleClose();
         navigate("/team");
       })
-      .catch((err) => console.error(" Erreur :", err));
+      .catch((err) => console.error("❌ Erreur :", err));
   };
 
   // Voir le profil d'un utilisateur
@@ -122,7 +122,7 @@ useEffect(() => {
         setSelectedUser(data);
         setOpenProfileModal(true);
       })
-      .catch((err) => console.error(" Error retrieving profile :", err));
+      .catch((err) => console.error("❌ Error retrieving profile :", err));
   };
   
 
@@ -139,10 +139,10 @@ useEffect(() => {
       });
   
       const data = await response.json();
-      console.log(" Server response :", data);
+      console.log("📩 Server response :", data);
   
       if (response.ok) {
-        alert(` User ${newEtat.toLowerCase()} successfully !`);
+        alert(`✅ User ${newEtat.toLowerCase()} successfully !`);
   
         // 🔹 Met à jour directement l'é
         // tat React pour éviter un rechargement complet
@@ -152,11 +152,11 @@ useEffect(() => {
           )
         );
       } else {
-        alert(` Error : ${data.message || "Unknown problem"}`);
+        alert(`❌ Error : ${data.message || "Unknown problem"}`);
       }
     } catch (error) {
-      console.error("Error when changing state :", error);
-      alert(" An error has occurred !");
+      console.error("❌Error when changing state :", error);
+      alert("❌ An error has occurred !");
     }
   };
   
