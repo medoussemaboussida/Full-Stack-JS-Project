@@ -56,6 +56,7 @@ function Login() {
                 navigate("/Home");
               } else {
                 window.location.href = `http://localhost:5001/?token=${token}`;
+
               }
             }     
         } else {
