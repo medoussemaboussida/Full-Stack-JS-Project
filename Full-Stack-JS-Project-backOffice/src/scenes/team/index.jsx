@@ -111,7 +111,7 @@ useEffect(() => {
         handleClose();
         navigate("/team");
       })
-      .catch((err) => console.error("❌ Erreur :", err));
+      .catch((err) => console.error(" Erreur :", err));
   };
 
   // Voir le profil d'un utilisateur
@@ -122,7 +122,7 @@ useEffect(() => {
         setSelectedUser(data);
         setOpenProfileModal(true);
       })
-      .catch((err) => console.error("❌ Error retrieving profile :", err));
+      .catch((err) => console.error(" Error retrieving profile :", err));
   };
   
 
