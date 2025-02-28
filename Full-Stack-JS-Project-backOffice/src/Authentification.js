@@ -14,7 +14,7 @@ const useAuth = () => {
 
     if (!token) {
       console.log("Aucun token trouvé, redirection vers /login");
-      navigate("/login"); // Redirection si aucun token trouvé
+      window.location.href = `http://localhost:3000/login`; 
       setLoading(false); // Fin du chargement
       return;
     }
@@ -28,7 +28,7 @@ const useAuth = () => {
       if (decoded.exp < currentTime) {
         console.warn("Token expiré. Redirection vers /login");
         localStorage.removeItem("jwt-token");
-        navigate("/login");
+        window.location.href = `http://localhost:3000/login`; 
         setLoading(false); // Fin du chargement
         return;
       }
@@ -48,11 +48,11 @@ const useAuth = () => {
           } else {
             console.error("Session invalide, redirection...");
             localStorage.removeItem("jwt-token");
-            navigate("/login");
+            window.location.href = `http://localhost:3000/login`; 
           }
         } catch (error) {
           console.error("Erreur lors de la récupération de l’utilisateur:", error);
-          navigate("/login");
+          window.location.href = `http://localhost:3000/login`; 
         } finally {
           setLoading(false); // Fin du chargement
         }
@@ -62,7 +62,7 @@ const useAuth = () => {
     } catch (error) {
       console.error("Token invalide:", error);
       localStorage.removeItem("jwt-token");
-      navigate("/login");
+      window.location.href = `http://localhost:3000/login`; 
       setLoading(false); // Fin du chargement
     }
   }, [navigate]);
