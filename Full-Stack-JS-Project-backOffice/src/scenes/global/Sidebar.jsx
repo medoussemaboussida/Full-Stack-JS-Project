@@ -115,7 +115,7 @@ const Sidebar = () => {
                   fontWeight="bold"
                   sx={{ m: "10px 0 0 0" }}
                 >         
-                    {user ? user.username : "Chargement..."} {/* Affichage du nom d'utilisateur ou message de chargement */}
+                    {user ? user.username : "Chargement..."}
                   </Typography>
                 <Typography variant="h5" color={colors.greenAccent[500]}>
                   VP Fancy Admin
