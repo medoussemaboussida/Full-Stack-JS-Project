@@ -16,55 +16,16 @@ import PieChartOutlineOutlinedIcon from "@mui/icons-material/PieChartOutlineOutl
 import TimelineOutlinedIcon from "@mui/icons-material/TimelineOutlined";
 import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
 import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
-import { jwtDecode } from 'jwt-decode';
+import useAuth from "../../Authentification";  
 
-const useAuth = () => {
-  const [user, setUser] = useState(null);
 
-  useEffect(() => {
-      const token = localStorage.getItem('jwt-token');
-      if (token) {
-          try {
-              const decoded = jwtDecode(token);
-              const currentTime = Date.now() / 1000; // Temps actuel en secondes
 
-              if (decoded.exp < currentTime) {
-                  console.warn('Token expiré. Redirection vers /login');
-                  localStorage.removeItem('jwt-token');
-                  window.location.href = 'http://localhost:3000/login';
-                  return;
-              }
 
-              const fetchUser = async () => {
-                  try {
-                    const response = await fetch(`http://localhost:5000/users/session/${decoded.id}`);
-                    const data = await response.json();
-                      if (response.ok) {
-                          setUser(data);
-                      } else {
-                          console.error('Session invalide, redirection...');
-                          localStorage.removeItem('jwt-token');
-                          window.location.href = 'http://localhost:3000/login';
-                      }
-                  } catch (error) {
-                      console.error('Erreur lors de la récupération de l’utilisateur:', error);
-                      window.location.href = 'http://localhost:3000/login';
-                  }
-              };
-              fetchUser();
-          } catch (error) {
-              console.error('Token invalide:', error);
-              window.location.href = 'http://localhost:3000/login';
-
-          }
-      } 
-  }, []);
-
-  return user;
-};
 const Item = ({ title, to, icon, selected, setSelected }) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
+  
+
   return (
     <MenuItem
       active={selected === title}
@@ -78,7 +39,9 @@ const Item = ({ title, to, icon, selected, setSelected }) => {
       <Link to={to} />
     </MenuItem>
   );
+
 };
+
 
 
 const Sidebar = () => {
@@ -87,8 +50,10 @@ const Sidebar = () => {
   const colors = tokens(theme.palette.mode);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [selected, setSelected] = useState("Dashboard");
-  const user = useAuth(); // Récupère l'utilisateur
-
+  /////session token
+  const { user, loading } = useAuth(); // Utilisation de useAuth avec l'état de chargement
+  console.log("user is :",user); 
+  console.log("token:",localStorage.getItem('jwt-token'));
   return (
     <Box
       sx={{
@@ -154,9 +119,10 @@ const Sidebar = () => {
                   color={colors.grey[100]}
                   fontWeight="bold"
                   sx={{ m: "10px 0 0 0" }}
-                >
-                  Admin 
-                </Typography>
+                >                 {user ? user.username : "Chargement..."} {/* Affichage du nom d'utilisateur ou message de chargement */}
+
+
+                  </Typography>
                 <Typography variant="h5" color={colors.greenAccent[500]}>
                   VP Fancy Admin
                 </Typography>
