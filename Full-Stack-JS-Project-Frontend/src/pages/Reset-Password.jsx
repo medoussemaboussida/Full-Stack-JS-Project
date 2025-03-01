@@ -43,12 +43,12 @@ function Reset_Password() {
         e.preventDefault();
 
         if (passwordData.newPassword.length < 6) {
-            setError("Le mot de passe doit comporter au moins 6 caractères.");
+            setError("The password must be at least 6 characters long.");
             return;
         }
 
         if (passwordData.newPassword !== passwordData.confirmPassword) {
-            setError("Les mots de passe ne correspondent pas.");
+            setError("The passwords do not match.");
             return;
         }
 
@@ -65,10 +65,10 @@ function Reset_Password() {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.message || "Erreur lors de la réinitialisation du mot de passe.");
+                throw new Error(data.message || "Error while resetting the password.");
             }
 
-            setSuccess("Mot de passe réinitialisé avec succès !");
+            setSuccess("Password reset successfully !");
             setError("");
 
             setTimeout(() => {

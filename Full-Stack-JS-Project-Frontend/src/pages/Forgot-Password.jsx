@@ -29,7 +29,7 @@ function Forgot_Password() {
             const response = await axios.post("http://localhost:5000/users/forgot-password", { email });
             setMessage(response.data.message); // Afficher le message de succès
         } catch (err) {
-            setError(err.response?.data?.message || "Une erreur s'est produite"); // Afficher l'erreur
+            setError(err.response?.data?.message || "An error occurred"); // Afficher l'erreur
         }
     };
 

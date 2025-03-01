@@ -208,7 +208,7 @@ module.exports.forgotPassword = async (req, res) => {
     try {
         const user = await User.findOne({ email: req.body.email });
         if (!user) {
-            return res.status(400).json({ message: "Utilisateur non trouvé" });
+            return res.status(400).json({ message: "User not found" });
         }
 
         console.log("Secret Key utilisée pour le token:", process.env.JWT_SECRET); // Vérifie la clé utilisée
@@ -221,19 +221,19 @@ module.exports.forgotPassword = async (req, res) => {
 
         // Formatage de l'email avec du contenu HTML
         const emailContent = `
-            <h3>Réinitialisation du mot de passe</h3>
-            <p>Vous avez demandé à réinitialiser votre mot de passe. Cliquez sur le lien ci-dessous pour le faire :</p>
-            <a href="${resetLink}" target="_blank">Réinitialiser le mot de passe</a>
-            <p>Ce lien expirera dans une heure.</p>
+            <h3>Password reset</h3>
+            <p>You requested to reset your password. Click the link below to proceed :</p>
+            <a href="${resetLink}" target="_blank">Password reset</a>
+            <p>This link will expire in one hour.</p>
         `;
 
         // Assure-toi que la fonction sendEmail accepte du HTML
-        await sendEmail(user.email, "Réinitialisation du mot de passe", emailContent);
+        await sendEmail(user.email, "Password reset", emailContent);
 
-        res.json({ message: "E-mail envoyé" });
+        res.json({ message: "Email sent !" });
     } catch (error) {
         console.error("Erreur dans forgotPassword:", error.message);
-        res.status(500).json({ message: "Erreur interne du serveur" });
+        res.status(500).json({ message: "Internal server error" });
     }
 };
 
@@ -255,12 +255,12 @@ module.exports.resetPassword = async (req, res) => {
 
         const user = await User.findById(decoded.userId);
         if (!user) {
-            return res.status(400).json({ message: "Utilisateur non trouvé" });
+            return res.status(400).json({ message: "User not found" });
         }
 
         // Vérifie si le mot de passe est bien dans le corps de la requête
         if (!req.body.password) {
-            return res.status(400).json({ message: "Le mot de passe est requis" });
+            return res.status(400).json({ message: "The password is required" });
         }
 
         // Enregistre le mot de passe en clair (sans hachage)
@@ -268,10 +268,10 @@ module.exports.resetPassword = async (req, res) => {
 
         await user.save();
 
-        res.json({ message: "Mot de passe réinitialisé avec succès" });
+        res.json({ message: "Password reset successfully" });
     } catch (error) {
         console.error("Erreur lors de la réinitialisation:", error.message);
-        res.status(400).json({ message: "Token invalide ou expiré" });
+        res.status(400).json({ message: "Invalid or expired token" });
     }
 };
 
