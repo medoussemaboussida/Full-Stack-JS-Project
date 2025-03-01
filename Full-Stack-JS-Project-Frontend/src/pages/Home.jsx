@@ -12,7 +12,7 @@ const useAuth = () => {
                 const currentTime = Date.now() / 1000; 
 
                 if (decoded.exp < currentTime) {
-                    console.warn('Token expiré. Redirection vers /login');
+                    console.log('Token expiré. Redirection vers /login');
                     localStorage.removeItem('jwt-token');
                     window.location.href = '/login';
                     return;
@@ -25,19 +25,19 @@ const useAuth = () => {
                         if (response.ok) {
                             setUser(data);
                         } else {
-                            console.error('Session invalide, redirection...');
+                            console.log('Session invalide, redirection...');
                             localStorage.removeItem('jwt-token');
                             window.location.href = '/login';
                         }
                     } catch (error) {
-                        console.error('Erreur lors de la récupération de l’utilisateur:', error);
+                        console.log('Erreur lors de la récupération de l’utilisateur:', error);
                         window.location.href = '/login';
                     }
                 };
 
                 fetchUser();
             } catch (error) {
-                console.error('Token invalide:', error);
+                console.log('Token invalide:', error);
                 localStorage.removeItem('jwt-token');
                 window.location.href = '/login';
             }
