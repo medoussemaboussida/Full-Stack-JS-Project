@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 function DetailsStudents() {
     const [user, setUser] = useState(null);
@@ -22,6 +24,27 @@ function DetailsStudents() {
     const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+    const formatDateForInput = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const calculateAge = (dob) => {
+        const birthDate = new Date(dob);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDifference = today.getMonth() - birthDate.getMonth();
+        if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        return age;
+    };
 
     useEffect(() => {
         const token = localStorage.getItem('jwt-token');
@@ -37,7 +60,7 @@ function DetailsStudents() {
                             setFormData({
                                 username: data.username,
                                 email: data.email,
-                                dob: data.dob,
+                                dob: formatDateForInput(data.dob),
                                 speciality: data.speciality,
                                 level: data.level,
                                 role: data.role,
@@ -64,7 +87,7 @@ function DetailsStudents() {
             setFormData({
                 username: user.username,
                 email: user.email,
-                dob: user.dob,
+                dob: formatDateForInput(user.dob),
                 speciality: user.speciality,
                 level: user.level,
                 role: user.role,
@@ -73,16 +96,14 @@ function DetailsStudents() {
         }
     }, [user]);
 
-    const handleEdit = () => {
-        setIsEditing(true);
-    };
+    const handleEdit = () => setIsEditing(true);
 
     const handleCancel = () => {
         setIsEditing(false);
         setFormData({
             username: user.username,
             email: user.email,
-            dob: user.dob,
+            dob: formatDateForInput(user.dob),
             speciality: user.speciality,
             level: user.level,
             role: user.role,
@@ -92,6 +113,13 @@ function DetailsStudents() {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
+        if (name === 'dob') {
+            const age = calculateAge(value);
+            if (age < 18) {
+                toast.error("You must be at least 18 years old");
+                return;
+            }
+        }
         setFormData((prevData) => ({
             ...prevData,
             [name]: value
@@ -100,7 +128,7 @@ function DetailsStudents() {
 
     const handleSave = async () => {
         if (!formData.username) {
-            alert("Username cannot be empty");
+            toast.error("Username cannot be empty");
             return;
         }
         try {
@@ -117,23 +145,24 @@ function DetailsStudents() {
 
             const data = await response.json();
             if (response.ok) {
-                setUser(data.user || data.student); // Mettre à jour l'état `user`
+                setUser(data.user || data.student);
                 setIsEditing(false);
+                toast.success("Profile updated successfully");
             } else {
-                console.error('Error updating profile:', data.message);
+                toast.error(`Error updating profile: ${data.message}`);
             }
         } catch (error) {
-            console.error('Error updating profile:', error);
+            toast.error("Error updating profile");
         }
     };
 
     const handleChangePassword = async () => {
         if (passwordData.newPassword !== passwordData.confirmNewPassword) {
-            alert("Passwords do not match");
+            toast.error("Passwords do not match");
             return;
         }
         if (!passwordData.newPassword || !passwordData.confirmNewPassword || !passwordData.currentPassword) {
-            alert("All fields are required");
+            toast.error("All fields are required");
             return;
         }
         try {
@@ -150,7 +179,7 @@ function DetailsStudents() {
 
             const data = await response.json();
             if (response.ok) {
-                alert("Password changed successfully");
+                toast.success("Password changed successfully");
                 setIsChangingPassword(false);
                 setPasswordData({
                     currentPassword: '',
@@ -158,17 +187,14 @@ function DetailsStudents() {
                     confirmNewPassword: ''
                 });
             } else {
-                console.error('Error changing password:', data.message);
+                toast.error(`Error changing password: ${data.message}`);
             }
         } catch (error) {
-            console.error('Error changing password:', error);
+            toast.error("Error changing password");
         }
     };
 
     const handleDeleteAccount = async () => {
-        const confirmDelete = window.confirm("Are you sure you want to delete your account? This action cannot be undone.");
-        if (!confirmDelete) return;
-
         try {
             const token = localStorage.getItem('jwt-token');
             const decoded = jwtDecode(token);
@@ -180,25 +206,98 @@ function DetailsStudents() {
             });
 
             if (response.ok) {
-                alert("Account deleted successfully");
+                toast.success("Account deleted successfully");
                 localStorage.removeItem('jwt-token');
-                window.location.href = "/login";
+                setTimeout(() => {
+                    window.location.href = "/login";
+                }, 2000);
             } else {
                 const data = await response.json();
-                console.error('Error deleting account:', data.message);
+                toast.error(`Error deleting account: ${data.message}`);
             }
         } catch (error) {
-            console.error('Error deleting account:', error);
+            toast.error("Error deleting account");
         }
     };
 
     if (!user) {
-        return <div>Loading...</div>;
+        return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Loading...</div>;
     }
 
     return (
         <div>
-            <main className="main">
+            <ToastContainer
+                position="top-right"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+            />
+
+            {showDeleteModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: 1000,
+                }}>
+                    <div style={{
+                        backgroundColor: 'white',
+                        padding: '20px',
+                        borderRadius: '8px',
+                        width: '400px',
+                        maxWidth: '90%',
+                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                    }}>
+                        <h3 style={{ marginBottom: '20px', textAlign: 'center' }}>Confirm Deletion</h3>
+                        <p style={{ marginBottom: '20px', textAlign: 'center' }}>Are you sure you want to delete your account? This action cannot be undone.</p>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+                            <button
+                                onClick={() => setShowDeleteModal(false)}
+                                style={{
+                                    backgroundColor: '#f44336',
+                                    color: 'white',
+                                    padding: '10px 20px',
+                                    fontSize: '16px',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    borderRadius: '5px',
+                                    transition: 'background-color 0.3s ease',
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteAccount}
+                                style={{
+                                    backgroundColor: '#4CAF50',
+                                    color: 'white',
+                                    padding: '10px 20px',
+                                    fontSize: '16px',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    borderRadius: '5px',
+                                    transition: 'background-color 0.3s ease',
+                                }}
+                            >
+                                Confirm
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <main style={{ padding: '20px', backgroundColor: '#f9f9f9' }}>
                 <div className="site-breadcrumb" style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}>
                     <div className="container">
                         <h2 className="breadcrumb-title">Volunteer Single</h2>
@@ -209,250 +308,327 @@ function DetailsStudents() {
                     </div>
                 </div>
 
-                <div className="team-single py-120">
-                    <div className="container">
-                        <div className="team-single-wrap">
-                            <div className="row align-items-center">
-                                <div className="col-lg-4">
-                                    <div className="team-single-img">
-                                        <img src="assets/img/user.png" alt="team member" />
-                                    </div>
+                <div style={{ padding: '40px 0' }}>
+                    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
+                        <div style={{ 
+                            background: 'white', 
+                            borderRadius: '16px', 
+                            boxShadow: '0 6px 20px rgba(0, 0, 0, 0.08)', 
+                            padding: '30px',
+                            overflow: 'hidden'
+                        }}>
+                            <div style={{ 
+                                display: 'grid', 
+                                gridTemplateColumns: '300px 1fr', 
+                                gap: '40px',
+                                alignItems: 'start'
+                            }}>
+                                <div style={{ borderRadius: '12px', overflow: 'hidden' }}>
+                                    <img src="assets/img/user.png" alt="team member" style={{ width: '100%', display: 'block' }} />
                                 </div>
-                                <div className="col-lg-8">
-                                    <div className="team-single-content">
-                                        <div className="team-single-name">
-                                            <h2>{user.username}</h2>
-                                            {isEditing ? (
+
+                                <div style={{ padding: '20px 0' }}>
+                                    <div style={{
+                                        borderBottom: '2px solid #eef2f6',
+                                        paddingBottom: '20px',
+                                        marginBottom: '25px'
+                                    }}>
+                                        {isEditing ? (
+                                            <>
+                                                <input
+                                                    type="text"
+                                                    name="username"
+                                                    value={formData.username}
+                                                    onChange={handleChange}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '12px 15px',
+                                                        borderRadius: '8px',
+                                                        border: '1px solid #e2e8f0',
+                                                        fontSize: '1.5rem',
+                                                        fontWeight: '600',
+                                                        transition: 'all 0.3s ease',
+                                                        outline: 'none',
+                                                        backgroundColor: '#ffffff'
+                                                    }}
+                                                    onFocus={(e) => e.target.style.borderColor = '#4CAF50'}
+                                                    onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                                                />
+                                                {formData.username === '' && <span style={{ color: 'red', fontSize: '0.9rem' }}>Username is required</span>}
+                                            </>
+                                        ) : (
+                                            <h2 style={{
+                                                fontSize: '2rem',
+                                                fontWeight: '700',
+                                                color: '#2d3748',
+                                                margin: '0'
+                                            }}>{user.username}</h2>
+                                        )}
+                                    </div>
+
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                                        gap: '20px'
+                                    }}>
+                                        {[
+                                            { title: 'Email', name: 'email', value: formData.email, disabled: true },
+                                            { title: 'Date of Birth', name: 'dob', value: isEditing ? formData.dob : new Date(user.dob).toLocaleDateString(), type: isEditing ? 'date' : 'text' },
+                                            ...(user.role === "student" ? [
+                                                { title: 'Speciality', name: 'speciality', value: formData.speciality },
+                                                { title: 'Level', name: 'level', value: formData.level }
+                                            ] : []),
+                                            { title: 'Role', name: 'role', value: formData.role, disabled: true },
+                                            { title: 'Status', name: 'etat', value: formData.etat, disabled: true }
+                                        ].map((field, index) => (
+                                            <div key={index} style={{
+                                                background: '#ffffff',
+                                                borderRadius: '12px',
+                                                padding: '20px',
+                                                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+                                                transition: 'all 0.3s ease'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                                e.currentTarget.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.08)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                                e.currentTarget.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.05)';
+                                            }}>
+                                                <h6 style={{
+                                                    fontSize: '0.95rem',
+                                                    color: '#718096',
+                                                    marginBottom: '10px',
+                                                    fontWeight: '500'
+                                                }}>{field.title}</h6>
+                                                
+                                                {isEditing ? (
+                                                    field.name === 'speciality' ? (
+                                                        <select
+                                                            name="speciality"
+                                                            value={formData.speciality}
+                                                            onChange={handleChange}
+                                                            style={{
+                                                                width: '100%',
+                                                                padding: '10px 15px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid #e2e8f0',
+                                                                fontSize: '1rem',
+                                                                backgroundColor: '#ffffff',
+                                                                transition: 'all 0.3s ease',
+                                                                outline: 'none'
+                                                            }}
+                                                            onFocus={(e) => e.target.style.borderColor = '#4CAF50'}
+                                                            onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                                                        >
+                                                            <option value="A">A</option>
+                                                            <option value="B">B</option>
+                                                            <option value="P">P</option>
+                                                            <option value="TWIN">TWIN</option>
+                                                            <option value="SAE">SAE</option>
+                                                            <option value="SE">SE</option>
+                                                            <option value="BI">BI</option>
+                                                            <option value="DS">DS</option>
+                                                            <option value="IOSYS">IOSYS</option>
+                                                            <option value="SLEAM">SLEAM</option>
+                                                            <option value="SIM">SIM</option>
+                                                            <option value="NIDS">NIDS</option>
+                                                            <option value="INFINI">INFINI</option>
+                                                        </select>
+                                                    ) : field.name === 'level' ? (
+                                                        <select
+                                                            name="level"
+                                                            value={formData.level}
+                                                            onChange={handleChange}
+                                                            style={{
+                                                                width: '100%',
+                                                                padding: '10px 15px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid #e2e8f0',
+                                                                fontSize: '1rem',
+                                                                backgroundColor: '#ffffff',
+                                                                transition: 'all 0.3s ease',
+                                                                outline: 'none'
+                                                            }}
+                                                            onFocus={(e) => e.target.style.borderColor = '#4CAF50'}
+                                                            onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                                                        >
+                                                            <option value="1">1</option>
+                                                            <option value="2">2</option>
+                                                            <option value="3">3</option>
+                                                            <option value="4">4</option>
+                                                            <option value="5">5</option>
+                                                        </select>
+                                                    ) : (
+                                                        <input
+                                                            type={field.type || 'text'}
+                                                            name={field.name}
+                                                            value={field.value}
+                                                            onChange={handleChange}
+                                                            disabled={field.disabled}
+                                                            style={{
+                                                                width: '100%',
+                                                                padding: '10px 15px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid #e2e8f0',
+                                                                fontSize: '1rem',
+                                                                backgroundColor: field.disabled ? '#e9ecef' : '#ffffff',
+                                                                color: field.disabled ? '#6c757d' : '#2d3748',
+                                                                transition: 'all 0.3s ease',
+                                                                outline: 'none',
+                                                                cursor: field.disabled ? 'not-allowed' : 'text'
+                                                            }}
+                                                            onFocus={(e) => !field.disabled && (e.target.style.borderColor = '#4CAF50')}
+                                                            onBlur={(e) => !field.disabled && (e.target.style.borderColor = '#e2e8f0')}
+                                                        />
+                                                    )
+                                                ) : (
+                                                    <p style={{
+                                                        color: '#2d3748',
+                                                        fontSize: '1.1rem',
+                                                        margin: '0',
+                                                        fontWeight: '500'
+                                                    }}>{field.value}</p>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div style={{
+                                        display: 'flex',
+                                        gap: '15px',
+                                        marginTop: '30px',
+                                        flexWrap: 'wrap',
+                                        textAlign: 'center'
+                                    }}>
+                                        {user.role === "student" && (
+                                            isEditing ? (
                                                 <>
-                                                    <input
-                                                        type="text"
-                                                        name="username"
-                                                        value={formData.username}
-                                                        onChange={handleChange}
-                                                    />
-                                                    {formData.username === '' && <span style={{ color: 'red' }}>Username is required</span>}
+                                                    <button
+                                                        onClick={handleSave}
+                                                        style={{
+                                                            backgroundColor: '#4CAF50',
+                                                            color: 'white',
+                                                            padding: '12px 24px',
+                                                            fontSize: '16px',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            borderRadius: '8px',
+                                                            transition: 'all 0.3s ease',
+                                                            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            e.target.style.transform = 'translateY(-1px)';
+                                                            e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.15)';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.target.style.transform = 'translateY(0)';
+                                                            e.target.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.1)';
+                                                        }}
+                                                    >
+                                                        <i className="far fa-save" style={{ marginRight: '8px' }}></i> Save
+                                                    </button>
+                                                    <button
+                                                        onClick={handleCancel}
+                                                        style={{
+                                                            backgroundColor: '#f44336',
+                                                            color: 'white',
+                                                            padding: '12px 24px',
+                                                            fontSize: '16px',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            borderRadius: '8px',
+                                                            transition: 'all 0.3s ease',
+                                                            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            e.target.style.transform = 'translateY(-1px)';
+                                                            e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.15)';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.target.style.transform = 'translateY(0)';
+                                                            e.target.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.1)';
+                                                        }}
+                                                    >
+                                                        <i className="far fa-times" style={{ marginRight: '8px' }}></i> Cancel
+                                                    </button>
                                                 </>
                                             ) : (
-                                                <span></span>
-                                            )}
-                                            <p>{user.speciality}</p>
-                                        </div>
-                                        <div className="team-single-info">
-                                            <ul style={{
-                                                display: 'grid',
-                                                gridTemplateColumns: 'repeat(3, 1fr)',
-                                                gap: '20px',
-                                                listStyleType: 'none',
-                                                padding: '0',
-                                            }}>
-                                                <li>
-                                                    <div>
-                                                        <h6>Email</h6>
-                                                        {isEditing ? (
-                                                            <input
-                                                                type="email"
-                                                                name="email"
-                                                                value={formData.email}
-                                                                onChange={handleChange}
-                                                                disabled
-                                                            />
-                                                        ) : (
-                                                            <span>{user.email}</span>
-                                                        )}
-                                                    </div>
-                                                </li>
-
-                                                <li>
-                                                    <div>
-                                                        <h6>Date of Birth</h6>
-                                                        {isEditing ? (
-                                                            <input
-                                                                type="date"
-                                                                name="dob"
-                                                                value={formData.dob}
-                                                                onChange={handleChange}
-                                                            />
-                                                        ) : (
-                                                            <span>{new Date(user.dob).toLocaleDateString()}</span>
-                                                        )}
-                                                    </div>
-                                                </li>
-
-                                                {user.role === "student" && (
-                                                    <>
-                                                        <li>
-                                                            <div>
-                                                                <h6>Speciality</h6>
-                                                                {isEditing ? (
-                                                                    <select
-                                                                        name="speciality"
-                                                                        value={formData.speciality}
-                                                                        onChange={handleChange}
-                                                                    >
-                                                                        <option value="A">A</option>
-                                                                        <option value="B">B</option>
-                                                                        <option value="P">P</option>
-                                                                        <option value="TWIN">TWIN</option>
-                                                                        <option value="SAE">SAE</option>
-                                                                        <option value="SE">SE</option>
-                                                                        <option value="BI">BI</option>
-                                                                        <option value="DS">DS</option>
-                                                                        <option value="IOSYS">IOSYS</option>
-                                                                        <option value="SLEAM">SLEAM</option>
-                                                                        <option value="SIM">SIM</option>
-                                                                        <option value="NIDS">NIDS</option>
-                                                                        <option value="INFINI">INFINI</option>
-                                                                    </select>
-                                                                ) : (
-                                                                    <span>{user.speciality}</span>
-                                                                )}
-                                                            </div>
-                                                        </li>
-
-                                                        <li>
-                                                            <div>
-                                                                <h6>Level</h6>
-                                                                {isEditing ? (
-                                                                    <select
-                                                                        name="level"
-                                                                        value={formData.level}
-                                                                        onChange={handleChange}
-                                                                    >
-                                                                        <option value="1">1</option>
-                                                                        <option value="2">2</option>
-                                                                        <option value="3">3</option>
-                                                                        <option value="4">4</option>
-                                                                        <option value="5">5</option>
-                                                                    </select>
-                                                                ) : (
-                                                                    <span>{user.level}</span>
-                                                                )}
-                                                            </div>
-                                                        </li>
-                                                    </>
-                                                )}
-
-                                                <li>
-                                                    <div>
-                                                        <h6>Role</h6>
-                                                        {isEditing ? (
-                                                            <input
-                                                                type="text"
-                                                                name="role"
-                                                                value={formData.role}
-                                                                onChange={handleChange}
-                                                                disabled
-                                                            />
-                                                        ) : (
-                                                            <span>{user.role}</span>
-                                                        )}
-                                                    </div>
-                                                </li>
-
-                                                <li>
-                                                    <div>
-                                                        <h6>Status</h6>
-                                                        {isEditing ? (
-                                                            <input
-                                                                type="text"
-                                                                name="etat"
-                                                                value={formData.etat}
-                                                                onChange={handleChange}
-                                                                disabled
-                                                            />
-                                                        ) : (
-                                                            <span>{user.etat}</span>
-                                                        )}
-                                                    </div>
-                                                </li>
-                                            </ul>
-
-                                            <div style={{ textAlign: 'center', marginTop: '20px' }}>
-                                                {user.role === "student" && (
-                                                    <>
-                                                        {isEditing ? (
-                                                            <>
-                                                                <button
-                                                                    onClick={handleSave}
-                                                                    style={{
-                                                                        backgroundColor: '#4CAF50',
-                                                                        color: 'white',
-                                                                        padding: '10px 20px',
-                                                                        fontSize: '16px',
-                                                                        border: 'none',
-                                                                        cursor: 'pointer',
-                                                                        borderRadius: '5px',
-                                                                    }}
-                                                                >
-                                                                    <i className="far fa-save" style={{ marginRight: '8px' }}></i> Save
-                                                                </button>
-                                                                <button
-                                                                    onClick={handleCancel}
-                                                                    style={{
-                                                                        backgroundColor: '#f44336',
-                                                                        color: 'white',
-                                                                        padding: '10px 20px',
-                                                                        fontSize: '16px',
-                                                                        border: 'none',
-                                                                        cursor: 'pointer',
-                                                                        borderRadius: '5px',
-                                                                        marginLeft: '10px',
-                                                                    }}
-                                                                >
-                                                                    <i className="far fa-times" style={{ marginRight: '8px' }}></i> Cancel
-                                                                </button>
-                                                            </>
-                                                        ) : (
-                                                            <button
-                                                                onClick={handleEdit}
-                                                                style={{
-                                                                    backgroundColor: '#4CAF50',
-                                                                    color: 'white',
-                                                                    padding: '10px 20px',
-                                                                    fontSize: '16px',
-                                                                    cursor: 'pointer',
-                                                                    borderRadius: '5px',
-                                                                }}
-                                                            >
-                                                                <i className="far fa-edit" style={{ marginRight: '8px' }}></i> Edit
-                                                            </button>
-                                                        )}
-                                                    </>
-                                                )}
-
                                                 <button
-                                                    onClick={() => setIsChangingPassword(true)}
+                                                    onClick={handleEdit}
                                                     style={{
-                                                        backgroundColor: '#2196F3',
+                                                        backgroundColor: '#4CAF50',
                                                         color: 'white',
-                                                        padding: '10px 20px',
+                                                        padding: '12px 24px',
                                                         fontSize: '16px',
+                                                        border: 'none',
                                                         cursor: 'pointer',
-                                                        borderRadius: '5px',
-                                                        marginTop: '10px',
-                                                        marginLeft: '10px',
+                                                        borderRadius: '8px',
+                                                        transition: 'all 0.3s ease',
+                                                        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.target.style.transform = 'translateY(-1px)';
+                                                        e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.15)';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.target.style.transform = 'translateY(0)';
+                                                        e.target.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.1)';
                                                     }}
                                                 >
-                                                    <i className="fas fa-key" style={{ marginRight: '8px' }}></i> Change Password
+                                                    <i className="far fa-edit" style={{ marginRight: '8px' }}></i> Edit
                                                 </button>
-
-                                                <button
-                                                    onClick={handleDeleteAccount}
-                                                    style={{
-                                                        backgroundColor: '#ff0000',
-                                                        color: 'white',
-                                                        padding: '10px 20px',
-                                                        fontSize: '16px',
-                                                        cursor: 'pointer',
-                                                        borderRadius: '5px',
-                                                        marginTop: '10px',
-                                                        marginLeft: '10px',
-                                                    }}
-                                                >
-                                                    <i className="fas fa-trash" style={{ marginRight: '8px' }}></i> Delete Account
-                                                </button>
-                                            </div>
-                                        </div>
+                                            )
+                                        )}
+                                        <button
+                                            onClick={() => setIsChangingPassword(true)}
+                                            style={{
+                                                backgroundColor: '#2196F3',
+                                                color: 'white',
+                                                padding: '12px 24px',
+                                                fontSize: '16px',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                borderRadius: '8px',
+                                                transition: 'all 0.3s ease',
+                                                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.target.style.transform = 'translateY(-1px)';
+                                                e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.15)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.target.style.transform = 'translateY(0)';
+                                                e.target.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.1)';
+                                            }}
+                                        >
+                                            <i className="fas fa-key" style={{ marginRight: '8px' }}></i> Change Password
+                                        </button>
+                                        <button
+                                            onClick={() => setShowDeleteModal(true)}
+                                            style={{
+                                                backgroundColor: '#ff0000',
+                                                color: 'white',
+                                                padding: '12px 24px',
+                                                fontSize: '16px',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                borderRadius: '8px',
+                                                transition: 'all 0.3s ease',
+                                                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.target.style.transform = 'translateY(-1px)';
+                                                e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.15)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.target.style.transform = 'translateY(0)';
+                                                e.target.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.1)';
+                                            }}
+                                        >
+                                            <i className="fas fa-trash" style={{ marginRight: '8px' }}></i> Delete Account
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -461,30 +637,26 @@ function DetailsStudents() {
                 </div>
 
                 {isChangingPassword && (
-                    <div
-                        style={{
-                            position: 'fixed',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                            display: 'flex',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            zIndex: 1000,
-                        }}
-                    >
-                        <div
-                            style={{
-                                backgroundColor: 'white',
-                                padding: '20px',
-                                borderRadius: '8px',
-                                width: '400px',
-                                maxWidth: '90%',
-                                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                            }}
-                        >
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 1000,
+                    }}>
+                        <div style={{
+                            backgroundColor: 'white',
+                            padding: '20px',
+                            borderRadius: '8px',
+                            width: '400px',
+                            maxWidth: '90%',
+                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                        }}>
                             <h3 style={{ marginBottom: '20px', textAlign: 'center' }}>Change Password</h3>
                             <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center' }}>
                                 <input
@@ -545,6 +717,7 @@ function DetailsStudents() {
                                         border: 'none',
                                         cursor: 'pointer',
                                         borderRadius: '5px',
+                                        transition: 'background-color 0.3s ease',
                                     }}
                                 >
                                     Save New Password
@@ -559,6 +732,7 @@ function DetailsStudents() {
                                         border: 'none',
                                         cursor: 'pointer',
                                         borderRadius: '5px',
+                                        transition: 'background-color 0.3s ease',
                                     }}
                                 >
                                     Cancel
