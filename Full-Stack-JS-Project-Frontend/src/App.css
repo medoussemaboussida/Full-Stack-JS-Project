@@ -36,3 +36,14 @@
     transform: rotate(360deg);
   }
 }
+.account-disabled-page {
+  background: url('/path/to/your/image.jpg') no-repeat center center;
+  background-size: cover;
+  height: 100vh;
+}
+
+.account-disabled-card {
+  max-width: 450px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 10px;
+}

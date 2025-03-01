@@ -181,8 +181,8 @@ useEffect(() => {
 value={params.row.etat === "Actif" ? "Actif" : "Désactivé"}
 onChange={(e) => handleEtatChange(params.row.id, e.target.value)}
   >
-    <MenuItem value="Actif">Enable</MenuItem>
-    <MenuItem value="Désactivé">Disable</MenuItem>
+    <MenuItem value="Actif">Enabled</MenuItem>
+    <MenuItem value="Désactivé">Disabled</MenuItem>
     </Select>
 </FormControl>
 
