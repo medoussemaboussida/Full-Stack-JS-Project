@@ -8,6 +8,7 @@ function Login() {
   const [error, setError] = useState("");
   const [recaptchaToken, setRecaptchaToken] = useState(null); // State to hold reCAPTCHA token
   const navigate = useNavigate();
+  const [showPassword, setShowPassword] = useState(false); // Ajout de l'état pour gérer la visibilité du mot de passe
 
   useEffect(() => {
     const navbar = document.querySelector(".header");
@@ -98,7 +99,7 @@ function Login() {
                     <div className="form-icon">
                       <i className="far fa-key"></i>
                       <input
-                        type="password"
+                        type={showPassword ? "text" : "password"} // Gère la visibilité
                         id="password"
                         className="form-control"
                         placeholder="Your Password"
@@ -106,9 +107,7 @@ function Login() {
                         onChange={(e) => setPassword(e.target.value)}
                         required
                       />
-                      <span className="password-view">
-                        <i className="far fa-eye-slash"></i>
-                      </span>
+
                     </div>
                   </div>
                   <div className="auth-group">

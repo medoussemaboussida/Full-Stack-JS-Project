@@ -88,6 +88,19 @@ function Register() {
 
         dob: yup.date()
             .max(new Date(), "Date of birth cannot be in the future.")
+            .test("is-18", "Minimum age is 18.", function (value) {
+                if (!value) return false;
+                const today = new Date();
+                const birthDate = new Date(value);
+                const age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                const dayDiff = today.getDate() - birthDate.getDate();
+                
+                if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+                    return age - 1 >= 18;
+                }
+                return age >= 18;
+            })
             .required("Date of birth is required."),
 
 
@@ -195,7 +208,7 @@ function Register() {
                             <div className="auth-form">
                                 <div className="auth-header">
                                     <img src="assets/img/logo/logo.png" alt="" />
-                                    <p>Create your free lovcare account</p>
+                                    {/* <p>Create your free lovcare account</p> */}
                                 </div>
                                 <form onSubmit={handleSubmit}>
                                     {/* Username */}
@@ -243,9 +256,9 @@ function Register() {
                                                 value={password} 
                                                 onChange={handleChange} 
                                             />
-                                            <span className="password-view" onClick={togglePasswordVisibility}>
+                                            {/* <span className="password-view" onClick={togglePasswordVisibility}>
                                                 <i className={`far ${showPassword ? "fa-eye" : "fa-eye-slash"}`}></i>
-                                            </span>
+                                            </span> */}
                                         </div>
                                         {errors.password && <p className="text-danger">{errors.password}</p>}
                                     </div>
@@ -256,7 +269,7 @@ function Register() {
                                             <i className="far fa-calendar-alt"></i>
                                             <input 
                                                 type="date" 
-                                                className="form-control" 
+                                                className="form-control"
                                                 name="dob" 
                                                 value={dob} 
                                                 onChange={handleChange} 

@@ -40,6 +40,19 @@ async function validateUser(req, res, next) {
 
             dob: yup.date()
                 .max(new Date(), "La date de naissance ne peut pas être dans le futur.")
+                .test("is-18", "Vous devez avoir au moins 18 ans.", function (value) {
+                    if (!value) return false;
+                    const today = new Date();
+                    const birthDate = new Date(value);
+                    const age = today.getFullYear() - birthDate.getFullYear();
+                    const monthDiff = today.getMonth() - birthDate.getMonth();
+                    const dayDiff = today.getDate() - birthDate.getDate();
+                    
+                    if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+                        return age - 1 >= 18;
+                    }
+                    return age >= 18;
+                })
                 .required("Date de naissance requise."),
 
             password: yup.string()
