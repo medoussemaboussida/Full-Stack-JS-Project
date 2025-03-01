@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Routes, Route } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Routes, Route, useLocation } from "react-router-dom";
 import Topbar from "./scenes/global/Topbar";
 import Sidebar from "./scenes/global/Sidebar";
 import Dashboard from "./scenes/dashboard";
@@ -19,6 +19,31 @@ import Calendar from "./scenes/calendar/calendar";
 function App() {
   const [theme, colorMode] = useMode();
   const [isSidebar, setIsSidebar] = useState(true);
+  const location = useLocation();
+
+
+  useEffect(() => {
+    // Vérifier si un token est déjà stocké
+    let storedToken = localStorage.getItem("jwt-token");
+
+    if (!storedToken) {
+      // Récupérer le token depuis l'URL si nécessaire
+      const params = new URLSearchParams(location.search);
+      const urlToken = params.get("token");
+
+      if (urlToken) {
+        localStorage.setItem("jwt-token", urlToken);
+        storedToken = urlToken;
+        console.log("✅ Token récupéré depuis l'URL et stocké !");
+        
+        // Nettoyer l’URL uniquement après avoir stocké le token
+        window.history.replaceState({}, document.title, "/");
+      }
+    } else {
+      console.log("🔄 Token déjà présent dans localStorage !");
+    }
+  }, [location]);
+  
   return (
     <ColorModeContext.Provider value={colorMode}>
       <ThemeProvider theme={theme}>
