@@ -8,19 +8,8 @@ function Login() {
   const [error, setError] = useState("");
   const [recaptchaToken, setRecaptchaToken] = useState(null); // State to hold reCAPTCHA token
   const navigate = useNavigate();
-  const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // Ajout de l'état pour gérer la visibilité du mot de passe
 
-  // Charger l'email et le mot de passe enregistrés
-  useEffect(() => {
-    const savedEmail = localStorage.getItem("rememberedEmail");
-    const savedPassword = localStorage.getItem("rememberedPassword");
-    if (savedEmail && savedPassword) {
-      setEmail(savedEmail);
-      setPassword(savedPassword);
-      setRememberMe(true);
-    }
-  }, []);
-  
   useEffect(() => {
     const navbar = document.querySelector(".header");
     const footer = document.querySelector("footer");
@@ -59,14 +48,6 @@ function Login() {
         if (response.ok) {
           const token = data.token;
           localStorage.setItem("jwt-token", token);
-          // Stocker les identifiants si "Remember Me" est coché
-        if (rememberMe) {
-          localStorage.setItem("rememberedEmail", email);
-          localStorage.setItem("rememberedPassword", password);
-        } else {
-          localStorage.removeItem("rememberedEmail");
-          localStorage.removeItem("rememberedPassword");
-        }
             // Vérifier l'état du compte
             if (data.user.etat === "Désactivé") {
                 navigate("/accountdisabled"); // Redirection si le compte est désactivé
@@ -118,7 +99,7 @@ function Login() {
                     <div className="form-icon">
                       <i className="far fa-key"></i>
                       <input
-                        type="password"
+                        type={showPassword ? "text" : "password"} // Gère la visibilité
                         id="password"
                         className="form-control"
                         placeholder="Your Password"
@@ -126,9 +107,7 @@ function Login() {
                         onChange={(e) => setPassword(e.target.value)}
                         required
                       />
-                      <span className="password-view">
-                        <i className="far fa-eye-slash"></i>
-                      </span>
+
                     </div>
                   </div>
                   <div className="auth-group">
@@ -136,8 +115,7 @@ function Login() {
                       <input
                         className="form-check-input"
                         type="checkbox"
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
+                        value=""
                         id="remember"
                       />
                       <label className="form-check-label" htmlFor="remember">
