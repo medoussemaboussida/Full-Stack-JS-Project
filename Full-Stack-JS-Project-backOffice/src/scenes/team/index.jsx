@@ -28,7 +28,14 @@ const Team = () => {
   const [selectedRole, setSelectedRole] = useState(""); // ✅ Valeur par défaut "Tous"
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
- 
+  const [flashMessage, setFlashMessage] = useState("");
+  const [openStatusModal, setOpenStatusModal] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");  // Add this line
+  const [openModal, setOpenModal] = useState(false);  // Add this state
+
+
+
+
 
  // Charger les utilisateurs avec filtres (recherche + rôle)
  const fetchUsers = (query = "", role = "") => {
@@ -143,6 +150,7 @@ useEffect(() => {
   };
   
 
+  // Change account state (activate/deactivate)
   const handleEtatChange = async (id, newEtat) => {
     console.log(`🔄 Change of state from user${id} to ${newEtat}`);
   
@@ -156,26 +164,33 @@ useEffect(() => {
       });
   
       const data = await response.json();
-      console.log("📩 Server response :", data);
+      console.log("📩 Server response:", data);
   
       if (response.ok) {
-        alert(`✅ User ${newEtat.toLowerCase()} successfully !`);
+        setStatusMessage(`${newEtat === "Actif" ? "Activated" : "Deactivated"} user successfully!`);
+        setOpenModal(true); // Show the modal
   
-        // 🔹 Met à jour directement l'é
-        // tat React pour éviter un rechargement complet
+        // Close the modal after 2 seconds
+        setTimeout(() => {
+          setOpenModal(false);  // Close the modal after 2 seconds
+        }, 2000);
+  
+        // Update React state for users
         setUsers((prevUsers) =>
           prevUsers.map((user) =>
             user.id === id ? { ...user, etat: newEtat } : user
           )
         );
       } else {
-        alert(`❌ Error : ${data.message || "Unknown problem"}`);
+        alert(`❌ Error: ${data.message || "Unknown problem"}`);
       }
     } catch (error) {
-      console.error("❌Error when changing state :", error);
-      alert("❌ An error has occurred !");
+      console.error("❌ Error when changing state:", error);
+      alert("❌ An error has occurred!");
     }
   };
+  
+  
   
   
   const columns = [
@@ -198,8 +213,8 @@ useEffect(() => {
 value={params.row.etat === "Actif" ? "Actif" : "Désactivé"}
 onChange={(e) => handleEtatChange(params.row.id, e.target.value)}
   >
-    <MenuItem value="Actif">Enable</MenuItem>
-    <MenuItem value="Désactivé">Disable</MenuItem>
+    <MenuItem value="Actif">Enabled</MenuItem>
+    <MenuItem value="Désactivé">Disabled</MenuItem>
     </Select>
 </FormControl>
 
@@ -258,6 +273,12 @@ onChange={(e) => handleEtatChange(params.row.id, e.target.value)}
   return (
     <Box m="20px">
       <Header title="Account management" subtitle="Users" />
+      {/* Flash Message */}
+      {flashMessage && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {flashMessage}
+        </Alert>
+      )}
 
 {/* Top Bar - Search, Filter, and Add User */}
 <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} gap={2}>
@@ -313,6 +334,17 @@ onChange={(e) => handleEtatChange(params.row.id, e.target.value)}
       <Box sx={{ height: 500, width: "100%" }}>
         <DataGrid checkboxSelection rows={users} columns={columns} />
       </Box>
+
+      {openModal && (
+  <Dialog open={openModal} onClose={() => setOpenModal(false)}>
+    <DialogTitle>Account Status Update</DialogTitle>
+    <DialogContent>
+      <Typography>{statusMessage}</Typography>
+    </DialogContent>
+  </Dialog>
+)}
+
+
 
       {/* 🔹 Modal Voir Profil */}
       <Dialog 
