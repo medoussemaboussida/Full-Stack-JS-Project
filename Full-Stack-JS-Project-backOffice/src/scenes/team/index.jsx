@@ -10,7 +10,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import Header from "../../components/Header";
 import SearchIcon from "@mui/icons-material/Search";
-import { useTheme } from "@mui/material"; 
+import { useTheme, Snackbar } from "@mui/material"; 
 import { tokens } from "../../theme"; // Ensure you import tokens from your theme
 
 const Team = () => {
@@ -20,11 +20,15 @@ const Team = () => {
   const [formData, setFormData] = useState({ username: "", email: "", role: "", dob: "", password: "" });
   const [error, setError] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState("success"); // success ou error
   const [openProfileModal, setOpenProfileModal] = useState(false);
   const navigate = useNavigate();
   const [selectedRole, setSelectedRole] = useState(""); // ✅ Valeur par défaut "Tous"
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
+ 
 
  // Charger les utilisateurs avec filtres (recherche + rôle)
  const fetchUsers = (query = "", role = "") => {
@@ -90,16 +94,16 @@ useEffect(() => {
 
   // Ajouter ou Modifier un utilisateur avec redirection
   const handleSubmit = () => {
-    if (!formData.username || !formData.email.match(/\S+@\S+\.\S+/)) {
-      setError("Valid name and email required !");
+    if (!formData.username || !formData.email.match(/\S+@\S+\.\S+/) || !formData.dob || !formData.role) {
+      setError("All fields must be valid!");
       return;
     }
-
+  
     const method = formData.id ? "PUT" : "POST";
     const url = formData.id 
       ? `http://localhost:5000/users/${formData.id}` 
       : "http://localhost:5000/users/create";
-
+  
     fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
@@ -107,13 +111,26 @@ useEffect(() => {
     })
       .then((res) => res.json())
       .then((data) => {
+        if (data.message.includes("succès")) {
+          setSnackbarMessage("User created successfully! An email containing the identifiers has been sent.");
+          setSnackbarSeverity("success");
+        } else {
+          setSnackbarMessage(data.message || "Error creating user !");
+          setSnackbarSeverity("error");
+        }
+  
+        setSnackbarOpen(true); // Ouvre la notification
         fetchUsers();
         handleClose();
         navigate("/team");
       })
-      .catch((err) => console.error("❌ Erreur :", err));
+      .catch((err) => {
+        console.error("❌ Error:", err);
+        setSnackbarMessage("An error occurred while adding the user.");
+        setSnackbarSeverity("error");
+        setSnackbarOpen(true); // Affiche l'erreur
+      });
   };
-
   // Voir le profil d'un utilisateur
   const handleViewProfile = (id) => {
     fetch(`http://localhost:5000/users/${id}`)
@@ -185,6 +202,36 @@ onChange={(e) => handleEtatChange(params.row.id, e.target.value)}
     <MenuItem value="Désactivé">Disable</MenuItem>
     </Select>
 </FormControl>
+
+{/* ✅ Notification Snackbar */}
+<Snackbar
+  open={snackbarOpen}
+  autoHideDuration={4000}
+  onClose={() => setSnackbarOpen(false)}
+  anchorOrigin={{ vertical: "top", horizontal: "right" }} // ✅ Position en haut à droite
+  sx={{ 
+    "& .MuiSnackbarContent-root": { 
+      fontSize: "1.2rem", // ✅ Texte plus grand
+      fontWeight: "bold",
+      padding: "15px 20px",
+      borderRadius: "8px",
+      minWidth: "350px", // ✅ Largeur plus grande
+    } 
+  }}
+>
+  <Alert 
+    onClose={() => setSnackbarOpen(false)} 
+    severity={snackbarSeverity} 
+    sx={{ 
+      width: "100%", 
+      fontSize: "1.2rem", // ✅ Texte plus grand
+      fontWeight: "bold",
+      padding: "15px 20px"
+    }}
+  >
+    {snackbarMessage}
+  </Alert>
+</Snackbar>
 
 
       </Box>
