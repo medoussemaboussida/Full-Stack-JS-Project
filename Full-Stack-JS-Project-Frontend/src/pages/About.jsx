@@ -236,6 +236,41 @@ function About(){
           </div>
         </div>
         <div className="col-md-6 col-lg-3">
+          <div className="team-item wow fadeInUp" data-wow-delay=".25s">
+            <div className="team-img">
+              <img src="assets/img/team/05.jpg" alt="thumb" />
+              <div className="team-social-wrap">
+                <div className="team-social-btn">
+                  <button type="button">
+                    <i className="far fa-share-alt" />
+                  </button>
+                </div>
+                <div className="team-social">
+                  <a href="#">
+                    <i className="fab fa-facebook-f" />
+                  </a>
+                  <a href="#">
+                    <i className="fab fa-x-twitter" />
+                  </a>
+                  <a href="#">
+                    <i className="fab fa-linkedin-in" />
+                  </a>
+                  <a href="#">
+                    <i className="fab fa-youtube" />
+                  </a>
+                </div>
+              </div>
+            </div>
+            <div className="team-content">
+              <h4>
+                <a href="team.html">Asma Riahi</a>
+              </h4>
+              <span>Volunteer</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="col-md-6 col-lg-3">
           <div className="team-item wow fadeInUp" data-wow-delay=".50s">
             <div className="team-img">
               <img src="assets/img/team/02.jpg" alt="thumb" />
@@ -335,7 +370,10 @@ function About(){
               </h4>
               <span>Volunteer</span>
             </div>
+
+            
           </div>
+          
         </div>
       </div>
     </div>
