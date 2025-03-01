@@ -21,6 +21,7 @@ const Team = () => {
   const [error, setError] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [notification, setNotification] = useState({ open: false, message: "", severity: "success" });  
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success"); // success ou error
   const [openProfileModal, setOpenProfileModal] = useState(false);
@@ -102,13 +103,13 @@ useEffect(() => {
   // Ajouter ou Modifier un utilisateur avec redirection
   const handleSubmit = () => {
     if (!formData.username || !formData.email.match(/\S+@\S+\.\S+/) || !formData.dob || !formData.role) {
-      setError("All fields must be valid!");
+      setNotification({ open: true, message: "All fields must be valid!", severity: "error" });
       return;
     }
   
     const method = formData.id ? "PUT" : "POST";
-    const url = formData.id 
-      ? `http://localhost:5000/users/${formData.id}` 
+    const url = formData.id
+      ? `http://localhost:5000/users/${formData.id}`
       : "http://localhost:5000/users/create";
   
     fetch(url, {
@@ -118,26 +119,19 @@ useEffect(() => {
     })
       .then((res) => res.json())
       .then((data) => {
-        if (data.message.includes("succès")) {
-          setSnackbarMessage("User created successfully! An email containing the identifiers has been sent.");
-          setSnackbarSeverity("success");
-        } else {
-          setSnackbarMessage(data.message || "Error creating user !");
-          setSnackbarSeverity("error");
-        }
-  
-        setSnackbarOpen(true); // Ouvre la notification
         fetchUsers();
         handleClose();
         navigate("/team");
+  
+        // Afficher une notification de succès
+        setNotification({ open: true, message: "User added successfully!", severity: "success" });
       })
       .catch((err) => {
-        console.error("❌ Error:", err);
-        setSnackbarMessage("An error occurred while adding the user.");
-        setSnackbarSeverity("error");
-        setSnackbarOpen(true); // Affiche l'erreur
+        console.error("❌ Error :", err);
+        setNotification({ open: true, message: "Failed to add user!", severity: "error" });
       });
   };
+  
   // Voir le profil d'un utilisateur
   const handleViewProfile = (id) => {
     fetch(`http://localhost:5000/users/${id}`)
@@ -218,35 +212,6 @@ onChange={(e) => handleEtatChange(params.row.id, e.target.value)}
     </Select>
 </FormControl>
 
-{/* ✅ Notification Snackbar */}
-<Snackbar
-  open={snackbarOpen}
-  autoHideDuration={4000}
-  onClose={() => setSnackbarOpen(false)}
-  anchorOrigin={{ vertical: "top", horizontal: "right" }} // ✅ Position en haut à droite
-  sx={{ 
-    "& .MuiSnackbarContent-root": { 
-      fontSize: "1.2rem", // ✅ Texte plus grand
-      fontWeight: "bold",
-      padding: "15px 20px",
-      borderRadius: "8px",
-      minWidth: "350px", // ✅ Largeur plus grande
-    } 
-  }}
->
-  <Alert 
-    onClose={() => setSnackbarOpen(false)} 
-    severity={snackbarSeverity} 
-    sx={{ 
-      width: "100%", 
-      fontSize: "1.2rem", // ✅ Texte plus grand
-      fontWeight: "bold",
-      padding: "15px 20px"
-    }}
-  >
-    {snackbarMessage}
-  </Alert>
-</Snackbar>
 
 
       </Box>
@@ -272,13 +237,37 @@ onChange={(e) => handleEtatChange(params.row.id, e.target.value)}
 
   return (
     <Box m="20px">
-      <Header title="Account management" subtitle="Users" />
-      {/* Flash Message */}
-      {flashMessage && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          {flashMessage}
-        </Alert>
-      )}
+      {/* Titre + Notification alignée */}
+      {/* Titre + Notification sur la même ligne */}
+<Box display="flex" alignItems="center" justifyContent="space-between" width="100%">
+  {/* Titre */}
+  <Header title="Account management" subtitle="Users" />
+
+  {/* Notification Snackbar à droite */}
+  <Snackbar
+    anchorOrigin={{ vertical: "top", horizontal: "center " }}
+    open={notification.open}
+    autoHideDuration={3000}
+    onClose={() => setNotification({ ...notification, open: false })}
+    sx={{
+      marginLeft: "auto", // Pousse vers la droite
+      "& .MuiSnackbarContent-root": {
+        fontSize: "1.2rem",
+        fontWeight: "bold",
+        backgroundColor: notification.severity === "success" ? "#4CAF50" : "#F44336",
+        color: "#FFF",
+      },
+    }}
+  >
+    <Alert
+      onClose={() => setNotification({ ...notification, open: false })}
+      severity={notification.severity}
+      sx={{ width: "50%", fontSize: "1.1rem" }}
+    >
+      {notification.message}
+    </Alert>
+  </Snackbar>
+</Box>
 
 {/* Top Bar - Search, Filter, and Add User */}
 <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} gap={2}>
