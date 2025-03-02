@@ -3,10 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "nodemon app.js",
-    "start": "node ./dev_build/main.js",
-    "build-dev": "webpack --config webpack.dev.js --mode development"
-  },
+    "dev": "nodemon app.js"
+    },
   "dependencies": {
     "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.2",
