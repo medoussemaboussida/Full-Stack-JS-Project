@@ -10,6 +10,7 @@ sh('npm install')
 } 
 } 
 
+
 stage('SonarQube Analysis') { 
 steps{ 
 script {   
@@ -20,6 +21,8 @@ sh "${scannerHome}/bin/sonar-scanner"
 }  
 }   
 } 
+
+
 
 } 
 } 
