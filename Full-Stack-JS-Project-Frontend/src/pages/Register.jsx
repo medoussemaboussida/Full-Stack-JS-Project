@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import * as yup from 'yup'; // Importer yup
+import 'react-toastify/dist/ReactToastify.css';
+import { ToastContainer, toast } from 'react-toastify';
 
 function Register() {
     const [formData, setFormData] = useState({
@@ -87,6 +89,8 @@ function Register() {
             .required("Email is required."),
 
         dob: yup.date()
+        .nullable() // Permet de gérer les valeurs null
+        .transform((value, originalValue) => originalValue === "" ? null : value) // Convertit "" en null
             .max(new Date(), "Date of birth cannot be in the future.")
             .test("is-18", "Minimum age is 18.", function (value) {
                 if (!value) return false;
@@ -167,10 +171,10 @@ function Register() {
 
             const result = await response.json();
             if (response.ok) {
-                alert('Student registered successfully!');
+                toast.success('Student registered successfully!');
                 window.location.href = '/login'; // Rediriger vers la page de connexion
             } else {
-                alert(`Error: ${result.message || 'Failed to register student'}`);
+                toast.error('Failed to register student');
             }
         } catch (err) {
             // Gestion des erreurs de validation
@@ -180,9 +184,11 @@ function Register() {
                     validationErrors[error.path] = error.message;
                 });
                 setErrors(validationErrors);
+                toast.error('Respect the form please !');
+
             } else {
                 console.error(err);
-                alert('An error occurred while registering the student.');
+                toast.error('An error occurred while registering the student.');
             }
         }
     };
@@ -201,6 +207,17 @@ function Register() {
 
     return (
         <div>
+                 <ToastContainer
+                position="top-right"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+            />
             <main className="main">
                 <div className="auth-area py-120">
                     <div className="container">
