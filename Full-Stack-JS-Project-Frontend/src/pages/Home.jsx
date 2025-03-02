@@ -62,7 +62,6 @@ function Home() {
             {/* Navbar avec bouton de déconnexion à droite, au même niveau que navbar-toggler */}
             <nav className="navbar navbar-expand-lg navbar-light bg-light">
                 <div className="container-fluid d-flex justify-content-between align-items-center">
-                    <a className="navbar-brand" href="/">Brand</a>
                     <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                         <span className="navbar-toggler-icon"></span>
                     </button>
