@@ -13,7 +13,7 @@ sh('npm install')
 stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('scanner') {
-                    sh('npm sonar:sonar')
+                    sh('npx sonar:sonar')
                 }
             }
         } 
