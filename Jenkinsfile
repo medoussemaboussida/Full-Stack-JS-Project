@@ -9,23 +9,14 @@ sh('npm install')
 } 
 } 
 } 
-  
-stage('Unit Test') { 
-steps{ 
-script { 
-sh('npm test') 
-} 
-} 
-}
-  
-stage('Build application') { 
-steps{ 
-script { 
-sh('npm run build-dev') 
-} 
-} 
-} 
- 
+
+stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('scanner') {
+                    sh('mvn sonar:sonar')
+                }
+            }
+        } 
 
 } 
 } 
