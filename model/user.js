@@ -3,8 +3,44 @@ const bcrypt = require("bcrypt");
 
 const userSchema = new mongoose.Schema({
     username :{ type: String , required : true},
-    dob: { type: Date, required: true },
-    email :{ type: String , required : true , unique : true},
+    dob: { 
+        type: Date, 
+        required: true, 
+        validate: {
+            validator: function (value) {
+                const today = new Date();
+                const birthDate = new Date(value);
+
+                // Vérifier que la date n'est pas dans le futur
+                if (birthDate > today) {
+                    return false;
+                }
+
+                // Calculer l'âge
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                const dayDiff = today.getDate() - birthDate.getDate();
+
+                if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+                    age--; // Ajuster si l'anniversaire n'est pas encore passé
+                }
+
+                return age >= 18;
+            },
+            message: "La date de naissance doit être valide et l'utilisateur doit avoir au moins 18 ans."
+        }
+    },
+    email: {
+        type: String,
+        required: true,
+        unique: true,
+        validate: {
+            validator: function (value) {
+                return /^[a-zA-Z0-9._%+-]+@esprit\.tn$/.test(value);
+            },
+            message: "Email must end with @esprit.tn"
+        }
+    },   
     password: { type: String , required: function() { return this.role === 'student'; }},
     role: { type: String , enum:[ 'student', 'psychiatrist','teacher','association_member'] , required : false},
     user_photo: {type : String , required: false},

@@ -102,10 +102,36 @@ useEffect(() => {
 
   // Ajouter ou Modifier un utilisateur avec redirection
   const handleSubmit = () => {
-    if (!formData.username || !formData.email.match(/\S+@\S+\.\S+/) || !formData.dob || !formData.role) {
+    if (!formData.username || !formData.dob || !formData.role) {
       setNotification({ open: true, message: "All fields must be valid!", severity: "error" });
       return;
     }
+    if (!formData.email.match(/^[a-zA-Z0-9._%+-]+@esprit\.tn$/) ) {
+      setNotification({ open: true, message: "email must end with @esprit.tn", severity: "error" });
+      return;
+    }
+     // Vérifier que la date de naissance n'est pas dans le futur
+  const today = new Date();
+  const birthDate = new Date(formData.dob);
+  if (birthDate > today) {
+    setNotification({ open: true, message: "Date of birth cannot be in the future!", severity: "error" });
+    return;
+  }
+
+  // Vérifier si l'âge est >= 18 ans
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  const dayDiff = today.getDate() - birthDate.getDate();
+
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+    age--; // Ajustement si l'anniversaire n'est pas encore passé cette année
+  }
+
+  if (age < 18) {
+    setNotification({ open: true, message: "The user must be at least 18 years old!", severity: "error" });
+    return;
+  }
+
   
     const method = formData.id ? "PUT" : "POST";
     const url = formData.id
