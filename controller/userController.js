@@ -86,7 +86,8 @@ module.exports.Session = async (req, res) => {
             speciality: user.speciality,
             level: user.level,
             createdAt: user.createdAt, // Si vous souhaitez également la date de création
-            updatedAt: user.updatedAt  // Si vous souhaitez également la date de mise à jour
+            updatedAt: user.updatedAt, // Si vous souhaitez également la date de mise à jour
+            availability: user.availability // Ajoutez ceci
         });
     } catch (error) {
         res.status(500).json({ message: 'Server error', error });
@@ -649,5 +650,52 @@ module.exports.searchUsers = async (req, res) => {
     } catch (err) {
         console.error("❌ ERREUR DANS searchUsers :", err);  // Affiche l'erreur exacte
         res.status(500).json({ message: err.message });
+    }
+};
+
+
+// Récupérer les psychiatres avec leurs disponibilités
+module.exports.getPsychiatristsWithAvailability = async (req, res) => {
+    try {
+        const psychiatrists = await User.find({ role: 'psychiatrist' }, 'username availability');
+        res.status(200).json(psychiatrists);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
+
+
+
+
+
+// Ajouter une disponibilité pour un psychiatre
+module.exports.addAvailability = async (req, res) => {
+    const { day, startTime, endTime } = req.body;
+    const userId = req.params.id;
+
+    try {
+        // Vérifier que l'utilisateur existe et est un psychiatre
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        if (user.role !== 'psychiatrist') {
+            return res.status(403).json({ message: 'This action is only allowed for psychiatrists' });
+        }
+
+        // Vérifier que tous les champs nécessaires sont fournis
+        if (!day || !startTime || !endTime) {
+            return res.status(400).json({ message: 'Day, start time, and end time are required' });
+        }
+
+        // Ajouter la nouvelle disponibilité au tableau availability
+        user.availability.push({ day, startTime, endTime });
+        const updatedUser = await user.save();
+
+        res.status(200).json({ message: 'Availability added successfully', user: updatedUser });
+    } catch (error) {
+        console.error('Error adding availability:', error);
+        res.status(500).json({ message: 'Server error' });
     }
 };

@@ -19,6 +19,11 @@ router.post('/forgot-password', userController.forgotPassword);
 router.post('/reset-password/:token', userController.resetPassword);
 
 
+router.get('/psychiatrists', userController.getPsychiatristsWithAvailability);
+router.get('/psychiatrists', userController.getPsychiatristsWithAvailability);
+router.put('/psychiatrists/add-availability/:id', userController.addAvailability);
+
+
 
 //ghassen
 router.delete('/deleteAll', userController.deleteAllUsers);  // Supprimer tous les utilisateurs

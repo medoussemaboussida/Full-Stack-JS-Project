@@ -9,6 +9,7 @@ import DetailsStudent from './pages/details-student';
 import Reset_Password from './pages/Reset-Password';
 import AccountDisabled from './pages/AccountDisabled';
 import Publication from './pages/Publication';
+import PsychiatristList from './pages/PsychiatristList ';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
@@ -31,6 +32,11 @@ function App(){
 
         <Route path="/AccountDisabled" element={<AccountDisabled />} />
         <Route path="/Publication" element={<Publication />} />
+        <Route path="/PsychiatristList" element={<PsychiatristList />} />
+        
+
+
+
 
         </Routes>
       </BrowserRouter>
