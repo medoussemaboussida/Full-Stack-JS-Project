@@ -20,6 +20,8 @@ mongo.connect(db.url).then(() => {
 
 var forumRouter = require('./routes/forum');
 var forumCommentRouter = require('./routes/forumComment');
+var complaintRouter = require('./routes/complaint');
+var complaintResponseRouter = require('./routes/complaintResponse');
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 var app = express();
@@ -65,6 +67,8 @@ app.use('/users', usersRouter);
 
 app.use('/forum',forumRouter);
 app.use('/forumComment',forumCommentRouter);
+app.use('/complaint',complaintRouter);
+app.use('/complaintResponse',complaintResponseRouter);
 
 //GITHUB CONFIG 
 passport.use(
