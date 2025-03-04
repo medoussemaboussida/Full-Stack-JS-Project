@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/pagination';
+import { Navigation, Pagination } from 'swiper/modules';
+import '../App.css';
 
 const PsychiatristList = () => {
     const [psychiatrists, setPsychiatrists] = useState([]);
@@ -7,7 +13,11 @@ const PsychiatristList = () => {
     useEffect(() => {
         axios.get('http://localhost:5000/users/psychiatrists')
             .then(response => {
-                setPsychiatrists(response.data);
+                // Filtrer pour ne garder que les psychiatres ayant des disponibilités
+                const filteredPsychiatrists = response.data.filter(user => 
+                    user.role === 'psychiatrist' && user.availability && user.availability.length > 0
+                );
+                setPsychiatrists(filteredPsychiatrists);
             })
             .catch(error => {
                 console.error('Error fetching psychiatrists:', error);
@@ -15,24 +25,76 @@ const PsychiatristList = () => {
     }, []);
 
     return (
-        <div className="p-10 bg-gray-100 min-h-screen">
-            <h2 className="text-3xl font-bold text-center mb-6 text-blue-700">Liste des psychiatres</h2>
-            <div className="flex overflow-x-auto space-x-6 p-4">
-                {psychiatrists.map((psychiatrist, index) => (
-                    <div key={index} className="flex-shrink-0 w-96 bg-white shadow-lg rounded-xl p-6 border border-gray-200 hover:shadow-xl transition-shadow">
-                        <h3 className="text-xl font-semibold text-gray-800">{psychiatrist.username}</h3>
-                        <p className="text-gray-600 mt-2"><strong>Disponibilités :</strong></p>
-                        <ul className="mt-2">
-                            {psychiatrist.availability.map((avail, idx) => (
-                                <li key={idx} className="text-gray-700 text-sm bg-gray-200 px-3 py-1 rounded-lg mb-1 inline-block">
-                                    {avail.day}: {avail.startTime} - {avail.endTime}
-                                </li>
-                            ))}
-                        </ul>
+        <main className="main">
+            <div className="testimonial-area pt-80 pb-60">
+                <div className="container">
+                    <div className="row">
+                        <div className="col-lg-7 mx-auto">
+                            <div className="site-heading text-center">
+                                <span className="site-title-tagline">
+                                    <i className="far fa-hand-heart"></i> Psychiatrists
+                                </span>
+                                <h2 className="site-title">
+                                    Our Available <span>Psychiatrists</span> 
+                                </h2>
+                            </div>
+                        </div>
                     </div>
-                ))}
+                    <Swiper
+                        modules={[Navigation, Pagination]}
+                        navigation
+                        pagination={{ clickable: true, dynamicBullets: true }}
+                        spaceBetween={20}
+                        slidesPerView={1}
+                        breakpoints={{
+                            640: { slidesPerView: 1 },
+                            768: { slidesPerView: 2 },
+                            1024: { slidesPerView: 3 }
+                        }}
+                        className="testimonial-slider"
+                    >
+                        {psychiatrists.length > 0 ? (
+                            psychiatrists.map((psychiatrist, index) => (
+                                <SwiperSlide key={index}>
+                                    <div className="psychiatrist-card">
+                                        <div className="psychiatrist-img">
+                                            {psychiatrist.user_photo ? (
+                                                <img
+                                                    src={`http://localhost:5000${psychiatrist.user_photo}`}
+                                                    alt={psychiatrist.username}
+                                                />
+                                            ) : (
+                                                <div className="no-image">No Image</div> // Alternative sans image
+                                            )}
+                                        </div>
+                                        <div className="psychiatrist-info">
+                                            <h4>{psychiatrist.username}</h4>
+                                            <p>Psychiatrist</p>
+                                            <strong>Availability :</strong>
+                                            {psychiatrist.availability.length > 0 ? (
+                                                <ul>
+                                                    {psychiatrist.availability.map((avail, idx) => (
+                                                        <li key={idx}>
+                                                            {avail.day}: {avail.startTime} - {avail.endTime}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <span>No availability</span>
+                                            )}
+                                            {/* Ajout du bouton "Book Appointment" */}
+                                            <button className="book-appointment-btn">Book Appointment</button>
+                                        </div>
+                                    </div>
+                                </SwiperSlide>
+                            ))
+                        ) : (
+                            <div className="text-center text-gray-500">No psychiatrists found.</div>
+                        )}
+                    </Swiper>
+                </div>
             </div>
-        </div>
+        </main>
     );
 };
 

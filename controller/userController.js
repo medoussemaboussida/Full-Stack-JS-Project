@@ -655,12 +655,12 @@ module.exports.searchUsers = async (req, res) => {
 
 
 // Récupérer les psychiatres avec leurs disponibilités
-module.exports.getPsychiatristsWithAvailability = async (req, res) => {
+module.exports.getPsychiatrists = async (req, res) => {
     try {
-        const psychiatrists = await User.find({ role: 'psychiatrist' }, 'username availability');
+        const psychiatrists = await User.find({ role: 'psychiatrist' });
         res.status(200).json(psychiatrists);
-    } catch (err) {
-        res.status(500).json({ message: err.message });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error });
     }
 };
 
