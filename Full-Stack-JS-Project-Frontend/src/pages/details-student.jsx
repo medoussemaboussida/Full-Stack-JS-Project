@@ -6,6 +6,8 @@ import "react-toastify/dist/ReactToastify.css";
 function DetailsStudents() {
   const [user, setUser] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingAvailability, setIsEditingAvailability] = useState(false);
+const [editIndex, setEditIndex] = useState(null);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isChangingPhoto, setIsChangingPhoto] = useState(false);
   const [isAddingAvailability, setIsAddingAvailability] = useState(false);
@@ -140,6 +142,56 @@ function DetailsStudents() {
     });
   };
 
+  const handleEditAvailability = (index) => {
+    const slot = user.availability[index];
+    setAvailabilityData({
+      day: slot.day,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+    });
+    setEditIndex(index);
+    setIsEditingAvailability(true);
+  };
+  
+  const handleAddOrUpdateAvailability = async () => {
+    if (!availabilityData.day || !availabilityData.startTime || !availabilityData.endTime) {
+      toast.error("All fields are required");
+      return;
+    }
+  
+    try {
+      const token = localStorage.getItem("jwt-token");
+      const decoded = jwtDecode(token);
+      const url = isEditingAvailability
+        ? `${BASE_URL}/users/psychiatrists/update-availability/${decoded.id}/${editIndex}`
+        : `${BASE_URL}/users/psychiatrists/add-availability/${decoded.id}`;
+      const method = isEditingAvailability ? "PUT" : "PUT";
+  
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(availabilityData),
+      });
+  
+      const data = await response.json();
+      if (response.ok) {
+        setUser(data.user);
+        setIsAddingAvailability(false);
+        setIsEditingAvailability(false);
+        setEditIndex(null);
+        setAvailabilityData({ day: "", startTime: "", endTime: "" });
+        toast.success(isEditingAvailability ? "Availability updated successfully" : "Availability added successfully");
+      } else {
+        toast.error(`Error: ${data.message}`);
+      }
+    } catch (error) {
+      toast.error("Error processing availability");
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "dob") {
@@ -236,6 +288,34 @@ function DetailsStudents() {
       }
     } catch (error) {
       toast.error("Error changing password");
+    }
+  };
+
+
+  
+  const handleDeleteAvailability = async (index) => {
+    try {
+      const token = localStorage.getItem("jwt-token");
+      const decoded = jwtDecode(token);
+      const response = await fetch(
+        `${BASE_URL}/users/psychiatrists/delete-availability/${decoded.id}/${index}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+  
+      const data = await response.json();
+      if (response.ok) {
+        setUser(data.user); // Mise à jour de l'utilisateur après suppression
+        toast.success("Availability deleted successfully");
+      } else {
+        toast.error(`Error deleting availability: ${data.message}`);
+      }
+    } catch (error) {
+      toast.error("Error deleting availability");
     }
   };
 
@@ -530,12 +610,28 @@ function DetailsStudents() {
                       { title: "Role", name: "role", value: formData.role, disabled: true },
                       { title: "Status", name: "etat", value: formData.etat, disabled: true },
                       ...(user.role === "psychiatrist" && user.availability && user.availability.length > 0
-                        ? [{
-                            title: "Availability",
-                            name: "availability",
-                            value: user.availability.map((slot) => `${slot.day}: ${slot.startTime} - ${slot.endTime}`).join(", "),
+                        ? user.availability.map((slot, index) => ({
+                            title: `Availability ${index + 1}`,
+                            name: `availability-${index}`,
+                            value: (
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <span>{`${slot.day}: ${slot.startTime} - ${slot.endTime}`}</span>
+                                <div style={{ display: "flex", gap: "10px" }}>
+                                  <i
+                                    className="fas fa-edit"
+                                    style={{ color: "#2196F3", cursor: "pointer" }}
+                                    onClick={() => handleEditAvailability(index)}
+                                  ></i>
+                                  <i
+                                    className="fas fa-trash"
+                                    style={{ color: "#ff0000", cursor: "pointer" }}
+                                    onClick={() => handleDeleteAvailability(index)}
+                                  ></i>
+                                </div>
+                              </div>
+                            ),
                             disabled: true,
-                          }]
+                          }))
                         : []),
                     ].map((field, index) => (
                       <div
@@ -1056,106 +1152,109 @@ function DetailsStudents() {
           </div>
         )}
 
-        {isAddingAvailability && (
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(0, 0, 0, 0.5)",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              zIndex: 1000,
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: "white",
-                padding: "20px",
-                borderRadius: "8px",
-                width: "400px",
-                maxWidth: "90%",
-                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-              }}
-            >
-              <h3 style={{ marginBottom: "20px", textAlign: "center" }}>Add Availability</h3>
-              <div style={{ marginBottom: "10px" }}>
-                <select
-                  name="day"
-                  value={availabilityData.day}
-                  onChange={(e) => setAvailabilityData({ ...availabilityData, day: e.target.value })}
-                  style={{ padding: "10px", width: "100%", borderRadius: "4px", border: "1px solid #ccc" }}
-                >
-                  <option value="">Select Day</option>
-                  <option value="Monday">Monday</option>
-                  <option value="Tuesday">Tuesday</option>
-                  <option value="Wednesday">Wednesday</option>
-                  <option value="Thursday">Thursday</option>
-                  <option value="Friday">Friday</option>
-                  <option value="Saturday">Saturday</option>
-                  <option value="Sunday">Sunday</option>
-                </select>
-              </div>
-              <div style={{ marginBottom: "10px" }}>
-                <input
-                  type="time"
-                  name="startTime"
-                  value={availabilityData.startTime}
-                  onChange={(e) =>
-                    setAvailabilityData({ ...availabilityData, startTime: e.target.value })
-                  }
-                  style={{ padding: "10px", width: "100%", borderRadius: "4px", border: "1px solid #ccc" }}
-                />
-              </div>
-              <div style={{ marginBottom: "20px" }}>
-                <input
-                  type="time"
-                  name="endTime"
-                  value={availabilityData.endTime}
-                  onChange={(e) =>
-                    setAvailabilityData({ ...availabilityData, endTime: e.target.value })
-                  }
-                  style={{ padding: "10px", width: "100%", borderRadius: "4px", border: "1px solid #ccc" }}
-                />
-              </div>
-              <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-                <button
-                  onClick={handleAddAvailability}
-                  style={{
-                    backgroundColor: "#4CAF50",
-                    color: "white",
-                    padding: "10px 20px",
-                    fontSize: "16px",
-                    border: "none",
-                    cursor: "pointer",
-                    borderRadius: "5px",
-                    transition: "background-color 0.3s ease",
-                  }}
-                >
-                  Save Availability
-                </button>
-                <button
-                  onClick={() => setIsAddingAvailability(false)}
-                  style={{
-                    backgroundColor: "#f44336",
-                    color: "white",
-                    padding: "10px 20px",
-                    fontSize: "16px",
-                    border: "none",
-                    cursor: "pointer",
-                    borderRadius: "5px",
-                    transition: "background-color 0.3s ease",
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {isAddingAvailability || isEditingAvailability ? (
+  <div
+    style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      zIndex: 1000,
+    }}
+  >
+    <div
+      style={{
+        backgroundColor: "white",
+        padding: "20px",
+        borderRadius: "8px",
+        width: "400px",
+        maxWidth: "90%",
+        boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+      }}
+    >
+      <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+        {isEditingAvailability ? "Edit Availability" : "Add Availability"}
+      </h3>
+      <div style={{ marginBottom: "10px" }}>
+        <select
+          name="day"
+          value={availabilityData.day}
+          onChange={(e) => setAvailabilityData({ ...availabilityData, day: e.target.value })}
+          style={{ padding: "10px", width: "100%", borderRadius: "4px", border: "1px solid #ccc" }}
+        >
+          <option value="">Select Day</option>
+          <option value="Monday">Monday</option>
+          <option value="Tuesday">Tuesday</option>
+          <option value="Wednesday">Wednesday</option>
+          <option value="Thursday">Thursday</option>
+          <option value="Friday">Friday</option>
+          <option value="Saturday">Saturday</option>
+          <option value="Sunday">Sunday</option>
+        </select>
+      </div>
+      <div style={{ marginBottom: "10px" }}>
+        <input
+          type="time"
+          name="startTime"
+          value={availabilityData.startTime}
+          onChange={(e) => setAvailabilityData({ ...availabilityData, startTime: e.target.value })}
+          style={{ padding: "10px", width: "100%", borderRadius: "4px", border: "1px solid #ccc" }}
+        />
+      </div>
+      <div style={{ marginBottom: "20px" }}>
+        <input
+          type="time"
+          name="endTime"
+          value={availabilityData.endTime}
+          onChange={(e) => setAvailabilityData({ ...availabilityData, endTime: e.target.value })}
+          style={{ padding: "10px", width: "100%", borderRadius: "4px", border: "1px solid #ccc" }}
+        />
+      </div>
+      <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+        <button
+          onClick={handleAddOrUpdateAvailability}
+          style={{
+            backgroundColor: "#4CAF50",
+            color: "white",
+            padding: "10px 20px",
+            fontSize: "16px",
+            border: "none",
+            cursor: "pointer",
+            borderRadius: "5px",
+            transition: "background-color 0.3s ease",
+          }}
+        >
+          {isEditingAvailability ? "Update Availability" : "Save Availability"}
+        </button>
+        <button
+          onClick={() => {
+            setIsAddingAvailability(false);
+            setIsEditingAvailability(false);
+            setEditIndex(null);
+            setAvailabilityData({ day: "", startTime: "", endTime: "" });
+          }}
+          style={{
+            backgroundColor: "#f44336",
+            color: "white",
+            padding: "10px 20px",
+            fontSize: "16px",
+            border: "none",
+            cursor: "pointer",
+            borderRadius: "5px",
+            transition: "background-color 0.3s ease",
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+) : null}
       </main>
     </div>
   );

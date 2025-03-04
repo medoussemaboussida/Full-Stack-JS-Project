@@ -699,3 +699,42 @@ module.exports.addAvailability = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
+
+
+
+module.exports.deleteAvailability = async (req, res) => {
+    const userId = req.params.id;
+    const index = req.params.index;
+  
+    try {
+      const user = await User.findById(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      if (user.role !== "psychiatrist") return res.status(403).json({ message: "Action restricted to psychiatrists" });
+      if (index < 0 || index >= user.availability.length) return res.status(400).json({ message: "Invalid index" });
+  
+      user.availability.splice(index, 1); // Supprime l'élément à l'index spécifié
+      const updatedUser = await user.save();
+      res.status(200).json({ user: updatedUser });
+    } catch (error) {
+      res.status(500).json({ message: "Server error", error });
+    }
+  };
+
+  module.exports.updateAvailability = async (req, res) => {
+    const { day, startTime, endTime } = req.body;
+    const userId = req.params.id;
+    const index = req.params.index;
+  
+    try {
+      const user = await User.findById(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      if (user.role !== "psychiatrist") return res.status(403).json({ message: "Action restricted to psychiatrists" });
+      if (index < 0 || index >= user.availability.length) return res.status(400).json({ message: "Invalid index" });
+  
+      user.availability[index] = { day, startTime, endTime };
+      const updatedUser = await user.save();
+      res.status(200).json({ user: updatedUser });
+    } catch (error) {
+      res.status(500).json({ message: "Server error", error });
+    }
+  };
