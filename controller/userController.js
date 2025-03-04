@@ -667,31 +667,34 @@ module.exports.getPsychiatristsWithAvailability = async (req, res) => {
 
 
 
-// Fonction pour ajouter une disponibilité
-module.exports.addAvailability = async (req, res) => {
-    try {
-        const { userId, day, startTime, endTime } = req.body;
 
-        // Vérifier si l'utilisateur existe
+// Ajouter une disponibilité pour un psychiatre
+module.exports.addAvailability = async (req, res) => {
+    const { day, startTime, endTime } = req.body;
+    const userId = req.params.id;
+
+    try {
+        // Vérifier que l'utilisateur existe et est un psychiatre
         const user = await User.findById(userId);
         if (!user) {
-            return res.status(404).json({ message: 'Utilisateur non trouvé' });
+            return res.status(404).json({ message: 'User not found' });
+        }
+        if (user.role !== 'psychiatrist') {
+            return res.status(403).json({ message: 'This action is only allowed for psychiatrists' });
         }
 
-        // Vérifier que l'utilisateur a bien le rôle 'psy'
-        if (user.role !== 'psy') {
-            return res.status(403).json({ message: 'L\'utilisateur n\'a pas les droits nécessaires pour ajouter des disponibilités' });
+        // Vérifier que tous les champs nécessaires sont fournis
+        if (!day || !startTime || !endTime) {
+            return res.status(400).json({ message: 'Day, start time, and end time are required' });
         }
 
-        // Ajout de la disponibilité
+        // Ajouter la nouvelle disponibilité au tableau availability
         user.availability.push({ day, startTime, endTime });
+        const updatedUser = await user.save();
 
-        // Sauvegarder l'utilisateur avec la nouvelle disponibilité
-        await user.save();
-
-        res.status(200).json({ message: 'Disponibilité ajoutée avec succès' });
-    } catch (err) {
-        console.error('❌ Erreur lors de l\'ajout de la disponibilité :', err);
-        res.status(500).json({ message: 'Erreur lors de l\'ajout de la disponibilité' });
+        res.status(200).json({ message: 'Availability added successfully', user: updatedUser });
+    } catch (error) {
+        console.error('Error adding availability:', error);
+        res.status(500).json({ message: 'Server error' });
     }
 };

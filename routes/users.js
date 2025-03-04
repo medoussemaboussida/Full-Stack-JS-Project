@@ -19,9 +19,9 @@ router.post('/forgot-password', userController.forgotPassword);
 router.post('/reset-password/:token', userController.resetPassword);
 
 
-router.post('/users/psychiatrists/availability', userController.addAvailability);
 router.get('/psychiatrists', userController.getPsychiatristsWithAvailability);
-
+router.get('/psychiatrists', userController.getPsychiatristsWithAvailability);
+router.put('/psychiatrists/add-availability/:id', userController.addAvailability);
 
 
 

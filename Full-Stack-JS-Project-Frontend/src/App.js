@@ -9,7 +9,6 @@ import DetailsStudent from './pages/details-student';
 import Reset_Password from './pages/Reset-Password';
 import AccountDisabled from './pages/AccountDisabled';
 import PsychiatristList from './pages/PsychiatristList ';
-import AddAvailabilityForm from './pages/AddAvailabilityForm ';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
@@ -32,7 +31,6 @@ function App(){
 
         <Route path="/AccountDisabled" element={<AccountDisabled />} />
         <Route path="/PsychiatristList" element={<PsychiatristList />} />
-        <Route path="/AddAvailabilityForm" element={<AddAvailabilityForm />} />
         
 
 
