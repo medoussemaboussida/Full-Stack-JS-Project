@@ -18,9 +18,9 @@ mongo.connect(db.url).then(() => {
     console.log('✅ Database connectée');
 }).catch(() => console.log('❌ Erreur de connexion à la database'));
 
+var forumRouter = require('./routes/forum');
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
-var forumRouter = require('./routes/forum');
 var app = express();
 
 //  CORS - Unifier les origines
@@ -61,6 +61,7 @@ app.get('/reset-password/:token', (req, res) => {
 // Routes API
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
+
 app.use('/forum',forumRouter);
 
 //GITHUB CONFIG 
