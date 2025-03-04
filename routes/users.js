@@ -2,7 +2,10 @@ var express = require('express');
 var router = express.Router();
 const userController = require('../controller/userController');
 const validate = require('../middleware/validate')
+const { updateStudentProfile, updateStudentPhoto } = require('../controller/userController');
 
+router.put('/students/update/:id', updateStudentProfile);
+router.put('/students/update-photo/:id', updateStudentPhoto);
 router.post('/addStudent',validate,userController.addStudent);
 router.post('/login',userController.login);
 router.get('/session/:id',userController.Session);

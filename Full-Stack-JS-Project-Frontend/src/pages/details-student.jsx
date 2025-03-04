@@ -7,6 +7,7 @@ function DetailsStudents() {
     const [user, setUser] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
     const [isChangingPassword, setIsChangingPassword] = useState(false);
+    const [isChangingPhoto, setIsChangingPhoto] = useState(false);
     const [formData, setFormData] = useState({
         username: '',
         email: '',
@@ -14,17 +15,22 @@ function DetailsStudents() {
         speciality: '',
         level: '',
         role: '',
-        etat: ''
+        etat: '',
+        user_photo: ''
     });
     const [passwordData, setPasswordData] = useState({
         currentPassword: '',
         newPassword: '',
         confirmNewPassword: ''
     });
+    const [photoFile, setPhotoFile] = useState(null);
+    const [previewPhoto, setPreviewPhoto] = useState(null);
     const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+    const BASE_URL = 'http://localhost:5000'; // URL de base du serveur
 
     const formatDateForInput = (dateString) => {
         if (!dateString) return '';
@@ -53,7 +59,11 @@ function DetailsStudents() {
                 const decoded = jwtDecode(token);
                 const fetchUser = async () => {
                     try {
-                        const response = await fetch(`http://localhost:5000/users/session/${decoded.id}`);
+                        const response = await fetch(`${BASE_URL}/users/session/${decoded.id}`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
                         const data = await response.json();
                         if (response.ok) {
                             setUser(data);
@@ -64,8 +74,10 @@ function DetailsStudents() {
                                 speciality: data.speciality,
                                 level: data.level,
                                 role: data.role,
-                                etat: data.etat
+                                etat: data.etat,
+                                user_photo: data.user_photo || ''
                             });
+                            setPreviewPhoto(data.user_photo ? `${BASE_URL}${data.user_photo}` : 'assets/img/user.png');
                         } else {
                             console.error('Failed to fetch user:', data.message);
                         }
@@ -91,8 +103,10 @@ function DetailsStudents() {
                 speciality: user.speciality,
                 level: user.level,
                 role: user.role,
-                etat: user.etat
+                etat: user.etat,
+                user_photo: user.user_photo || ''
             });
+            setPreviewPhoto(user.user_photo ? `${BASE_URL}${user.user_photo}` : 'assets/img/user.png');
         }
     }, [user]);
 
@@ -107,7 +121,8 @@ function DetailsStudents() {
             speciality: user.speciality,
             level: user.level,
             role: user.role,
-            etat: user.etat
+            etat: user.etat,
+            user_photo: user.user_photo || ''
         });
     };
 
@@ -126,6 +141,18 @@ function DetailsStudents() {
         }));
     };
 
+    const handlePhotoChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setPhotoFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPreviewPhoto(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     const handleSave = async () => {
         if (!formData.username) {
             toast.error("Username cannot be empty");
@@ -134,7 +161,7 @@ function DetailsStudents() {
         try {
             const token = localStorage.getItem('jwt-token');
             const decoded = jwtDecode(token);
-            const response = await fetch(`http://localhost:5000/users/students/update/${decoded.id}`, {
+            const response = await fetch(`${BASE_URL}/users/students/update/${decoded.id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -168,7 +195,7 @@ function DetailsStudents() {
         try {
             const token = localStorage.getItem('jwt-token');
             const decoded = jwtDecode(token);
-            const response = await fetch(`http://localhost:5000/users/students/update/${decoded.id}`, {
+            const response = await fetch(`${BASE_URL}/users/students/update/${decoded.id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -194,11 +221,46 @@ function DetailsStudents() {
         }
     };
 
+    const handleChangePhoto = async () => {
+        if (!photoFile) {
+            toast.error("Please select a photo");
+            return;
+        }
+        try {
+            const token = localStorage.getItem('jwt-token');
+            const decoded = jwtDecode(token);
+            const formDataPhoto = new FormData();
+            formDataPhoto.append('user_photo', photoFile);
+
+            const response = await fetch(`${BASE_URL}/users/students/update-photo/${decoded.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formDataPhoto
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                setUser(data.user);
+                setFormData(prev => ({ ...prev, user_photo: data.user.user_photo }));
+                setPreviewPhoto(`${BASE_URL}${data.user.user_photo}`); // Mise à jour de l'image affichée
+                setIsChangingPhoto(false);
+                setPhotoFile(null);
+                toast.success("Profile photo updated successfully");
+            } else {
+                toast.error(`Error updating photo: ${data.message}`);
+            }
+        } catch (error) {
+            toast.error("Error updating photo");
+        }
+    };
+
     const handleDeleteAccount = async () => {
         try {
             const token = localStorage.getItem('jwt-token');
             const decoded = jwtDecode(token);
-            const response = await fetch(`http://localhost:5000/users/delete/${decoded.id}`, {
+            const response = await fetch(`${BASE_URL}/users/delete/${decoded.id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -323,8 +385,8 @@ function DetailsStudents() {
                                 gap: '40px',
                                 alignItems: 'start'
                             }}>
-                                <div style={{ borderRadius: '12px', overflow: 'hidden' }}>
-                                    <img src="assets/img/user.png" alt="team member" style={{ width: '100%', display: 'block' }} />
+                                <div style={{ borderRadius: '12px', overflow: 'hidden', position: 'relative' }}>
+                                    <img src={previewPhoto} alt="Profile" style={{ width: '100%', display: 'block' }} />
                                 </div>
 
                                 <div style={{ padding: '20px 0' }}>
@@ -606,6 +668,30 @@ function DetailsStudents() {
                                             <i className="fas fa-key" style={{ marginRight: '8px' }}></i> Change Password
                                         </button>
                                         <button
+                                            onClick={() => setIsChangingPhoto(true)}
+                                            style={{
+                                                backgroundColor: '#FF9800',
+                                                color: 'white',
+                                                padding: '12px 24px',
+                                                fontSize: '16px',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                borderRadius: '8px',
+                                                transition: 'all 0.3s ease',
+                                                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.target.style.transform = 'translateY(-1px)';
+                                                e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.15)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.target.style.transform = 'translateY(0)';
+                                                e.target.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.1)';
+                                            }}
+                                        >
+                                            <i className="fas fa-camera" style={{ marginRight: '8px' }}></i> Change Photo
+                                        </button>
+                                        <button
                                             onClick={() => setShowDeleteModal(true)}
                                             style={{
                                                 backgroundColor: '#ff0000',
@@ -724,6 +810,77 @@ function DetailsStudents() {
                                 </button>
                                 <button
                                     onClick={() => setIsChangingPassword(false)}
+                                    style={{
+                                        backgroundColor: '#f44336',
+                                        color: 'white',
+                                        padding: '10px 20px',
+                                        fontSize: '16px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        borderRadius: '5px',
+                                        transition: 'background-color 0.3s ease',
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {isChangingPhoto && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 1000,
+                    }}>
+                        <div style={{
+                            backgroundColor: 'white',
+                            padding: '20px',
+                            borderRadius: '8px',
+                            width: '400px',
+                            maxWidth: '90%',
+                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                        }}>
+                            <h3 style={{ marginBottom: '20px', textAlign: 'center' }}>Change Profile Photo</h3>
+                            <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+                                <img src={previewPhoto} alt="Preview" style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', marginBottom: '10px' }} />
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handlePhotoChange}
+                                    style={{ display: 'block', margin: '0 auto' }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+                                <button
+                                    onClick={handleChangePhoto}
+                                    style={{
+                                        backgroundColor: '#4CAF50',
+                                        color: 'white',
+                                        padding: '10px 20px',
+                                        fontSize: '16px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        borderRadius: '5px',
+                                        transition: 'background-color 0.3s ease',
+                                    }}
+                                >
+                                    Save Photo
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setIsChangingPhoto(false);
+                                        setPhotoFile(null);
+                                        setPreviewPhoto(user.user_photo ? `${BASE_URL}${user.user_photo}` : 'assets/img/user.png');
+                                    }}
                                     style={{
                                         backgroundColor: '#f44336',
                                         color: 'white',

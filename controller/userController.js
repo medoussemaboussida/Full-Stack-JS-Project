@@ -3,6 +3,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const sendEmail = require('../utils/emailSender');
+const multer = require('multer');
+const path = require('path');
 
 dotenv.config(); // Charger les variables d'environnement
 
@@ -118,6 +120,33 @@ module.exports.logout = (req, res) => {
 
 
 
+// Configuration de multer pour stocker les fichiers
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/'); // Dossier où les photos seront stockées
+    },
+    filename: (req, file, cb) => {
+        cb(null, `${Date.now()}-${file.originalname}`); // Nom unique pour chaque fichier
+    }
+});
+
+const upload = multer({
+    storage: storage,
+    fileFilter: (req, file, cb) => {
+        const filetypes = /jpeg|jpg|png/;
+        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = filetypes.test(file.mimetype);
+
+        if (extname && mimetype) {
+            return cb(null, true);
+        } else {
+            cb('Error: Images only (jpeg, jpg, png)!');
+        }
+    },
+    limits: { fileSize: 5 * 1024 * 1024 } // Limite de 5MB
+}).single('user_photo');
+
+// Mise à jour du profil étudiant
 module.exports.updateStudentProfile = async (req, res) => {
     try {
         const userId = req.params.id;
@@ -131,44 +160,71 @@ module.exports.updateStudentProfile = async (req, res) => {
 
         // Mise à jour des champs en fonction du rôle
         if (user.role === "student") {
-            // Pour les étudiants, permettre la mise à jour de tous les champs
             if (username) user.username = username;
             if (email) user.email = email;
             if (dob) user.dob = dob;
             if (speciality) user.speciality = speciality;
             if (level) user.level = level;
             if (password) {
-                user.password = password;  // Pas de hashage, stockage en clair
+                user.password = password; // Note : Hachez le mot de passe dans une vraie application
             }
         } else {
-            // Pour les autres rôles, permettre uniquement la mise à jour du mot de passe
             if (password) {
-                user.password = password;  // Pas de hashage, stockage en clair
+                user.password = password;
             } else {
                 return res.status(403).json({ message: "Action non autorisée pour ce rôle" });
             }
         }
 
-        // Sauvegarder les modifications
         const updatedUser = await user.save();
-
-        // Renvoyer les données mises à jour
         res.status(200).json({
             message: "Profil mis à jour avec succès",
-            user: updatedUser.toObject(), // ou updatedUser.toJSON()
+            user: updatedUser.toObject()
         });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
 };
 
-//afficher un seul etudiant
+// Mise à jour de la photo de profil
+module.exports.updateStudentPhoto = async (req, res) => {
+    upload(req, res, async (err) => {
+        if (err) {
+            return res.status(400).json({ message: err });
+        }
+
+        try {
+            const userId = req.params.id;
+            const user = await User.findById(userId);
+
+            if (!user) {
+                return res.status(404).json({ message: "Utilisateur non trouvé" });
+            }
+
+            if (req.file) {
+                user.user_photo = `/uploads/${req.file.filename}`; // Chemin relatif de la photo
+            } else {
+                return res.status(400).json({ message: "Aucune photo téléchargée" });
+            }
+
+            const updatedUser = await user.save();
+            res.status(200).json({
+                message: "Photo de profil mise à jour avec succès",
+                user: updatedUser.toObject()
+            });
+        } catch (err) {
+            res.status(500).json({ message: err.message });
+        }
+    });
+};
+
+// Afficher un seul étudiant
 module.exports.getStudentById = async (req, res) => {
     try {
         const studentId = req.params.id;
 
         // Recherche de l'étudiant par ID et vérification du rôle
-        const student = await User.findOne({ _id: studentId, role: "student" });
+        const student = await User.findOne({ _id: studentId });
 
         if (!student) {
             return res.status(404).json({ message: "Étudiant non trouvé" });
