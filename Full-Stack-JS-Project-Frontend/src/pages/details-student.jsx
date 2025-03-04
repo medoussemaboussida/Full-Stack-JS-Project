@@ -75,7 +75,8 @@ function DetailsStudents() {
             });
             const data = await response.json();
             if (response.ok) {
-              setUser(data);
+              console.log("Fetched user data on load:", data); // Vérifiez si availability est présent
+              setUser(data); // Assurez-vous que data contient availability
               setFormData({
                 username: data.username,
                 email: data.email,
@@ -333,7 +334,6 @@ function DetailsStudents() {
       toast.error("Error adding availability");
     }
   };
-
   if (!user) {
     return (
       <div style={{ textAlign: "center", padding: "20px", fontSize: "18px" }}>

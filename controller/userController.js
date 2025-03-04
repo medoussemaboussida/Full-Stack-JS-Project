@@ -86,7 +86,8 @@ module.exports.Session = async (req, res) => {
             speciality: user.speciality,
             level: user.level,
             createdAt: user.createdAt, // Si vous souhaitez également la date de création
-            updatedAt: user.updatedAt  // Si vous souhaitez également la date de mise à jour
+            updatedAt: user.updatedAt, // Si vous souhaitez également la date de mise à jour
+            availability: user.availability // Ajoutez ceci
         });
     } catch (error) {
         res.status(500).json({ message: 'Server error', error });
