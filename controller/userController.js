@@ -3,6 +3,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const sendEmail = require('../utils/emailSender');
+const multer = require('multer');
+const path = require('path');
 
 dotenv.config(); // Charger les variables d'environnement
 
@@ -118,6 +120,33 @@ module.exports.logout = (req, res) => {
 
 
 
+// Configuration de multer pour stocker les fichiers
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/'); // Dossier où les photos seront stockées
+    },
+    filename: (req, file, cb) => {
+        cb(null, `${Date.now()}-${file.originalname}`); // Nom unique pour chaque fichier
+    }
+});
+
+const upload = multer({
+    storage: storage,
+    fileFilter: (req, file, cb) => {
+        const filetypes = /jpeg|jpg|png/;
+        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = filetypes.test(file.mimetype);
+
+        if (extname && mimetype) {
+            return cb(null, true);
+        } else {
+            cb('Error: Images only (jpeg, jpg, png)!');
+        }
+    },
+    limits: { fileSize: 5 * 1024 * 1024 } // Limite de 5MB
+}).single('user_photo');
+
+// Mise à jour du profil étudiant
 module.exports.updateStudentProfile = async (req, res) => {
     try {
         const userId = req.params.id;
@@ -131,44 +160,71 @@ module.exports.updateStudentProfile = async (req, res) => {
 
         // Mise à jour des champs en fonction du rôle
         if (user.role === "student") {
-            // Pour les étudiants, permettre la mise à jour de tous les champs
             if (username) user.username = username;
             if (email) user.email = email;
             if (dob) user.dob = dob;
             if (speciality) user.speciality = speciality;
             if (level) user.level = level;
             if (password) {
-                user.password = password;  // Pas de hashage, stockage en clair
+                user.password = password; // Note : Hachez le mot de passe dans une vraie application
             }
         } else {
-            // Pour les autres rôles, permettre uniquement la mise à jour du mot de passe
             if (password) {
-                user.password = password;  // Pas de hashage, stockage en clair
+                user.password = password;
             } else {
                 return res.status(403).json({ message: "Action non autorisée pour ce rôle" });
             }
         }
 
-        // Sauvegarder les modifications
         const updatedUser = await user.save();
-
-        // Renvoyer les données mises à jour
         res.status(200).json({
             message: "Profil mis à jour avec succès",
-            user: updatedUser.toObject(), // ou updatedUser.toJSON()
+            user: updatedUser.toObject()
         });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
 };
 
-//afficher un seul etudiant
+// Mise à jour de la photo de profil
+module.exports.updateStudentPhoto = async (req, res) => {
+    upload(req, res, async (err) => {
+        if (err) {
+            return res.status(400).json({ message: err });
+        }
+
+        try {
+            const userId = req.params.id;
+            const user = await User.findById(userId);
+
+            if (!user) {
+                return res.status(404).json({ message: "Utilisateur non trouvé" });
+            }
+
+            if (req.file) {
+                user.user_photo = `/uploads/${req.file.filename}`; // Chemin relatif de la photo
+            } else {
+                return res.status(400).json({ message: "Aucune photo téléchargée" });
+            }
+
+            const updatedUser = await user.save();
+            res.status(200).json({
+                message: "Photo de profil mise à jour avec succès",
+                user: updatedUser.toObject()
+            });
+        } catch (err) {
+            res.status(500).json({ message: err.message });
+        }
+    });
+};
+
+// Afficher un seul étudiant
 module.exports.getStudentById = async (req, res) => {
     try {
         const studentId = req.params.id;
 
         // Recherche de l'étudiant par ID et vérification du rôle
-        const student = await User.findOne({ _id: studentId, role: "student" });
+        const student = await User.findOne({ _id: studentId });
 
         if (!student) {
             return res.status(404).json({ message: "Étudiant non trouvé" });
@@ -365,6 +421,18 @@ module.exports.deactivateAccount = async (req, res) => {
 
 
 //ghassen
+
+function generatePassword(length = 12) {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+';
+    let password = '';
+    for (let i = 0; i < length; i++) {
+        const randomIndex = Math.floor(Math.random() * characters.length);
+        password += characters.charAt(randomIndex);
+    }
+    return password;
+}
+
+
 // ✅ Ajouter un utilisateur avec validation par email
 module.exports.createUser = async (req, res) => {
     try {
@@ -376,16 +444,14 @@ module.exports.createUser = async (req, res) => {
             return res.status(400).json({ message: "Rôle invalide" });
         }
 
-        // 🔹 Mot de passe par défaut
-        const defaultPassword = "Aa123456&.";
-    //    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
-
+        // 🔹 Génération du mot de passe automatique
+        const generatedPassword = generatePassword(12);  // Tu peux ajuster la longueur du mot de passe ici
 
         // 🔹 Création de l'utilisateur
         const newUser = new User({
             username,
             email,
-            password: defaultPassword,
+            password: generatedPassword, // Utilisation du mot de passe généré
             dob,
             role,
             etat: "Désactivé", // 🔴 Désactivé par défaut
@@ -395,25 +461,24 @@ module.exports.createUser = async (req, res) => {
         await newUser.save();
         console.log("✔️ Utilisateur sauvegardé avec succès :", newUser);
 
-       // 🔹 Contenu de l'e-mail avec lien d'activation
-       const activationLink = `http://localhost:5000/users/activate/${newUser.validationToken}`;
-       const subject = "🔐 Activez votre compte EspritCare";
-       const htmlContent = `
-           <h2>Bienvenue, ${username} !</h2>
-           <p>Votre compte a été créé, mais il est désactivé.</p>
-           <p>Veuillez cliquer sur le bouton ci-dessous pour activer votre compte :</p>
-           <a href="${activationLink}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 5px;">
-               Activer mon compte
-           </a>
-           <p>Une fois activé, utilisez ces informations pour vous connecter :</p>
-           <ul>
-               <li><strong>Email :</strong> ${email}</li>
-               <li><strong>Mot de passe :</strong> ${defaultPassword}</li>
-               <li><strong>Rôle :</strong> ${role}</li>
-           </ul>
-           <p>EspritCare</p>
-       `;
-
+        // 🔹 Contenu de l'e-mail avec lien d'activation
+        const activationLink = `http://localhost:5000/users/activate/${newUser.validationToken}`;
+        const subject = "🔐 Activez votre compte EspritCare";
+        const htmlContent = `
+            <h2>Bienvenue, ${username} !</h2>
+            <p>Votre compte a été créé, mais il est désactivé.</p>
+            <p>Veuillez cliquer sur le bouton ci-dessous pour activer votre compte :</p>
+            <a href="${activationLink}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 5px;">
+                Activer mon compte
+            </a>
+            <p>Une fois activé, utilisez ces informations pour vous connecter :</p>
+            <ul>
+                <li><strong>Email :</strong> ${email}</li>
+                <li><strong>Mot de passe :</strong> ${generatedPassword}</li> <!-- Affichage du mot de passe généré -->
+                <li><strong>Rôle :</strong> ${role}</li>
+            </ul>
+            <p>EspritCare</p>
+        `;
 
         // 🔹 Envoi de l'email
         await sendEmail(email, subject, htmlContent);
@@ -425,6 +490,7 @@ module.exports.createUser = async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 };
+
 // ✅ Activer un utilisateur après clic sur le lien
 module.exports.activateUser = async (req, res) => {
     try {
