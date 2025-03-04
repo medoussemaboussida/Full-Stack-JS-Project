@@ -16,6 +16,8 @@ const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
 var forumRouter = require('./routes/forum');
 var forumCommentRouter = require('./routes/forumComment');
+var complaintRouter = require('./routes/complaint');
+var complaintResponseRouter = require('./routes/complaintResponse');
 
 const app = express();
 app.use('/uploads', express.static('uploads'));
@@ -67,7 +69,8 @@ app.use('/', indexRouter);
 app.use('/users', usersRouter);
 app.use('/forum',forumRouter);
 app.use('/forumComment',forumCommentRouter);
-
+app.use('/complaint',complaintRouter);
+app.use('/complaintResponse',complaintResponseRouter);
 
 //GITHUB CONFIG 
 passport.use(
