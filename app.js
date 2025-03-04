@@ -1,27 +1,29 @@
 require('dotenv').config();
-var createError = require('http-errors');
-var express = require('express');
-var path = require('path');
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
+const mongoose = require('mongoose');
+const express = require('express');
+const path = require('path');
+const cookieParser = require('cookie-parser');
+const logger = require('morgan');
 const http = require('http');
-const mongo = require('mongoose');
 const cors = require('cors');
 const passport = require('passport');
 const session = require('express-session');
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const GithubStrategy = require("passport-github2").Strategy;
+const { Strategy: GoogleStrategy } = require('passport-google-oauth20');
+const { Strategy: GithubStrategy } = require('passport-github2');
+const createError = require('http-errors');
 
+const indexRouter = require('./routes/index');
+const usersRouter = require('./routes/users');
+
+const app = express();
+app.use('/uploads', express.static('uploads'));
 // Connexion à la base de données
-const db = require('./config/dbconnection.json');
-mongo.connect(db.url).then(() => {
-    console.log('✅ Database connectée');
-}).catch(() => console.log('❌ Erreur de connexion à la database'));
-
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
-var forumRouter = require('./routes/forum');
-var app = express();
+mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('Connexion à MongoDB réussie'))
+  .catch(err => {
+    console.error('Erreur de connexion à MongoDB', err);
+    process.exit(1); // Arrête l'application en cas d'erreur de connexion
+  });
 
 //  CORS - Unifier les origines
 app.use(cors({
@@ -61,7 +63,7 @@ app.get('/reset-password/:token', (req, res) => {
 // Routes API
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
-app.use('/forum',forumRouter);
+
 
 //GITHUB CONFIG 
 passport.use(
