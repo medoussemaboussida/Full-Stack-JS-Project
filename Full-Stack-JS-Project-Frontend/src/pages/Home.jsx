@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { jwtDecode } from 'jwt-decode'; 
+import PsychiatristList from './PsychiatristList ';
+
+
 
 const useAuth = () => {
     const [user, setUser] = useState(null);
@@ -124,6 +127,11 @@ function Home() {
                     </div>
                 </div>
                 {/* Hero area end */}
+
+            {/* Psychiatrist List Section */}
+                <div className="container mt-4">
+                    <PsychiatristList />
+                </div>
             </main>
         </div>
     );

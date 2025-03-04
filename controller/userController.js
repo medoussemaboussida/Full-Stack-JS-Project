@@ -585,3 +585,47 @@ module.exports.searchUsers = async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 };
+
+
+// Récupérer les psychiatres avec leurs disponibilités
+module.exports.getPsychiatristsWithAvailability = async (req, res) => {
+    try {
+        const psychiatrists = await User.find({ role: 'psychiatrist' }, 'username availability');
+        res.status(200).json(psychiatrists);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
+
+
+
+
+// Fonction pour ajouter une disponibilité
+module.exports.addAvailability = async (req, res) => {
+    try {
+        const { userId, day, startTime, endTime } = req.body;
+
+        // Vérifier si l'utilisateur existe
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'Utilisateur non trouvé' });
+        }
+
+        // Vérifier que l'utilisateur a bien le rôle 'psy'
+        if (user.role !== 'psy') {
+            return res.status(403).json({ message: 'L\'utilisateur n\'a pas les droits nécessaires pour ajouter des disponibilités' });
+        }
+
+        // Ajout de la disponibilité
+        user.availability.push({ day, startTime, endTime });
+
+        // Sauvegarder l'utilisateur avec la nouvelle disponibilité
+        await user.save();
+
+        res.status(200).json({ message: 'Disponibilité ajoutée avec succès' });
+    } catch (err) {
+        console.error('❌ Erreur lors de l\'ajout de la disponibilité :', err);
+        res.status(500).json({ message: 'Erreur lors de l\'ajout de la disponibilité' });
+    }
+};

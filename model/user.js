@@ -61,7 +61,17 @@ const userSchema = new mongoose.Schema({
     validationToken: { type: String, required: false },
 
    
-}, { timestamps: true });
+availability: [
+        {
+            day: { type: String, required: true },
+            startTime: { type: String, required: true },
+            endTime: { type: String, required: true },
+        },
+    ],
+},
+
+
+{ timestamps: true });
 
 
 // ✅ Middleware pour hacher le mot de passe avant de sauvegarder
