@@ -15,6 +15,7 @@ const createError = require('http-errors');
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
 var forumRouter = require('./routes/forum');
+var forumCommentRouter = require('./routes/forumComment');
 
 const app = express();
 app.use('/uploads', express.static('uploads'));
@@ -65,6 +66,7 @@ app.get('/reset-password/:token', (req, res) => {
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 app.use('/forum',forumRouter);
+app.use('/forumComment',forumCommentRouter);
 
 
 //GITHUB CONFIG 
