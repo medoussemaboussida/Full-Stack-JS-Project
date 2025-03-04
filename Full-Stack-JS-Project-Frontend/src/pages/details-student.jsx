@@ -71,8 +71,8 @@ function DetailsStudents() {
                                 username: data.username,
                                 email: data.email,
                                 dob: formatDateForInput(data.dob),
-                                speciality: data.speciality,
-                                level: data.level,
+                                speciality: data.speciality || '',
+                                level: data.level || '',
                                 role: data.role,
                                 etat: data.etat,
                                 user_photo: data.user_photo || ''
@@ -100,8 +100,8 @@ function DetailsStudents() {
                 username: user.username,
                 email: user.email,
                 dob: formatDateForInput(user.dob),
-                speciality: user.speciality,
-                level: user.level,
+                speciality: user.speciality || '',
+                level: user.level || '',
                 role: user.role,
                 etat: user.etat,
                 user_photo: user.user_photo || ''
@@ -118,8 +118,8 @@ function DetailsStudents() {
             username: user.username,
             email: user.email,
             dob: formatDateForInput(user.dob),
-            speciality: user.speciality,
-            level: user.level,
+            speciality: user.speciality || '',
+            level: user.level || '',
             role: user.role,
             etat: user.etat,
             user_photo: user.user_photo || ''
@@ -167,7 +167,13 @@ function DetailsStudents() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify(formData)
+                body: JSON.stringify({
+                    username: formData.username,
+                    email: formData.email,
+                    dob: formData.dob,
+                    speciality: formData.speciality,
+                    level: formData.level
+                })
             });
 
             const data = await response.json();
@@ -180,6 +186,7 @@ function DetailsStudents() {
             }
         } catch (error) {
             toast.error("Error updating profile");
+            console.error(error);
         }
     };
 
@@ -218,6 +225,7 @@ function DetailsStudents() {
             }
         } catch (error) {
             toast.error("Error changing password");
+            console.error(error);
         }
     };
 
@@ -244,7 +252,7 @@ function DetailsStudents() {
             if (response.ok) {
                 setUser(data.user);
                 setFormData(prev => ({ ...prev, user_photo: data.user.user_photo }));
-                setPreviewPhoto(`${BASE_URL}${data.user.user_photo}`); // Mise à jour de l'image affichée
+                setPreviewPhoto(`${BASE_URL}${data.user.user_photo}`);
                 setIsChangingPhoto(false);
                 setPhotoFile(null);
                 toast.success("Profile photo updated successfully");
@@ -253,6 +261,7 @@ function DetailsStudents() {
             }
         } catch (error) {
             toast.error("Error updating photo");
+            console.error(error);
         }
     };
 
@@ -279,6 +288,7 @@ function DetailsStudents() {
             }
         } catch (error) {
             toast.error("Error deleting account");
+            console.error(error);
         }
     };
 
