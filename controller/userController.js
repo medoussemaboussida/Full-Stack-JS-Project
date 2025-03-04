@@ -421,6 +421,18 @@ module.exports.deactivateAccount = async (req, res) => {
 
 
 //ghassen
+
+function generatePassword(length = 12) {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+';
+    let password = '';
+    for (let i = 0; i < length; i++) {
+        const randomIndex = Math.floor(Math.random() * characters.length);
+        password += characters.charAt(randomIndex);
+    }
+    return password;
+}
+
+
 // ✅ Ajouter un utilisateur avec validation par email
 module.exports.createUser = async (req, res) => {
     try {
@@ -432,16 +444,14 @@ module.exports.createUser = async (req, res) => {
             return res.status(400).json({ message: "Rôle invalide" });
         }
 
-        // 🔹 Mot de passe par défaut
-        const defaultPassword = "Aa123456&.";
-    //    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
-
+        // 🔹 Génération du mot de passe automatique
+        const generatedPassword = generatePassword(12);  // Tu peux ajuster la longueur du mot de passe ici
 
         // 🔹 Création de l'utilisateur
         const newUser = new User({
             username,
             email,
-            password: defaultPassword,
+            password: generatedPassword, // Utilisation du mot de passe généré
             dob,
             role,
             etat: "Désactivé", // 🔴 Désactivé par défaut
@@ -451,25 +461,24 @@ module.exports.createUser = async (req, res) => {
         await newUser.save();
         console.log("✔️ Utilisateur sauvegardé avec succès :", newUser);
 
-       // 🔹 Contenu de l'e-mail avec lien d'activation
-       const activationLink = `http://localhost:5000/users/activate/${newUser.validationToken}`;
-       const subject = "🔐 Activez votre compte EspritCare";
-       const htmlContent = `
-           <h2>Bienvenue, ${username} !</h2>
-           <p>Votre compte a été créé, mais il est désactivé.</p>
-           <p>Veuillez cliquer sur le bouton ci-dessous pour activer votre compte :</p>
-           <a href="${activationLink}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 5px;">
-               Activer mon compte
-           </a>
-           <p>Une fois activé, utilisez ces informations pour vous connecter :</p>
-           <ul>
-               <li><strong>Email :</strong> ${email}</li>
-               <li><strong>Mot de passe :</strong> ${defaultPassword}</li>
-               <li><strong>Rôle :</strong> ${role}</li>
-           </ul>
-           <p>EspritCare</p>
-       `;
-
+        // 🔹 Contenu de l'e-mail avec lien d'activation
+        const activationLink = `http://localhost:5000/users/activate/${newUser.validationToken}`;
+        const subject = "🔐 Activez votre compte EspritCare";
+        const htmlContent = `
+            <h2>Bienvenue, ${username} !</h2>
+            <p>Votre compte a été créé, mais il est désactivé.</p>
+            <p>Veuillez cliquer sur le bouton ci-dessous pour activer votre compte :</p>
+            <a href="${activationLink}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 5px;">
+                Activer mon compte
+            </a>
+            <p>Une fois activé, utilisez ces informations pour vous connecter :</p>
+            <ul>
+                <li><strong>Email :</strong> ${email}</li>
+                <li><strong>Mot de passe :</strong> ${generatedPassword}</li> <!-- Affichage du mot de passe généré -->
+                <li><strong>Rôle :</strong> ${role}</li>
+            </ul>
+            <p>EspritCare</p>
+        `;
 
         // 🔹 Envoi de l'email
         await sendEmail(email, subject, htmlContent);
@@ -481,6 +490,7 @@ module.exports.createUser = async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 };
+
 // ✅ Activer un utilisateur après clic sur le lien
 module.exports.activateUser = async (req, res) => {
     try {
