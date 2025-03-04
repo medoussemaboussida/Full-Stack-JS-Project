@@ -19,6 +19,7 @@ mongo.connect(db.url).then(() => {
 }).catch(() => console.log('❌ Erreur de connexion à la database'));
 
 var forumRouter = require('./routes/forum');
+var forumCommentRouter = require('./routes/forumComment');
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 var app = express();
@@ -63,6 +64,7 @@ app.use('/', indexRouter);
 app.use('/users', usersRouter);
 
 app.use('/forum',forumRouter);
+app.use('/forumComment',forumCommentRouter);
 
 //GITHUB CONFIG 
 passport.use(
