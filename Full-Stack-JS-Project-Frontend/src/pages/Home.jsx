@@ -55,10 +55,7 @@ const useAuth = () => {
 function Home() {
     const user = useAuth(); 
 
-    const handleLogout = () => {
-        localStorage.removeItem('jwt-token');
-        window.location.href = '/login';
-    };
+   
 
     return (
         <div>
@@ -73,16 +70,7 @@ function Home() {
                             {/* Bouton de déconnexion à droite */}
                             {user && (
                                 <li className="nav-item">
-                                    <button
-                                        onClick={handleLogout}
-                                        className="btn btn-success"
-                                        style={{
-                                            marginTop: '20px',
-                                            padding: '10px 20px',
-                                        }}
-                                    >
-                                        Logout
-                                    </button>
+                                   
                                 </li>
                             )}
                         </ul>
