@@ -89,7 +89,7 @@ module.exports.login = async (req, res) => {
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            return res.status(401).json({ message: "Mot de passe incorrect" });
+            return res.status(401).json({ message: "Password or Email incorrect" });
         }
 
         const token = createtoken(user._id);
@@ -124,153 +124,54 @@ module.exports.Session = async (req, res) => {
     }
 };
 
-// Logout
-module.exports.logout = (req, res) => {
+module.exports.getStudentBytoken = async (req, res) => {
     try {
-        res.clearCookie("jwt-token", { httpOnly: true });
-        req.session?.destroy((err) => {
-            if (err) {
-                return res.status(500).json({ message: "Échec de la destruction de la session" });
-            }
-            res.status(200).json({ message: "Déconnexion réussie" });
-        });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
+        const token = req.params.token;
 
-// Configuration de multer pour la photo de profil
-const storag = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/');
-    },
-    filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname}`);
-    }
-});
+        console.log("Token reçu :", token);
 
-const uploa= multer({
-    storage: storag,
-    fileFilter: (req, file, cb) => {
-        const filetypes = /jpeg|jpg|png/;
-        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-        const mimetype = filetypes.test(file.mimetype);
-        if (extname && mimetype) {
-            cb(null, true);
-        } else {
-            cb('Erreur : Seules les images (jpeg, jpg, png) sont acceptées !');
-        }
-    },
-    limits: { fileSize: 5 * 1024 * 1024 }
-}).single('user_photo');
-
-// Mise à jour du profil étudiant
-module.exports.updateStudentProfile = async (req, res) => {
-    try {
-        const userId = req.params.id;
-        const { username, email, dob, password, speciality, level } = req.body;
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({ message: "Utilisateur non trouvé" });
+        if (!token) {
+            return res.status(400).json({ message: "Token manquant" });
         }
 
-        if (user.role === "student") {
-            if (username) user.username = username;
-            if (email) user.email = email;
-            if (dob) user.dob = dob;
-            if (speciality) user.speciality = speciality;
-            if (level) user.level = level;
-            if (password) user.password = password; // À hacher dans une vraie application
-        } else if (password) {
-            user.password = password;
-        } else {
-            return res.status(403).json({ message: "Action non autorisée pour ce rôle" });
-        }
+        // Vérifie que le token correspond bien à un utilisateur
+        const student = await User.findOne({ validationToken: token, role: "student" });
 
-        const updatedUser = await user.save();
-        res.status(200).json({ message: "Profil mis à jour avec succès", user: updatedUser.toObject() });
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
-};
-
-// Mise à jour de la photo de profil
-module.exports.updateStudentPhoto = async (req, res) => {
-    upload(req, res, async (err) => {
-        if (err) {
-            return res.status(400).json({ message: err });
-        }
-        try {
-            const userId = req.params.id;
-            const user = await User.findById(userId);
-            if (!user) {
-                return res.status(404).json({ message: "Utilisateur non trouvé" });
-            }
-            if (req.file) {
-                user.user_photo = `/uploads/${req.file.filename}`;
-            } else {
-                return res.status(400).json({ message: "Aucune photo téléchargée" });
-            }
-            const updatedUser = await user.save();
-            res.status(200).json({ message: "Photo de profil mise à jour avec succès", user: updatedUser.toObject() });
-        } catch (err) {
-            res.status(500).json({ message: err.message });
-        }
-    });
-};
-
-// Récupérer un étudiant par ID
-module.exports.getStudentById = async (req, res) => {
-    try {
-        const studentId = req.params.id;
-        const student = await User.findOne({ _id: studentId });
         if (!student) {
             return res.status(404).json({ message: "Étudiant non trouvé" });
         }
+
         res.status(200).json(student);
     } catch (err) {
+        console.error("Erreur :", err);
         res.status(500).json({ message: err.message });
     }
 };
 
-// Dans userController.js
-module.exports.addPublication = (req, res) => {
-    upload1(req, res, async (err) => {
+// Logout
+module.exports.logout = (req, res) => {
+    try {
+      // Supprimer les cookies associés au JWT
+      res.clearCookie("this_is_jstoken", { httpOnly: true });
+  
+      // Si vous utilisez express-session pour gérer les sessions
+      res.clearCookie("connect.sid");
+  
+      // Supprimer l'utilisateur de la session
+      req.session.destroy((err) => {
         if (err) {
-            console.log('Erreur Multer:', err);
-            return res.status(400).json({ message: err });
+          return res.status(500).json({ message: "Failed to destroy session" });
         }
+        
+        // Envoyer une réponse de déconnexion réussie
+        res.status(200).json({ message: "Logged out successfully" });
+      });
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  };
+  
 
-        try {
-            console.log('Données reçues:', req.body, req.file);
-            const { titrePublication, description } = req.body;
-
-            const publication = new Publication({
-                titrePublication,
-                description,
-                imagePublication: req.file ? `/uploads/publications/${req.file.filename}` : null,
-                author_id: req.userId,
-                status: 'draft',
-                datePublication: new Date(),
-                tag: req.body.tag ? req.body.tag.split(',') : []
-            });
-
-            const savedPublication = await publication.save();
-            res.status(201).json({ message: 'Publication ajoutée avec succès', publication: savedPublication });
-        } catch (error) {
-            console.log('Erreur lors de l’ajout:', error);
-            if (error.name === 'ValidationError') {
-                // Renvoyer les erreurs de validation MongoDB
-                const validationErrors = Object.values(error.errors).map(err => err.message);
-                return res.status(400).json({ message: 'Erreur de validation', errors: validationErrors });
-            }
-            res.status(500).json({ message: 'Erreur lors de l’ajout de la publication', error: error.message });
-        }
-    });
-};
-
-// Exportation du middleware verifyToken
-module.exports.verifyToken = verifyToken;
 
 
 
@@ -575,6 +476,39 @@ module.exports.deactivateAccount = async (req, res) => {
 
 
 //ghassen
+//Liste favories
+exports.toggleFavoriteActivity = async (req, res) => {
+    console.log("✅ Requête reçue sur /favorite-activity/:id avec ID :", req.params.id);
+
+    try {
+        const { id } = req.params; // Assure-toi que c'est bien `id` et pas `userId`
+        const { activity } = req.body;
+
+        if (!activity) {
+            return res.status(400).json({ message: "Activité non spécifiée" });
+        }
+
+        const user = await User.findById(id); // Vérifie l'ID ici
+        if (!user) {
+            return res.status(404).json({ message: "Utilisateur non trouvé" });
+        }
+
+        // Ajouter ou supprimer des favoris
+        const isFavorite = user.favoriteActivities.includes(activity);
+        if (isFavorite) {
+            user.favoriteActivities = user.favoriteActivities.filter(a => a !== activity);
+        } else {
+            user.favoriteActivities.push(activity);
+        }
+
+        await user.save();
+        res.json({ message: "Activité mise à jour", favoriteActivities: user.favoriteActivities });
+    } catch (error) {
+        console.error("❌ Erreur toggleFavoriteActivity:", error);
+        res.status(500).json({ message: "Erreur serveur", error });
+    }
+};
+
 
 function generatePassword(length = 12) {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+';
@@ -585,6 +519,7 @@ function generatePassword(length = 12) {
     }
     return password;
 }
+
 
 
 // ✅ Ajouter un utilisateur avec validation par email
@@ -808,12 +743,12 @@ module.exports.searchUsers = async (req, res) => {
 
 
 // Récupérer les psychiatres avec leurs disponibilités
-module.exports.getPsychiatristsWithAvailability = async (req, res) => {
+module.exports.getPsychiatrists = async (req, res) => {
     try {
-        const psychiatrists = await User.find({ role: 'psychiatrist' }, 'username availability');
+        const psychiatrists = await User.find({ role: 'psychiatrist' });
         res.status(200).json(psychiatrists);
-    } catch (err) {
-        res.status(500).json({ message: err.message });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error });
     }
 };
 
@@ -852,3 +787,42 @@ module.exports.addAvailability = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
+
+
+
+module.exports.deleteAvailability = async (req, res) => {
+    const userId = req.params.id;
+    const index = req.params.index;
+  
+    try {
+      const user = await User.findById(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      if (user.role !== "psychiatrist") return res.status(403).json({ message: "Action restricted to psychiatrists" });
+      if (index < 0 || index >= user.availability.length) return res.status(400).json({ message: "Invalid index" });
+  
+      user.availability.splice(index, 1); // Supprime l'élément à l'index spécifié
+      const updatedUser = await user.save();
+      res.status(200).json({ user: updatedUser });
+    } catch (error) {
+      res.status(500).json({ message: "Server error", error });
+    }
+  };
+
+  module.exports.updateAvailability = async (req, res) => {
+    const { day, startTime, endTime } = req.body;
+    const userId = req.params.id;
+    const index = req.params.index;
+  
+    try {
+      const user = await User.findById(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      if (user.role !== "psychiatrist") return res.status(403).json({ message: "Action restricted to psychiatrists" });
+      if (index < 0 || index >= user.availability.length) return res.status(400).json({ message: "Invalid index" });
+  
+      user.availability[index] = { day, startTime, endTime };
+      const updatedUser = await user.save();
+      res.status(200).json({ user: updatedUser });
+    } catch (error) {
+      res.status(500).json({ message: "Server error", error });
+    }
+  };

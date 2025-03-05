@@ -41,17 +41,32 @@ const userSchema = new mongoose.Schema({
             message: "Email must end with @esprit.tn"
         }
     },   
-    password: { type: String , required: function() { return this.role === 'student'; }},
+    password: { 
+        type: String,
+        required: function() {
+            // Only required for 'student' role and if Google login didn't provide a password
+            return this.role === 'student' && !this.password;
+        },
+        default: function() {
+            // Set a default password if it's a 'student' and not provided
+            if (this.role === 'student' && !this.password) {
+                return 'defaultPassword123';
+            }
+            return undefined;
+        }
+    },
     role: { type: String , enum:[ 'student', 'psychiatrist','teacher','association_member'] , required : false},
     user_photo: {type : String , required: false},
     etat: {type : String ,  default: function () {return this.role === 'student' ? 'Actif' : 'Désactivé';}},
     speciality: { 
         type: String, 
-        enum: ['A', 'B', 'P', 'TWIN', 'SAE', 'SE', 'BI', 'DS', 'IOSYS', 'SLEAM', 'SIM', 'NIDS', 'INFINI'], 
+        enum: ['A', 'B', 'P', 'TWIN', 'SAE', 'SE', 'BI', 'DS', 'IOSYS', 'SLEAM', 'SIM', 'NIDS', 'INFINI','choose your speciality'], 
         required: function() { return this.role === 'student'; },
-        validate: {validator: function(value) {
-                if (this.role === 'student') 
-                    { return value !== null && value !== undefined;}
+        validate: {
+            validator: function(value) {
+                if (this.role === 'student') {
+                    return value !== null && value !== undefined;
+                }
                 return true;
             },
             message: "La spécialité est obligatoire pour les étudiants."
@@ -60,7 +75,8 @@ const userSchema = new mongoose.Schema({
     level: { type: Number, required: function() { return this.role === 'student'; } },
     validationToken: { type: String, required: false },
 
-   
+    favoriteActivities: [{ type: String }], // Liste des activités favorites
+
 availability: [
         {
             day: { type: String, required: true },

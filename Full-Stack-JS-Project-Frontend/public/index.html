@@ -174,7 +174,7 @@
                                     <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Portfolio</a>
                                     <ul class="dropdown-menu fade-down">
                                         <li><a class="dropdown-item" href="portfolio.html">Portfolio One</a></li>
-                                        <li><a class="dropdown-item" href="portfolio-2.html">Portfolio Two</a></li>
+                                        <li><a class="dropdown-item" href="/favoriteActivities">favorite activities</a></li>
                                         <li><a class="dropdown-item" href="portfolio-single.html">Portfolio Single</a>
                                         </li>
                                     </ul>
@@ -206,6 +206,20 @@
                                         style="width: 40px; height: 40px; border-radius: 50%; cursor: pointer; object-fit: cover;"
                                         onclick="window.location.href='/student'"
                                     />
+
+
+
+                                         
+                                <!-- <button type="button" class="sidebar-btn nav-right-link" data-bs-toggle="offcanvas"
+                                data-bs-target="#sidebarPopup">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </button> -->
+                            <li class="nav-item ms-3">
+                                <button class="btn btn-danger" onclick="event.preventDefault(); logout();">Logout</button>
+                            </li>
+                            
                                     <!-- <div id="username-container" style="margin-left: 10px; font-weight: bold; font-size: 12px;">
                                         Chargement...
                                     </div>
@@ -252,12 +266,12 @@
                                     </script>
                                      -->
                                 
-                                <button type="button" class="sidebar-btn nav-right-link" data-bs-toggle="offcanvas"
+                                <!-- <button type="button" class="sidebar-btn nav-right-link" data-bs-toggle="offcanvas"
                                     data-bs-target="#sidebarPopup">
                                     <span></span>
                                     <span></span>
                                     <span></span>
-                                </button>
+                                </button> -->
                             </div>
                         </div>
                     </div>
@@ -265,6 +279,29 @@
             </nav>
         </div>
         <!-- navbar end-->
+
+
+        
+        <script>
+            function logout() {
+                console.log("Déconnexion en cours..."); // Debug
+                fetch('http://localhost:5000/logout', {
+                    method: 'POST',
+                    credentials: 'include', // Inclure les cookies pour les sessions
+                })
+                .then(response => {
+                    if (response.ok) {
+                        console.log("Déconnexion réussie, redirection vers /login..."); // Debug
+                        window.location.href = '/login'; // Rediriger vers la page de connexion
+                    } else {
+                        console.error('Erreur lors de la déconnexion:', response.statusText); // Debug
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur lors de la déconnexion:', error); // Debug
+                });
+            }
+        </script>
 
     </header>
   <body>

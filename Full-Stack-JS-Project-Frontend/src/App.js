@@ -10,11 +10,9 @@ import Reset_Password from './pages/Reset-Password';
 import AccountDisabled from './pages/AccountDisabled';
 import Publication from './pages/Publication';
 import PsychiatristList from './pages/PsychiatristList ';
-import AddPublication from './pages/AddPublication';
-
-
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import VerifyAccount from './pages/VerifyAuth';
 
 
 function App(){
@@ -32,12 +30,14 @@ function App(){
         <Route path="/forgot-password" element={<Forgot_Password />} />
         <Route path="/student" element={<DetailsStudent />} />
         <Route path="/reset-password/:token" element={<Reset_Password />} />
+        <Route path="/verify-account/:token" element={<VerifyAccount/>} />
 
         <Route path="/AccountDisabled" element={<AccountDisabled />} />
         <Route path="/Publication" element={<Publication />} />
         <Route path="/PsychiatristList" element={<PsychiatristList />} />
         <Route path="/AddPublication" element={<AddPublication />} />
         
+        <Route path="/favoriteActivities" element={<FavoriteActivities />} />
 
 
 
