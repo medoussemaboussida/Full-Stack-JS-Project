@@ -12,11 +12,14 @@ const { Strategy: GoogleStrategy } = require('passport-google-oauth20');
 const { Strategy: GithubStrategy } = require('passport-github2');
 const createError = require('http-errors');
 
+
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
 
+
 const app = express();
 app.use('/uploads', express.static('uploads'));
+
 // Connexion à la base de données
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('Connexion à MongoDB réussie'))
@@ -63,6 +66,7 @@ app.get('/reset-password/:token', (req, res) => {
 // Routes API
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
+
 
 
 //GITHUB CONFIG 

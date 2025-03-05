@@ -81,7 +81,7 @@ function Publication() {
                             </div>
                             {userRole === 'psychiatrist' && (
                                 <a
-                                    href="/add-publication"
+                                    href="/AddPublication"
                                     style={{
                                         display: 'inline-flex',
                                         alignItems: 'center',

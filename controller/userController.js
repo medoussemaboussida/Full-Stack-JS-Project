@@ -5,77 +5,107 @@ const dotenv = require('dotenv');
 const sendEmail = require('../utils/emailSender');
 const multer = require('multer');
 const path = require('path');
+const Publication = require('../model/publication'); // Assurez-vous que le chemin est correct
 
-dotenv.config(); // Charger les variables d'environnement
+dotenv.config();
 
-//jwt config
-const maxAge=1 * 60 * 60 ; //1hrs
-const createtoken=(id)=>{
-return jwt.sign({id},'randa',{expiresIn:maxAge})
-}
-
-// Token de validation pour l'activation du compte (valide 24h) ghassen
-const createValidationToken = (id) => {
-    return jwt.sign({ id }, 'validation_secret', { expiresIn: '1d' });
+// JWT config
+const maxAge = 1 * 60 * 60; // 1 heure
+const createtoken = (id) => {
+    return jwt.sign({ id }, 'randa', { expiresIn: maxAge });
 };
 
-//signup
-module.exports.addStudent = async (req,res) => { 
+// Middleware pour vérifier le token JWT
+const verifyToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    console.log('Authorization Header:', authHeader);
+    const token = authHeader && authHeader.split(' ')[1];
+    console.log('Token extrait:', token);
 
-    try{
-        console.log(req.body);
-        const{ username , dob , email, password,speciality,level}=req.body;
-        const etatUser = "Actif"
-        const photoUser= "Null"
-        const roleUser = "student";
-        const user = new User({username , email , dob , password , role:roleUser , etat:etatUser , user_photo:photoUser,speciality,level});
-        const userAdded = await user.save()
-        res.status(201).json(userAdded);
-    }catch(err){
-        res.status(500).json({message: err.message})
+    if (!token) {
+        return res.status(401).json({ message: 'Aucun token fourni, authentification requise' });
     }
-} 
-//login
+
+    jwt.verify(token, 'randa', (err, decoded) => {
+        if (err) {
+            console.log('Erreur JWT:', err.message);
+            return res.status(403).json({ message: 'Token invalide ou expiré', error: err.message });
+        }
+        console.log('Token décodé:', decoded);
+        req.userId = decoded.id;
+        next();
+    });
+};
+
+// Configuration de multer pour les publications
+const storage1 = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/publications/');
+    },
+    filename: (req, file, cb) => {
+        cb(null, `${Date.now()}-${file.originalname}`);
+    }
+});
+
+const upload1 = multer({
+    storage: storage1,
+    fileFilter: (req, file, cb) => {
+        const filetypes = /jpeg|jpg|png/;
+        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = filetypes.test(file.mimetype);
+        if (extname && mimetype) {
+            cb(null, true);
+        } else {
+            cb('Erreur : Seules les images (jpeg, jpg, png) sont acceptées !');
+        }
+    },
+    limits: { fileSize: 5 * 1024 * 1024 }
+}).single('imagePublication');
+
+// Signup
+module.exports.addStudent = async (req, res) => {
+    try {
+        console.log(req.body);
+        const { username, dob, email, password, speciality, level } = req.body;
+        const etatUser = "Actif";
+        const photoUser = "Null";
+        const roleUser = "student";
+        const user = new User({ username, email, dob, password, role: roleUser, etat: etatUser, user_photo: photoUser, speciality, level });
+        const userAdded = await user.save();
+        res.status(201).json(userAdded);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
+// Login
 module.exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
-
-        // Trouver l'utilisateur par email
         const user = await User.findOne({ email });
-        if (user) {
-             // Vérifier le mot de passe crypté
+        if (!user) {
+            return res.status(400).json({ message: "Email incorrect" });
+        }
+
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(401).json({ message: "Mot de passe incorrect" });
         }
-        else {
-                // Générer le token
-                const token = createtoken(user._id);
 
-                // Définir le cookie avec le token
-                res.cookie('jwt-token', token, { httpOnly: true, maxAge: maxAge * 1000 });
-
-                // Retourner l'utilisateur et le token
-                return res.status(200).json({ user, token });
-            } 
-            throw new Error("Incorrect password or unauthorized role");
-        }
-        throw new Error("Incorrect email");
+        const token = createtoken(user._id);
+        res.status(200).json({ user, token });
     } catch (err) {
-        res.status(400).json({ message: err.message });
+        res.status(500).json({ message: err.message });
     }
 };
 
-
-
+// Session
 module.exports.Session = async (req, res) => {
     try {
-        const user = await User.findById(req.params.id); // Récupérer l'utilisateur par son ID
+        const user = await User.findById(req.params.id);
         if (!user) {
-            return res.status(404).json({ message: 'User not found' });
+            return res.status(404).json({ message: 'Utilisateur non trouvé' });
         }
-
-        // Retourner toutes les informations de l'utilisateur
         res.json({
             username: user.username,
             dob: user.dob,
@@ -85,39 +115,162 @@ module.exports.Session = async (req, res) => {
             etat: user.etat,
             speciality: user.speciality,
             level: user.level,
-            createdAt: user.createdAt, // Si vous souhaitez également la date de création
-            updatedAt: user.updatedAt, // Si vous souhaitez également la date de mise à jour
-            availability: user.availability // Ajoutez ceci
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+            availability: user.availability
         });
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error });
+        res.status(500).json({ message: 'Erreur serveur', error });
     }
 };
 
-//logout
+// Logout
 module.exports.logout = (req, res) => {
     try {
-      // Supprimer les cookies associés au JWT
-      res.clearCookie("this_is_jstoken", { httpOnly: true });
-  
-      // Si vous utilisez express-session pour gérer les sessions
-      res.clearCookie("connect.sid");
-  
-      // Supprimer l'utilisateur de la session
-      req.session.destroy((err) => {
-        if (err) {
-          return res.status(500).json({ message: "Failed to destroy session" });
-        }
-        
-        // Envoyer une réponse de déconnexion réussie
-        res.status(200).json({ message: "Logged out successfully" });
-      });
+        res.clearCookie("jwt-token", { httpOnly: true });
+        req.session?.destroy((err) => {
+            if (err) {
+                return res.status(500).json({ message: "Échec de la destruction de la session" });
+            }
+            res.status(200).json({ message: "Déconnexion réussie" });
+        });
     } catch (error) {
-      res.status(500).json({ message: error.message });
+        res.status(500).json({ message: error.message });
     }
-  };
-  
+};
 
+// Configuration de multer pour la photo de profil
+const storag = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/');
+    },
+    filename: (req, file, cb) => {
+        cb(null, `${Date.now()}-${file.originalname}`);
+    }
+});
+
+const uploa= multer({
+    storage: storag,
+    fileFilter: (req, file, cb) => {
+        const filetypes = /jpeg|jpg|png/;
+        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = filetypes.test(file.mimetype);
+        if (extname && mimetype) {
+            cb(null, true);
+        } else {
+            cb('Erreur : Seules les images (jpeg, jpg, png) sont acceptées !');
+        }
+    },
+    limits: { fileSize: 5 * 1024 * 1024 }
+}).single('user_photo');
+
+// Mise à jour du profil étudiant
+module.exports.updateStudentProfile = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const { username, email, dob, password, speciality, level } = req.body;
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "Utilisateur non trouvé" });
+        }
+
+        if (user.role === "student") {
+            if (username) user.username = username;
+            if (email) user.email = email;
+            if (dob) user.dob = dob;
+            if (speciality) user.speciality = speciality;
+            if (level) user.level = level;
+            if (password) user.password = password; // À hacher dans une vraie application
+        } else if (password) {
+            user.password = password;
+        } else {
+            return res.status(403).json({ message: "Action non autorisée pour ce rôle" });
+        }
+
+        const updatedUser = await user.save();
+        res.status(200).json({ message: "Profil mis à jour avec succès", user: updatedUser.toObject() });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
+// Mise à jour de la photo de profil
+module.exports.updateStudentPhoto = async (req, res) => {
+    upload(req, res, async (err) => {
+        if (err) {
+            return res.status(400).json({ message: err });
+        }
+        try {
+            const userId = req.params.id;
+            const user = await User.findById(userId);
+            if (!user) {
+                return res.status(404).json({ message: "Utilisateur non trouvé" });
+            }
+            if (req.file) {
+                user.user_photo = `/uploads/${req.file.filename}`;
+            } else {
+                return res.status(400).json({ message: "Aucune photo téléchargée" });
+            }
+            const updatedUser = await user.save();
+            res.status(200).json({ message: "Photo de profil mise à jour avec succès", user: updatedUser.toObject() });
+        } catch (err) {
+            res.status(500).json({ message: err.message });
+        }
+    });
+};
+
+// Récupérer un étudiant par ID
+module.exports.getStudentById = async (req, res) => {
+    try {
+        const studentId = req.params.id;
+        const student = await User.findOne({ _id: studentId });
+        if (!student) {
+            return res.status(404).json({ message: "Étudiant non trouvé" });
+        }
+        res.status(200).json(student);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
+// Dans userController.js
+module.exports.addPublication = (req, res) => {
+    upload1(req, res, async (err) => {
+        if (err) {
+            console.log('Erreur Multer:', err);
+            return res.status(400).json({ message: err });
+        }
+
+        try {
+            console.log('Données reçues:', req.body, req.file);
+            const { titrePublication, description } = req.body;
+
+            const publication = new Publication({
+                titrePublication,
+                description,
+                imagePublication: req.file ? `/uploads/publications/${req.file.filename}` : null,
+                author_id: req.userId,
+                status: 'draft',
+                datePublication: new Date(),
+                tag: req.body.tag ? req.body.tag.split(',') : []
+            });
+
+            const savedPublication = await publication.save();
+            res.status(201).json({ message: 'Publication ajoutée avec succès', publication: savedPublication });
+        } catch (error) {
+            console.log('Erreur lors de l’ajout:', error);
+            if (error.name === 'ValidationError') {
+                // Renvoyer les erreurs de validation MongoDB
+                const validationErrors = Object.values(error.errors).map(err => err.message);
+                return res.status(400).json({ message: 'Erreur de validation', errors: validationErrors });
+            }
+            res.status(500).json({ message: 'Erreur lors de l’ajout de la publication', error: error.message });
+        }
+    });
+};
+
+// Exportation du middleware verifyToken
+module.exports.verifyToken = verifyToken;
 
 
 
