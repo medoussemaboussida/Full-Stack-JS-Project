@@ -212,12 +212,12 @@ function Portfolio() {
                           src={`assets/img/activities/${item.replace(/\s+/g, "-").toLowerCase()}.png`}
                           alt={item}
                         />
-                        <a
-                          className="popup-img portfolio-link"
-                          href={`assets/img/activities/${item.replace(/\s+/g, "-").toLowerCase()}.png`}
-                        >
-                          <i className="far fa-plus"></i>
-                        </a>
+                        <button
+                        className={`popup-img portfolio-link btn ${favoriteActivities.includes(item) ? "btn-success" : "btn-outline-success"}`}
+                        onClick={() => toggleFavorite(item)}
+                      >
+                        <i className={`far fa-plus ${favoriteActivities.includes(item) ? "text-white" : ""}`}></i>
+                      </button>
                       </div>
                       <div className="portfolio-content">
                         <div className="portfolio-info">
