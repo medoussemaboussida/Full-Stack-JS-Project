@@ -109,6 +109,16 @@ const activities = [
   },
 ];
 
+const goToDetailActivity = async (activity) => {
+  try {
+    const response = await axios.get(`${BASE_URL}/activities?name=${activity}`);
+    const activityId = response.data.id;
+    window.location.href = `/detailActivity/${activityId}`;
+  } catch (error) {
+    toast.error("Impossible de récupérer les détails de l'activité.");
+  }
+};
+
 function Portfolio() {
   const [userId, setUserId] = useState(null);
   const [favoriteActivities, setFavoriteActivities] = useState([]);
@@ -212,12 +222,13 @@ function Portfolio() {
                           src={`assets/img/activities/${item.replace(/\s+/g, "-").toLowerCase()}.png`}
                           alt={item}
                         />
-                        <button
-                        className={`popup-img portfolio-link btn ${favoriteActivities.includes(item) ? "btn-success" : "btn-outline-success"}`}
-                        onClick={() => toggleFavorite(item)}
+                       <button
+                        className="popup-img portfolio-link btn btn-outline-success"
+                        onClick={() => goToDetailActivity(item)}
                       >
-                        <i className={`far fa-plus ${favoriteActivities.includes(item) ? "text-white" : ""}`}></i>
+                        <i className="far fa-plus"></i>
                       </button>
+
                       </div>
                       <div className="portfolio-content">
                         <div className="portfolio-info">
