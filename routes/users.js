@@ -60,5 +60,9 @@ router.get('/github-user', (req, res) => {
       res.status(401).json({ message: "Not authenticated" });
   }
 });
+router.post("/favorite-activity/:id", userController.toggleFavoriteActivity);
+
+
+
 
 module.exports = router;

@@ -60,7 +60,8 @@ const userSchema = new mongoose.Schema({
     level: { type: Number, required: function() { return this.role === 'student'; } },
     validationToken: { type: String, required: false },
 
-   
+    favoriteActivities: [{ type: String }], // Liste des activités favorites
+
 availability: [
         {
             day: { type: String, required: true },

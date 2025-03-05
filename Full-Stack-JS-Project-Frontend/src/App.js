@@ -10,6 +10,7 @@ import Reset_Password from './pages/Reset-Password';
 import AccountDisabled from './pages/AccountDisabled';
 import Publication from './pages/Publication';
 import PsychiatristList from './pages/PsychiatristList ';
+import FavoriteActivities from './pages/favoriteActivities';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
@@ -34,6 +35,7 @@ function App(){
         <Route path="/Publication" element={<Publication />} />
         <Route path="/PsychiatristList" element={<PsychiatristList />} />
         
+        <Route path="/favoriteActivities" element={<FavoriteActivities />} />
 
 
 

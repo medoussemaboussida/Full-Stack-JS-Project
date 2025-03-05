@@ -422,6 +422,39 @@ module.exports.deactivateAccount = async (req, res) => {
 
 
 //ghassen
+//Liste favories
+exports.toggleFavoriteActivity = async (req, res) => {
+    console.log("✅ Requête reçue sur /favorite-activity/:id avec ID :", req.params.id);
+
+    try {
+        const { id } = req.params; // Assure-toi que c'est bien `id` et pas `userId`
+        const { activity } = req.body;
+
+        if (!activity) {
+            return res.status(400).json({ message: "Activité non spécifiée" });
+        }
+
+        const user = await User.findById(id); // Vérifie l'ID ici
+        if (!user) {
+            return res.status(404).json({ message: "Utilisateur non trouvé" });
+        }
+
+        // Ajouter ou supprimer des favoris
+        const isFavorite = user.favoriteActivities.includes(activity);
+        if (isFavorite) {
+            user.favoriteActivities = user.favoriteActivities.filter(a => a !== activity);
+        } else {
+            user.favoriteActivities.push(activity);
+        }
+
+        await user.save();
+        res.json({ message: "Activité mise à jour", favoriteActivities: user.favoriteActivities });
+    } catch (error) {
+        console.error("❌ Erreur toggleFavoriteActivity:", error);
+        res.status(500).json({ message: "Erreur serveur", error });
+    }
+};
+
 
 function generatePassword(length = 12) {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+';
