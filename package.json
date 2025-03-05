@@ -6,9 +6,12 @@
     "dev": "nodemon app.js"
   },
   "dependencies": {
+    "@devexpress/dx-react-scheduler": "^4.0.10",
+    "@devexpress/dx-react-scheduler-material-ui": "^4.0.10",
     "@fortawesome/free-regular-svg-icons": "^6.7.2",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
     "@fortawesome/react-fontawesome": "^0.2.2",
+    "@mui/material": "^6.4.6",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.2",
     "cookie-parser": "~1.4.4",
