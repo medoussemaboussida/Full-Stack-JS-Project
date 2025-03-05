@@ -170,6 +170,31 @@ module.exports.logout = (req, res) => {
       res.status(500).json({ message: error.message });
     }
   };
+
+  // Configuration de multer pour la photo de profil
+const storag = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'uploads/');
+    },
+    filename: (req, file, cb) => {
+        cb(null, `${Date.now()}-${file.originalname}`);
+    }
+});
+
+const uploa= multer({
+    storage: storag,
+    fileFilter: (req, file, cb) => {
+        const filetypes = /jpeg|jpg|png/;
+        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = filetypes.test(file.mimetype);
+        if (extname && mimetype) {
+            cb(null, true);
+        } else {
+            cb('Erreur : Seules les images (jpeg, jpg, png) sont acceptées !');
+        }
+    },
+    limits: { fileSize: 5 * 1024 * 1024 }
+}).single('user_photo');
   
 
 
@@ -290,6 +315,44 @@ module.exports.getStudentById = async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 };
+
+// Nouvelle méthode : Ajouter une publication
+module.exports.addPublication = (req, res) => {
+    upload1(req, res, async (err) => {
+        if (err) {
+            console.log('Erreur Multer:', err);
+            return res.status(400).json({ message: err });
+        }
+
+        try {
+            console.log('Données reçues:', req.body, req.file);
+            const { titrePublication, description } = req.body;
+
+            if (!titrePublication || !description) {
+                return res.status(400).json({ message: 'Le titre et la description sont obligatoires' });
+            }
+
+            const publication = new Publication({
+                titrePublication,
+                description,
+                imagePublication: req.file ? `/uploads/publications/${req.file.filename}` : null,
+                author_id: req.userId,
+                status: 'draft',
+                datePublication: new Date(),
+                tag: req.body.tag ? req.body.tag.split(',') : []
+            });
+
+            const savedPublication = await publication.save();
+            res.status(201).json({ message: 'Publication ajoutée avec succès', publication: savedPublication });
+        } catch (error) {
+            console.log('Erreur lors de l’ajout:', error);
+            res.status(500).json({ message: 'Erreur lors de l’ajout de la publication', error: error.message });
+        }
+    });
+};
+
+// Exportation du middleware verifyToken
+module.exports.verifyToken = verifyToken;
 
 //supprimer student
 module.exports.deleteStudentById = async (req, res) => {

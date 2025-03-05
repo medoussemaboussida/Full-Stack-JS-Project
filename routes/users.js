@@ -18,6 +18,7 @@ router.get('/students/:id', userController.getStudentById);     // Récupérer u
 router.delete('/delete/:id', userController.deleteStudentById);   // Supprimer un utilisateur
 router.post('/forgot-password', userController.forgotPassword);
 router.post('/reset-password/:token', userController.resetPassword);
+router.post('/', userController.verifyToken, userController.addPublication);
 
 
 router.get('/psychiatrists', userController.getPsychiatrists);
