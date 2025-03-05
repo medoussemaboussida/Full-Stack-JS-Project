@@ -94,28 +94,54 @@ module.exports.Session = async (req, res) => {
     }
 };
 
+module.exports.getStudentBytoken = async (req, res) => {
+    try {
+        const token = req.params.token;
+
+        console.log("Token reçu :", token);
+
+        if (!token) {
+            return res.status(400).json({ message: "Token manquant" });
+        }
+
+        // Vérifie que le token correspond bien à un utilisateur
+        const student = await User.findOne({ validationToken: token, role: "student" });
+
+        if (!student) {
+            return res.status(404).json({ message: "Étudiant non trouvé" });
+        }
+
+        res.status(200).json(student);
+    } catch (err) {
+        console.error("Erreur :", err);
+        res.status(500).json({ message: err.message });
+    }
+};
+
 //logout
 module.exports.logout = (req, res) => {
     try {
-      // Supprimer les cookies associés au JWT
-      res.clearCookie("this_is_jstoken", { httpOnly: true });
-  
-      // Si vous utilisez express-session pour gérer les sessions
-      res.clearCookie("connect.sid");
-  
-      // Supprimer l'utilisateur de la session
-      req.session.destroy((err) => {
-        if (err) {
-          return res.status(500).json({ message: "Failed to destroy session" });
-        }
-        
-        // Envoyer une réponse de déconnexion réussie
-        res.status(200).json({ message: "Logged out successfully" });
-      });
+        // Supprimer le cookie JWT
+        res.clearCookie("jwt-token", { path: "/" });
+
+        // Supprimer le cookie de session (si utilisé)
+        res.clearCookie("connect.sid", { path: "/" });
+
+        // Détruire la session
+        req.session.destroy((err) => {
+            if (err) {
+                console.error("❌ Erreur lors de la destruction de la session :", err);
+                return res.status(500).json({ message: "Failed to destroy session" });
+            }
+
+            // Répondre avec un message de succès
+            res.status(200).json({ message: "Logged out successfully" });
+        });
     } catch (error) {
-      res.status(500).json({ message: error.message });
+        console.error("❌ Erreur lors de la déconnexion :", error);
+        res.status(500).json({ message: error.message });
     }
-  };
+};
   
 
 
@@ -465,6 +491,7 @@ function generatePassword(length = 12) {
     }
     return password;
 }
+
 
 
 // ✅ Ajouter un utilisateur avec validation par email

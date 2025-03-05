@@ -6392,6 +6392,13 @@ label {
   border-radius: 40px;
 }
 
+
+.nav-item button {
+  margin-left: 20px; /* Ajuste selon ton besoin */
+}
+
+
+
 @media all and (max-width: 991px) {
   .home-3 .hero-single .hero-img{
     margin-top: 40px;
