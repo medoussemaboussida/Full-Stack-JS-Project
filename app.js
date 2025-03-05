@@ -15,12 +15,14 @@ const userModel = require('./model/user');
 const jwt = require("jsonwebtoken");
 const crypto = require('crypto');
 
+
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
 var forumRouter = require('./routes/forum');
 var forumCommentRouter = require('./routes/forumComment');
 var complaintRouter = require('./routes/complaint');
 var complaintResponseRouter = require('./routes/complaintResponse');
+
 
 const app = express();
 
@@ -38,6 +40,7 @@ const createTokenGoogle = (id) => {
 
 
 app.use('/uploads', express.static('uploads'));
+
 // Connexion à la base de données
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('Connexion à MongoDB réussie'))
@@ -94,6 +97,7 @@ async function generateHashedPassword() {
   const randomPassword = crypto.randomBytes(16).toString('hex'); // 32 caractères aléatoires
   return await bcrypt.hash(randomPassword, 10); // Hachage du mot de passe
 }
+
 
 
 
