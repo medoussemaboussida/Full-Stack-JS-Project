@@ -10,6 +10,9 @@ import Reset_Password from './pages/Reset-Password';
 import AccountDisabled from './pages/AccountDisabled';
 import Publication from './pages/Publication';
 import PsychiatristList from './pages/PsychiatristList ';
+import AddPublication from './pages/AddPublication';
+import FavoriteActivities from './pages/favoriteActivities';
+
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import VerifyAccount from './pages/VerifyAuth';
@@ -35,8 +38,9 @@ function App(){
         <Route path="/AccountDisabled" element={<AccountDisabled />} />
         <Route path="/Publication" element={<Publication />} />
         <Route path="/PsychiatristList" element={<PsychiatristList />} />
-       
+        <Route path="/AddPublication" element={<AddPublication />} />
         
+        <Route path="/favoriteActivities" element={<FavoriteActivities />} />
 
 
 

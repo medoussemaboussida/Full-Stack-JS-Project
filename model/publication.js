@@ -5,9 +5,6 @@ const publicationSchema = new mongoose.Schema({
         type: String,
         required: [true, 'La description de la publication est obligatoire'],
         trim: true, // Supprime les espaces inutiles au début et à la fin
-        minlength: [3, 'Le titre doit contenir au moins 3 caractères'],
-        maxlength: [100, 'Le titre ne peut pas dépasser 100 caractères'],
-
     },
     datePublication: {
         type: Date,

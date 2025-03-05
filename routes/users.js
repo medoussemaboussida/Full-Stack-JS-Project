@@ -1,6 +1,7 @@
 var express = require('express');
 var router = express.Router();
 const userController = require('../controller/userController');
+const activitiesController = require('../controller/activitiesController');
 
 const validate = require('../middleware/validate')
 const { updateStudentProfile, updateStudentPhoto } = require('../controller/userController');
@@ -18,6 +19,7 @@ router.get('/students/:id', userController.getStudentById);     // Récupérer u
 router.delete('/delete/:id', userController.deleteStudentById);   // Supprimer un utilisateur
 router.post('/forgot-password', userController.forgotPassword);
 router.post('/reset-password/:token', userController.resetPassword);
+router.post('/', userController.verifyToken, userController.addPublication);
 
 
 router.get('/psychiatrists', userController.getPsychiatrists);
@@ -43,8 +45,14 @@ router.get("/activate/:token", userController.activateUser); // Route pour activ
 router.put("/updateEtat/:id", userController.updateEtat);  // Route pour modifier l'état d'un utilisateur manuellement
 router.post("/logout", userController.logout);
 
+// ✅ Récupérer les activités favorites d'un utilisateur
+router.get("/favorite-activities/:id", activitiesController.getFavoriteActivities);
 
-router.post("/favorite-activity/:id", userController.toggleFavoriteActivity);
+// ✅ Ajouter ou supprimer une activité des favoris
+router.post("/favorite-activity/:id", activitiesController.toggleFavoriteActivity);
+
+// ✅ Supprimer toutes les activités favorites
+router.delete("/clear-favorite/:id", activitiesController.clearFavoriteActivities);
 
 
 
