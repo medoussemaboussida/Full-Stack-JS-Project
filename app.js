@@ -15,12 +15,14 @@ const userModel = require('./model/user');
 const jwt = require("jsonwebtoken");
 const crypto = require('crypto');
 
+
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
 var forumRouter = require('./routes/forum');
 var forumCommentRouter = require('./routes/forumComment');
 var complaintRouter = require('./routes/complaint');
 var complaintResponseRouter = require('./routes/complaintResponse');
+
 
 const app = express();
 
@@ -38,6 +40,7 @@ const createTokenGoogle = (id) => {
 
 
 app.use('/uploads', express.static('uploads'));
+
 // Connexion à la base de données
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('Connexion à MongoDB réussie'))
@@ -94,6 +97,7 @@ async function generateHashedPassword() {
   const randomPassword = crypto.randomBytes(16).toString('hex'); // 32 caractères aléatoires
   return await bcrypt.hash(randomPassword, 10); // Hachage du mot de passe
 }
+
 
 
 
@@ -165,6 +169,10 @@ passport.use(
 passport.serializeUser((user, done) => {
 done(null, user);
 });
+passport.deserializeUser((user, done) => {
+  done(null, user);
+});
+
 
 passport.deserializeUser((obj, done) => {
 done(null, obj);
@@ -176,52 +184,61 @@ app.get(
 passport.authenticate("github", { scope: ["user:email"] })
 );
 
+
 app.get(
-"/auth/github/callback",
-passport.authenticate("github", { failureRedirect: "/" }),
-async (req, res) => {
+  "/auth/google/callback",
+  passport.authenticate("google", { failureRedirect: "/" }),
+  async (req, res) => {
     try {
-        const { displayName, email } = req.user;
+      if (!req.user) {
+        console.error("❌ Erreur: req.user est indéfini après l'authentification.");
+        return res.redirect("http://localhost:3000/login?error=no_user");
+      }
 
-        if (!email) {
-            console.error("❌ Email introuvable après l'authentification GitHub.");
-            return res.redirect("http://localhost:3000/login?error=no_email");
-        }
+      const { id, displayName, emails, photos } = req.user;
+      console.log("email:", emails);
 
-        const existingUser = await userModel.findOne({ email });
+      // Vérification si l'email existe
+      if (!emails || emails.length === 0) {
+        console.error("❌ Email introuvable après l'authentification Google.");
+        return res.redirect("http://localhost:3000/login?error=no_email");
+      }
 
-        if (existingUser) {
-            const token = createTokenGoogle(existingUser.id); 
-            const verificationUrl = `http://localhost:3000/verify-account/${token}`; 
-            existingUser.validationToken = token;
-            await existingUser.save();
-            res.redirect(verificationUrl);
+      const existingUser = await userModel.findOne({ email: emails[0].value });
 
+      if (existingUser) {
+        // Si l'utilisateur existe déjà, on génère un token et on redirige
+        const token = createTokenGoogle(existingUser.id);
+        const verificationUrl = `http://localhost:3000/verify-account/${token}`;
+        existingUser.validationToken = token;
+        await existingUser.save();
+        return res.redirect(verificationUrl);
+      } else {
+        // Si l'utilisateur n'existe pas, on en crée un nouveau
+        const username = displayName || `user_${Date.now()}`; // Utilise un fallback au cas où displayName est vide
+        const newUser = await userModel.create({
+          username: username,
+          password: "defaultPassword123", // Mot de passe par défaut
+          email: emails[0].value,
+          role: "student",
+          speciality: "A",
+          level: 1,
+          dob: new Date(new Date().setFullYear(new Date().getFullYear() - 18)), // Âge 18 ans par défaut
+          isGoogleAuth: true, // Marquer comme authentifié par Google
+        });
 
-        } else {
+        const token = createTokenGoogle(newUser.id);
+        const verificationUrl = `http://localhost:3000/verify-account/${token}`;
+        newUser.validationToken = token;
+        await newUser.save();
+        return res.redirect(verificationUrl);
+      }
 
-          const newUser = await userModel.create({
-            username: username,
-            password: "defaultPassword123", // Set a default password here
-            email: emails[0].value,
-            role: "student",
-            speciality: 'A',
-            level: 1,
-            dob: new Date(new Date().setFullYear(new Date().getFullYear() - 18))  // Âge 19 ans
-          });
-          
-
-            const token = createTokenGoogle(newUser.id); 
-            const verificationUrl = `http://localhost:3000/verify-account/${token}`; 
-            newUser.validationToken = token;
-            await newUser.save();
-            res.redirect(verificationUrl);
-        }
     } catch (error) {
-        console.error('❌ Authentication error:', error);
-        res.redirect("http://localhost:3000/login");
+      console.error("❌ Authentication error:", error);
+      return res.redirect("http://localhost:3000/login");
     }
-}
+  }
 );
 
 
