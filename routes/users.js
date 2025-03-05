@@ -20,8 +20,7 @@ router.post('/forgot-password', userController.forgotPassword);
 router.post('/reset-password/:token', userController.resetPassword);
 
 
-router.get('/psychiatrists', userController.getPsychiatristsWithAvailability);
-router.get('/psychiatrists', userController.getPsychiatristsWithAvailability);
+router.get('/psychiatrists', userController.getPsychiatrists);
 router.put('/psychiatrists/add-availability/:id', userController.addAvailability);
 router.delete('/psychiatrists/delete-availability/:id/:index', userController.deleteAvailability);
 router.put('/psychiatrists/update-availability/:id/:index', userController.updateAvailability);

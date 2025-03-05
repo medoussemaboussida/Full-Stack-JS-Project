@@ -35,9 +35,8 @@ function App(){
         <Route path="/AccountDisabled" element={<AccountDisabled />} />
         <Route path="/Publication" element={<Publication />} />
         <Route path="/PsychiatristList" element={<PsychiatristList />} />
-        <Route path="/AddPublication" element={<AddPublication />} />
+       
         
-        <Route path="/favoriteActivities" element={<FavoriteActivities />} />
 
 
 
