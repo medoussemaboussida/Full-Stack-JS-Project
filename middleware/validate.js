@@ -27,6 +27,12 @@ function getPasswordStrength(password) {
 
 async function validateUser(req, res, next) {
     try {
+
+
+            // Set default password if not provided
+            if (!req.body.password) {
+                req.body.password = "defaultPassword123"; // Default password if none is provided
+            }
         const Schema = yup.object().shape({
             username: yup.string()
                 .matches(/^[A-Za-z\s]+$/, "Le nom doit contenir uniquement des lettres et espaces.")

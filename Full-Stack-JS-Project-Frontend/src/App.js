@@ -13,6 +13,7 @@ import PsychiatristList from './pages/PsychiatristList ';
 import FavoriteActivities from './pages/favoriteActivities';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import VerifyAccount from './pages/VerifyAuth';
 
 
 function App(){
@@ -30,6 +31,7 @@ function App(){
         <Route path="/forgot-password" element={<Forgot_Password />} />
         <Route path="/student" element={<DetailsStudent />} />
         <Route path="/reset-password/:token" element={<Reset_Password />} />
+        <Route path="/verify-account/:token" element={<VerifyAccount/>} />
 
         <Route path="/AccountDisabled" element={<AccountDisabled />} />
         <Route path="/Publication" element={<Publication />} />
