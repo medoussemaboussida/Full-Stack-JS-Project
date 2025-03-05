@@ -13,7 +13,16 @@ function AddPublication() {
     const [previewImage, setPreviewImage] = useState(null);
     const navigate = useNavigate();
 
-    // Calcul de la progression
+    // Attempt to load CKEditor with error handling
+    let CKEditorComponent, ClassicEditor;
+    try {
+        CKEditorComponent = require('@ckeditor/ckeditor5-react').CKEditor;
+        ClassicEditor = require('@ckeditor/ckeditor5-build-classic');
+        console.log('CKEditor loaded successfully');
+    } catch (error) {
+        console.error('Failed to load CKEditor:', error);
+    }
+
     const calculateProgress = () => {
         let filledFields = 0;
         const totalFields = 3;
@@ -41,6 +50,11 @@ function AddPublication() {
         } else {
             setFormData((prev) => ({ ...prev, [name]: value }));
         }
+    };
+
+    const handleEditorChange = (field) => (event, editor) => {
+        const data = editor.getData();
+        setFormData((prev) => ({ ...prev, [field]: data }));
     };
 
     const handleSubmit = async (e) => {
@@ -79,11 +93,10 @@ function AddPublication() {
                 toast.success('Publication ajoutée avec succès !');
                 setFormData({ titrePublication: '', description: '', imagePublication: null });
                 setPreviewImage(null);
-                setTimeout(() => navigate('/publications'), 2000);
+                setTimeout(() => navigate('/Publication'), 2000);
             } else {
-                // Gérer les erreurs de validation
                 if (result.errors && Array.isArray(result.errors)) {
-                    result.errors.forEach(error => toast.error(error));
+                    result.errors.forEach((error) => toast.error(error));
                 } else {
                     toast.error(result.message || 'Erreur lors de l’ajout');
                 }
@@ -132,48 +145,87 @@ function AddPublication() {
                                 <form onSubmit={handleSubmit}>
                                     <div style={{ marginBottom: '30px' }}>
                                         <h3 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '20px' }}>Publication Details</h3>
+                                        {/* Title Field with CKEditor */}
+                                        <h5>Title</h5>
                                         <div style={{ marginBottom: '20px' }}>
-                                            <input
-                                                type="text"
-                                                name="titrePublication"
-                                                value={formData.titrePublication}
-                                                onChange={handleChange}
-                                                placeholder="Publication Title"
-                                                required
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '12px',
-                                                    borderRadius: '5px',
-                                                    border: '1px solid #ccc',
-                                                    fontSize: '16px',
-                                                    outline: 'none',
-                                                    transition: 'border-color 0.3s ease'
-                                                }}
-                                                onFocus={(e) => e.target.style.borderColor = '#0ea5e6'}
-                                                onBlur={(e) => e.target.style.borderColor = '#ccc'}
-                                            />
+                                            {CKEditorComponent && ClassicEditor ? (
+                                                <CKEditorComponent
+                                                    editor={ClassicEditor}
+                                                    data={formData.titrePublication}
+                                                    onChange={handleEditorChange('titrePublication')}
+                                                    config={{
+                                                        placeholder: 'Enter publication title here...',
+                                                        toolbar: ['bold', 'italic', 'link', '|', 'undo', 'redo'],
+                                                        height: 100, // Smaller height for title
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div>
+                                                    <textarea
+                                                        name="titrePublication"
+                                                        value={formData.titrePublication}
+                                                        onChange={handleChange}
+                                                        placeholder="CKEditor failed to load. Use this textarea instead."
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '12px',
+                                                            borderRadius: '5px',
+                                                            border: '1px solid #ccc',
+                                                            fontSize: '16px',
+                                                            minHeight: '50px',
+                                                            outline: 'none',
+                                                            transition: 'border-color 0.3s ease',
+                                                        }}
+                                                    />
+                                                    <p style={{ color: 'red', fontSize: '14px' }}>
+                                                        Error: CKEditor is not available for Title. Check console.
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
+
+                                        {/* Description Field with CKEditor */}
+                                        <h5>Description</h5>
                                         <div style={{ marginBottom: '20px' }}>
-                                            <textarea
-                                                name="description"
-                                                value={formData.description}
-                                                onChange={handleChange}
-                                                placeholder="Publication Content"
-                                                required
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '12px',
-                                                    borderRadius: '5px',
-                                                    border: '1px solid #ccc',
-                                                    fontSize: '16px',
-                                                    minHeight: '150px',
-                                                    outline: 'none',
-                                                    transition: 'border-color 0.3s ease'
-                                                }}
-                                                onFocus={(e) => e.target.style.borderColor = '#0ea5e6'}
-                                                onBlur={(e) => e.target.style.borderColor = '#ccc'}
-                                            />
+                                            {CKEditorComponent && ClassicEditor ? (
+                                                <CKEditorComponent
+                                                    editor={ClassicEditor}
+                                                    data={formData.description}
+                                                    onChange={handleEditorChange('description')}
+                                                    config={{
+                                                        placeholder: 'Enter publication content here...',
+                                                        toolbar: [
+                                                            'heading', '|',
+                                                            'bold', 'italic', 'link', 'bulletedList', 'numberedList', '|',
+                                                            'undo', 'redo',
+                                                        ],
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div>
+                                                    <textarea
+                                                        name="description"
+                                                        value={formData.description}
+                                                        onChange={handleChange}
+                                                        placeholder="CKEditor failed to load. Use this textarea instead."
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '12px',
+                                                            borderRadius: '5px',
+                                                            border: '1px solid #ccc',
+                                                            fontSize: '16px',
+                                                            minHeight: '150px',
+                                                            outline: 'none',
+                                                            transition: 'border-color 0.3s ease',
+                                                        }}
+                                                    />
+                                                    <p style={{ color: 'red', fontSize: '14px' }}>
+                                                        Error: CKEditor is not available for Description. Check console.
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
+
                                         <div style={{ marginBottom: '20px' }}>
                                             <input
                                                 type="file"
@@ -196,10 +248,10 @@ function AddPublication() {
                                                     cursor: 'pointer',
                                                     transition: 'background 0.3s ease',
                                                     boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                                                    textAlign: 'center'
+                                                    textAlign: 'center',
                                                 }}
-                                                onMouseEnter={(e) => e.target.style.background = '#164da6'}
-                                                onMouseLeave={(e) => e.target.style.background = '#0ea5e6'}
+                                                onMouseEnter={(e) => (e.target.style.background = '#164da6')}
+                                                onMouseLeave={(e) => (e.target.style.background = '#0ea5e6')}
                                             >
                                                 Add Photo
                                             </label>
@@ -218,7 +270,7 @@ function AddPublication() {
                                             fontWeight: '600',
                                             cursor: isSubmitting ? 'not-allowed' : 'pointer',
                                             transition: 'background 0.3s ease',
-                                            boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
+                                            boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
                                         }}
                                         onMouseEnter={(e) => !isSubmitting && (e.target.style.background = '#164da6')}
                                         onMouseLeave={(e) => !isSubmitting && (e.target.style.background = '#0ea5e6')}
@@ -236,16 +288,18 @@ function AddPublication() {
                                         alt="Sidebar"
                                         style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '10px' }}
                                     />
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: '10px',
-                                        left: '10px',
-                                        background: '#0ea5e6',
-                                        color: '#fff',
-                                        padding: '5px 10px',
-                                        borderRadius: '5px',
-                                        textAlign: 'center'
-                                    }}>
+                                    <div
+                                        style={{
+                                            position: 'absolute',
+                                            top: '10px',
+                                            left: '10px',
+                                            background: '#0ea5e6',
+                                            color: '#fff',
+                                            padding: '5px 10px',
+                                            borderRadius: '5px',
+                                            textAlign: 'center',
+                                        }}
+                                    >
                                         <span style={{ display: 'block', fontSize: '18px', fontWeight: '600' }}>{day}</span>
                                         <span style={{ fontSize: '12px' }}>{month}</span>
                                     </div>
@@ -253,16 +307,17 @@ function AddPublication() {
                                 <div style={{ padding: '20px 0' }}>
                                     <h3 style={{ fontSize: '20px', fontWeight: '600', margin: '0 0 15px' }}>
                                         <a href="#" style={{ color: '#333', textDecoration: 'none' }}>
-                                            {formData.titrePublication || 'Title not defined'}
+                                            <div dangerouslySetInnerHTML={{ __html: formData.titrePublication || 'Title not defined' }} />
                                         </a>
                                     </h3>
-                                    <p style={{ fontSize: '14px', color: '#666', margin: '0 0 15px' }}>
-                                        {formData.description || 'No description available at this time.'}
-                                    </p>
+                                    <div>
+                                        <div
+                                            style={{ marginTop: '5px' }}
+                                            dangerouslySetInnerHTML={{ __html: formData.description || 'No description yet' }}
+                                        />
+                                    </div>
                                     <div style={{ marginBottom: '20px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#666' }}>
-                                            {/* Vous pouvez remettre Raised et Goal ici si nécessaire */}
-                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#666' }}></div>
                                         <div style={{ background: '#e0e0e0', height: '10px', borderRadius: '5px', position: 'relative' }}>
                                             <div
                                                 style={{
@@ -270,7 +325,7 @@ function AddPublication() {
                                                     background: '#0ea5e6',
                                                     height: '100%',
                                                     borderRadius: '5px',
-                                                    transition: 'width 0.3s ease'
+                                                    transition: 'width 0.3s ease',
                                                 }}
                                             ></div>
                                             <span style={{ position: 'absolute', top: '-25px', right: '15%', fontSize: '14px', color: '#0ea5e6' }}>
@@ -301,10 +356,10 @@ function AddPublication() {
                     justifyContent: 'center',
                     textDecoration: 'none',
                     boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
-                    transition: 'background 0.3s ease'
+                    transition: 'background 0.3s ease',
                 }}
-                onMouseEnter={(e) => e.target.style.background = '#164da6'}
-                onMouseLeave={(e) => e.target.style.background = '#0ea5e6'}
+                onMouseEnter={(e) => (e.target.style.background = '#164da6')}
+                onMouseLeave={(e) => (e.target.style.background = '#0ea5e6')}
             >
                 <i className="far fa-arrow-up"></i>
             </a>
