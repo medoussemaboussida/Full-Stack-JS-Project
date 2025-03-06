@@ -35,6 +35,12 @@ function DetailsStudents() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
+  const [availabilityTitle, setAvailabilityTitle] = useState("");
+  const [selectedDateInfo, setSelectedDateInfo] = useState(null);
+  // Nouvel état pour le modal de suppression de disponibilité
+  const [showDeleteAvailabilityModal, setShowDeleteAvailabilityModal] = useState(false);
+  const [selectedEventInfo, setSelectedEventInfo] = useState(null);
 
   const BASE_URL = "http://localhost:5000";
 
@@ -58,28 +64,38 @@ function DetailsStudents() {
     return age;
   };
 
-  const formatAvailabilitiesToEvents = (availabilities) => {
-    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const formatAvailabilitiesToEvents = (availabilities, selectedStartDate = null) => {
     return availabilities.map((slot, index) => {
-      const currentDate = new Date();
-      const dayIndex = daysOfWeek.indexOf(slot.day);
-      if (dayIndex === -1) return null;
+      let startDate, endDate;
 
-      const startDate = new Date(currentDate);
-      startDate.setDate(currentDate.getDate() + ((dayIndex + 7 - currentDate.getDay()) % 7));
-      startDate.setHours(parseInt(slot.startTime.split(':')[0]), parseInt(slot.startTime.split(':')[1]), 0, 0);
-      const endDate = new Date(startDate);
-      endDate.setHours(parseInt(slot.endTime.split(':')[0]), parseInt(slot.endTime.split(':')[1]), 0, 0);
+      if (slot.date) {
+        startDate = new Date(slot.date);
+        startDate.setHours(parseInt(slot.startTime.split(':')[0]), parseInt(slot.startTime.split(':')[1]), 0, 0);
+        endDate = new Date(slot.date);
+        endDate.setHours(parseInt(slot.endTime.split(':')[0]), parseInt(slot.endTime.split(':')[1]), 0, 0);
+      } else if (selectedStartDate) {
+        startDate = new Date(selectedStartDate);
+        startDate.setHours(parseInt(slot.startTime.split(':')[0]), parseInt(slot.startTime.split(':')[1]), 0, 0);
+        endDate = new Date(selectedStartDate);
+        endDate.setHours(parseInt(slot.endTime.split(':')[0]), parseInt(slot.endTime.split(':')[1]), 0, 0);
+      } else {
+        const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayIndex = daysOfWeek.indexOf(slot.day);
+        if (dayIndex === -1) return null;
+        const currentDate = new Date();
+        startDate = new Date(currentDate);
+        const daysToAdd = (dayIndex - currentDate.getDay() + 7) % 7;
+        startDate.setDate(currentDate.getDate() + daysToAdd);
+        startDate.setHours(parseInt(slot.startTime.split(':')[0]), parseInt(slot.startTime.split(':')[1]), 0, 0);
+        endDate = new Date(startDate);
+        endDate.setHours(parseInt(slot.endTime.split(':')[0]), parseInt(slot.endTime.split(':')[1]), 0, 0);
+      }
 
       return {
         id: index,
-        title: `Available - ${slot.day}`,
+        title: slot.title || `Available - ${slot.day}`,
         start: startDate.toISOString(),
         end: endDate.toISOString(),
-        rrule: {
-          freq: 'weekly',
-          byweekday: dayIndex,
-        },
       };
     }).filter(Boolean);
   };
@@ -297,6 +313,7 @@ function DetailsStudents() {
         day: new Date(info.event.start).toLocaleString('en-us', { weekday: 'long' }),
         startTime: info.event.start.toTimeString().slice(0, 5),
         endTime: info.event.end.toTimeString().slice(0, 5),
+        date: info.event.start.toISOString().split('T')[0],
       };
       try {
         const response = await fetch(`${BASE_URL}/users/psychiatrists/update-availability/${decoded.id}/${slotIndex}`, {
@@ -320,10 +337,17 @@ function DetailsStudents() {
   };
 
   const handleEventClick = async (info) => {
-    if (window.confirm("Do you want to delete this availability?")) {
+    // Ouvre le modal au lieu de window.confirm
+    setSelectedEventInfo(info);
+    setShowDeleteAvailabilityModal(true);
+  };
+
+  // Nouvelle fonction pour gérer la confirmation de suppression
+  const handleDeleteAvailabilityConfirm = async () => {
+    if (selectedEventInfo) {
       const token = localStorage.getItem("jwt-token");
       const decoded = jwtDecode(token);
-      const slotIndex = events.findIndex((event) => event.id === parseInt(info.event.id));
+      const slotIndex = events.findIndex((event) => event.id === parseInt(selectedEventInfo.event.id));
 
       try {
         const response = await fetch(`${BASE_URL}/users/psychiatrists/delete-availability/${decoded.id}/${slotIndex}`, {
@@ -334,23 +358,34 @@ function DetailsStudents() {
           const data = await response.json();
           setEvents(formatAvailabilitiesToEvents(data.user.availability));
           toast.success("Availability deleted successfully");
+          setShowDeleteAvailabilityModal(false);
+          setSelectedEventInfo(null);
         }
       } catch (error) {
         toast.error("Error deleting availability");
         console.error(error);
+        setShowDeleteAvailabilityModal(false);
       }
     }
   };
 
   const handleDateSelect = async (selectInfo) => {
-    const title = prompt("Enter availability title (e.g., Available - Monday):");
-    if (title) {
+    console.log("Selected date:", selectInfo.start);
+    setSelectedDateInfo(selectInfo);
+    setAvailabilityTitle("");
+    setShowAvailabilityModal(true);
+  };
+
+  const handleAvailabilityConfirm = async () => {
+    if (availabilityTitle) {
       const token = localStorage.getItem("jwt-token");
       const decoded = jwtDecode(token);
       const newAvailability = {
-        day: new Date(selectInfo.start).toLocaleString('en-us', { weekday: 'long' }),
-        startTime: selectInfo.start.toTimeString().slice(0, 5),
-        endTime: selectInfo.end.toTimeString().slice(0, 5),
+        day: new Date(selectedDateInfo.start).toLocaleString('en-us', { weekday: 'long' }),
+        startTime: selectedDateInfo.start.toTimeString().slice(0, 5),
+        endTime: selectedDateInfo.end.toTimeString().slice(0, 5),
+        title: availabilityTitle,
+        date: selectedDateInfo.start.toISOString().split('T')[0],
       };
       try {
         const response = await fetch(`${BASE_URL}/users/psychiatrists/add-availability/${decoded.id}`, {
@@ -365,11 +400,17 @@ function DetailsStudents() {
           const data = await response.json();
           setEvents(formatAvailabilitiesToEvents(data.user.availability));
           toast.success("Availability added successfully");
+          setShowAvailabilityModal(false);
+        } else {
+          const errorData = await response.json();
+          toast.error(`Error: ${errorData.message}`);
         }
       } catch (error) {
         toast.error("Error adding availability");
         console.error(error);
       }
+    } else {
+      toast.error("Please enter a title");
     }
   };
 
@@ -399,6 +440,133 @@ function DetailsStudents() {
             <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
               <button onClick={() => setShowDeleteModal(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "5px" }}>Cancel</button>
               <button onClick={handleDeleteAccount} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "5px" }}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAvailabilityModal && (
+        <div style={{ 
+          position: "fixed", 
+          top: 0, 
+          left: 0, 
+          right: 0, 
+          bottom: 0, 
+          backgroundColor: "rgba(0,0,0,0.5)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 2000
+        }}>
+          <div style={{ 
+            backgroundColor: "white",
+            padding: "20px",
+            borderRadius: "5px",
+            width: "300px",
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+          }}>
+            <h3 style={{ textAlign: "center", marginBottom: "15px" }}>
+              Add Availability
+            </h3>
+            <input
+              type="text"
+              value={availabilityTitle}
+              onChange={(e) => setAvailabilityTitle(e.target.value)}
+              placeholder="e.g., Available - Sunday"
+              style={{ 
+                width: "100%", 
+                padding: "8px", 
+                marginBottom: "15px", 
+                borderRadius: "3px", 
+                border: "1px solid #ccc" 
+              }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-around" }}>
+              <button
+                onClick={handleAvailabilityConfirm}
+                style={{ 
+                  backgroundColor: "#4CAF50",
+                  color: "white",
+                  padding: "8px 16px",
+                  border: "none",
+                  borderRadius: "3px",
+                  cursor: "pointer"
+                }}
+              >
+                Confirm
+              </button>
+              <button
+                onClick={() => setShowAvailabilityModal(false)}
+                style={{ 
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "8px 16px",
+                  border: "none",
+                  borderRadius: "3px",
+                  cursor: "pointer"
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Nouveau modal pour la suppression de disponibilité */}
+      {showDeleteAvailabilityModal && (
+        <div style={{ 
+          position: "fixed", 
+          top: 0, 
+          left: 0, 
+          right: 0, 
+          bottom: 0, 
+          backgroundColor: "rgba(0,0,0,0.5)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 2000
+        }}>
+          <div style={{ 
+            backgroundColor: "white",
+            padding: "20px",
+            borderRadius: "5px",
+            width: "300px",
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+          }}>
+            <h3 style={{ textAlign: "center", marginBottom: "15px" }}>
+              Delete Availability
+            </h3>
+            <p style={{ textAlign: "center", marginBottom: "15px" }}>
+              Do you want to delete this availability?
+            </p>
+            <div style={{ display: "flex", justifyContent: "space-around" }}>
+              <button
+                onClick={handleDeleteAvailabilityConfirm}
+                style={{ 
+                  backgroundColor: "#4CAF50",
+                  color: "white",
+                  padding: "8px 16px",
+                  border: "none",
+                  borderRadius: "3px",
+                  cursor: "pointer"
+                }}
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => setShowDeleteAvailabilityModal(false)}
+                style={{ 
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "8px 16px",
+                  border: "none",
+                  borderRadius: "3px",
+                  cursor: "pointer"
+                }}
+              >
+                No
+              </button>
             </div>
           </div>
         </div>
