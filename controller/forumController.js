@@ -2,13 +2,12 @@ const User = require('../model/user');
 const Forum = require('../model/forum');
 
 //add forum topic
-module.exports.addForum = async (req,res) => { 
-
+module.exports.addForum = async (req, res) => {
     try {
         console.log(req.body);
-
         // Récupérer les données du corps de la requête
-        const { title, description, forum_photo, user_id } = req.body;
+        const { title, description, forum_photo } = req.body;
+        const { user_id } = req.params;  
 
         // Vérifier si l'utilisateur existe
         const userExists = await User.findById(user_id);
@@ -24,7 +23,7 @@ module.exports.addForum = async (req,res) => {
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
-} 
+};
 
 //get forum topics list
 module.exports.getForum = async (req, res) => {

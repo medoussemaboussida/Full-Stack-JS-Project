@@ -9,6 +9,8 @@ import DetailsStudent from './pages/details-student';
 import Reset_Password from './pages/Reset-Password';
 import AccountDisabled from './pages/AccountDisabled'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Forum from './pages/Forum';
+import AddForum from './pages/AddForum';
 
 
 function App(){
@@ -28,6 +30,9 @@ function App(){
         <Route path="/reset-password/:token" element={<Reset_Password />} />
 
         <Route path="/AccountDisabled" element={<AccountDisabled />} />
+        <Route path="/forum" element={<Forum />} />
+        <Route path="/addforum" element={<AddForum />} />
+
 
         </Routes>
       </BrowserRouter>
