@@ -19,6 +19,8 @@ import FavoriteActivities from './pages/favoriteActivities';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import VerifyAccount from './pages/VerifyAuth';
+import AddForum from './pages/AddForum';
+import Forum from './pages/Forum';
 
 
 function App(){
