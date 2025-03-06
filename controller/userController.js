@@ -367,6 +367,58 @@ module.exports.getAllPublications = async (req, res) => {
     }
 };
 
+
+// Récupérer toutes les publications d'un psy spécifique
+module.exports.getMyPublications = async (req, res) => {
+    try {
+        const token = req.headers.authorization.split(' ')[1];
+        const decoded = jwt.verify(token, 'randa'); // Remplacez par votre clé secrète
+        const userId = decoded.id;
+        const publications = await Publication.find({ author_id: userId })
+            .populate('author_id', 'username')
+            .sort({ datePublication: -1 });
+        res.status(200).json(publications);
+    } catch (err) {
+        console.error('Erreur lors de la récupération des publications:', err);
+        res.status(500).json({ message: 'Erreur serveur', error: err.message });
+    }
+};
+
+
+// Récupérer une  publication
+module.exports.getPublicationById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const publication = await Publication.findById(id).populate('author_id', 'username');
+        if (!publication) {
+            return res.status(404).json({ message: 'Publication not found' });
+        }
+        res.status(200).json(publication);
+    } catch (err) {
+        console.error('Erreur lors de la récupération de la publication:', err);
+        res.status(500).json({ message: 'Erreur serveur', error: err.message });
+    }
+};
+//supprimer publication
+module.exports.deletePublication = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const token = req.headers.authorization.split(' ')[1];
+        const decoded = jwt.verify(token, 'randa'); // Remplacez 'randa' par votre clé secrète
+        const userId = decoded.id;
+
+        const publication = await Publication.findOneAndDelete({ _id: id, author_id: userId });
+        if (!publication) {
+            return res.status(404).json({ message: 'Publication not found or not authorized' });
+        }
+        res.status(200).json({ message: 'Publication deleted successfully' });
+    } catch (err) {
+        console.error('Erreur lors de la suppression de la publication:', err);
+        res.status(500).json({ message: 'Erreur serveur', error: err.message });
+    }
+};
+
+
 //supprimer student
 module.exports.deleteStudentById = async (req, res) => {
     try {

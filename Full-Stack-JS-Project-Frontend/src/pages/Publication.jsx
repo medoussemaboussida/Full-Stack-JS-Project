@@ -131,7 +131,7 @@ function Publication() {
                                     </a>
                                     {/* Bouton My Publications */}
                                     <a
-                                        href="/MyPublication" // Remplacez par l'URL souhaitée
+                                        href="/PublicationPsychiatristAll" // Remplacez par l'URL souhaitée
                                         style={{
                                             display: 'inline-flex',
                                             alignItems: 'center',

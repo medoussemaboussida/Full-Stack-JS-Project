@@ -21,6 +21,9 @@ router.post('/forgot-password', userController.forgotPassword);
 router.post('/reset-password/:token', userController.resetPassword);
 router.post('/', userController.verifyToken, userController.addPublication);
 router.get('/allPublication', userController.getAllPublications);
+router.get('/myPublications', userController.verifyToken, userController.getMyPublications);
+router.get('/publication/:id', userController.getPublicationById);
+router.delete('/publication/:id', userController.verifyToken, userController.deletePublication);
 
 
 router.get('/psychiatrists', userController.getPsychiatrists);
