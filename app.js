@@ -31,6 +31,7 @@ app.use(cors({
     origin: ["http://localhost:3000", "http://localhost:5001"], // Autoriser frontend et back-office
     credentials: true,
 }));
+app.use('/uploads', express.static('uploads'));
 
 // Configurer le moteur de vue
 app.set('view engine', 'ejs');

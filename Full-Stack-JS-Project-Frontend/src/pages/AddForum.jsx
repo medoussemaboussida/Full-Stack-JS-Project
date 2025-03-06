@@ -1,17 +1,85 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { jwtDecode } from 'jwt-decode'; 
 
 const AddForum = () => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [forumPhoto, setForumPhoto] = useState(null);
+  const [userId, setUserId] = useState(null);
+  const [token, setToken] = useState(null);
+  const [anonymous, setAnonymous] = useState('no'); // Valeur initiale à 'no'
+
+  useEffect(() => {
+    const token = localStorage.getItem("jwt-token");
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        const currentTime = Date.now() / 1000; // En secondes
+
+        // Vérifier si le token est expiré
+        if (decoded.exp < currentTime) {
+          console.log("Token expiré.");
+          localStorage.removeItem("jwt-token");
+          return;
+        }
+
+        setToken(token); // Sauvegarder le token valide
+        setUserId(decoded.id); // Récupérer l'id de l'utilisateur depuis le token
+      } catch (error) {
+        console.error("Erreur de décodage du token:", error);
+        localStorage.removeItem("jwt-token");
+      }
+    } else {
+      console.log("Aucun token trouvé.");
+    }
+  }, []);
 
   const handlePhotoChange = (event) => {
     setForumPhoto(event.target.files[0]);
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    console.log("Forum added :", { title, description, forumPhoto });
+
+    if (!userId || !token) {
+      alert("Vous devez être connecté pour ajouter un forum.");
+      return;
+    }
+
+    // Créer le FormData pour envoyer les données avec le fichier
+    const formData = new FormData();
+    formData.append("title", title);
+    formData.append("description", description);
+    formData.append("anonymous", anonymous); 
+
+    if (forumPhoto) {
+        formData.append("forum_photo", forumPhoto);
+      }
+    try {
+      const response = await fetch(`http://localhost:5000/forum/addForum/${userId}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Erreur lors de l'ajout du forum.");
+      }
+
+      const data = await response.json();
+      console.log("Forum ajouté avec succès:", data);
+
+      // Réinitialiser les champs après succès
+      setTitle("");
+      setDescription("");
+      setAnonymous('no'); // Réinitialiser la valeur de "anonymous"
+      setForumPhoto(null);
+    } catch (error) {
+      console.error("Erreur:", error);
+      alert("Une erreur s'est produite lors de l'ajout du forum.");
+    }
   };
 
   return (
@@ -82,7 +150,21 @@ const AddForum = () => {
                       />
                     </div>
                   </div>
-
+                  <div className="form-group">
+                    <label htmlFor="anonymous" className="font-semibold text-lg">
+                      Post your topic anonymously:
+                    </label>
+                    <select
+                      id="anonymous"
+                      name="anonymous"
+                      value={anonymous}
+                      onChange={(e) => setAnonymous(e.target.value)}
+                      className="form-control"
+                    >
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
+                  </div>
                   <div className="auth-group text-center">
                     <button
                       type="submit"

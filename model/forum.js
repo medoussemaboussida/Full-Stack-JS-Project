@@ -3,9 +3,10 @@ const forumSchema = new mongoose.Schema({
 
     title :{ type: String , required : true },
     description :{ type: String , required : true },
-    forum_photo: {type : String , required: true},
+    forum_photo: {type : String , required: false},
     status: { type: String, enum: ["actif", "inactif"], default: "actif" },
     user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },   
+    anonymous: { type: Boolean } 
 
 },
 {
