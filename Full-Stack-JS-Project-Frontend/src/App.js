@@ -46,7 +46,8 @@ function App(){
         <Route path="/AddPublication" element={<AddPublication />} />
         
         <Route path="/favoriteActivities" element={<FavoriteActivities />} />
-
+        <Route path="/forum" element={<Forum />} />
+        <Route path="/addforum" element={<AddForum />} />
 
 
 
