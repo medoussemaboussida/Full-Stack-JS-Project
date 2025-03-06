@@ -20,6 +20,7 @@ router.delete('/delete/:id', userController.deleteStudentById);   // Supprimer u
 router.post('/forgot-password', userController.forgotPassword);
 router.post('/reset-password/:token', userController.resetPassword);
 router.post('/', userController.verifyToken, userController.addPublication);
+router.get('/allPublication', userController.getAllPublications);
 
 
 router.get('/psychiatrists', userController.getPsychiatrists);

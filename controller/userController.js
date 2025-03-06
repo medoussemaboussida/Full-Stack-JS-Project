@@ -354,6 +354,19 @@ module.exports.addPublication = (req, res) => {
 // Exportation du middleware verifyToken
 module.exports.verifyToken = verifyToken;
 
+// Récupérer toutes les publications
+module.exports.getAllPublications = async (req, res) => {
+    try {
+        const publications = await Publication.find()
+            .populate('author_id', 'username')
+            .sort({ datePublication: -1 });
+        res.status(200).json(publications);
+    } catch (err) {
+        console.error('Erreur lors de la récupération des publications:', err);
+        res.status(500).json({ message: 'Erreur serveur', error: err.message });
+    }
+};
+
 //supprimer student
 module.exports.deleteStudentById = async (req, res) => {
     try {

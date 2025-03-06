@@ -1,18 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { jwtDecode } from 'jwt-decode';
 
+// Fonction pour supprimer les balises HTML et retourner uniquement le texte
+const stripHtmlTags = (html) => {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    return tempDiv.textContent || tempDiv.innerText || '';
+};
+
 function Publication() {
     const [userRole, setUserRole] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [publications, setPublications] = useState([]);
 
-    const blogPosts = [
-        { img: '/assets/img/blog/01.jpg', date: '10 Jan', title: 'There are many variations of passages orem available.', author: 'Alicia Davis', comments: '2.5k' },
-        { img: '/assets/img/blog/02.jpg', date: '11 Jan', title: 'Generator internet repeat tend word chunk necessary.', author: 'Alicia Davis', comments: '1.2k' },
-        { img: '/assets/img/blog/03.jpg', date: '12 Jan', title: 'Survived only five centuries but also the leap into.', author: 'Alicia Davis', comments: '2.8k' },
-        { img: '/assets/img/blog/01.jpg', date: '10 Jan', title: 'There are many variations of passages orem available.', author: 'Alicia Davis', comments: '2.5k' },
-        { img: '/assets/img/blog/02.jpg', date: '11 Jan', title: 'Generator internet repeat tend word chunk necessary.', author: 'Alicia Davis', comments: '1.2k' },
-        { img: '/assets/img/blog/03.jpg', date: '12 Jan', title: 'Survived only five centuries but also the leap into.', author: 'Alicia Davis', comments: '2.8k' }
-    ];
+    // Fonction pour récupérer les publications depuis l'API
+    const fetchPublications = async () => {
+        try {
+            console.log('Fetching publications from API...');
+            const response = await fetch('http://localhost:5000/users/allPublication', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            const data = await response.json();
+            console.log('API Response:', data); // Log pour voir la réponse brute
+
+            if (response.ok) {
+                setPublications(data); // Met à jour l'état avec les données
+                console.log('Publications updated:', data);
+            } else {
+                console.error('Failed to fetch publications:', data.message);
+            }
+        } catch (error) {
+            console.error('Error fetching publications:', error);
+        }
+    };
 
     useEffect(() => {
         const token = localStorage.getItem('jwt-token');
@@ -28,14 +51,15 @@ function Publication() {
                         });
                         const data = await response.json();
                         if (response.ok) {
-                            setUserRole(data.role); // Récupère le rôle à partir de la réponse API
+                            setUserRole(data.role); // Récupère le rôle
+                            console.log('User Role:', data.role);
                         } else {
                             console.error('Failed to fetch user:', data.message);
                         }
                     } catch (error) {
                         console.error('Error fetching user:', error);
                     } finally {
-                        setIsLoading(false);
+                        setIsLoading(false); // Fin du chargement
                     }
                 };
                 fetchUser();
@@ -46,6 +70,9 @@ function Publication() {
         } else {
             setIsLoading(false);
         }
+
+        // Récupérer les publications au chargement
+        fetchPublications();
     }, []);
 
     if (isLoading) {
@@ -59,10 +86,10 @@ function Publication() {
                 {/* Breadcrumb */}
                 <div className="site-breadcrumb" style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}>
                     <div className="container">
-                        <h2 className="breadcrumb-title">Volunteer Single</h2>
+                        <h2 className="breadcrumb-title">Publications</h2>
                         <ul className="breadcrumb-menu">
                             <li><a href="index.html">Home</a></li>
-                            <li className="active">Volunteer Single</li>
+                            <li className="active">Publications</li>
                         </ul>
                     </div>
                 </div>
@@ -73,103 +100,146 @@ function Publication() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '50px' }}>
                             <div style={{ textAlign: 'center', flex: 1 }}>
                                 <span style={{ fontSize: '16px', color: '#0ea5e6', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '5px' }}>
-                                    <i className="far fa-hand-heart"></i> Our Blog
+                                    <i className="far fa-hand-heart"></i> Our Publications
                                 </span>
                                 <h2 style={{ fontSize: '32px', fontWeight: '700', margin: '10px 0 0' }}>
-                                    Our Latest News & <span style={{ color: '#0ea5e6' }}>Blog</span>
+                                    Latest Publications & <span style={{ color: '#0ea5e6' }}>Updates</span>
                                 </h2>
                             </div>
                             {userRole === 'psychiatrist' && (
-                                <a
-                                    href="/AddPublication"
-                                    style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        background: '#0ea5e6',
-                                        color: '#fff',
-                                        padding: '12px 24px',
-                                        borderRadius: '5px',
-                                        textDecoration: 'none',
-                                        fontSize: '16px',
-                                        fontWeight: '600',
-                                        transition: 'background 0.3s ease',
-                                        boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
-                                    }}
-                                    onMouseEnter={(e) => e.target.style.background = '#164da6'}
-                                    onMouseLeave={(e) => e.target.style.background = '#0ea5e6'}
-                                >
-                                    <i className="fas fa-plus" style={{ marginRight: '8px' }}></i> Add Publication
-                                </a>
+                                <div style={{ display: 'flex', gap: '15px' }}>
+                                    {/* Bouton Add Publication */}
+                                    <a
+                                        href="/AddPublication"
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            background: '#0ea5e6',
+                                            color: '#fff',
+                                            padding: '12px 24px',
+                                            borderRadius: '5px',
+                                            textDecoration: 'none',
+                                            fontSize: '16px',
+                                            fontWeight: '600',
+                                            transition: 'background 0.3s ease',
+                                            boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.background = '#164da6'}
+                                        onMouseLeave={(e) => e.target.style.background = '#0ea5e6'}
+                                    >
+                                        <i className="fas fa-plus" style={{ marginRight: '8px' }}></i> Add Publication
+                                    </a>
+                                    {/* Bouton My Publications */}
+                                    <a
+                                        href="/MyPublication" // Remplacez par l'URL souhaitée
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            background: '#28a745', // Vert pour différencier
+                                            color: '#fff',
+                                            padding: '12px 24px',
+                                            borderRadius: '5px',
+                                            textDecoration: 'none',
+                                            fontSize: '16px',
+                                            fontWeight: '600',
+                                            transition: 'background 0.3s ease',
+                                            boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.background = '#218838'}
+                                        onMouseLeave={(e) => e.target.style.background = '#28a745'}
+                                    >
+                                        <i className="fas fa-book" style={{ marginRight: '8px' }}></i> My Publication
+                                    </a>
+                                </div>
                             )}
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
-                            {blogPosts.map((post, index) => (
-                                <div
-                                    key={index}
-                                    style={{
-                                        background: '#fff',
-                                        borderRadius: '10px',
-                                        overflow: 'hidden',
-                                        boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
-                                        transition: 'transform 0.3s ease'
-                                    }}
-                                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-10px)'}
-                                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                                >
-                                    <div style={{ position: 'relative' }}>
-                                        <img src={post.img} alt="Thumb" style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: '10px',
-                                            left: '10px',
-                                            background: '#0ea5e6',
-                                            color: '#fff',
-                                            padding: '5px 10px',
-                                            borderRadius: '5px',
-                                            textAlign: 'center'
-                                        }}>
-                                            <strong>{post.date.split(' ')[0]}</strong>
-                                            <span style={{ display: 'block', fontSize: '12px' }}>{post.date.split(' ')[1]}</span>
-                                        </div>
-                                    </div>
-                                    <div style={{ padding: '20px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', fontSize: '14px', color: '#666' }}>
-                                            <span>
-                                                <i className="far fa-user-circle" style={{ marginRight: '5px' }}></i>
-                                                By {post.author}
-                                            </span>
-                                            <span>
-                                                <i className="far fa-comments" style={{ marginRight: '5px' }}></i>
-                                                {post.comments} Comments
-                                            </span>
-                                        </div>
-                                        <h4 style={{ fontSize: '20px', fontWeight: '600', margin: '0 0 15px', lineHeight: '1.4' }}>
-                                            <a href="/blog-single" style={{ color: '#333', textDecoration: 'none' }}>{post.title}</a>
-                                        </h4>
-                                        <a
-                                            href="/blog-single"
-                                            style={{
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
+                            {publications.length > 0 ? (
+                                publications.map((post, index) => (
+                                    <div
+                                        key={index}
+                                        style={{
+                                            background: '#fff',
+                                            borderRadius: '10px',
+                                            overflow: 'hidden',
+                                            boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+                                            transition: 'transform 0.3s ease'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-10px)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                                    >
+                                        <div style={{ position: 'relative' }}>
+                                            <img
+                                                src={post.imagePublication ? `http://localhost:5000${post.imagePublication}` : '/assets/img/blog/01.jpg'}
+                                                alt="Publication"
+                                                style={{ width: '100%', height: '200px', objectFit: 'cover' }}
+                                            />
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: '10px',
+                                                left: '10px',
                                                 background: '#0ea5e6',
                                                 color: '#fff',
-                                                padding: '10px 20px',
+                                                padding: '5px 10px',
                                                 borderRadius: '5px',
-                                                textDecoration: 'none',
-                                                transition: 'background 0.3s ease'
-                                            }}
-                                            onMouseEnter={(e) => e.target.style.background = '#164da6'}
-                                            onMouseLeave={(e) => e.target.style.background = '#0ea5e6'}
-                                        >
-                                            Read More <i className="fas fa-circle-arrow-right" style={{ marginLeft: '5px' }}></i>
-                                        </a>
+                                                textAlign: 'center'
+                                            }}>
+                                                <strong>{new Date(post.datePublication).getDate()}</strong>
+                                                <span style={{ display: 'block', fontSize: '12px' }}>
+                                                    {new Date(post.datePublication).toLocaleString('default', { month: 'short' })}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div style={{ padding: '20px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', fontSize: '14px', color: '#666' }}>
+                                                <span>
+                                                    <i className="far fa-user-circle" style={{ marginRight: '5px' }}></i>
+                                                    By {post.author_id?.username || 'Unknown'}
+                                                </span>
+                                                <span>
+                                                    <i className="far fa-comments" style={{ marginRight: '5px' }}></i>
+                                                    {post.comments ? `${post.comments} Comments` : 'No Comments'}
+                                                </span>
+                                            </div>
+                                            <h4 style={{ fontSize: '20px', fontWeight: '600', margin: '0 0 15px', lineHeight: '1.4' }}>
+                                                <a href={`/publication/${post._id}`} style={{ color: '#333', textDecoration: 'none' }}>
+                                                    {stripHtmlTags(post.titrePublication)}
+                                                </a>
+                                            </h4>
+                                            <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+                                                {stripHtmlTags(post.description).length > 100 
+                                                    ? `${stripHtmlTags(post.description).substring(0, 100)}...` 
+                                                    : stripHtmlTags(post.description)}
+                                            </p>
+                                            <a
+                                                href={`/publication/${post._id}`}
+                                                style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    background: '#0ea5e6',
+                                                    color: '#fff',
+                                                    padding: '10px 20px',
+                                                    borderRadius: '5px',
+                                                    textDecoration: 'none',
+                                                    transition: 'background 0.3s ease'
+                                                }}
+                                                onMouse awardsEnter={(e) => e.target.style.background = '#164da6'}
+                                                onMouseLeave={(e) => e.target.style.background = '#0ea5e6'}
+                                            >
+                                                Read More <i className="fas fa-circle-arrow-right" style={{ marginLeft: '5px' }}></i>
+                                            </a>
+                                        </div>
                                     </div>
+                                ))
+                            ) : (
+                                <div style={{ textAlign: 'center', gridColumn: 'span 3' }}>
+                                    <p>No publications available.</p>
                                 </div>
-                            ))}
+                            )}
                         </div>
 
-                        {/* Pagination */}
+                        {/* Pagination (statique pour l'instant) */}
                         <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'center' }}>
                             <ul style={{ display: 'flex', listStyle: 'none', padding: 0, gap: '10px' }}>
                                 <li>
