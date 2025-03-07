@@ -24,6 +24,8 @@ router.get('/allPublication', userController.getAllPublications);
 router.get('/myPublications', userController.verifyToken, userController.getMyPublications);
 router.get('/publication/:id', userController.getPublicationById);
 router.delete('/publication/:id', userController.verifyToken, userController.deletePublication);
+router.patch('/publication/:publicationId', userController.updatePublicationStatus);
+router.patch('/publication/update/:id', userController.verifyToken, userController.updatePublication);
 
 
 router.get('/psychiatrists', userController.getPsychiatrists);

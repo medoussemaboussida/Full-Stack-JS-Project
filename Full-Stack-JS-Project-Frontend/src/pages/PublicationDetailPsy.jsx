@@ -112,9 +112,13 @@ function PublicationDetailPsy() {
                                                 <div className="blog-details-tag pb-20">
                                                     <h5>Tags : </h5>
                                                     <ul>
-                                                        <li><a href="#">Senior</a></li>
-                                                        <li><a href="#">Elderly</a></li>
-                                                        <li><a href="#">Care</a></li>
+                                                        {publication.tag && publication.tag.length > 0 ? (
+                                                            publication.tag.map((tag, index) => (
+                                                                <li key={index}><a href="#">{tag}</a></li>
+                                                            ))
+                                                        ) : (
+                                                            <li>No tags available</li>
+                                                        )}
                                                     </ul>
                                                 </div>
                                             </div>
@@ -286,14 +290,13 @@ function PublicationDetailPsy() {
                                     <div className="widget tag">
                                         <h5 className="widget-title">Popular Tags</h5>
                                         <div className="tag-list">
-                                            <a href="#">Senior</a>
-                                            <a href="#">Care</a>
-                                            <a href="#">Elderly</a>
-                                            <a href="#">Medical</a>
-                                            <a href="#">Health</a>
-                                            <a href="#">Nurse</a>
-                                            <a href="#">Transport</a>
-                                            <a href="#">Personal</a>
+                                            {publication.tag && publication.tag.length > 0 ? (
+                                                publication.tag.map((tag, index) => (
+                                                    <a href="#" key={index}>{tag}</a>
+                                                ))
+                                            ) : (
+                                                <span>No tags available</span>
+                                            )}
                                         </div>
                                     </div>
                                 </aside>

@@ -351,8 +351,32 @@ module.exports.addPublication = (req, res) => {
     });
 };
 
+
 // Exportation du middleware verifyToken
 module.exports.verifyToken = verifyToken;
+
+// publication archived
+module.exports.updatePublicationStatus = async (req, res) => {
+    try {
+        const { publicationId } = req.params;
+        const { status } = req.body;
+
+        const updatedPublication = await Publication.findByIdAndUpdate(
+            publicationId,
+            { status },
+            { new: true } // Retourne le document mis à jour
+        );
+
+        if (!updatedPublication) {
+            return res.status(404).json({ message: 'Publication not found' });
+        }
+
+        res.status(200).json(updatedPublication);
+    } catch (error) {
+        console.error('Error updating publication status:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
 
 // Récupérer toutes les publications
 module.exports.getAllPublications = async (req, res) => {
@@ -416,6 +440,40 @@ module.exports.deletePublication = async (req, res) => {
         console.error('Erreur lors de la suppression de la publication:', err);
         res.status(500).json({ message: 'Erreur serveur', error: err.message });
     }
+};
+
+// Mettre à jour une publication
+module.exports.updatePublication = (req, res) => {
+    upload1(req, res, async (err) => {
+        if (err) {
+            console.log('Erreur Multer:', err);
+            return res.status(400).json({ message: err });
+        }
+
+        try {
+            const { id } = req.params; // ID de la publication
+            const token = req.headers.authorization.split(' ')[1];
+            const decoded = jwt.verify(token, 'randa'); // Vérification du token
+            const userId = decoded.id;
+
+            const publication = await Publication.findOne({ _id: id, author_id: userId });
+            if (!publication) {
+                return res.status(404).json({ message: 'Publication not found or not authorized' });
+            }
+
+            // Mise à jour des champs
+            if (req.body.titrePublication) publication.titrePublication = req.body.titrePublication;
+            if (req.body.description) publication.description = req.body.description;
+            if (req.file) publication.imagePublication = `/uploads/publications/${req.file.filename}`;
+            if (req.body.tag) publication.tag = req.body.tag.split(',').map(tag => tag.trim()).filter(tag => tag);
+
+            const updatedPublication = await publication.save();
+            res.status(200).json({ message: 'Publication updated successfully', publication: updatedPublication });
+        } catch (error) {
+            console.error('Erreur lors de la mise à jour de la publication:', error);
+            res.status(500).json({ message: 'Erreur serveur', error: error.message });
+        }
+    });
 };
 
 
