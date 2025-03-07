@@ -47,18 +47,13 @@
   border-radius: 10px;
 }
 
-
 .psychiatrist-card {
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
   text-align: center;
-  transition: transform 0.3s ease-in-out;
-}
-
-.psychiatrist-card:hover {
-  transform: translateY(-5px);
+  background-color: #fff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .psychiatrist-img img {
@@ -66,124 +61,254 @@
   height: 100px;
   border-radius: 50%;
   object-fit: cover;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
+}
+
+.no-image {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background-color: #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
 }
 
 .psychiatrist-info h4 {
-  font-size: 18px;
-  margin-bottom: 5px;
-  color: #333;
+  font-size: 1.2rem;
+  margin: 10px 0;
 }
 
 .psychiatrist-info p {
-  font-size: 14px;
-  color: #777;
-  margin-bottom: 10px;
+  color: #666;
+  margin: 5px 0;
 }
 
 .psychiatrist-info ul {
   list-style: none;
   padding: 0;
+  margin: 10px 0;
 }
 
 .psychiatrist-info ul li {
-  font-size: 14px;
-  color: #555;
-}
-
-.swiper-pagination {
-  display: flex;
-  justify-content: center;
-  padding-top: 10px;
-}
-
-.swiper-pagination-bullet {
-  background: #007bff !important;
-  width: 10px;
-  height: 10px;
-}
-
-
-.book-appointment-btn {
-  background-color: #007bff;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  font-size: 16px;
-  cursor: pointer;
-  border-radius: 5px;
-  margin-top: 10px;
-}
-
-.book-appointment-btn:hover {
-  background-color: #0056b3;
-}
-
-
-.psychiatrist-card {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 15px;
-    text-align: center;
-    background-color: #fff;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.psychiatrist-img img {
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    object-fit: cover;
-    margin-bottom: 10px;
-}
-
-.no-image {
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    background-color: #ddd;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 10px;
-}
-
-.psychiatrist-info h4 {
-    font-size: 1.2rem;
-    margin: 10px 0;
-}
-
-.psychiatrist-info p {
-    color: #666;
-    margin: 5px 0;
-}
-
-.psychiatrist-info ul {
-    list-style: none;
-    padding: 0;
-    margin: 10px 0;
-}
-
-.psychiatrist-info ul li {
-    padding: 5px;
-    transition: background-color 0.2s;
+  padding: 5px;
+  transition: background-color 0.2s;
 }
 
 .psychiatrist-info ul li:hover {
-    background-color: #f0f0f0;
+  background-color: #f0f0f0;
 }
 
 .book-appointment-btn {
-    background-color: #2196f3;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 5px;
-    cursor: pointer;
-    margin-top: 10px;
+  background-color: #2196f3;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 10px;
 }
 
 .book-appointment-btn:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* AppointmentHistory.css */
+.appointment-history-container {
+  max-width: 800px;
+  margin: 40px auto;
+  padding: 20px;
+  font-family: 'Arial', sans-serif;
+}
+
+.appointment-history-container h2 {
+  text-align: center;
+  color: #333;
+  margin-bottom: 30px;
+  font-size: 2rem;
+  border-bottom: 2px solid #007bff;
+  padding-bottom: 10px;
+}
+
+.loading {
+  text-align: center;
+  font-size: 1.2rem;
+  color: #666;
+}
+
+.error {
+  text-align: center;
+  font-size: 1.2rem;
+  color: #d9534f;
+  background-color: #f8d7da;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.no-appointments {
+  text-align: center;
+  font-size: 1.2rem;
+  color: #666;
+  font-style: italic;
+}
+
+.appointments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.appointment-card {
+  background-color: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  transition: transform 0.2s ease-in-out;
+  position: relative; /* Added to fix icon positioning */
+}
+
+.appointment-card:hover {
+  transform: translateY(-5px);
+}
+
+.appointment-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.appointment-details p {
+  margin: 0;
+  font-size: 1rem;
+  color: #444;
+}
+
+.label {
+  font-weight: bold;
+  color: #007bff;
+}
+
+.status-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status {
+  padding: 5px 10px;
+  border-radius: 15px;
+  font-size: 0.9rem;
+  color: #fff;
+}
+
+.status.pending {
+  background-color: #ffc107;
+}
+
+.status.confirmed {
+  background-color: #28a745;
+}
+
+.status.completed {
+  background-color: #17a2b8;
+}
+
+.status.canceled {
+  background-color: #dc3545;
+}
+
+.edit-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.edit-status select {
+  padding: 5px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  outline: none;
+}
+
+.edit-btn, .save-btn, .cancel-btn {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.3s ease;
+}
+
+.edit-btn {
+  background-color: #007bff;
+  color: #fff;
+}
+
+.edit-btn:hover {
+  background-color: #0056b3;
+}
+
+.save-btn {
+  background-color: #28a745;
+  color: #fff;
+}
+
+.save-btn:hover {
+  background-color: #218838;
+}
+
+.cancel-btn {
+  background-color: #dc3545;
+  color: #fff;
+}
+
+.cancel-btn:hover {
+  background-color: #c82333;
+}
+
+/* AppointmentHistory.css (ajout de la classe delete-btn) */
+.delete-btn {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  background-color: #dc3545;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background-color 0.3s ease;
+  margin-top: 10px;
+}
+
+.delete-btn:hover {
+  background-color: #c82333;
+}
+
+.delete-btn i {
+  font-size: 1rem;
+}
+
+.delete-icon {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #dc3545;
+  font-size: 1.2rem;
+  transition: color 0.3s ease;
+}
+
+.delete-icon:hover {
+  color: #c82333;
+}
+
+.delete-icon i {
+  font-size: 1.2rem;
 }

@@ -1016,51 +1016,78 @@ module.exports.deleteAvailability = async (req, res) => {
   };
 
 
+
+  
   module.exports.bookappointment = async (req, res) => {
-    const { psychiatristId, day, startTime, endTime } = req.body; // Changé de "date" à "day"
-    const studentId = req.userId; // Changé de req.user.id à req.userId
-
-    console.log('Requête reçue:', { psychiatristId, day, startTime, endTime, studentId }); // Débogage
-
-    try {
-        // Vérifier si les champs obligatoires sont présents
-        if (!psychiatristId || !day || !startTime || !endTime) {
-            return res.status(400).json({ message: 'Tous les champs (psychiatristId, day, startTime, endTime) sont requis' });
-        }
-
-        const psychiatrist = await User.findById(psychiatristId);
-        if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
-            return res.status(404).json({ message: "Psychiatrist not found" });
-        }
-
-        console.log('Disponibilités du psychiatre:', psychiatrist.availability); // Débogage
-
-        const isAvailable = psychiatrist.availability.some(slot =>
-            slot.day === day &&
-            slot.startTime === startTime &&
-            slot.endTime === endTime
-        );
-        if (!isAvailable) {
-            return res.status(400).json({ message: "This slot is not available" });
-        }
-
-        const appointment = new Appointment({
-            psychiatrist: psychiatristId,
-            student: studentId,
-            date: new Date().toISOString().split('T')[0], // Date par défaut si nécessaire
-            startTime,
-            endTime,
-        });
-        await appointment.save();
-
-        res.status(201).json({ message: "Appointment booked successfully", appointment });
-    } catch (error) {
-        console.error('Erreur dans bookappointment:', error);
-        res.status(500).json({ message: "Server error", error: error.message });
-    }
-};
-
-
+      const { psychiatristId, day, startTime, endTime } = req.body; // Changed from "date" to "day"
+      const studentId = req.userId; // Changed from req.user.id to req.userId
+  
+      console.log('Requête reçue:', { psychiatristId, day, startTime, endTime, studentId }); // Débogage
+  
+      try {
+          // Vérifier si les champs obligatoires sont présents
+          if (!psychiatristId || !day || !startTime || !endTime) {
+              return res.status(400).json({ message: 'Tous les champs (psychiatristId, day, startTime, endTime) sont requis' });
+          }
+  
+          const psychiatrist = await User.findById(psychiatristId);
+          if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
+              return res.status(404).json({ message: "Psychiatrist not found" });
+          }
+  
+          console.log('Disponibilités du psychiatre:', psychiatrist.availability); // Débogage
+  
+          // Vérifier si le créneau est disponible
+          const isAvailable = psychiatrist.availability.some(slot =>
+              slot.day === day &&
+              slot.startTime === startTime &&
+              slot.endTime === endTime
+          );
+          if (!isAvailable) {
+              return res.status(400).json({ message: "This slot is not available" });
+          }
+  
+          // Vérifier s'il existe déjà une réservation pour ce créneau (éviter les doublons globaux)
+          const existingAppointment = await Appointment.findOne({
+              psychiatrist: psychiatristId,
+              day,
+              startTime,
+              endTime,
+          });
+          if (existingAppointment) {
+              return res.status(400).json({ message: 'This slot is already booked by another user.' });
+          }
+  
+          // Créer une nouvelle réservation
+          const appointment = new Appointment({
+              psychiatrist: psychiatristId,
+              student: studentId,
+              date: new Date().toISOString().split('T')[0], // Date par défaut si nécessaire
+              startTime,
+              endTime,
+          });
+          await appointment.save();
+  
+          // Mettre à jour la disponibilité du psychiatre en supprimant le créneau réservé
+          await User.updateOne(
+              { _id: psychiatristId },
+              {
+                  $pull: {
+                      availability: {
+                          day,
+                          startTime,
+                          endTime,
+                      },
+                  },
+              }
+          );
+  
+          res.status(201).json({ message: "Appointment booked successfully", appointment });
+      } catch (error) {
+          console.error('Erreur dans bookAppointment:', error);
+          res.status(500).json({ message: "Server error", error: error.message });
+      }
+  };
 
 
 
@@ -1135,5 +1162,42 @@ module.exports.updateAppointmentStatus = async (req, res) => {
     } catch (error) {
         console.error('Erreur dans updateAppointmentStatus:', error);
         res.status(500).json({ message: "Erreur serveur", error: error.message });
+    }
+};
+
+
+module.exports.deleteAppointment = async (req, res) => {
+    try {
+        const userId = req.userId; // ID de l'étudiant connecté
+        const { appointmentId } = req.params; // ID du rendez-vous à supprimer
+
+        // Vérifier si l'utilisateur est un étudiant
+        const user = await User.findById(userId);
+        if (!user || user.role !== "student") {
+            return res.status(403).json({ message: "Seul un étudiant peut supprimer ses rendez-vous" });
+        }
+
+        // Vérifier si le rendez-vous existe et appartient à l'étudiant
+        const appointment = await Appointment.findOne({ _id: appointmentId, student: userId });
+        if (!appointment) {
+            return res.status(404).json({ message: "Rendez-vous non trouvé ou vous n'êtes pas autorisé à le supprimer" });
+        }
+
+        // Supprimer le rendez-vous
+        await Appointment.deleteOne({ _id: appointmentId });
+
+        res.status(200).json({ message: "Rendez-vous supprimé avec succès" });
+    } catch (error) {
+        console.error('Erreur dans deleteAppointment:', error);
+        res.status(500).json({ message: "Erreur serveur", error: error.message });
+    }
+};
+module.exports.getAllAppointments = async (req, res) => {
+    try {
+        const appointments = await Appointment.find();
+        res.status(200).json(appointments);
+    } catch (error) {
+        console.error('Error fetching all appointments:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
 };

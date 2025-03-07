@@ -28,6 +28,8 @@ router.patch('/publication/:publicationId', userController.updatePublicationStat
 router.patch('/publication/update/:id', userController.verifyToken, userController.updatePublication);
 
 
+
+
 router.get('/psychiatrists', userController.getPsychiatrists);
 router.put('/psychiatrists/add-availability/:id', userController.addAvailability);
 router.delete('/psychiatrists/delete-availability/:id/:index', userController.deleteAvailability);
@@ -35,6 +37,12 @@ router.put('/psychiatrists/update-availability/:id/:index', userController.updat
 router.post("/appointments/book", userController.verifyToken, userController.bookappointment);
 router.get('/appointments/history', userController.verifyToken, userController.getAppointmentHistory);
 router.put('/appointments/:appointmentId/status', userController.verifyToken, userController.updateAppointmentStatus);
+router.delete('/appointments/:appointmentId', userController.verifyToken, userController.deleteAppointment);
+router.get('/allAppointments', userController.getAllAppointments);
+
+
+
+
 
 //ghassen
 router.delete('/deleteAll', userController.deleteAllUsers);  // Supprimer tous les utilisateurs
