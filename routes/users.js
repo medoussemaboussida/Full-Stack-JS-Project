@@ -32,8 +32,9 @@ router.get('/psychiatrists', userController.getPsychiatrists);
 router.put('/psychiatrists/add-availability/:id', userController.addAvailability);
 router.delete('/psychiatrists/delete-availability/:id/:index', userController.deleteAvailability);
 router.put('/psychiatrists/update-availability/:id/:index', userController.updateAvailability);
-
-
+router.post("/appointments/book", userController.verifyToken, userController.bookappointment);
+router.get('/appointments/history', userController.verifyToken, userController.getAppointmentHistory);
+router.put('/appointments/:appointmentId/status', userController.verifyToken, userController.updateAppointmentStatus);
 
 //ghassen
 router.delete('/deleteAll', userController.deleteAllUsers);  // Supprimer tous les utilisateurs

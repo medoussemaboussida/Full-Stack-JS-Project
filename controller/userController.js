@@ -6,6 +6,7 @@ const sendEmail = require('../utils/emailSender');
 const multer = require('multer');
 const path = require('path');
 const Publication = require('../model/publication'); // Assurez-vous que le chemin est correct
+const Appointment = require("../model/appointment");
 
 dotenv.config();
 
@@ -1015,11 +1016,124 @@ module.exports.deleteAvailability = async (req, res) => {
   };
 
 
+  module.exports.bookappointment = async (req, res) => {
+    const { psychiatristId, day, startTime, endTime } = req.body; // Changé de "date" à "day"
+    const studentId = req.userId; // Changé de req.user.id à req.userId
+
+    console.log('Requête reçue:', { psychiatristId, day, startTime, endTime, studentId }); // Débogage
+
+    try {
+        // Vérifier si les champs obligatoires sont présents
+        if (!psychiatristId || !day || !startTime || !endTime) {
+            return res.status(400).json({ message: 'Tous les champs (psychiatristId, day, startTime, endTime) sont requis' });
+        }
+
+        const psychiatrist = await User.findById(psychiatristId);
+        if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
+            return res.status(404).json({ message: "Psychiatrist not found" });
+        }
+
+        console.log('Disponibilités du psychiatre:', psychiatrist.availability); // Débogage
+
+        const isAvailable = psychiatrist.availability.some(slot =>
+            slot.day === day &&
+            slot.startTime === startTime &&
+            slot.endTime === endTime
+        );
+        if (!isAvailable) {
+            return res.status(400).json({ message: "This slot is not available" });
+        }
+
+        const appointment = new Appointment({
+            psychiatrist: psychiatristId,
+            student: studentId,
+            date: new Date().toISOString().split('T')[0], // Date par défaut si nécessaire
+            startTime,
+            endTime,
+        });
+        await appointment.save();
+
+        res.status(201).json({ message: "Appointment booked successfully", appointment });
+    } catch (error) {
+        console.error('Erreur dans bookappointment:', error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
 
 
 
 
 
+// Récupérer l'historique des rendez-vous pour un étudiant
+module.exports.getAppointmentHistory = async (req, res) => {
+    try {
+        const userId = req.userId; // ID de l'utilisateur connecté, défini par verifyToken
 
+        // Récupérer l'utilisateur pour vérifier son rôle
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "Utilisateur non trouvé" });
+        }
 
+        let appointments;
+        if (user.role === "student") {
+            // Pour un étudiant, récupérer les rendez-vous où il est le student
+            appointments = await Appointment.find({ student: userId })
+                .populate('psychiatrist', 'username email')
+                .sort({ date: -1 })
+                .exec();
+        } else if (user.role === "psychiatrist") {
+            // Pour un psychiatre, récupérer les rendez-vous où il est le psychiatrist
+            appointments = await Appointment.find({ psychiatrist: userId })
+                .populate('student', 'username email')
+                .sort({ date: -1 })
+                .exec();
+        } else {
+            return res.status(403).json({ message: "Rôle non autorisé pour voir l'historique des rendez-vous" });
+        }
 
+        if (!appointments.length) {
+            return res.status(404).json({ message: "Aucun rendez-vous trouvé" });
+        }
+
+        res.status(200).json({ message: "Historique des rendez-vous récupéré avec succès", appointments, role: user.role });
+    } catch (error) {
+        console.error('Erreur dans getAppointmentHistory:', error);
+        res.status(500).json({ message: "Erreur serveur", error: error.message });
+    }
+};
+
+module.exports.updateAppointmentStatus = async (req, res) => {
+    try {
+        const userId = req.userId; // ID de l'utilisateur connecté
+        const { appointmentId } = req.params; // ID du rendez-vous à modifier
+        const { status } = req.body; // Nouveau statut
+
+        // Vérifier que le statut est valide
+        const validStatuses = ['pending', 'confirmed', 'completed', 'canceled'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ message: "Statut invalide. Les valeurs autorisées sont : 'pending', 'confirmed', 'completed', 'canceled'." });
+        }
+
+        // Vérifier si l'utilisateur est un psychiatre
+        const user = await User.findById(userId);
+        if (!user || user.role !== "psychiatrist") {
+            return res.status(403).json({ message: "Seul un psychiatre peut modifier le statut d'un rendez-vous" });
+        }
+
+        // Vérifier si le rendez-vous existe et appartient au psychiatre
+        const appointment = await Appointment.findOne({ _id: appointmentId, psychiatrist: userId });
+        if (!appointment) {
+            return res.status(404).json({ message: "Rendez-vous non trouvé ou vous n'êtes pas autorisé à le modifier" });
+        }
+
+        // Mettre à jour le statut
+        appointment.status = status;
+        await appointment.save();
+
+        res.status(200).json({ message: "Statut du rendez-vous mis à jour avec succès", appointment });
+    } catch (error) {
+        console.error('Erreur dans updateAppointmentStatus:', error);
+        res.status(500).json({ message: "Erreur serveur", error: error.message });
+    }
+};

@@ -38,9 +38,6 @@ function DetailsStudents() {
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
   const [availabilityTitle, setAvailabilityTitle] = useState("");
   const [selectedDateInfo, setSelectedDateInfo] = useState(null);
-  // Nouvel état pour le modal de suppression de disponibilité
-  const [showDeleteAvailabilityModal, setShowDeleteAvailabilityModal] = useState(false);
-  const [selectedEventInfo, setSelectedEventInfo] = useState(null);
 
   const BASE_URL = "http://localhost:5000";
 
@@ -68,17 +65,20 @@ function DetailsStudents() {
     return availabilities.map((slot, index) => {
       let startDate, endDate;
 
+      // Si une date exacte est fournie par le serveur ou la sélection
       if (slot.date) {
         startDate = new Date(slot.date);
         startDate.setHours(parseInt(slot.startTime.split(':')[0]), parseInt(slot.startTime.split(':')[1]), 0, 0);
         endDate = new Date(slot.date);
         endDate.setHours(parseInt(slot.endTime.split(':')[0]), parseInt(slot.endTime.split(':')[1]), 0, 0);
       } else if (selectedStartDate) {
+        // Pour les nouvelles disponibilités ajoutées via le calendrier
         startDate = new Date(selectedStartDate);
         startDate.setHours(parseInt(slot.startTime.split(':')[0]), parseInt(slot.startTime.split(':')[1]), 0, 0);
         endDate = new Date(selectedStartDate);
         endDate.setHours(parseInt(slot.endTime.split(':')[0]), parseInt(slot.endTime.split(':')[1]), 0, 0);
       } else {
+        // Pour les anciennes données sans date exacte (compatibilité)
         const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const dayIndex = daysOfWeek.indexOf(slot.day);
         if (dayIndex === -1) return null;
@@ -91,11 +91,14 @@ function DetailsStudents() {
         endDate.setHours(parseInt(slot.endTime.split(':')[0]), parseInt(slot.endTime.split(':')[1]), 0, 0);
       }
 
+      console.log("Formatted event:", { start: startDate, end: endDate, title: slot.title }); // Débogage
+
       return {
         id: index,
         title: slot.title || `Available - ${slot.day}`,
         start: startDate.toISOString(),
         end: endDate.toISOString(),
+        // Pas de rrule pour les événements avec une date spécifique
       };
     }).filter(Boolean);
   };
@@ -125,6 +128,7 @@ function DetailsStudents() {
               });
               setPreviewPhoto(data.user_photo ? `${BASE_URL}${data.user_photo}` : "assets/img/user.png");
               if (data.availability) {
+                console.log("Server availability data:", data.availability); // Débogage
                 const formattedEvents = formatAvailabilitiesToEvents(data.availability);
                 setEvents(formattedEvents);
               }
@@ -313,7 +317,7 @@ function DetailsStudents() {
         day: new Date(info.event.start).toLocaleString('en-us', { weekday: 'long' }),
         startTime: info.event.start.toTimeString().slice(0, 5),
         endTime: info.event.end.toTimeString().slice(0, 5),
-        date: info.event.start.toISOString().split('T')[0],
+        date: info.event.start.toISOString().split('T')[0], // Ajouter la date exacte
       };
       try {
         const response = await fetch(`${BASE_URL}/users/psychiatrists/update-availability/${decoded.id}/${slotIndex}`, {
@@ -337,17 +341,10 @@ function DetailsStudents() {
   };
 
   const handleEventClick = async (info) => {
-    // Ouvre le modal au lieu de window.confirm
-    setSelectedEventInfo(info);
-    setShowDeleteAvailabilityModal(true);
-  };
-
-  // Nouvelle fonction pour gérer la confirmation de suppression
-  const handleDeleteAvailabilityConfirm = async () => {
-    if (selectedEventInfo) {
+    if (window.confirm("Do you want to delete this availability?")) {
       const token = localStorage.getItem("jwt-token");
       const decoded = jwtDecode(token);
-      const slotIndex = events.findIndex((event) => event.id === parseInt(selectedEventInfo.event.id));
+      const slotIndex = events.findIndex((event) => event.id === parseInt(info.event.id));
 
       try {
         const response = await fetch(`${BASE_URL}/users/psychiatrists/delete-availability/${decoded.id}/${slotIndex}`, {
@@ -358,19 +355,16 @@ function DetailsStudents() {
           const data = await response.json();
           setEvents(formatAvailabilitiesToEvents(data.user.availability));
           toast.success("Availability deleted successfully");
-          setShowDeleteAvailabilityModal(false);
-          setSelectedEventInfo(null);
         }
       } catch (error) {
         toast.error("Error deleting availability");
         console.error(error);
-        setShowDeleteAvailabilityModal(false);
       }
     }
   };
 
   const handleDateSelect = async (selectInfo) => {
-    console.log("Selected date:", selectInfo.start);
+    console.log("Selected date:", selectInfo.start); // Débogage
     setSelectedDateInfo(selectInfo);
     setAvailabilityTitle("");
     setShowAvailabilityModal(true);
@@ -385,8 +379,9 @@ function DetailsStudents() {
         startTime: selectedDateInfo.start.toTimeString().slice(0, 5),
         endTime: selectedDateInfo.end.toTimeString().slice(0, 5),
         title: availabilityTitle,
-        date: selectedDateInfo.start.toISOString().split('T')[0],
+        date: selectedDateInfo.start.toISOString().split('T')[0], // Envoyer la date exacte
       };
+      console.log("Sending to server:", newAvailability); // Débogage
       try {
         const response = await fetch(`${BASE_URL}/users/psychiatrists/add-availability/${decoded.id}`, {
           method: "PUT",
@@ -398,6 +393,7 @@ function DetailsStudents() {
         });
         if (response.ok) {
           const data = await response.json();
+          console.log("Server response:", data.user.availability); // Débogage
           setEvents(formatAvailabilitiesToEvents(data.user.availability));
           toast.success("Availability added successfully");
           setShowAvailabilityModal(false);
@@ -507,65 +503,6 @@ function DetailsStudents() {
                 }}
               >
                 Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Nouveau modal pour la suppression de disponibilité */}
-      {showDeleteAvailabilityModal && (
-        <div style={{ 
-          position: "fixed", 
-          top: 0, 
-          left: 0, 
-          right: 0, 
-          bottom: 0, 
-          backgroundColor: "rgba(0,0,0,0.5)",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          zIndex: 2000
-        }}>
-          <div style={{ 
-            backgroundColor: "white",
-            padding: "20px",
-            borderRadius: "5px",
-            width: "300px",
-            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
-          }}>
-            <h3 style={{ textAlign: "center", marginBottom: "15px" }}>
-              Delete Availability
-            </h3>
-            <p style={{ textAlign: "center", marginBottom: "15px" }}>
-              Do you want to delete this availability?
-            </p>
-            <div style={{ display: "flex", justifyContent: "space-around" }}>
-              <button
-                onClick={handleDeleteAvailabilityConfirm}
-                style={{ 
-                  backgroundColor: "#4CAF50",
-                  color: "white",
-                  padding: "8px 16px",
-                  border: "none",
-                  borderRadius: "3px",
-                  cursor: "pointer"
-                }}
-              >
-                Yes
-              </button>
-              <button
-                onClick={() => setShowDeleteAvailabilityModal(false)}
-                style={{ 
-                  backgroundColor: "#f44336",
-                  color: "white",
-                  padding: "8px 16px",
-                  border: "none",
-                  borderRadius: "3px",
-                  cursor: "pointer"
-                }}
-              >
-                No
               </button>
             </div>
           </div>

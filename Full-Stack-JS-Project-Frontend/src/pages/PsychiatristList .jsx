@@ -9,11 +9,12 @@ import '../App.css';
 
 const PsychiatristList = () => {
     const [psychiatrists, setPsychiatrists] = useState([]);
+    const [selectedSlot, setSelectedSlot] = useState(null); // État pour le créneau sélectionné
+    const [selectedPsychiatristId, setSelectedPsychiatristId] = useState(null); // État pour l'ID du psychiatre sélectionné
 
     useEffect(() => {
         axios.get('http://localhost:5000/users/psychiatrists')
             .then(response => {
-                // Filtrer pour ne garder que les psychiatres ayant des disponibilités
                 const filteredPsychiatrists = response.data.filter(user => 
                     user.role === 'psychiatrist' && user.availability && user.availability.length > 0
                 );
@@ -23,6 +24,52 @@ const PsychiatristList = () => {
                 console.error('Error fetching psychiatrists:', error);
             });
     }, []);
+
+    // Fonction pour gérer la réservation
+    const handleBookAppointment = async () => {
+        if (!selectedSlot || !selectedPsychiatristId) {
+            alert("Please select an availability slot first!");
+            return;
+        }
+    
+        const token = localStorage.getItem("jwt-token");
+        console.log('Token:', token);
+        if (!token) {
+            alert("You must be logged in to book an appointment!");
+            return;
+        }
+    
+        const bookingData = {
+            psychiatristId: selectedPsychiatristId,
+            day: selectedSlot.day, // Changé de "date" à "day"
+            startTime: selectedSlot.startTime,
+            endTime: selectedSlot.endTime,
+        };
+        console.log('Données envoyées:', bookingData);
+    
+        try {
+            const response = await axios.post(
+                'http://localhost:5000/users/appointments/book',
+                bookingData,
+                {
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+            console.log('Réponse:', response.data);
+            alert("Appointment booked successfully!");
+        } catch (error) {
+            console.error('Erreur:', error.response?.data || error.message);
+            alert(`Error booking appointment: ${error.response?.data?.message || error.message}`);
+        }
+    };
+    // Fonction pour sélectionner un créneau
+    const selectSlot = (psychiatristId, slot) => {
+        setSelectedPsychiatristId(psychiatristId);
+        setSelectedSlot(slot);
+    };
 
     return (
         <main className="main">
@@ -64,7 +111,7 @@ const PsychiatristList = () => {
                                                     alt={psychiatrist.username}
                                                 />
                                             ) : (
-                                                <div className="no-image">No Image</div> // Alternative sans image
+                                                <div className="no-image">No Image</div>
                                             )}
                                         </div>
                                         <div className="psychiatrist-info">
@@ -74,7 +121,17 @@ const PsychiatristList = () => {
                                             {psychiatrist.availability.length > 0 ? (
                                                 <ul>
                                                     {psychiatrist.availability.map((avail, idx) => (
-                                                        <li key={idx}>
+                                                        <li
+                                                            key={idx}
+                                                            onClick={() => selectSlot(psychiatrist._id, avail)}
+                                                            style={{
+                                                                cursor: "pointer",
+                                                                backgroundColor:
+                                                                    selectedSlot === avail && selectedPsychiatristId === psychiatrist._id
+                                                                        ? "#e0f7fa"
+                                                                        : "transparent",
+                                                            }}
+                                                        >
                                                             {avail.day}: {avail.startTime} - {avail.endTime}
                                                         </li>
                                                     ))}
@@ -82,8 +139,13 @@ const PsychiatristList = () => {
                                             ) : (
                                                 <span>No availability</span>
                                             )}
-                                            {/* Ajout du bouton "Book Appointment" */}
-                                            <button className="book-appointment-btn">Book Appointment</button>
+                                            <button
+                                                className="book-appointment-btn"
+                                                onClick={handleBookAppointment}
+                                                disabled={!selectedSlot || selectedPsychiatristId !== psychiatrist._id}
+                                            >
+                                                Book Appointment
+                                            </button>
                                         </div>
                                     </div>
                                 </SwiperSlide>
