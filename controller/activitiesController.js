@@ -68,31 +68,30 @@ module.exports.clearFavoriteActivities = async (req, res) => {
 };
 
 //gestion activities
-// Configuration de l'upload d'image
-const storage = multer.diskStorage({
+const storage1 = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, "uploads/activities"); // Dossier où les images seront stockées
+        cb(null, 'uploads/activities/');
     },
     filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname}`); // Nom unique de l'image
+        cb(null, `${Date.now()}-${file.originalname}`);
     }
 });
 
-const upload = multer({
-    storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // Limite de 5MB
+const upload1 = multer({
+    storage: storage1,
     fileFilter: (req, file, cb) => {
         const filetypes = /jpeg|jpg|png/;
         const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
         const mimetype = filetypes.test(file.mimetype);
-
         if (extname && mimetype) {
-            return cb(null, true);
+            cb(null, true);
         } else {
-            cb(new Error("Only JPEG, JPG, and PNG images are allowed"));
+            cb('Erreur : Seules les images (jpeg, jpg, png) sont acceptées !');
         }
-    }
-}).single("image");
+    },
+    limits: { fileSize: 5 * 1024 * 1024 }
+}).single('imageActivities');
+
 // ✅ Ajouter une activité (réservé aux psychiatres)
 module.exports.addActivity = (req, res) => {
     upload(req, res, async (err) => {
@@ -200,9 +199,9 @@ module.exports.deleteActivity = async (req, res) => {
             return res.status(404).json({ message: "Activité non trouvée" });
         }
 
-        if (activity.createdBy.toString() !== id) {
+        /*if (activity.createdBy.toString() !== id) {
             return res.status(403).json({ message: "Vous ne pouvez supprimer que vos propres activités" });
-        }
+        }*/
 
         await Activity.findByIdAndDelete(activityId);
         res.status(200).json({ message: "Activité supprimée avec succès" });
