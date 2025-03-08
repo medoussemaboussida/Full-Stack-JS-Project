@@ -5,8 +5,11 @@
   "dependencies": {
     "@ckeditor/ckeditor5-build-classic": "^40.2.0",
     "@ckeditor/ckeditor5-react": "^6.2.0",
+    "@emoji-mart/data": "^1.2.1",
+    "@emoji-mart/react": "^1.1.1",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
     "@fortawesome/react-fontawesome": "^0.2.2",
+    "@fullcalendar/core": "^6.1.15",
     "@fullcalendar/daygrid": "^6.1.15",
     "@fullcalendar/interaction": "^6.1.15",
     "@fullcalendar/react": "^6.1.15",
@@ -22,6 +25,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-session": "^1.18.1",
+    "install": "^0.13.0",
     "js-cookie": "^3.0.5",
     "jwt-decode": "^4.0.0",
     "moment": "^2.29.4",
@@ -34,6 +38,8 @@
     "react-router-dom": "^6.29.0",
     "react-scripts": "5.0.1",
     "react-toastify": "^11.0.5",
+    "stream-chat": "^8.57.6",
+    "stream-chat-react": "^12.13.1",
     "swiper": "^11.2.5",
     "web-vitals": "^2.1.4",
     "yup": "^1.6.1"

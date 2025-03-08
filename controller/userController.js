@@ -7,6 +7,10 @@ const multer = require('multer');
 const path = require('path');
 const Publication = require('../model/publication'); // Assurez-vous que le chemin est correct
 const Appointment = require("../model/appointment");
+const Chat = require("../model/chat");
+const { v4: uuidv4 } = require('uuid');
+
+
 
 dotenv.config();
 
@@ -1172,3 +1176,42 @@ module.exports.getAllAppointments = async (req, res) => {
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
+
+
+module.exports.Chat = async (req, res) => {
+    try {
+      const { roomCode, message } = req.body;
+      const userId = req.userId;
+      if (!roomCode || !userId || !message) {
+        return res.status(400).json({ message: 'roomCode, userId, and message are required' });
+      }
+  
+      const chatMessage = new Chat({
+        chatId: uuidv4(), // Generate unique chatId
+        roomCode,
+        sender: userId,
+        message,
+      });
+      await chatMessage.save();
+  
+      res.status(201).json({ message: 'Message added successfully', data: chatMessage });
+    } catch (err) {
+      console.error('Error adding message:', err);
+      res.status(500).json({ message: 'Failed to add message', error: err.message });
+    }
+  };
+
+  
+module.exports.RoomChat = async (req, res) => {
+    try {
+        const { roomCode } = req.params;
+        const messages = await Chat.find({ roomCode })
+          .populate('sender', 'username') // Optional: Populate sender's username
+          .sort({ createdAt: 1 }); // Sort by creation time
+    
+        res.status(200).json(messages);
+      } catch (err) {
+        console.error('Error retrieving messages:', err);
+        res.status(500).json({ message: 'Failed to retrieve messages', error: err.message });
+      }
+    };

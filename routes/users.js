@@ -39,6 +39,11 @@ router.get('/appointments/history', userController.verifyToken, userController.g
 router.put('/appointments/:appointmentId/status', userController.verifyToken, userController.updateAppointmentStatus);
 router.delete('/appointments/:appointmentId', userController.verifyToken, userController.deleteAppointment);
 router.get('/allAppointments', userController.getAllAppointments);
+router.get("/chat/:roomCode", userController.verifyToken, userController.RoomChat);
+router.post("/chat", userController.verifyToken, userController.Chat);
+
+
+
 
 
 

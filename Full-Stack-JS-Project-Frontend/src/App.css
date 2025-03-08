@@ -54,6 +54,40 @@
   text-align: center;
   background-color: #fff;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 900px; /* Hauteur fixe */
+  max-height: 450px;
+  overflow: hidden;
+}
+
+.psychiatrist-info {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.psychiatrist-info ul {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0;
+  max-height: 120px; /* Limite la hauteur des disponibilités */
+  overflow: hidden;
+}
+
+.psychiatrist-img img {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+
+
+.book-appointment-btn:hover {
+  background-color: #0056b3;
 }
 
 .psychiatrist-img img {
@@ -108,12 +142,39 @@
   border-radius: 5px;
   cursor: pointer;
   margin-top: 10px;
+  width: 100%;
+  margin-top: auto;
 }
 
 .book-appointment-btn:disabled {
   background-color: #ccc;
   cursor: not-allowed;
 }
+
+
+.pagination-buttons {
+  display: flex;
+  justify-content: center;
+  margin-top: -10px; /* Remonte les boutons */
+
+}
+
+.pagination-buttons button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin: 0 5px;
+}
+
+.pagination-buttons button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+
 
 /* AppointmentHistory.css */
 .appointment-history-container {
@@ -312,3 +373,135 @@
 .delete-icon i {
   font-size: 1.2rem;
 }
+
+
+
+
+.appointment-history-container {
+  padding: 20px;
+}
+.appointments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+.appointment-card {
+  border: 1px solid #ddd;
+  padding: 15px;
+  border-radius: 5px;
+  position: relative;
+}
+.delete-icon {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+}
+.appointment-details p {
+  margin: 5px 0;
+}
+.label {
+  font-weight: bold;
+}
+.status-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.status {
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+.status.pending { background-color: #ffeb3b; }
+.status.confirmed { background-color: #4caf50; color: white; }
+.status.completed { background-color: #2196f3; color: white; }
+.status.canceled { background-color: #f44336; color: white; }
+.edit-status {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.loading, .error, .no-appointments {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+}
+.error {
+  color: #f44336;
+}
+/* Stream Chat overrides */
+.chat-container {
+  max-width: 600px;
+  margin: 20px auto;
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.message-container {
+  height: 400px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background-color: #fafafa;
+  border-radius: 5px;
+}
+
+.message {
+  max-width: 70%;
+  padding: 10px;
+  border-radius: 5px;
+  word-wrap: break-word;
+  align-self: flex-start;
+  background-color: #f5f5f5;
+}
+
+.message.self {
+  align-self: flex-end;
+  background-color: #e3f2fd;
+}
+
+.timestamp {
+  display: block;
+  font-size: 0.8em;
+  color: #888;
+  margin-top: 5px;
+}
+
+.input-container {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.message-input {
+  flex: 1;
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+.send-button,
+.refresh-button {
+  padding: 10px 20px;
+  border-radius: 5px;
+  border: none;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+}
+
+.send-button:hover,
+.refresh-button:hover {
+  background-color: #0056b3;
+}
+
+.error {
+  color: red;
+}
+
