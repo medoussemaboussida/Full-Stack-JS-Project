@@ -15,6 +15,7 @@ import PsychiatristList from './pages/PsychiatristList ';
 import AddPublication from './pages/AddPublication';
 import FavoriteActivities from './pages/favoriteActivities';
 import AppointmentHistory from './pages/AppointmentHistory';
+import AddActivity from './pages/AddActivity';
 
 
 
@@ -52,7 +53,8 @@ function App(){
         <Route path="/forum" element={<Forum />} />
         <Route path="/AddForum" element={<AddForum />} />
         <Route path="/appointment-history" element={<AppointmentHistory />} />
-        
+        <Route path="/add-activity" element={<AddActivity />} />
+
 
 
 

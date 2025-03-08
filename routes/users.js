@@ -60,6 +60,12 @@ router.get("/activate/:token", userController.activateUser); // Route pour activ
 router.put("/updateEtat/:id", userController.updateEtat);  // Route pour modifier l'état d'un utilisateur manuellement
 router.post("/logout", userController.logout);
 
+
+
+
+// ✅ Récupérer toutes les activités
+router.get("/list/activities", activitiesController.getAllActivities);
+
 // ✅ Récupérer les activités favorites d'un utilisateur
 router.get("/favorite-activities/:id", activitiesController.getFavoriteActivities);
 
@@ -69,6 +75,18 @@ router.post("/favorite-activity/:id", activitiesController.toggleFavoriteActivit
 // ✅ Supprimer toutes les activités favorites
 router.delete("/clear-favorite/:id", activitiesController.clearFavoriteActivities);
 
+// ✅ Ajouter une activité (psychiatre uniquement) avec image
+router.post("/psychiatrist/:id/add-activity", activitiesController.addActivity);
+
+// ✅ Modifier une activité (psychiatre uniquement) avec image
+router.put("/psychiatrist/:id/update-activity/:activityId", activitiesController.updateActivity);
+
+
+// ✅ Supprimer une activité (psychiatre uniquement)
+router.delete("/psychiatrist/:id/delete-activity/:activityId", activitiesController.deleteActivity);
+
+// ✅ Récupérer les activités d'un psychiatre spécifique
+router.get("/psychiatrist/:id/activities", activitiesController.getPsychiatristActivities);
 
 
 

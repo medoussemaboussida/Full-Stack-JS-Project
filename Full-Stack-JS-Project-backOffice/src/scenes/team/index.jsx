@@ -39,18 +39,22 @@ const Team = () => {
 
 
  // Charger les utilisateurs avec filtres (recherche + rôle)
- const fetchUsers = (query = "", role = "") => {
-  let url = "http://localhost:5000/users/search";
+ const [page, setPage] = useState(0);  // Page actuelle
+const [pageSize, setPageSize] = useState(20); // Nombre d'éléments par page
+const [totalUsers, setTotalUsers] = useState(0); // Total des utilisateurs
+
+const fetchUsers = (query = "", role = "", page = 0, limit = 20) => {
+  let url = `http://localhost:5000/users/search?page=${page + 1}&limit=${limit}`;
   const queryParams = [];
 
   if (query) {
     queryParams.push(`username=${query}`);
-    queryParams.push(`email=${query}`);  // Allow search by both username and email
+    queryParams.push(`email=${query}`);
   }
   if (role) queryParams.push(`role=${role}`);
 
   if (queryParams.length > 0) {
-    url += `?${queryParams.join("&")}`;
+    url += `&${queryParams.join("&")}`;
   }
 
   fetch(url)
@@ -58,15 +62,21 @@ const Team = () => {
     .then((data) => {
       if (Array.isArray(data.users)) {
         setUsers(data.users.map((user) => ({ id: user._id, ...user, etat: user.etat })));
+        setTotalUsers(data.totalUsers || 0);
       }
     })
     .catch((err) => console.error("❌ Error fetching users:", err));
 };
 
+// Recharger les utilisateurs à chaque changement de page ou de filtre
+useEffect(() => {
+  fetchUsers(searchQuery, selectedRole, page, pageSize);
+}, [searchQuery, selectedRole, page, pageSize]);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+
+
+
+ 
 
 // Recherche dynamique avec filtre rôle
 useEffect(() => {
@@ -347,8 +357,18 @@ onChange={(e) => handleEtatChange(params.row.id, e.target.value)}
 
       {/* Tableau des utilisateurs */}
       <Box sx={{ height: 500, width: "100%" }}>
-        <DataGrid checkboxSelection rows={users} columns={columns} />
-      </Box>
+  <DataGrid
+    rows={users}
+    columns={columns}
+    pageSize={pageSize}
+    rowCount={totalUsers}
+    pagination
+    paginationMode="server"
+    onPageChange={(newPage) => setPage(newPage)}
+    onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
+  />
+</Box>
+
 
       {openModal && (
   <Dialog open={openModal} onClose={() => setOpenModal(false)}>
