@@ -37,14 +37,17 @@ module.exports.addForum = async (req, res) => {
 module.exports.getForum = async (req, res) => {
     try {
         const forums = await Forum.find()
-            .populate("user_id", "username") // Récupère les infos de l'utilisateur
+            .populate("user_id", "username user_photo speciality level") // Récupère les infos de l'utilisateur
             .sort({ createdAt: -1 }); // Trie les forums du plus récent au plus ancien
 
-        // Mettez à jour chaque forum pour inclure l'URL complète de l'image
-        const forumsWithImageUrl = forums.map(forum => {
-            forum.forum_photo = `http://localhost:5000/uploads/${forum.forum_photo}`;
-            return forum;
-        });
+            const forumsWithImageUrl = forums.map(forum => {
+                if (forum.forum_photo && forum.forum_photo.trim().toLowerCase() !== "null" && forum.forum_photo.trim() !== "") {
+                    forum.forum_photo = `http://localhost:5000/uploads/${forum.forum_photo}`;
+                } else {
+                    forum.forum_photo = null; // Définir forum_photo sur null si elle est invalide
+                }
+                return forum;
+            });
 
         res.status(200).json(forumsWithImageUrl);
     } catch (err) {
