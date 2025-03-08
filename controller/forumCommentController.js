@@ -5,8 +5,8 @@ const User = require("../model/user");
 //add a comment for forum topic
 module.exports.addComment = async (req, res) => {
     try {
-        const { content } = req.body; 
-        const { user_id, forum_id } = req.params; // Récupération des IDs à partir des paramètres d'URL
+        const { content,anonymous} = req.body; 
+        const { user_id, forum_id} = req.params; // Récupération des IDs à partir des paramètres d'URL
 
         // Vérifier si le forum existe
         const forum = await Forum.findById(forum_id);
@@ -24,6 +24,7 @@ module.exports.addComment = async (req, res) => {
             content,
             user_id,
             forum_id,
+            anonymous
         });
 
         // Sauvegarder le commentaire
@@ -47,7 +48,8 @@ module.exports.getComments = async (req, res) => {
         }
 
         // Récupérer tous les commentaires du forum
-        const comments = await ForumComment.find({ forum_id });
+        const comments = await ForumComment.find({ forum_id }).populate("user_id", "username speciality level user_photo"); // Peupler les informations de l'utilisateur (username, speciality, level, user_photo)
+
 
         if (comments.length === 0) {
             return res.status(404).json({ message: "There is any comment here !" });

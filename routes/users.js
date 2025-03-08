@@ -26,6 +26,8 @@ router.get('/publication/:id', userController.getPublicationById);
 router.delete('/publication/:id', userController.verifyToken, userController.deletePublication);
 router.patch('/publication/:publicationId', userController.updatePublicationStatus);
 router.patch('/publication/update/:id', userController.verifyToken, userController.updatePublication);
+router.post('/commentaire', userController.verifyToken, userController.addCommentaire);
+router.get('/commentaires/:publicationId', userController.getCommentairesByPublication);
 
 
 

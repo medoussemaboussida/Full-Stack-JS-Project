@@ -68,31 +68,30 @@ module.exports.clearFavoriteActivities = async (req, res) => {
 };
 
 //gestion activities
-// Configuration de l'upload d'image
-const storage = multer.diskStorage({
+const storage1 = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, "uploads/"); // Dossier où les images seront stockées
+        cb(null, 'uploads/activities/');
     },
     filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname}`); // Nom unique de l'image
+        cb(null, `${Date.now()}-${file.originalname}`);
     }
 });
 
-const upload = multer({
-    storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // Limite de 5MB
+const upload1 = multer({
+    storage: storage1,
     fileFilter: (req, file, cb) => {
         const filetypes = /jpeg|jpg|png/;
         const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
         const mimetype = filetypes.test(file.mimetype);
-
         if (extname && mimetype) {
-            return cb(null, true);
+            cb(null, true);
         } else {
-            cb(new Error("Seules les images JPEG, JPG, et PNG sont autorisées"));
+            cb('Erreur : Seules les images (jpeg, jpg, png) sont acceptées !');
         }
-    }
-}).single("image");
+    },
+    limits: { fileSize: 5 * 1024 * 1024 }
+}).single('imageActivities');
+
 // ✅ Ajouter une activité (réservé aux psychiatres)
 module.exports.addActivity = (req, res) => {
     upload(req, res, async (err) => {
@@ -103,18 +102,18 @@ module.exports.addActivity = (req, res) => {
         try {
             const { id } = req.params; // ID du psychiatre
             const { title, description, category } = req.body;
-            const imageUrl = req.file ? `/uploads/${req.file.filename}` : "default-activity.png";
+            const imageUrl = req.file ? `/uploads/activities/${req.file.filename}` : "default-activity.png";
 
             // Vérifier si l'utilisateur est un psychiatre
             const psychiatrist = await User.findById(id);
             if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
-                return res.status(403).json({ message: "Seuls les psychiatres peuvent ajouter des activités" });
+                return res.status(403).json({ message: "Only psychiatrists can add activities" });
             }
 
             // Vérifier si l'activité existe déjà
             const existingActivity = await Activity.findOne({ title });
             if (existingActivity) {
-                return res.status(400).json({ message: "Cette activité existe déjà" });
+                return res.status(400).json({ message: "This activity already exists" });
             }
 
             // Vérifier si la catégorie est valide
@@ -129,14 +128,14 @@ module.exports.addActivity = (req, res) => {
                 "Nature and Animal-Related"
             ];
             if (!validCategories.includes(category)) {
-                return res.status(400).json({ message: "Catégorie invalide" });
+                return res.status(400).json({ message: "Invalid category" });
             }
 
             // Créer une nouvelle activité avec une image
             const newActivity = new Activity({ title, description, category, imageUrl, createdBy: id });
             await newActivity.save();
 
-            res.status(201).json({ message: "Activité ajoutée avec succès", activity: newActivity });
+            res.status(201).json({ message: "Activity added successfully", activity: newActivity });
         } catch (error) {
             res.status(500).json({ message: "Erreur serveur", error });
         }
@@ -154,7 +153,7 @@ module.exports.updateActivity = (req, res) => {
         try {
             const { id, activityId } = req.params;
             const { title, description, category } = req.body;
-            const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+            const imageUrl = req.file ? `/uploads/activities/${req.file.filename}` : null;
 
             const psychiatrist = await User.findById(id);
             if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
@@ -200,9 +199,9 @@ module.exports.deleteActivity = async (req, res) => {
             return res.status(404).json({ message: "Activité non trouvée" });
         }
 
-        if (activity.createdBy.toString() !== id) {
+        /*if (activity.createdBy.toString() !== id) {
             return res.status(403).json({ message: "Vous ne pouvez supprimer que vos propres activités" });
-        }
+        }*/
 
         await Activity.findByIdAndDelete(activityId);
         res.status(200).json({ message: "Activité supprimée avec succès" });

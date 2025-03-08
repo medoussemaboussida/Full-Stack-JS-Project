@@ -11,13 +11,14 @@ const Chat = require("../model/chat");
 const { v4: uuidv4 } = require('uuid');
 
 
+const Commentaire = require('../model/commentaire'); // Importer le modèle Commentaire
 
 dotenv.config();
 
 // JWT config
 const maxAge = 1 * 60 * 60; // 1 heure
-const createtoken = (id) => {
-    return jwt.sign({ id }, 'randa', { expiresIn: maxAge });
+const createtoken = (id, role) => {
+    return jwt.sign({ id, role }, 'randa', { expiresIn: maxAge });
 };
 
 // Middleware pour vérifier le token JWT
@@ -97,7 +98,7 @@ module.exports.login = async (req, res) => {
             return res.status(401).json({ message: "Password or Email incorrect" });
         }
 
-        const token = createtoken(user._id);
+        const token = createtoken(user._id, user.role);
         res.status(200).json({ user, token });
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -479,6 +480,57 @@ module.exports.updatePublication = (req, res) => {
             res.status(500).json({ message: 'Erreur serveur', error: error.message });
         }
     });
+};
+
+
+// Ajouter un commentaire
+module.exports.addCommentaire = async (req, res) => {
+    try {
+        const token = req.headers.authorization.split(' ')[1];
+        const decoded = jwt.verify(token, 'randa');
+        const userId = decoded.id;
+
+        const { contenu, publication_id } = req.body;
+
+        if (!contenu || !publication_id) {
+            return res.status(400).json({ message: 'Le contenu et l\'ID de la publication sont requis' });
+        }
+
+        const commentaire = new Commentaire({
+            contenu,
+            publication_id,
+            auteur_id: userId,
+        });
+
+        const savedCommentaire = await commentaire.save();
+        
+        // Peupler les informations de l'auteur avant de renvoyer la réponse
+        const populatedCommentaire = await Commentaire.findById(savedCommentaire._id)
+            .populate('auteur_id', 'username');
+
+        res.status(201).json({ 
+            message: 'Commentaire ajouté avec succès', 
+            commentaire: populatedCommentaire 
+        });
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout du commentaire:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Récupérer les commentaires d'une publication
+module.exports.getCommentairesByPublication = async (req, res) => {
+    try {
+        const { publicationId } = req.params;
+        const commentaires = await Commentaire.find({ publication_id: publicationId })
+            .populate('auteur_id', 'username')
+            .sort({ dateCreation: -1 });
+
+        res.status(200).json(commentaires);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des commentaires:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
 };
 
 

@@ -43,6 +43,10 @@ const publicationSchema = new mongoose.Schema({
             message: 'Chaque tag doit être une chaîne non vide',
         },
     },
+    // Nouveau champ pour suivre le nombre de commentaires (optionnel)
+    nombreCommentaires: { type: Number, default: 0 },
+    // Ou une référence aux commentaires (optionnel, si vous voulez les intégrer directement)
+    commentaires: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Commentaire' }],
 }, {
     timestamps: true, // Ajoute createdAt et updatedAt automatiquement
 });

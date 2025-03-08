@@ -59,8 +59,14 @@ module.exports.getForum = async (req, res) => {
 //update forum 
 module.exports.updateForum = async (req, res) => {
     try {
-        const { forum_id } = req.params; // ID du forum à mettre à jour
-        const { title, description, forum_photo } = req.body; // Champs modifiables
+        console.log('Request body:', req.body);
+        console.log('Uploaded file:', req.file);
+
+        // Récupérer l'ID du forum à partir des paramètres
+        const { forum_id } = req.params;
+
+        // Récupérer les données du corps de la requête
+        const { title, description, anonymous } = req.body;
 
         // Vérifier si le forum existe
         const forum = await Forum.findById(forum_id);
@@ -68,19 +74,29 @@ module.exports.updateForum = async (req, res) => {
             return res.status(404).json({ message: "Forum topic not found" });
         }
 
-        // Mettre à jour les champs si fournis
+        // Mettre à jour les champs si présents dans la requête
         if (title) forum.title = title;
         if (description) forum.description = description;
-        if (forum_photo) forum.forum_photo = forum_photo;
+        if (anonymous !== undefined) forum.anonymous = anonymous;
 
-        // Sauvegarder les modifications
+        // Mettre à jour la photo du forum si un fichier est envoyé
+        const forum_photo = req.file ? req.file.filename : null;
+        if (forum_photo) {
+            forum.forum_photo = forum_photo;
+        }
+
+        // Sauvegarder les modifications dans la base de données
         const updatedForum = await forum.save();
 
+        // Répondre avec le forum mis à jour
         res.status(200).json(updatedForum);
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        console.error('Error updating forum:', err);
+        res.status(500).json({ message: 'Server error' });
     }
 };
+
+
 
 //delete forum topic
 module.exports.deleteForum = async (req, res) => {
