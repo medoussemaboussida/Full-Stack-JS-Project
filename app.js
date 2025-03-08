@@ -39,7 +39,7 @@ const createTokenGoogle = (id) => {
 
 
 
-app.use('/uploads', express.static('uploads'));
+  app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Connexion à la base de données
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })

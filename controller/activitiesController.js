@@ -71,7 +71,7 @@ module.exports.clearFavoriteActivities = async (req, res) => {
 // Configuration de l'upload d'image
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, "uploads/"); // Dossier où les images seront stockées
+        cb(null, "uploads/activities"); // Dossier où les images seront stockées
     },
     filename: (req, file, cb) => {
         cb(null, `${Date.now()}-${file.originalname}`); // Nom unique de l'image
@@ -89,7 +89,7 @@ const upload = multer({
         if (extname && mimetype) {
             return cb(null, true);
         } else {
-            cb(new Error("Seules les images JPEG, JPG, et PNG sont autorisées"));
+            cb(new Error("Only JPEG, JPG, and PNG images are allowed"));
         }
     }
 }).single("image");
@@ -103,18 +103,18 @@ module.exports.addActivity = (req, res) => {
         try {
             const { id } = req.params; // ID du psychiatre
             const { title, description, category } = req.body;
-            const imageUrl = req.file ? `/uploads/${req.file.filename}` : "default-activity.png";
+            const imageUrl = req.file ? `/uploads/activities/${req.file.filename}` : "default-activity.png";
 
             // Vérifier si l'utilisateur est un psychiatre
             const psychiatrist = await User.findById(id);
             if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
-                return res.status(403).json({ message: "Seuls les psychiatres peuvent ajouter des activités" });
+                return res.status(403).json({ message: "Only psychiatrists can add activities" });
             }
 
             // Vérifier si l'activité existe déjà
             const existingActivity = await Activity.findOne({ title });
             if (existingActivity) {
-                return res.status(400).json({ message: "Cette activité existe déjà" });
+                return res.status(400).json({ message: "This activity already exists" });
             }
 
             // Vérifier si la catégorie est valide
@@ -129,14 +129,14 @@ module.exports.addActivity = (req, res) => {
                 "Nature and Animal-Related"
             ];
             if (!validCategories.includes(category)) {
-                return res.status(400).json({ message: "Catégorie invalide" });
+                return res.status(400).json({ message: "Invalid category" });
             }
 
             // Créer une nouvelle activité avec une image
             const newActivity = new Activity({ title, description, category, imageUrl, createdBy: id });
             await newActivity.save();
 
-            res.status(201).json({ message: "Activité ajoutée avec succès", activity: newActivity });
+            res.status(201).json({ message: "Activity added successfully", activity: newActivity });
         } catch (error) {
             res.status(500).json({ message: "Erreur serveur", error });
         }
@@ -154,7 +154,7 @@ module.exports.updateActivity = (req, res) => {
         try {
             const { id, activityId } = req.params;
             const { title, description, category } = req.body;
-            const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+            const imageUrl = req.file ? `/uploads/activities/${req.file.filename}` : null;
 
             const psychiatrist = await User.findById(id);
             if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
