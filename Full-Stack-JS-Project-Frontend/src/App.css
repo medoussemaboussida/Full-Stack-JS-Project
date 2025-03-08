@@ -505,3 +505,24 @@
   color: red;
 }
 
+
+
+
+/* Existing styles remain unchanged, adding search-specific styles */
+.search-container {
+  margin-bottom: 20px;
+}
+
+.search-input {
+  width: 20%;
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ddd;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  border-color: #007bff;
+}

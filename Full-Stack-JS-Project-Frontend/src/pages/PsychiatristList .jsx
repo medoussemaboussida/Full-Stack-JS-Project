@@ -12,6 +12,7 @@ const PsychiatristList = () => {
     const [selectedSlot, setSelectedSlot] = useState(null);
     const [selectedPsychiatristId, setSelectedPsychiatristId] = useState(null);
     const [availabilityPage, setAvailabilityPage] = useState({});
+    const [searchTerm, setSearchTerm] = useState(''); // New state for search term
 
     useEffect(() => {
         axios.get('http://localhost:5000/users/psychiatrists')
@@ -80,6 +81,16 @@ const PsychiatristList = () => {
         });
     };
 
+    // Filter availability based on search term
+    const filterAvailability = (availability) => {
+        if (!searchTerm.trim()) return availability; // Return all if no search term
+        return availability.filter(slot =>
+            slot.day.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            slot.startTime.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            slot.endTime.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    };
+
     return (
         <main className="main">
             <div className="testimonial-area pt-80 pb-60">
@@ -96,6 +107,15 @@ const PsychiatristList = () => {
                             </div>
                         </div>
                     </div>
+                    <div className="search-container text-center mb-4">
+                        <input
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Search availability (e.g., Monday, 10:00)"
+                            className="search-input"
+                        />
+                    </div>
                     <Swiper
                         modules={[Navigation, Pagination]}
                         navigation
@@ -110,14 +130,15 @@ const PsychiatristList = () => {
                         className="testimonial-slider"
                     >
                         {psychiatrists.length > 0 ? (
-                            psychiatrists.map((psychiatrist, index) => {
+                            psychiatrists.map((psychiatrist) => {
+                                const filteredAvailability = filterAvailability(psychiatrist.availability);
                                 const page = availabilityPage[psychiatrist._id] || 0;
-                                const paginatedAvailability = psychiatrist.availability.slice(page * 3, (page + 1) * 3);
-                                const hasNext = (page + 1) * 3 < psychiatrist.availability.length;
+                                const paginatedAvailability = filteredAvailability.slice(page * 3, (page + 1) * 3);
+                                const hasNext = (page + 1) * 3 < filteredAvailability.length;
                                 const hasPrev = page > 0;
 
                                 return (
-                                    <SwiperSlide key={index}>
+                                    <SwiperSlide key={psychiatrist._id}>
                                         <div className="psychiatrist-card">
                                             <div className="psychiatrist-img">
                                                 {psychiatrist.user_photo ? (
@@ -152,19 +173,19 @@ const PsychiatristList = () => {
                                                         ))}
                                                     </ul>
                                                 ) : (
-                                                    <span>No availability</span>
+                                                    <span>No matching availability</span>
                                                 )}
                                                 <div className="pagination-buttons">
                                                     {hasPrev && (
                                                         <button
-                                                            onClick={() => handleAvailabilityPagination(psychiatrist._id, "prev", psychiatrist.availability.length)}
+                                                            onClick={() => handleAvailabilityPagination(psychiatrist._id, "prev", filteredAvailability.length)}
                                                         >
                                                             ←
                                                         </button>
                                                     )}
                                                     {hasNext && (
                                                         <button
-                                                            onClick={() => handleAvailabilityPagination(psychiatrist._id, "next", psychiatrist.availability.length)}
+                                                            onClick={() => handleAvailabilityPagination(psychiatrist._id, "next", filteredAvailability.length)}
                                                         >
                                                             →
                                                         </button>
