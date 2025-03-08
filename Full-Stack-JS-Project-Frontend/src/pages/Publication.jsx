@@ -35,6 +35,9 @@ function Publication() {
     });
     const [previewImage, setPreviewImage] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+
+    const publicationsPerPage = 6;
 
     // Fonction pour récupérer les publications depuis l'API
     const fetchPublications = async () => {
@@ -61,7 +64,17 @@ function Publication() {
         }
     };
 
-    // Fonction pour ouvrir le modal d'édition
+    // Calcul des publications à afficher pour la page actuelle
+    const indexOfLastPublication = currentPage * publicationsPerPage;
+    const indexOfFirstPublication = indexOfLastPublication - publicationsPerPage;
+    const currentPublications = publications.slice(indexOfFirstPublication, indexOfLastPublication);
+
+    const totalPages = Math.ceil(publications.length / publicationsPerPage);
+
+    const handlePageChange = (pageNumber) => {
+        setCurrentPage(pageNumber);
+    };
+
     const handleEdit = (post) => {
         let tags = [''];
         if (post.tag) {
@@ -83,7 +96,6 @@ function Publication() {
         setShowEditModal(true);
     };
 
-    // Calcul de la progression du formulaire
     const calculateProgress = () => {
         let filledFields = 0;
         const totalFields = 4;
@@ -98,7 +110,6 @@ function Publication() {
 
     const progress = calculateProgress();
 
-    // Gestion des changements dans le formulaire
     const handleChange = (e) => {
         const { name, value, files } = e.target;
         if (name === 'imagePublication') {
@@ -169,11 +180,19 @@ function Publication() {
             console.log('Update API Response:', result);
 
             if (response.ok) {
-                setPublications(publications.map(post =>
-                    post._id === editFormData._id ? { ...post, ...result.publication } : post
-                ));
+                // Option 1: Mettre à jour localement avec les données renvoyées par l'API
+                setPublications((prevPublications) =>
+                    prevPublications.map((post) =>
+                        post._id === editFormData._id
+                            ? { ...post, ...result.publication, author_id: post.author_id } // Conserver author_id
+                            : post
+                    )
+                );
                 toast.success('Publication mise à jour avec succès', { autoClose: 3000 });
                 setShowEditModal(false);
+
+                // Option 2: Recharger toutes les publications depuis l'API (plus sûr mais plus lent)
+                // await fetchPublications();
             } else {
                 toast.error(`Échec de la mise à jour : ${result.message}`, { autoClose: 3000 });
             }
@@ -184,7 +203,6 @@ function Publication() {
         }
     };
 
-    // Fonction pour supprimer une publication
     const handleDelete = (publicationId) => {
         const toastId = toast(
             <div>
@@ -229,7 +247,6 @@ function Publication() {
         );
     };
 
-    // Fonction pour archiver une publication
     const handleArchive = (publicationId) => {
         const toastId = toast(
             <div>
@@ -391,8 +408,8 @@ function Publication() {
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
-                            {publications.length > 0 ? (
-                                publications.map((post, index) => (
+                            {currentPublications.length > 0 ? (
+                                currentPublications.map((post, index) => (
                                     <div
                                         key={index}
                                         style={{
@@ -539,72 +556,80 @@ function Publication() {
                         <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'center' }}>
                             <ul style={{ display: 'flex', listStyle: 'none', padding: 0, gap: '10px' }}>
                                 <li>
-                                    <a
-                                        href="#"
+                                    <button
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        disabled={currentPage === 1}
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                             width: '40px',
                                             height: '40px',
-                                            background: '#fff',
-                                            color: '#333',
+                                            background: currentPage === 1 ? '#e0e0e0' : '#fff',
+                                            color: currentPage === 1 ? '#999' : '#333',
                                             borderRadius: '5px',
                                             textDecoration: 'none',
                                             boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+                                            border: 'none',
+                                            cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
                                             transition: 'background 0.3s ease'
                                         }}
-                                        onMouseEnter={(e) => e.target.style.background = '#f1f1f1'}
-                                        onMouseLeave={(e) => e.target.style.background = '#fff'}
+                                        onMouseEnter={(e) => currentPage !== 1 && (e.target.style.background = '#f1f1f1')}
+                                        onMouseLeave={(e) => currentPage !== 1 && (e.target.style.background = '#fff')}
                                     >
                                         <i className="fas fa-arrow-left"></i>
-                                    </a>
+                                    </button>
                                 </li>
-                                {[1, 2, 3].map((page) => (
-                                    <li key={page}>
-                                        <a
-                                            href="#"
+                                {Array.from({ length: totalPages }, (_, index) => (
+                                    <li key={index + 1}>
+                                        <button
+                                            onClick={() => handlePageChange(index + 1)}
                                             style={{
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
                                                 width: '40px',
                                                 height: '40px',
-                                                background: page === 1 ? '#0ea5e6' : '#fff',
-                                                color: page === 1 ? '#fff' : '#333',
+                                                background: currentPage === index + 1 ? '#0ea5e6' : '#fff',
+                                                color: currentPage === index + 1 ? '#fff' : '#333',
                                                 borderRadius: '5px',
                                                 textDecoration: 'none',
                                                 boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+                                                border: 'none',
+                                                cursor: 'pointer',
                                                 transition: 'background 0.3s ease'
                                             }}
-                                            onMouseEnter={(e) => e.target.style.background = page === 1 ? '#164da6' : '#f1f1f1'}
-                                            onMouseLeave={(e) => e.target.style.background = page === 1 ? '#0ea5e6' : '#fff'}
+                                            onMouseEnter={(e) => currentPage !== index + 1 && (e.target.style.background = '#f1f1f1')}
+                                            onMouseLeave={(e) => currentPage !== index + 1 && (e.target.style.background = '#fff')}
                                         >
-                                            {page}
-                                        </a>
+                                            {index + 1}
+                                        </button>
                                     </li>
                                 ))}
                                 <li>
-                                    <a
-                                        href="#"
+                                    <button
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        disabled={currentPage === totalPages}
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                             width: '40px',
                                             height: '40px',
-                                            background: '#fff',
-                                            color: '#333',
+                                            background: currentPage === totalPages ? '#e0e0e0' : '#fff',
+                                            color: currentPage === totalPages ? '#999' : '#333',
                                             borderRadius: '5px',
                                             textDecoration: 'none',
                                             boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+                                            border: 'none',
+                                            cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
                                             transition: 'background 0.3s ease'
                                         }}
-                                        onMouseEnter={(e) => e.target.style.background = '#f1f1f1'}
-                                        onMouseLeave={(e) => e.target.style.background = '#fff'}
+                                        onMouseEnter={(e) => currentPage !== totalPages && (e.target.style.background = '#f1f1f1')}
+                                        onMouseLeave={(e) => currentPage !== totalPages && (e.target.style.background = '#fff')}
                                     >
                                         <i className="fas fa-arrow-right"></i>
-                                    </a>
+                                    </button>
                                 </li>
                             </ul>
                         </div>
