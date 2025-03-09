@@ -533,6 +533,54 @@ module.exports.getCommentairesByPublication = async (req, res) => {
     }
 };
 
+// Mettre à jour un commentaire
+module.exports.updateCommentaire = async (req, res) => {
+    try {
+        const { commentId } = req.params;
+        const { contenu } = req.body;
+        const token = req.headers.authorization.split(' ')[1];
+        const decoded = jwt.verify(token, 'randa');
+        const userId = decoded.id;
+
+        if (!contenu) {
+            return res.status(400).json({ message: 'Le contenu est requis' });
+        }
+
+        const commentaire = await Commentaire.findOne({ _id: commentId, auteur_id: userId });
+        if (!commentaire) {
+            return res.status(404).json({ message: 'Commentaire non trouvé ou vous n’êtes pas autorisé à le modifier' });
+        }
+
+        commentaire.contenu = contenu;
+        const updatedCommentaire = await commentaire.save();
+
+        res.status(200).json({ message: 'Commentaire mis à jour avec succès', commentaire: updatedCommentaire });
+    } catch (error) {
+        console.error('Erreur lors de la mise à jour du commentaire:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Supprimer un commentaire
+module.exports.deleteCommentaire = async (req, res) => {
+    try {
+        const { commentId } = req.params;
+        const token = req.headers.authorization.split(' ')[1];
+        const decoded = jwt.verify(token, 'randa');
+        const userId = decoded.id;
+
+        const commentaire = await Commentaire.findOneAndDelete({ _id: commentId, auteur_id: userId });
+        if (!commentaire) {
+            return res.status(404).json({ message: 'Commentaire non trouvé ou vous n’êtes pas autorisé à le supprimer' });
+        }
+
+        res.status(200).json({ message: 'Commentaire supprimé avec succès' });
+    } catch (error) {
+        console.error('Erreur lors de la suppression du commentaire:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
 
 //supprimer student
 module.exports.deleteStudentById = async (req, res) => {

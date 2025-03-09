@@ -28,6 +28,8 @@ router.patch('/publication/:publicationId', userController.updatePublicationStat
 router.patch('/publication/update/:id', userController.verifyToken, userController.updatePublication);
 router.post('/commentaire', userController.verifyToken, userController.addCommentaire);
 router.get('/commentaires/:publicationId', userController.getCommentairesByPublication);
+router.put('/commentaire/:commentId', userController.verifyToken, userController.updateCommentaire);
+router.delete('/commentaire/:commentId', userController.verifyToken, userController.deleteCommentaire);
 
 
 

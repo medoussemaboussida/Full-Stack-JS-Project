@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
-import { jwtDecode } from 'jwt-decode'; // Changement ici : importation nommée
+import { jwtDecode } from 'jwt-decode';
 import 'react-toastify/dist/ReactToastify.css';
 
 const stripHtmlTags = (html) => {
@@ -17,6 +17,9 @@ function PublicationDetailPsy() {
     const [commentaires, setCommentaires] = useState([]);
     const [newComment, setNewComment] = useState('');
     const [userRole, setUserRole] = useState(null);
+    const [userId, setUserId] = useState(null);
+    const [editCommentId, setEditCommentId] = useState(null);
+    const [editCommentContent, setEditCommentContent] = useState('');
 
     const fetchPublicationDetail = async () => {
         try {
@@ -54,7 +57,7 @@ function PublicationDetailPsy() {
         }
     };
 
-    const fetchUserRole = async () => {
+    const fetchUserInfo = async () => {
         try {
             const token = localStorage.getItem('jwt-token');
             if (!token) {
@@ -62,8 +65,9 @@ function PublicationDetailPsy() {
                 return;
             }
 
-            const decoded = jwtDecode(token); // Pas de changement ici, juste l'importation corrigée
+            const decoded = jwtDecode(token);
             console.log('Decoded token:', decoded);
+            setUserId(decoded.id);
 
             const response = await fetch(`http://localhost:5000/users/session/${decoded.id}`, {
                 headers: { 'Authorization': `Bearer ${token}` },
@@ -78,7 +82,7 @@ function PublicationDetailPsy() {
                 console.error('Failed to fetch user role:', data.message);
             }
         } catch (error) {
-            console.error('Error fetching user role:', error);
+            console.error('Error fetching user info:', error);
         }
     };
 
@@ -113,11 +117,130 @@ function PublicationDetailPsy() {
         }
     };
 
-    useEffect(() => {
-        Promise.all([fetchPublicationDetail(), fetchCommentaires(), fetchUserRole()]).finally(() => setIsLoading(false));
-    }, [id]);
+    const handleEditComment = (e, comment) => {
+        e.preventDefault();
+        setEditCommentId(comment._id);
+        setEditCommentContent(comment.contenu);
+    };
 
-    console.log('Current userRole:', userRole);
+    const handleUpdateComment = async (commentId) => {
+        const token = localStorage.getItem('jwt-token');
+        if (!token) {
+            toast.error('Vous devez être connecté pour modifier un commentaire');
+            return;
+        }
+
+        try {
+            const response = await fetch(`http://localhost:5000/users/commentaire/${commentId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ contenu: editCommentContent }),
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                setCommentaires(commentaires.map(c => 
+                    c._id === commentId ? { ...c, contenu: editCommentContent } : c
+                ));
+                setEditCommentId(null);
+                setEditCommentContent('');
+                toast.success('Commentaire modifié avec succès');
+            } else {
+                toast.error(`Erreur: ${result.message}`);
+            }
+        } catch (error) {
+            toast.error(`Erreur lors de la modification: ${error.message}`);
+        }
+    };
+
+    const handleDeleteComment = async (e, commentId) => {
+        e.preventDefault();
+        const token = localStorage.getItem('jwt-token');
+        if (!token) {
+            toast.error('Vous devez être connecté pour supprimer un commentaire', {
+                position: "top-right",
+                autoClose: 3000,
+            });
+            return;
+        }
+
+        // Stocker l'ID du toast de confirmation pour le fermer plus tard
+        const toastId = toast.info(
+            <div>
+                <p>Voulez-vous vraiment supprimer ce commentaire ?</p>
+                <button
+                    onClick={async () => {
+                        toast.dismiss(toastId); // Ferme le toast de confirmation
+                        try {
+                            const response = await fetch(`http://localhost:5000/users/commentaire/${commentId}`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                },
+                            });
+
+                            if (response.ok) {
+                                setCommentaires(commentaires.filter(c => c._id !== commentId));
+                                toast.success('Commentaire supprimé avec succès', {
+                                    position: "top-right",
+                                    autoClose: 3000,
+                                });
+                            } else {
+                                const result = await response.json();
+                                toast.error(`Erreur: ${result.message}`, {
+                                    position: "top-right",
+                                    autoClose: 3000,
+                                });
+                            }
+                        } catch (error) {
+                            toast.error(`Erreur lors de la suppression: ${error.message}`, {
+                                position: "top-right",
+                                autoClose: 3000,
+                            });
+                        }
+                    }}
+                    style={{
+                        marginRight: '10px',
+                        padding: '5px 10px',
+                        backgroundColor: '#4CAF50',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '3px',
+                        cursor: 'pointer',
+                    }}
+                >
+                    Oui
+                </button>
+                <button
+                    onClick={() => toast.dismiss(toastId)} // Ferme le toast de confirmation
+                    style={{
+                        padding: '5px 10px',
+                        backgroundColor: '#f44336',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '3px',
+                        cursor: 'pointer',
+                    }}
+                >
+                    Non
+                </button>
+            </div>,
+            {
+                position: "top-right",
+                autoClose: false, // Ne disparaît pas automatiquement
+                closeOnClick: false, // Ne se ferme pas en cliquant dessus
+                draggable: false, // Ne peut pas être déplacé
+            }
+        );
+    };
+
+    useEffect(() => {
+        Promise.all([fetchPublicationDetail(), fetchCommentaires(), fetchUserInfo()])
+            .finally(() => setIsLoading(false));
+    }, [id]);
 
     if (isLoading) return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Loading...</div>;
     if (!publication) return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Publication not found</div>;
@@ -196,14 +319,51 @@ function PublicationDetailPsy() {
                                                 <h3>Comments ({commentaires.length})</h3>
                                                 <div className="blog-comment-wrap">
                                                     {commentaires.length > 0 ? (
-                                                        commentaires.map((comment, index) => (
-                                                            <div key={index} className="blog-comment-item">
+                                                        commentaires.map((comment) => (
+                                                            <div key={comment._id} className="blog-comment-item">
                                                                 <img src="assets/img/blog/com-1.jpg" alt="thumb" />
                                                                 <div className="blog-comment-content">
                                                                     <h5>{comment.auteur_id?.username || 'Unknown'}</h5>
                                                                     <span><i className="far fa-clock"></i> {new Date(comment.dateCreation).toLocaleDateString()}</span>
-                                                                    <p>{comment.contenu}</p>
-                                                                    <a href="#"><i className="far fa-reply"></i> Reply</a>
+                                                                    {editCommentId === comment._id ? (
+                                                                        <div>
+                                                                            <textarea
+                                                                                value={editCommentContent}
+                                                                                onChange={(e) => setEditCommentContent(e.target.value)}
+                                                                                className="form-control"
+                                                                                rows="3"
+                                                                            />
+                                                                            <button
+                                                                                onClick={() => handleUpdateComment(comment._id)}
+                                                                                className="theme-btn"
+                                                                                style={{ marginTop: '10px' }}
+                                                                            >
+                                                                                Save <i className="far fa-save"></i>
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => setEditCommentId(null)}
+                                                                                className="theme-btn"
+                                                                                style={{ marginTop: '10px', marginLeft: '10px', backgroundColor: '#f44336' }}
+                                                                            >
+                                                                                Cancel <i className="far fa-times"></i>
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <p>{comment.contenu}</p>
+                                                                    )}
+                                                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                                                        <a href="#" onClick={(e) => e.preventDefault()}><i className="far fa-reply"></i> Reply</a>
+                                                                        {userId && comment.auteur_id?._id.toString() === userId && (
+                                                                            <>
+                                                                                <a href="#" onClick={(e) => handleEditComment(e, comment)}>
+                                                                                    <i className="far fa-edit" title="Modifier"></i>
+                                                                                </a>
+                                                                                <a href="#" onClick={(e) => handleDeleteComment(e, comment._id)}>
+                                                                                    <i className="far fa-trash-alt" title="Supprimer"></i>
+                                                                                </a>
+                                                                            </>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         ))
@@ -211,7 +371,6 @@ function PublicationDetailPsy() {
                                                         <p>No comments yet.</p>
                                                     )}
                                                 </div>
-                                                {/* Contenu spécifique selon le rôle */}
                                                 {userRole === 'student' && (
                                                     <div className="blog-comment-form">
                                                         <h3>Leave A Comment</h3>
