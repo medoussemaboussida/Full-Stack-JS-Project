@@ -94,12 +94,18 @@ const upload1 = multer({
 
 // ✅ Ajouter une activité (réservé aux psychiatres)
 module.exports.addActivity = (req, res) => {
-    upload(req, res, async (err) => {
+    console.log("🟢 Requête reçue pour ajouter une activité", req.body);
+
+    upload1(req, res, async (err) => {  // ✅ Utilise bien "upload1"
         if (err) {
+            console.error("❌ Erreur de téléchargement:", err);
             return res.status(400).json({ message: err.message });
         }
 
         try {
+            console.log("📌 Données reçues:", req.body);
+            console.log("📸 Fichier image:", req.file);
+
             const { id } = req.params; // ID du psychiatre
             const { title, description, category } = req.body;
             const imageUrl = req.file ? `/uploads/activities/${req.file.filename}` : "default-activity.png";
@@ -107,12 +113,14 @@ module.exports.addActivity = (req, res) => {
             // Vérifier si l'utilisateur est un psychiatre
             const psychiatrist = await User.findById(id);
             if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
+                console.error("❌ Non autorisé: utilisateur n'est pas un psychiatre");
                 return res.status(403).json({ message: "Only psychiatrists can add activities" });
             }
 
             // Vérifier si l'activité existe déjà
             const existingActivity = await Activity.findOne({ title });
             if (existingActivity) {
+                console.error("❌ Cette activité existe déjà");
                 return res.status(400).json({ message: "This activity already exists" });
             }
 
@@ -128,19 +136,23 @@ module.exports.addActivity = (req, res) => {
                 "Nature and Animal-Related"
             ];
             if (!validCategories.includes(category)) {
+                console.error("❌ Catégorie invalide:", category);
                 return res.status(400).json({ message: "Invalid category" });
             }
 
-            // Créer une nouvelle activité avec une image
+            // Créer une nouvelle activité
             const newActivity = new Activity({ title, description, category, imageUrl, createdBy: id });
             await newActivity.save();
+            console.log("✅ Activité ajoutée avec succès:", newActivity);
 
             res.status(201).json({ message: "Activity added successfully", activity: newActivity });
         } catch (error) {
+            console.error("❌ Erreur serveur:", error);
             res.status(500).json({ message: "Erreur serveur", error });
         }
     });
 };
+
 
 
 // ✅ Modifier une activité (réservé aux psychiatres qui l'ont créée)

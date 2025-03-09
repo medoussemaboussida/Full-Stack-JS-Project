@@ -16,7 +16,7 @@ import AddPublication from './pages/AddPublication';
 import FavoriteActivities from './pages/favoriteActivities';
 import AppointmentHistory from './pages/AppointmentHistory';
 import Chat from './pages/Chat';
-
+import AddActivity from './pages/add-activity';
 
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -49,13 +49,13 @@ function App(){
         <Route path="/PsychiatristList" element={<PsychiatristList />} />
         <Route path="/AddPublication" element={<AddPublication />} />
         
-        <Route path="/favoriteActivities" element={<FavoriteActivities />} />
         <Route path="/forum" element={<Forum />} />
         <Route path="/AddForum" element={<AddForum />} />
         <Route path="/appointment-history" element={<AppointmentHistory />} />
         <Route path="/chat" element={<Chat />} />
 
-
+        <Route path="/favoriteActivities" element={<FavoriteActivities />} />
+        <Route path="/add-activity" element={<AddActivity />} />
 
 
 
