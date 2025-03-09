@@ -46,6 +46,8 @@ router.delete('/appointments/:appointmentId', userController.verifyToken, userCo
 router.get('/allAppointments', userController.getAllAppointments);
 router.get("/chat/:roomCode", userController.verifyToken, userController.RoomChat);
 router.post("/chat", userController.verifyToken, userController.Chat);
+router.get('/me', userController.verifyToken, userController.photo);
+
 
 
 
