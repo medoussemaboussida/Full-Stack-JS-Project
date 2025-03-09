@@ -95,6 +95,7 @@ router.delete("/psychiatrist/:id/delete-activity/:activityId", activitiesControl
 // ✅ Récupérer les activités d'un psychiatre spécifique
 router.get("/psychiatrist/:id/activities", activitiesController.getPsychiatristActivities);
 
-
+// ✅ Route pour récupérer les activités par catégorie
+router.get("/activities/category", activitiesController.getActivitiesByCategory);
 
 module.exports = router;

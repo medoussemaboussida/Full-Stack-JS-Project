@@ -71,12 +71,13 @@ function AddActivity() {
     }
 
     const data = new FormData();
-    data.append("title", formData.title);
-    data.append("description", formData.description);
-    data.append("category", formData.category);
-    if (formData.image) {
-      data.append("image", formData.image);
-    }
+data.append("title", formData.title);
+data.append("description", formData.description);
+data.append("category", formData.category);
+if (formData.image) {
+  data.append("image", formData.image); // Le champ doit être "image"
+}
+
 
     try {
       const response = await fetch(
@@ -95,7 +96,7 @@ function AddActivity() {
         toast.success("Activity successfully added!");
         setFormData({ title: "", description: "", category: "", image: null });
         setPreviewImage(null);
-        setTimeout(() => navigate("/favoriteActivities"), 2000);
+        setTimeout(() => navigate("/Activities"), 2000);
       } else {
         toast.error(result.message || "Error while adding the activity.");
       }
@@ -109,29 +110,6 @@ function AddActivity() {
   return (
     <div>
       <ToastContainer position="top-right" autoClose={3000} />
-
-      {/* Header Section */}
-      <header className="header">
-        <div className="main-navigation">
-          <nav className="navbar navbar-expand-lg">
-            <div className="container">
-              <a className="navbar-brand" href="/">
-                <img src="assets/img/logo/logo.png" alt="logo" />
-              </a>
-              <button
-                className="navbar-toggler"
-                type="button"
-                data-bs-toggle="offcanvas"
-                data-bs-target="#offcanvasNavbar"
-              >
-                <span></span>
-                <span></span>
-                <span></span>
-              </button>
-            </div>
-          </nav>
-        </div>
-      </header>
 
       {/* Breadcrumb */}
       <div className="site-breadcrumb" style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}>
