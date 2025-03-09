@@ -28,6 +28,9 @@ router.patch('/publication/:publicationId', userController.updatePublicationStat
 router.patch('/publication/update/:id', userController.verifyToken, userController.updatePublication);
 router.post('/commentaire', userController.verifyToken, userController.addCommentaire);
 router.get('/commentaires/:publicationId', userController.getCommentairesByPublication);
+router.put('/commentaire/:commentId', userController.verifyToken, userController.updateCommentaire);
+router.delete('/commentaire/:commentId', userController.verifyToken, userController.deleteCommentaire);
+router.post('/publications/by-tags', userController.verifyToken, userController.getPublicationsByTags);
 
 
 
@@ -43,6 +46,8 @@ router.delete('/appointments/:appointmentId', userController.verifyToken, userCo
 router.get('/allAppointments', userController.getAllAppointments);
 router.get("/chat/:roomCode", userController.verifyToken, userController.RoomChat);
 router.post("/chat", userController.verifyToken, userController.Chat);
+router.get('/me', userController.verifyToken, userController.photo);
+
 
 
 

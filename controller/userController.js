@@ -415,18 +415,21 @@ module.exports.getMyPublications = async (req, res) => {
 };
 
 
-// Récupérer une  publication
+// Récupérer une publication par ID
 module.exports.getPublicationById = async (req, res) => {
     try {
         const { id } = req.params;
-        const publication = await Publication.findById(id).populate('author_id', 'username');
+        const publication = await Publication.findById(id)
+            .populate('author_id', 'username user_photo'); // Ajouter 'user_photo' ici
+
         if (!publication) {
-            return res.status(404).json({ message: 'Publication not found' });
+            return res.status(404).json({ message: 'Publication non trouvée' });
         }
+
         res.status(200).json(publication);
-    } catch (err) {
-        console.error('Erreur lors de la récupération de la publication:', err);
-        res.status(500).json({ message: 'Erreur serveur', error: err.message });
+    } catch (error) {
+        console.error('Erreur lors de la récupération de la publication:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
     }
 };
 //supprimer publication
@@ -504,9 +507,9 @@ module.exports.addCommentaire = async (req, res) => {
 
         const savedCommentaire = await commentaire.save();
         
-        // Peupler les informations de l'auteur avant de renvoyer la réponse
+        // Peupler les informations de l'auteur avec username et user_photo avant de renvoyer la réponse
         const populatedCommentaire = await Commentaire.findById(savedCommentaire._id)
-            .populate('auteur_id', 'username');
+            .populate('auteur_id', 'username user_photo');
 
         res.status(201).json({ 
             message: 'Commentaire ajouté avec succès', 
@@ -523,13 +526,80 @@ module.exports.getCommentairesByPublication = async (req, res) => {
     try {
         const { publicationId } = req.params;
         const commentaires = await Commentaire.find({ publication_id: publicationId })
-            .populate('auteur_id', 'username')
+            .populate('auteur_id', 'username user_photo') // Ajouter 'user_photo' ici
             .sort({ dateCreation: -1 });
 
         res.status(200).json(commentaires);
     } catch (error) {
         console.error('Erreur lors de la récupération des commentaires:', error);
         res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Mettre à jour un commentaire
+module.exports.updateCommentaire = async (req, res) => {
+    try {
+        const { commentId } = req.params;
+        const { contenu } = req.body;
+        const token = req.headers.authorization.split(' ')[1];
+        const decoded = jwt.verify(token, 'randa');
+        const userId = decoded.id;
+
+        if (!contenu) {
+            return res.status(400).json({ message: 'Le contenu est requis' });
+        }
+
+        const commentaire = await Commentaire.findOne({ _id: commentId, auteur_id: userId });
+        if (!commentaire) {
+            return res.status(404).json({ message: 'Commentaire non trouvé ou vous n’êtes pas autorisé à le modifier' });
+        }
+
+        commentaire.contenu = contenu;
+        const updatedCommentaire = await commentaire.save();
+
+        res.status(200).json({ message: 'Commentaire mis à jour avec succès', commentaire: updatedCommentaire });
+    } catch (error) {
+        console.error('Erreur lors de la mise à jour du commentaire:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Supprimer un commentaire
+module.exports.deleteCommentaire = async (req, res) => {
+    try {
+        const { commentId } = req.params;
+        const token = req.headers.authorization.split(' ')[1];
+        const decoded = jwt.verify(token, 'randa');
+        const userId = decoded.id;
+
+        const commentaire = await Commentaire.findOneAndDelete({ _id: commentId, auteur_id: userId });
+        if (!commentaire) {
+            return res.status(404).json({ message: 'Commentaire non trouvé ou vous n’êtes pas autorisé à le supprimer' });
+        }
+
+        res.status(200).json({ message: 'Commentaire supprimé avec succès' });
+    } catch (error) {
+        console.error('Erreur lors de la suppression du commentaire:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Dans votre controller (par exemple, publicationController.js)
+module.exports.getPublicationsByTags = async (req, res) => {
+    try {
+        const { tags } = req.body;
+        if (!tags || !Array.isArray(tags) || tags.length === 0) {
+            return res.status(400).json({ message: 'Tags are required' });
+        }
+
+        const publications = await Publication.find({
+            tag: { $in: tags }, // Recherche les publications avec au moins un tag correspondant
+        }).limit(10); // Limite à 10 résultats (ajustable)
+
+        res.status(200).json(publications);
+    } catch (error) {
+        console.error('Error fetching publications by tags:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
 
@@ -1266,4 +1336,17 @@ module.exports.RoomChat = async (req, res) => {
         console.error('Error retrieving messages:', err);
         res.status(500).json({ message: 'Failed to retrieve messages', error: err.message });
       }
+    };
+
+
+        module.exports.photo = async (req, res) => {
+
+        try {
+            const user = await User.findById(req.userId).select('username user_photo');
+            if (!user) return res.status(404).json({ message: 'User not found' });
+            res.status(200).json(user);
+        } catch (err) {
+            console.error('Error fetching user:', err);
+            res.status(500).json({ message: 'Server error' });
+        }
     };

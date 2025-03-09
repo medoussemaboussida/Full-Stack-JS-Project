@@ -19,17 +19,36 @@ import Chat from './pages/Chat';
 import AddActivity from './pages/add-activity';
 
 
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import VerifyAccount from './pages/VerifyAuth';
 import AddForum from './pages/AddForum';
 import Forum from './pages/Forum';
+import Navbar from './pages/Navbar';
+import Footer from './pages/Footer';
 
+
+
+const Layout = ({ children }) => {
+  const location = useLocation();
+  const hideNavFooter = ['/login', '/register', '/forgot-password', '/reset-password/:token', '/verify-account/:token', '/AccountDisabled'].some(path => 
+      location.pathname === path || location.pathname.startsWith('/reset-password') || location.pathname.startsWith('/verify-account')
+  );
+
+  return (
+      <div className="app-container">
+          {!hideNavFooter && <Navbar />}
+          <main>{children}</main>
+          {!hideNavFooter && <Footer />}
+      </div>
+  );
+};
 
 function App(){
 
     return(
       <BrowserRouter>
-      <Routes>
+      <Layout>
+          <Routes>
         {/* Rediriger la racine ("/") vers "/login" */}
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/Home" element={<Home />} />
@@ -61,7 +80,8 @@ function App(){
 
 
         </Routes>
-      </BrowserRouter>
+            </Layout>
+        </BrowserRouter>
        
     )
 }
