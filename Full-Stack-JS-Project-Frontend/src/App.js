@@ -28,6 +28,7 @@ import Footer from './pages/Footer';
 
 
 
+
 const Layout = ({ children }) => {
   const location = useLocation();
   const hideNavFooter = ['/login', '/register', '/forgot-password', '/reset-password/:token', '/verify-account/:token', '/AccountDisabled'].some(path => 
