@@ -31,6 +31,8 @@ router.get('/commentaires/:publicationId', userController.getCommentairesByPubli
 router.put('/commentaire/:commentId', userController.verifyToken, userController.updateCommentaire);
 router.delete('/commentaire/:commentId', userController.verifyToken, userController.deleteCommentaire);
 router.post('/publications/by-tags', userController.verifyToken, userController.getPublicationsByTags);
+router.post('/publication/like/:publicationId', userController.verifyToken, userController.likePublication);
+router.post('/publication/dislike/:publicationId', userController.verifyToken, userController.dislikePublication);
 
 
 
@@ -46,8 +48,6 @@ router.delete('/appointments/:appointmentId', userController.verifyToken, userCo
 router.get('/allAppointments', userController.getAllAppointments);
 router.get("/chat/:roomCode", userController.verifyToken, userController.RoomChat);
 router.post("/chat", userController.verifyToken, userController.Chat);
-router.get('/me', userController.verifyToken, userController.photo);
-
 
 
 

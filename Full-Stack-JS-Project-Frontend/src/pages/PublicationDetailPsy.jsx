@@ -275,6 +275,63 @@ function PublicationDetailPsy() {
         );
     };
 
+    // Ajout des fonctions pour Like et Dislike
+    const handleLike = async () => {
+        const token = localStorage.getItem('jwt-token');
+        if (!token) {
+            toast.error('Vous devez être connecté pour aimer une publication');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${BASE_URL}/users/publication/like/${id}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                setPublication(result.publication);
+                toast.success('Publication aimée avec succès');
+            } else {
+                toast.error(`Erreur: ${result.message}`);
+            }
+        } catch (error) {
+            toast.error(`Erreur lors de l'ajout du Like: ${error.message}`);
+        }
+    };
+
+    const handleDislike = async () => {
+        const token = localStorage.getItem('jwt-token');
+        if (!token) {
+            toast.error('Vous devez être connecté pour désapprouver une publication');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${BASE_URL}/users/publication/dislike/${id}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                setPublication(result.publication);
+                toast.success('Publication désapprouvée avec succès');
+            } else {
+                toast.error(`Erreur: ${result.message}`);
+            }
+        } catch (error) {
+            toast.error(`Erreur lors de l'ajout du Dislike: ${error.message}`);
+        }
+    };
+
     useEffect(() => {
         const loadData = async () => {
             setIsLoading(true);
@@ -335,6 +392,25 @@ function PublicationDetailPsy() {
                                             <div className="blog-details">
                                                 <h3 className="blog-details-title mb-20">{stripHtmlTags(publication.titrePublication)}</h3>
                                                 <p className="mb-20">{stripHtmlTags(publication.description)}</p>
+                                                {/* Ajout des boutons Like et Dislike */}
+                                                <div className="like-dislike-buttons" style={{ marginBottom: '20px' }}>
+    <button 
+        onClick={handleLike}
+        className="theme-btn"
+        style={{ marginRight: '10px', backgroundColor: publication.likes && publication.likes.includes(userId) ? '#28a745' : '#0ea5e6' }}
+        disabled={publication.likes && publication.likes.includes(userId)}
+    >
+        <i className="far fa-thumbs-up"></i> Like ({publication.likeCount || 0})
+    </button>
+    <button 
+        onClick={handleDislike}
+        className="theme-btn"
+        style={{ backgroundColor: publication.dislikes && publication.dislikes.includes(userId) ? '#dc3545' : '#6c757d' }}
+        disabled={publication.dislikes && publication.dislikes.includes(userId)} // Fixed typo here
+    >
+        <i className="far fa-thumbs-down"></i> Dislike ({publication.dislikeCount || 0})
+    </button>
+</div>
                                                 <div className="blog-details-tag pb-20">
                                                     <h5>Tags : </h5>
                                                     <ul>
@@ -383,7 +459,7 @@ function PublicationDetailPsy() {
                                                                     src={
                                                                         comment.auteur_id?.user_photo && comment.auteur_id.user_photo !== ''
                                                                             ? `${BASE_URL}${comment.auteur_id.user_photo}`
-                                                                            : 'assets/img/blog/com-1.jpg'
+                                                                            : 'assets/img/blog/com-1 f.jpg'
                                                                     }
                                                                     alt={comment.auteur_id?.username || 'User'}
                                                                     style={{ width: '50px', height: '50px', borderRadius: '50%' }}

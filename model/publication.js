@@ -43,6 +43,24 @@ const publicationSchema = new mongoose.Schema({
             message: 'Chaque tag doit être une chaîne non vide',
         },
     },
+    // Ajout des champs pour Likes et Dislikes
+    likes: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User', // Référence aux utilisateurs qui ont aimé
+    }],
+    dislikes: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User', // Référence aux utilisateurs qui n'ont pas aimé
+    }],
+    likeCount: {
+        type: Number,
+        default: 0, // Compteur de Likes
+    },
+    dislikeCount: {
+        type: Number,
+        default: 0, // Compteur de Dislikes
+    },
+    
     // Nouveau champ pour suivre le nombre de commentaires (optionnel)
     nombreCommentaires: { type: Number, default: 0 },
     // Ou une référence aux commentaires (optionnel, si vous voulez les intégrer directement)

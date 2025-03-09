@@ -180,19 +180,15 @@ function Publication() {
             console.log('Update API Response:', result);
 
             if (response.ok) {
-                // Option 1: Mettre à jour localement avec les données renvoyées par l'API
                 setPublications((prevPublications) =>
                     prevPublications.map((post) =>
                         post._id === editFormData._id
-                            ? { ...post, ...result.publication, author_id: post.author_id } // Conserver author_id
+                            ? { ...post, ...result.publication, author_id: post.author_id }
                             : post
                     )
                 );
                 toast.success('Publication mise à jour avec succès', { autoClose: 3000 });
                 setShowEditModal(false);
-
-                // Option 2: Recharger toutes les publications depuis l'API (plus sûr mais plus lent)
-                // await fetchPublications();
             } else {
                 toast.error(`Échec de la mise à jour : ${result.message}`, { autoClose: 3000 });
             }
@@ -445,15 +441,25 @@ function Publication() {
                                             </div>
                                         </div>
                                         <div style={{ padding: '20px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', fontSize: '14px', color: '#666' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', fontSize: '14px', color: '#666', flexWrap: 'wrap' }}>
                                                 <span>
                                                     <i className="far fa-user-circle" style={{ marginRight: '5px' }}></i>
                                                     By {post.author_id?.username || 'Unknown'}
                                                 </span>
-                                                <span>
-                                                    <i className="far fa-comments" style={{ marginRight: '5px' }}></i>
-                                                    {post.comments ? `${post.comments} Comments` : 'No Comments'}
-                                                </span>
+                                                <div style={{ display: 'flex', gap: '15px' }}>
+                                                    <span>
+                                                        <i className="far fa-comments" style={{ marginRight: '5px' }}></i>
+                                                        {post.commentsCount >= 0 ? `${post.commentsCount} Comment${post.commentsCount !== 1 ? 's' : ''}` : 'No Comments'}
+                                                    </span>
+                                                    <span>
+                                                        <i className="far fa-thumbs-up" style={{ marginRight: '5px' }}></i>
+                                                        {post.likeCount >= 0 ? `${post.likeCount} Like${post.likeCount !== 1 ? 's' : ''}` : 'No Likes'}
+                                                    </span>
+                                                    <span>
+                                                        <i className="far fa-thumbs-down" style={{ marginRight: '5px' }}></i>
+                                                        {post.dislikeCount >= 0 ? `${post.dislikeCount} Dislike${post.dislikeCount !== 1 ? 's' : ''}` : 'No Dislikes'}
+                                                    </span>
+                                                </div>
                                             </div>
                                             <h4 style={{ fontSize: '20px', fontWeight: '600', margin: '0 0 15px', lineHeight: '1.4' }}>
                                                 <a href={`/publication/${post._id}`} style={{ color: '#333', textDecoration: 'none' }}>
