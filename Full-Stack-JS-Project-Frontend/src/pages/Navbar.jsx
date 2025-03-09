@@ -122,7 +122,7 @@ const Navbar = () => {
                                         </a>
                                         <ul className="dropdown-menu fade-down">
                                             <li><a className="dropdown-item" href="/add-activity">Add Activity</a></li>
-                                            <li><a className="dropdown-item" href="/favoriteActivities">Favorite Activities</a></li>
+                                            <li><a className="dropdown-item" href="/Activities">Favorite Activities</a></li>
                                         </ul>
                                     </li>
                                     <li className="nav-item dropdown">
