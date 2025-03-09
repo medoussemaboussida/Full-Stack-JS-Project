@@ -384,16 +384,54 @@ module.exports.updatePublicationStatus = async (req, res) => {
     }
 };
 
-// Récupérer toutes les publications
 module.exports.getAllPublications = async (req, res) => {
     try {
-        const publications = await Publication.find()
-            .populate('author_id', 'username')
-            .sort({ datePublication: -1 });
-        res.status(200).json(publications);
-    } catch (err) {
-        console.error('Erreur lors de la récupération des publications:', err);
-        res.status(500).json({ message: 'Erreur serveur', error: err.message });
+        const publications = await Publication.aggregate([
+            {
+                $lookup: {
+                    from: 'commentaires',
+                    localField: '_id',
+                    foreignField: 'publication_id',
+                    as: 'commentaires'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'author_id',
+                    foreignField: '_id',
+                    as: 'author_id'
+                }
+            },
+            {
+                $unwind: { path: '$author_id', preserveNullAndEmptyArrays: true }
+            },
+            {
+                $sort: { datePublication: -1 } // Trier par datePublication en ordre décroissant
+            },
+            {
+                $project: {
+                    titrePublication: 1,
+                    description: 1,
+                    imagePublication: 1,
+                    datePublication: 1,
+                    tag: 1,
+                    status: 1,
+                    'author_id._id': 1,
+                    'author_id.username': 1,
+                    commentsCount: { $size: '$commentaires' },
+                    likeCount: 1,
+                    dislikeCount: 1
+                }
+            }
+        ]);
+
+        // Filtrer les publications archivées côté serveur
+        const filteredPublications = publications.filter(post => post.status !== 'archived');
+        res.status(200).json(filteredPublications);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des publications:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
     }
 };
 
@@ -415,12 +453,14 @@ module.exports.getMyPublications = async (req, res) => {
 };
 
 
-// Récupérer une publication par ID
+// Récupérer une publication par ID (mise à jour pour inclure Likes/Dislikes)
 module.exports.getPublicationById = async (req, res) => {
     try {
         const { id } = req.params;
         const publication = await Publication.findById(id)
-            .populate('author_id', 'username user_photo'); // Ajouter 'user_photo' ici
+            .populate('author_id', 'username user_photo')
+            .populate('likes', 'username') // Optionnel : inclure les détails des utilisateurs qui ont aimé
+            .populate('dislikes', 'username'); // Optionnel : inclure les détails des utilisateurs qui ont désapprouvé
 
         if (!publication) {
             return res.status(404).json({ message: 'Publication non trouvée' });
@@ -603,6 +643,81 @@ module.exports.getPublicationsByTags = async (req, res) => {
     }
 };
 
+// controller.js
+
+module.exports.likePublication = async (req, res) => {
+    try {
+        const { publicationId } = req.params;
+        const userId = req.userId;
+
+        const publication = await Publication.findById(publicationId);
+        if (!publication) {
+            return res.status(404).json({ message: 'Publication non trouvée' });
+        }
+
+        if (publication.likes.includes(userId)) {
+            return res.status(400).json({ message: 'Vous avez déjà aimé cette publication' });
+        }
+
+        if (publication.dislikes.includes(userId)) {
+            publication.dislikes.pull(userId);
+            publication.dislikeCount -= 1;
+        }
+
+        publication.likes.push(userId);
+        publication.likeCount += 1;
+
+        const updatedPublication = await publication.save();
+        // Populer author_id avant de renvoyer
+        const populatedPublication = await Publication.findById(updatedPublication._id)
+            .populate('author_id', 'username user_photo');
+
+        res.status(200).json({ 
+            message: 'Publication aimée avec succès', 
+            publication: populatedPublication 
+        });
+    } catch (error) {
+        console.error('Erreur lors de l’ajout du Like:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+module.exports.dislikePublication = async (req, res) => {
+    try {
+        const { publicationId } = req.params;
+        const userId = req.userId;
+
+        const publication = await Publication.findById(publicationId);
+        if (!publication) {
+            return res.status(404).json({ message: 'Publication non trouvée' });
+        }
+
+        if (publication.dislikes.includes(userId)) {
+            return res.status(400).json({ message: 'Vous avez déjà désapprouvé cette publication' });
+        }
+
+        if (publication.likes.includes(userId)) {
+            publication.likes.pull(userId);
+            publication.likeCount -= 1;
+        }
+
+        publication.dislikes.push(userId);
+        publication.dislikeCount += 1;
+
+        const updatedPublication = await publication.save();
+        // Populer author_id avant de renvoyer
+        const populatedPublication = await Publication.findById(updatedPublication._id)
+            .populate('author_id', 'username user_photo');
+
+        res.status(200).json({ 
+            message: 'Publication désapprouvée avec succès', 
+            publication: populatedPublication 
+        });
+    } catch (error) {
+        console.error('Erreur lors de l’ajout du Dislike:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
 
 //supprimer student
 module.exports.deleteStudentById = async (req, res) => {
@@ -1336,17 +1451,4 @@ module.exports.RoomChat = async (req, res) => {
         console.error('Error retrieving messages:', err);
         res.status(500).json({ message: 'Failed to retrieve messages', error: err.message });
       }
-    };
-
-
-        module.exports.photo = async (req, res) => {
-
-        try {
-            const user = await User.findById(req.userId).select('username user_photo');
-            if (!user) return res.status(404).json({ message: 'User not found' });
-            res.status(200).json(user);
-        } catch (err) {
-            console.error('Error fetching user:', err);
-            res.status(500).json({ message: 'Server error' });
-        }
     };

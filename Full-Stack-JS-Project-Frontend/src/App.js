@@ -13,7 +13,7 @@ import PublicationPsychiatristAll from './pages/PublicationPsychiatristAll';
 import PublicationDetailPsy from './pages/PublicationDetailPsy';
 import PsychiatristList from './pages/PsychiatristList ';
 import AddPublication from './pages/AddPublication';
-import FavoriteActivities from './pages/favoriteActivities';
+import Activities from './pages/Activities';
 import AppointmentHistory from './pages/AppointmentHistory';
 import Chat from './pages/Chat';
 import AddActivity from './pages/add-activity';
@@ -74,7 +74,7 @@ function App(){
         <Route path="/appointment-history" element={<AppointmentHistory />} />
         <Route path="/chat" element={<Chat />} />
 
-        <Route path="/favoriteActivities" element={<FavoriteActivities />} />
+        <Route path="/Activities" element={<Activities />} />
         <Route path="/add-activity" element={<AddActivity />} />
 
 

@@ -90,7 +90,8 @@ const upload1 = multer({
         }
     },
     limits: { fileSize: 5 * 1024 * 1024 }
-}).single('imageActivities');
+}).single('image');  // ✅ Maintenant ça correspond au frontend
+
 
 // ✅ Ajouter une activité (réservé aux psychiatres)
 module.exports.addActivity = (req, res) => {
@@ -245,6 +246,41 @@ module.exports.getPsychiatristActivities = async (req, res) => {
         const activities = await Activity.find({ createdBy: id });
         res.status(200).json(activities);
     } catch (error) {
+        res.status(500).json({ message: "Erreur serveur", error });
+    }
+};
+
+// ✅ Filtrer les activités par catégorie
+module.exports.getActivitiesByCategory = async (req, res) => {
+    try {
+        const { category } = req.query;
+
+        if (!category) {
+            return res.status(400).json({ message: "La catégorie est requise." });
+        }
+
+        // Vérifier si la catégorie est valide
+        const validCategories = [
+            "Professional and Intellectual",
+            "Wellness and Relaxation",
+            "Social and Relationship",
+            "Physical and Sports",
+            "Leisure and Cultural",
+            "Consumption and Shopping",
+            "Domestic and Organizational",
+            "Nature and Animal-Related"
+        ];
+
+        if (!validCategories.includes(category)) {
+            return res.status(400).json({ message: "Catégorie invalide." });
+        }
+
+        // Filtrer les activités
+        const activities = await Activity.find({ category });
+
+        res.status(200).json(activities);
+    } catch (error) {
+        console.error("❌ Erreur serveur:", error);
         res.status(500).json({ message: "Erreur serveur", error });
     }
 };
