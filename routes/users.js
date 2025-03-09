@@ -30,6 +30,7 @@ router.post('/commentaire', userController.verifyToken, userController.addCommen
 router.get('/commentaires/:publicationId', userController.getCommentairesByPublication);
 router.put('/commentaire/:commentId', userController.verifyToken, userController.updateCommentaire);
 router.delete('/commentaire/:commentId', userController.verifyToken, userController.deleteCommentaire);
+router.post('/publications/by-tags', userController.verifyToken, userController.getPublicationsByTags);
 
 
 

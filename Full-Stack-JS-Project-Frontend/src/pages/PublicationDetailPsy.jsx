@@ -20,13 +20,16 @@ function PublicationDetailPsy() {
     const [userId, setUserId] = useState(null);
     const [editCommentId, setEditCommentId] = useState(null);
     const [editCommentContent, setEditCommentContent] = useState('');
+    const [relatedPublications, setRelatedPublications] = useState([]);
+
+    const BASE_URL = "http://localhost:5000";
 
     const fetchPublicationDetail = async () => {
         try {
             const token = localStorage.getItem('jwt-token');
             if (!token) throw new Error('No token found');
 
-            const response = await fetch(`http://localhost:5000/users/publication/${id}`, {
+            const response = await fetch(`${BASE_URL}/users/publication/${id}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -34,24 +37,35 @@ function PublicationDetailPsy() {
                 },
             });
             const data = await response.json();
-            if (response.ok) setPublication(data);
-            else console.error('Failed to fetch publication:', data.message);
+            if (response.ok) {
+                console.log('Publication récupérée:', data); // Débogage
+                setPublication(data);
+                return data;
+            } else {
+                console.error('Failed to fetch publication:', data.message);
+                return null;
+            }
         } catch (error) {
             console.error('Error fetching publication:', error);
+            return null;
         }
     };
 
     const fetchCommentaires = async () => {
         try {
-            const response = await fetch(`http://localhost:5000/users/commentaires/${id}`, {
+            const response = await fetch(`${BASE_URL}/users/commentaires/${id}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
                 },
             });
             const data = await response.json();
-            if (response.ok) setCommentaires(data);
-            else console.error('Failed to fetch commentaires:', data.message);
+            if (response.ok) {
+                setCommentaires(data);
+                console.log('Commentaires récupérés:', data);
+            } else {
+                console.error('Failed to fetch commentaires:', data.message);
+            }
         } catch (error) {
             console.error('Error fetching commentaires:', error);
         }
@@ -66,23 +80,47 @@ function PublicationDetailPsy() {
             }
 
             const decoded = jwtDecode(token);
-            console.log('Decoded token:', decoded);
             setUserId(decoded.id);
 
-            const response = await fetch(`http://localhost:5000/users/session/${decoded.id}`, {
+            const response = await fetch(`${BASE_URL}/users/session/${decoded.id}`, {
                 headers: { 'Authorization': `Bearer ${token}` },
             });
             const data = await response.json();
-            console.log('Session response:', data);
-
-            if (response.ok) {
-                setUserRole(data.role);
-                console.log('User role set to:', data.role);
-            } else {
-                console.error('Failed to fetch user role:', data.message);
-            }
+            if (response.ok) setUserRole(data.role);
+            else console.error('Failed to fetch user role:', data.message);
         } catch (error) {
             console.error('Error fetching user info:', error);
+        }
+    };
+
+    const fetchRelatedPublications = async (tags) => {
+        try {
+            const token = localStorage.getItem('jwt-token');
+            if (!token || !tags || tags.length === 0) {
+                setRelatedPublications([]);
+                return;
+            }
+
+            const response = await fetch(`${BASE_URL}/users/publications/by-tags`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ tags }),
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                const filteredPublications = data.filter(pub => pub._id !== id).slice(0, 3);
+                setRelatedPublications(filteredPublications);
+            } else {
+                console.error('Failed to fetch related publications:', data.message);
+                setRelatedPublications([]);
+            }
+        } catch (error) {
+            console.error('Error fetching related publications:', error);
+            setRelatedPublications([]);
         }
     };
 
@@ -95,7 +133,7 @@ function PublicationDetailPsy() {
         }
 
         try {
-            const response = await fetch('http://localhost:5000/users/commentaire', {
+            const response = await fetch(`${BASE_URL}/users/commentaire`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -106,6 +144,7 @@ function PublicationDetailPsy() {
 
             const result = await response.json();
             if (response.ok) {
+                console.log('Nouveau commentaire ajouté:', result.commentaire);
                 setCommentaires([result.commentaire, ...commentaires]);
                 setNewComment('');
                 toast.success('Commentaire ajouté avec succès');
@@ -131,7 +170,7 @@ function PublicationDetailPsy() {
         }
 
         try {
-            const response = await fetch(`http://localhost:5000/users/commentaire/${commentId}`, {
+            const response = await fetch(`${BASE_URL}/users/commentaire/${commentId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -167,15 +206,14 @@ function PublicationDetailPsy() {
             return;
         }
 
-        // Stocker l'ID du toast de confirmation pour le fermer plus tard
         const toastId = toast.info(
             <div>
                 <p>Voulez-vous vraiment supprimer ce commentaire ?</p>
                 <button
                     onClick={async () => {
-                        toast.dismiss(toastId); // Ferme le toast de confirmation
+                        toast.dismiss(toastId);
                         try {
-                            const response = await fetch(`http://localhost:5000/users/commentaire/${commentId}`, {
+                            const response = await fetch(`${BASE_URL}/users/commentaire/${commentId}`, {
                                 method: 'DELETE',
                                 headers: {
                                     'Authorization': `Bearer ${token}`,
@@ -215,7 +253,7 @@ function PublicationDetailPsy() {
                     Oui
                 </button>
                 <button
-                    onClick={() => toast.dismiss(toastId)} // Ferme le toast de confirmation
+                    onClick={() => toast.dismiss(toastId)}
                     style={{
                         padding: '5px 10px',
                         backgroundColor: '#f44336',
@@ -230,16 +268,28 @@ function PublicationDetailPsy() {
             </div>,
             {
                 position: "top-right",
-                autoClose: false, // Ne disparaît pas automatiquement
-                closeOnClick: false, // Ne se ferme pas en cliquant dessus
-                draggable: false, // Ne peut pas être déplacé
+                autoClose: false,
+                closeOnClick: false,
+                draggable: false,
             }
         );
     };
 
     useEffect(() => {
-        Promise.all([fetchPublicationDetail(), fetchCommentaires(), fetchUserInfo()])
-            .finally(() => setIsLoading(false));
+        const loadData = async () => {
+            setIsLoading(true);
+            const [publicationData] = await Promise.all([
+                fetchPublicationDetail(),
+                fetchCommentaires(),
+                fetchUserInfo(),
+            ]);
+            if (publicationData && publicationData.tag && publicationData.tag.length > 0) {
+                await fetchRelatedPublications(publicationData.tag);
+            }
+            setIsLoading(false);
+        };
+
+        loadData();
     }, [id]);
 
     if (isLoading) return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Loading...</div>;
@@ -266,7 +316,7 @@ function PublicationDetailPsy() {
                                     <div className="blog-single-content">
                                         <div className="blog-thumb-img">
                                             <img
-                                                src={publication.imagePublication ? `http://localhost:5000${publication.imagePublication}` : 'assets/img/blog/single.jpg'}
+                                                src={publication.imagePublication ? `${BASE_URL}${publication.imagePublication}` : 'assets/img/blog/single.jpg'}
                                                 alt={stripHtmlTags(publication.titrePublication)}
                                             />
                                         </div>
@@ -300,10 +350,18 @@ function PublicationDetailPsy() {
                                             </div>
                                             <div className="blog-author">
                                                 <div className="blog-author-img">
-                                                    <img src="assets/img/blog/author.jpg" alt="" />
+                                                    <img
+                                                        src={
+                                                            publication.author_id?.user_photo && publication.author_id.user_photo !== ''
+                                                                ? `${BASE_URL}${publication.author_id.user_photo}`
+                                                                : 'assets/img/blog/author.jpg'
+                                                        }
+                                                        alt={publication.author_id?.username || 'Author'}
+                                                        style={{ width: '200px', height: '200px', borderRadius: '50%' }}
+                                                    />
                                                 </div>
                                                 <div className="author-info">
-                                                    <h6>Author</h6>
+                                                    <h6>Psychiatrist</h6>
                                                     <h3 className="author-name">{publication.author_id?.username || 'Shelly Frederick'}</h3>
                                                     <p>It is a long established fact that a reader will be distracted by the abcd readable content.</p>
                                                     <div className="author-social">
@@ -321,7 +379,15 @@ function PublicationDetailPsy() {
                                                     {commentaires.length > 0 ? (
                                                         commentaires.map((comment) => (
                                                             <div key={comment._id} className="blog-comment-item">
-                                                                <img src="assets/img/blog/com-1.jpg" alt="thumb" />
+                                                                <img
+                                                                    src={
+                                                                        comment.auteur_id?.user_photo && comment.auteur_id.user_photo !== ''
+                                                                            ? `${BASE_URL}${comment.auteur_id.user_photo}`
+                                                                            : 'assets/img/blog/com-1.jpg'
+                                                                    }
+                                                                    alt={comment.auteur_id?.username || 'User'}
+                                                                    style={{ width: '50px', height: '50px', borderRadius: '50%' }}
+                                                                />
                                                                 <div className="blog-comment-content">
                                                                     <h5>{comment.auteur_id?.username || 'Unknown'}</h5>
                                                                     <span><i className="far fa-clock"></i> {new Date(comment.dateCreation).toLocaleDateString()}</span>
@@ -441,16 +507,31 @@ function PublicationDetailPsy() {
                                         </div>
                                     </div>
                                     <div className="widget recent-post">
-                                        <h5 className="widget-title">Recent Post</h5>
-                                        <div className="recent-post-item">
-                                            <div className="recent-post-img">
-                                                <img src="assets/img/blog/bs-1.jpg" alt="thumb" />
-                                            </div>
-                                            <div className="recent-post-info">
-                                                <h6><a href="#">There are many variatio of passage majority.</a></h6>
-                                                <span><i className="far fa-clock"></i>Jan 23, 2025</span>
-                                            </div>
-                                        </div>
+                                        <h5 className="widget-title">Related Posts</h5>
+                                        {relatedPublications.length > 0 ? (
+                                            relatedPublications.map((pub) => (
+                                                <div key={pub._id} className="recent-post-item">
+                                                    <div className="recent-post-img">
+                                                        <img
+                                                            src={pub.imagePublication ? `${BASE_URL}${pub.imagePublication}` : 'assets/img/blog/bs-1.jpg'}
+                                                            alt={stripHtmlTags(pub.titrePublication)}
+                                                        />
+                                                    </div>
+                                                    <div className="recent-post-info">
+                                                        <h6>
+                                                            <a href={`/PublicationDetailPsy/${pub._id}`}>
+                                                                {stripHtmlTags(pub.titrePublication)}
+                                                            </a>
+                                                        </h6>
+                                                        <span>
+                                                            <i className="far fa-clock"></i> {new Date(pub.datePublication).toLocaleDateString()}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p>No related posts found.</p>
+                                        )}
                                     </div>
                                     <div className="widget social">
                                         <h5 className="widget-title">Follow Us</h5>

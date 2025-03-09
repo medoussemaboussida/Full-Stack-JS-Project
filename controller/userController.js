@@ -415,18 +415,21 @@ module.exports.getMyPublications = async (req, res) => {
 };
 
 
-// Récupérer une  publication
+// Récupérer une publication par ID
 module.exports.getPublicationById = async (req, res) => {
     try {
         const { id } = req.params;
-        const publication = await Publication.findById(id).populate('author_id', 'username');
+        const publication = await Publication.findById(id)
+            .populate('author_id', 'username user_photo'); // Ajouter 'user_photo' ici
+
         if (!publication) {
-            return res.status(404).json({ message: 'Publication not found' });
+            return res.status(404).json({ message: 'Publication non trouvée' });
         }
+
         res.status(200).json(publication);
-    } catch (err) {
-        console.error('Erreur lors de la récupération de la publication:', err);
-        res.status(500).json({ message: 'Erreur serveur', error: err.message });
+    } catch (error) {
+        console.error('Erreur lors de la récupération de la publication:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
     }
 };
 //supprimer publication
@@ -504,9 +507,9 @@ module.exports.addCommentaire = async (req, res) => {
 
         const savedCommentaire = await commentaire.save();
         
-        // Peupler les informations de l'auteur avant de renvoyer la réponse
+        // Peupler les informations de l'auteur avec username et user_photo avant de renvoyer la réponse
         const populatedCommentaire = await Commentaire.findById(savedCommentaire._id)
-            .populate('auteur_id', 'username');
+            .populate('auteur_id', 'username user_photo');
 
         res.status(201).json({ 
             message: 'Commentaire ajouté avec succès', 
@@ -523,7 +526,7 @@ module.exports.getCommentairesByPublication = async (req, res) => {
     try {
         const { publicationId } = req.params;
         const commentaires = await Commentaire.find({ publication_id: publicationId })
-            .populate('auteur_id', 'username')
+            .populate('auteur_id', 'username user_photo') // Ajouter 'user_photo' ici
             .sort({ dateCreation: -1 });
 
         res.status(200).json(commentaires);
@@ -578,6 +581,25 @@ module.exports.deleteCommentaire = async (req, res) => {
     } catch (error) {
         console.error('Erreur lors de la suppression du commentaire:', error);
         res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Dans votre controller (par exemple, publicationController.js)
+module.exports.getPublicationsByTags = async (req, res) => {
+    try {
+        const { tags } = req.body;
+        if (!tags || !Array.isArray(tags) || tags.length === 0) {
+            return res.status(400).json({ message: 'Tags are required' });
+        }
+
+        const publications = await Publication.find({
+            tag: { $in: tags }, // Recherche les publications avec au moins un tag correspondant
+        }).limit(10); // Limite à 10 résultats (ajustable)
+
+        res.status(200).json(publications);
+    } catch (error) {
+        console.error('Error fetching publications by tags:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
 
