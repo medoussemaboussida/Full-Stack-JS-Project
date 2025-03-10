@@ -25,6 +25,7 @@ function Publication() {
     const [userId, setUserId] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [publications, setPublications] = useState([]);
+    const [favoritePublications, setFavoritePublications] = useState([]); // Ajout pour les favoris
     const [showEditModal, setShowEditModal] = useState(false);
     const [editFormData, setEditFormData] = useState({
         _id: '',
@@ -36,10 +37,11 @@ function Publication() {
     const [previewImage, setPreviewImage] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
+    const [filterType, setFilterType] = useState('all'); // Ajout pour le filtre
 
     const publicationsPerPage = 6;
 
-    // Fonction pour récupérer les publications depuis l'API
+    // Fonction pour récupérer toutes les publications depuis l'API
     const fetchPublications = async () => {
         try {
             console.log('Fetching publications from API...');
@@ -64,12 +66,62 @@ function Publication() {
         }
     };
 
-    // Calcul des publications à afficher pour la page actuelle
+    // Fonction pour récupérer les publications favorites
+    const fetchFavoritePublications = async () => {
+        try {
+            const token = localStorage.getItem('jwt-token');
+            const response = await fetch('http://localhost:5000/users/favoritePublications', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setFavoritePublications(data);
+            } else {
+                console.error('Failed to fetch favorite publications:', data.message);
+            }
+        } catch (error) {
+            console.error('Error fetching favorite publications:', error);
+        }
+    };
+
+    // Gérer le clic sur l'étoile pour ajouter/supprimer des favoris
+    const handleToggleFavorite = async (publicationId) => {
+        const token = localStorage.getItem('jwt-token');
+        if (!token) {
+            toast.error('Vous devez être connecté pour gérer vos favoris');
+            return;
+        }
+
+        try {
+            const response = await fetch(`http://localhost:5000/users/publication/favorite/${publicationId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(data.message);
+                fetchFavoritePublications(); // Rafraîchir les favoris
+            } else {
+                toast.error(`Erreur: ${data.message}`);
+            }
+        } catch (error) {
+            toast.error(`Erreur: ${error.message}`);
+        }
+    };
+
+    // Calcul des publications à afficher selon le filtre
+    const displayedPublications = filterType === 'favorites' ? favoritePublications : publications;
     const indexOfLastPublication = currentPage * publicationsPerPage;
     const indexOfFirstPublication = indexOfLastPublication - publicationsPerPage;
-    const currentPublications = publications.slice(indexOfFirstPublication, indexOfLastPublication);
-
-    const totalPages = Math.ceil(publications.length / publicationsPerPage);
+    const currentPublications = displayedPublications.slice(indexOfFirstPublication, indexOfLastPublication);
+    const totalPages = Math.ceil(displayedPublications.length / publicationsPerPage);
 
     const handlePageChange = (pageNumber) => {
         setCurrentPage(pageNumber);
@@ -147,7 +199,6 @@ function Publication() {
         }));
     };
 
-    // Fonction pour sauvegarder les modifications
     const handleSaveEdit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -187,7 +238,7 @@ function Publication() {
                             : post
                     )
                 );
-                toast.success('Publication mise à jour avec succès', { autoClose: 3000 });
+                toast.success('Publication successfully updated', { autoClose: 3000 });
                 setShowEditModal(false);
             } else {
                 toast.error(`Échec de la mise à jour : ${result.message}`, { autoClose: 3000 });
@@ -217,7 +268,8 @@ function Publication() {
 
                             if (response.ok) {
                                 setPublications(publications.filter(post => post._id !== publicationId));
-                                toast.success('Publication supprimée avec succès', { autoClose: 3000 });
+                                setFavoritePublications(favoritePublications.filter(post => post._id !== publicationId)); // Mise à jour des favoris
+                                toast.success('Publication successfully deleted', { autoClose: 3000 });
                             } else {
                                 const data = await response.json();
                                 toast.error(`Échec de la suppression : ${data.message}`, { autoClose: 3000 });
@@ -262,7 +314,8 @@ function Publication() {
 
                             if (response.ok) {
                                 setPublications(publications.filter(post => post._id !== publicationId));
-                                toast.success('Publication archivée avec succès', { autoClose: 3000 });
+                                setFavoritePublications(favoritePublications.filter(post => post._id !== publicationId)); // Mise à jour des favoris
+                                toast.success('Publication successfully archived', { autoClose: 3000 });
                             } else {
                                 const data = await response.json();
                                 toast.error(`Échec de l'archivage : ${data.message}`, { autoClose: 3000 });
@@ -305,6 +358,9 @@ function Publication() {
                         if (response.ok) {
                             setUserRole(data.role);
                             console.log('User Role:', data.role);
+                            if (data.role === 'student') {
+                                fetchFavoritePublications(); // Charger les favoris pour les étudiants
+                            }
                         } else {
                             console.error('Failed to fetch user:', data.message);
                         }
@@ -357,50 +413,68 @@ function Publication() {
                                     Latest Publications & <span style={{ color: '#0ea5e6' }}>Updates</span>
                                 </h2>
                             </div>
-                            {userRole === 'psychiatrist' && (
-                                <div style={{ display: 'flex', gap: '15px' }}>
-                                    <a
-                                        href="/AddPublication"
+                            <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                                {userRole === 'student' && (
+                                    <select
+                                        value={filterType}
+                                        onChange={(e) => setFilterType(e.target.value)}
                                         style={{
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            background: '#0ea5e6',
-                                            color: '#fff',
-                                            padding: '12px 24px',
+                                            padding: '10px',
                                             borderRadius: '5px',
-                                            textDecoration: 'none',
+                                            border: '1px solid #ccc',
                                             fontSize: '16px',
-                                            fontWeight: '600',
-                                            transition: 'background 0.3s ease',
-                                            boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
+                                            cursor: 'pointer',
                                         }}
-                                        onMouseEnter={(e) => e.target.style.background = '#164da6'}
-                                        onMouseLeave={(e) => e.target.style.background = '#0ea5e6'}
                                     >
-                                        <i className="fas fa-plus" style={{ marginRight: '8px' }}></i> Add Publication
-                                    </a>
-                                    <a
-                                        href="/PublicationPsychiatristAll"
-                                        style={{
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            background: '#28a745',
-                                            color: '#fff',
-                                            padding: '12px 24px',
-                                            borderRadius: '5px',
-                                            textDecoration: 'none',
-                                            fontSize: '16px',
-                                            fontWeight: '600',
-                                            transition: 'background 0.3s ease',
-                                            boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
-                                        }}
-                                        onMouseEnter={(e) => e.target.style.background = '#218838'}
-                                        onMouseLeave={(e) => e.target.style.background = '#28a745'}
-                                    >
-                                        <i className="fas fa-book" style={{ marginRight: '8px' }}></i> My Publication
-                                    </a>
-                                </div>
-                            )}
+                                        <option value="all">All Publications</option>
+                                        <option value="favorites">Favorite Publications</option>
+                                    </select>
+                                )}
+                                {userRole === 'psychiatrist' && (
+                                    <div style={{ display: 'flex', gap: '15px' }}>
+                                        <a
+                                            href="/AddPublication"
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                background: '#0ea5e6',
+                                                color: '#fff',
+                                                padding: '12px 24px',
+                                                borderRadius: '5px',
+                                                textDecoration: 'none',
+                                                fontSize: '16px',
+                                                fontWeight: '600',
+                                                transition: 'background 0.3s ease',
+                                                boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
+                                            }}
+                                            onMouseEnter={(e) => e.target.style.background = '#164da6'}
+                                            onMouseLeave={(e) => e.target.style.background = '#0ea5e6'}
+                                        >
+                                            <i className="fas fa-plus" style={{ marginRight: '8px' }}></i> Add Publication
+                                        </a>
+                                        <a
+                                            href="/PublicationPsychiatristAll"
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                background: '#28a745',
+                                                color: '#fff',
+                                                padding: '12px 24px',
+                                                borderRadius: '5px',
+                                                textDecoration: 'none',
+                                                fontSize: '16px',
+                                                fontWeight: '600',
+                                                transition: 'background 0.3s ease',
+                                                boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
+                                            }}
+                                            onMouseEnter={(e) => e.target.style.background = '#218838'}
+                                            onMouseLeave={(e) => e.target.style.background = '#28a745'}
+                                        >
+                                            <i className="fas fa-book" style={{ marginRight: '8px' }}></i> My Publication
+                                        </a>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
@@ -461,10 +535,25 @@ function Publication() {
                                                     </span>
                                                 </div>
                                             </div>
-                                            <h4 style={{ fontSize: '20px', fontWeight: '600', margin: '0 0 15px', lineHeight: '1.4' }}>
-                                                <a href={`/publication/${post._id}`} style={{ color: '#333', textDecoration: 'none' }}>
+                                            <h4 style={{ fontSize: '20px', fontWeight: '600', margin: '0 0 15px', lineHeight: '1.4', display: 'flex', alignItems: 'center' }}>
+                                                <a href={`/PublicationDetailPsy/${post._id}`} style={{ color: '#333', textDecoration: 'none' }}>
                                                     {stripHtmlTags(post.titrePublication)}
                                                 </a>
+                                                {userRole === 'student' && (
+                                                    <button
+                                                        onClick={() => handleToggleFavorite(post._id)}
+                                                        style={{
+                                                            background: 'transparent',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            fontSize: '20px',
+                                                            color: favoritePublications.some(fav => fav._id === post._id) ? '#ffd700' : '#ccc',
+                                                            marginLeft: '10px',
+                                                        }}
+                                                    >
+                                                        <i className="fas fa-star"></i>
+                                                    </button>
+                                                )}
                                             </h4>
                                             <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
                                                 {stripHtmlTags(post.description).length > 100

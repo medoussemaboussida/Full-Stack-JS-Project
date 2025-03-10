@@ -33,6 +33,8 @@ router.delete('/commentaire/:commentId', userController.verifyToken, userControl
 router.post('/publications/by-tags', userController.verifyToken, userController.getPublicationsByTags);
 router.post('/publication/like/:publicationId', userController.verifyToken, userController.likePublication);
 router.post('/publication/dislike/:publicationId', userController.verifyToken, userController.dislikePublication);
+router.post('/publication/favorite/:publicationId', userController.verifyToken, userController.toggleFavorite);
+router.get('/favoritePublications', userController.verifyToken, userController.getFavoritePublications);
 
 
 

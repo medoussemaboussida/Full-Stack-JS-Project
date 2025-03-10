@@ -85,6 +85,8 @@ availability: [
             date: { type: String, required: false } // Ajouté pour compatibilité avec les dates exactes
         },
     ],
+
+    favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Publication' }],
 },
 
 

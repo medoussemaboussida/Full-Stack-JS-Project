@@ -752,6 +752,62 @@ module.exports.dislikePublication = async (req, res) => {
     }
 };
 
+// Ajouter ou supprimer une publication des favoris
+module.exports.toggleFavorite = async (req, res) => {
+    try {
+        const { publicationId } = req.params;
+        const userId = req.userId; // Récupéré via verifyToken
+
+        const user = await User.findById(userId);
+        if (!user || user.role !== 'student') {
+            return res.status(403).json({ message: 'Seuls les étudiants peuvent gérer leurs favoris' });
+        }
+
+        const publication = await Publication.findById(publicationId);
+        if (!publication) {
+            return res.status(404).json({ message: 'Publication non trouvée' });
+        }
+
+        const isFavorite = user.favorites.includes(publicationId);
+        if (isFavorite) {
+            user.favorites = user.favorites.filter(id => id.toString() !== publicationId);
+        } else {
+            user.favorites.push(publicationId);
+        }
+
+        await user.save();
+        res.status(200).json({
+            message: isFavorite ? 'Removed from favorites' : 'Added to favorites',
+            favorites: user.favorites,
+        });
+    } catch (error) {
+        console.error('Erreur lors de la gestion des favoris:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Récupérer les publications favorites d'un étudiant
+module.exports.getFavoritePublications = async (req, res) => {
+    try {
+        const userId = req.userId; // Récupéré via verifyToken
+
+        const user = await User.findById(userId).populate({
+            path: 'favorites',
+            populate: { path: 'author_id', select: 'username user_photo' },
+        });
+
+        if (!user || user.role !== 'student') {
+            return res.status(403).json({ message: 'Seuls les étudiants peuvent voir leurs favoris' });
+        }
+
+        const favoritePublications = user.favorites.filter(post => post.status !== 'archived');
+        res.status(200).json(favoritePublications);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des favoris:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
 //supprimer student
 module.exports.deleteStudentById = async (req, res) => {
     try {
