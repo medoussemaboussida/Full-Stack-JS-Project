@@ -322,7 +322,6 @@ module.exports.getStudentById = async (req, res) => {
     }
 };
 
-// Nouvelle méthode : Ajouter une publication
 module.exports.addPublication = (req, res) => {
     upload1(req, res, async (err) => {
         if (err) {
@@ -349,6 +348,40 @@ module.exports.addPublication = (req, res) => {
             });
 
             const savedPublication = await publication.save();
+
+            // Récupérer tous les étudiants
+            const students = await User.find({ role: 'student' });
+            if (students.length === 0) {
+                console.log('Aucun étudiant trouvé pour recevoir l’email.');
+            } else {
+                // Construire le contenu de l'email
+                const publicationLink = `http://localhost:3000/PublicationDetailPsy/${savedPublication._id}`;
+                const subject = 'New Publication Added on EspritCare';
+                const htmlContent = `
+                    <h2>New Publication Available!"</h2>
+                    <p>Hello</p>
+                    <p>A new publication has been added by a psychiatrist on EspritCare:</p>
+                    <ul>
+                        <li><strong>Title :</strong> ${titrePublication}</li>
+                        <li><strong>Description :</strong> ${description}</li>
+                    </ul>
+                    <p>Click on the link below to view it. :</p>
+                    <a href="${publicationLink}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #0ea5e6; color: #fff; text-decoration: none; border-radius: 5px;">
+                        View Publication
+                    </a>
+                    <p>Stay connected for more updates !</p>
+                `;
+
+                // Envoyer un email à chaque étudiant
+                const emailPromises = students.map(student =>
+                    sendEmail(student.email, subject, htmlContent)
+                        .catch(err => console.error(`Erreur lors de l’envoi à ${student.email} :`, err))
+                );
+
+                await Promise.all(emailPromises);
+                console.log(`Emails envoyés à ${students.length} étudiants.`);
+            }
+
             res.status(201).json({ message: 'Publication ajoutée avec succès', publication: savedPublication });
         } catch (error) {
             console.log('Erreur lors de l’ajout:', error);

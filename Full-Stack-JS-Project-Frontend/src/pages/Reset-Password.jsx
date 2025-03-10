@@ -85,10 +85,10 @@ function Reset_Password() {
             <main className="main">
                 <div className="site-breadcrumb" style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}>
                     <div className="container">
-                        <h2 className="breadcrumb-title">Réinitialisation du mot de passe</h2>
+                        <h2 className="breadcrumb-title">Reset your account password</h2>
                         <ul className="breadcrumb-menu">
-                            <li><a href="index.html">Accueil</a></li>
-                            <li className="active">Réinitialisation du mot de passe</li>
+                            
+                            
                         </ul>
                     </div>
                 </div>
@@ -99,7 +99,7 @@ function Reset_Password() {
                             <div className="auth-form">
                                 <div className="auth-header">
                                     <img src="assets/img/logo/logo.png" alt="" />
-                                    <p>Réinitialisez le mot de passe de votre compte</p>
+                                    <p>Reset your account password</p>
                                 </div>
                                 {error && <div className="alert alert-danger">{error}</div>}
                                 {success && <div className="alert alert-success">{success}</div>}
@@ -108,7 +108,7 @@ function Reset_Password() {
                                         <input
                                             type={showPassword ? "text" : "password"}
                                             className="form-control"
-                                            placeholder="Nouveau mot de passe"
+                                            placeholder="New Password"
                                             value={passwordData.newPassword}
                                             onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                                             style={{ paddingRight: "40px" }}
@@ -140,7 +140,7 @@ function Reset_Password() {
                                         <input
                                             type={showConfirmPassword ? "text" : "password"}
                                             className="form-control"
-                                            placeholder="Confirmer le mot de passe"
+                                            placeholder="Confirm Password"
                                             value={passwordData.confirmPassword}
                                             onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                                             style={{ paddingRight: "40px" }}
@@ -170,7 +170,7 @@ function Reset_Password() {
 
                                     <div className="auth-btn">
                                         <button type="submit" className="theme-btn">
-                                            <span className="far fa-key"></span> Réinitialiser le mot de passe
+                                            <span className="far fa-key"></span> Reset Password
                                         </button>
                                     </div>
                                 </form>
