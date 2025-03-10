@@ -51,10 +51,6 @@ module.exports.getComments = async (req, res) => {
         const comments = await ForumComment.find({ forum_id }).populate("user_id", "username speciality level user_photo"); // Peupler les informations de l'utilisateur (username, speciality, level, user_photo)
 
 
-        if (comments.length === 0) {
-            return res.status(404).json({ message: "There is any comment here !" });
-        }
-
         // Retourner les commentaires
         res.status(200).json(comments);
     } catch (err) {

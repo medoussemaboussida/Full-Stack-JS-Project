@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { jwtDecode } from 'jwt-decode'; 
-
+import "react-toastify/dist/ReactToastify.css";
+import { ToastContainer, toast } from "react-toastify";
 const AddForum = () => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -70,20 +71,32 @@ const AddForum = () => {
 
       const data = await response.json();
       console.log("Forum ajouté avec succès:", data);
-
       // Réinitialiser les champs après succès
       setTitle("");
       setDescription("");
       setAnonymous('no'); // Réinitialiser la valeur de "anonymous"
       setForumPhoto(null);
+        toast.success('Your topic is added successfully!');
+
+
     } catch (error) {
       console.error("Erreur:", error);
-      alert("Une erreur s'est produite lors de l'ajout du forum.");
     }
   };
 
   return (
     <div>
+            <ToastContainer
+              position="top-right"
+              autoClose={3000}
+              hideProgressBar={false}
+              newestOnTop={false}
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+            />
       <main className="main">
         {/* Breadcrumb */}
         <div

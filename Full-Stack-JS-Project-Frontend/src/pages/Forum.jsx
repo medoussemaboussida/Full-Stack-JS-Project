@@ -7,7 +7,9 @@ import {
   faTrashAlt,
   faPaperPlane,
   faEye,
-} from "@fortawesome/free-regular-svg-icons"; // Importation des icônes Font Awesome
+} from "@fortawesome/free-regular-svg-icons";
+import "react-toastify/dist/ReactToastify.css";
+import { ToastContainer, toast } from "react-toastify";
 
 // Fonction pour couper la description à 3 lignes
 const truncateDescription = (text, isExpanded) => {
@@ -111,9 +113,11 @@ function Forum() {
 
       if (response.ok) {
         console.log("Comment added:", data);
+        toast.success('Your Comment is added successfully!');
         setComment(""); // Clear the comment field
       } else {
         console.error("Error adding comment:", data.message || data);
+        toast.error('Failed to add your comment');
       }
     } catch (error) {
       console.error("Error in API call:", error);
@@ -157,9 +161,11 @@ function Forum() {
         console.log("Forum supprimé:", data);
         setForums(forums.filter((forum) => forum._id !== forumId)); // Supprimer localement
         setShowDeleteModal(false); // Fermer le modal
+        toast.success('Your topic was deleted successfully !');
       })
       .catch((error) => {
         console.error("Erreur lors de la suppression du forum:", error);
+        toast.error('Failed to delete your topic !');
       });
   };
 
@@ -200,14 +206,27 @@ function Forum() {
           )
         );
         setShowUpdateModal(false); // Fermer le modal de mise à jour
+         toast.success('Your topic is updated successfully!');
       })
       .catch((error) => {
         console.error("Erreur lors de la mise à jour du forum:", error);
+        toast.error('Failed to update your topic !');  
       });
   };
 
   return (
     <div>
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
       <main className="main">
         {/* Breadcrumb */}
         <div
@@ -227,7 +246,10 @@ function Forum() {
 
         {/* Forum Section */}
         <div className="forum-area py-100">
-          <div className="container">
+          <div
+            className="container"
+            style={{ maxWidth: "800px", margin: "0 auto" }}
+          >
             <div className="forum-header d-flex justify-content-between align-items-center mb-4">
               <button
                 className="theme-btn"
@@ -237,19 +259,26 @@ function Forum() {
               </button>
             </div>
 
-            <div className="forum-list">
+            <div
+              className="forum-list"
+              style={{
+                maxWidth: "800px", // Réduit la largeur
+                margin: "0 auto", // Centre la section
+                width: "100%", // Responsive
+              }}
+            >
               {forums.length > 0 ? (
                 forums.map((forum) => (
                   <div
                     key={forum._id}
-                    className="forum-item p-3 border rounded mb-3"
+                    className="forum-item p-4 border rounded mb-4"
                   >
                     <div className="d-flex justify-content-between align-items-center mb-2">
                       <div className="d-flex align-items-center">
                         <img
                           src={
                             forum.anonymous
-                              ? "assets/img/user_icon.png"
+                              ? "assets/img/anonymous_member.png"
                               : `http://localhost:5000/uploads/${forum.user_id.user_photo}`
                           }
                           alt="User"
@@ -261,11 +290,11 @@ function Forum() {
                           }}
                         />
 
-                        <h5 className="mb-0 me-3">
+                        <h6 className="mb-0 me-3">
                           {forum.anonymous
                             ? "Anonymous member"
                             : forum.user_id.username || "Utilisateur inconnu"}
-                        </h5>
+                        </h6>
                         {!forum.anonymous &&
                           forum.user_id.level &&
                           forum.user_id.speciality && (
@@ -328,7 +357,7 @@ function Forum() {
                           </div>
                         )}
                     </div>
-                    <h2>{forum.title}</h2>
+                    <h3>{forum.title}</h3>
                     <br />
                     <p
                       className="forum-description mb-0 "
@@ -367,7 +396,7 @@ function Forum() {
                         style={{
                           width: "100%",
                           height: "auto",
-                          objectFit: "cover", // Cela garantit que l'image est redimensionnée pour garder un bon aspect circulaire
+                          objectFit: "cover",
                           borderRadius: "20px",
                         }}
                       />
@@ -406,7 +435,7 @@ function Forum() {
                       >
                         <FontAwesomeIcon
                           icon={faPaperPlane}
-                          style={{ fontSize: "16px" }}
+                          style={{ fontSize: "14px" }}
                         />
                       </button>
                       {/* Bouton "view" avec icône */}
@@ -425,30 +454,41 @@ function Forum() {
                       >
                         <FontAwesomeIcon
                           icon={faEye}
-                          style={{ fontSize: "16px" }}
+                          style={{ fontSize: "14px" }}
                         />
                       </button>
                     </div>
                     {/* Checkbox pour commenter en anonyme */}
                     <div className="mt-2 d-flex align-items-center">
-                      <input
-                        type="checkbox"
-                        id="anonymousComment"
-                        checked={anonymous}
-                        onChange={(e) => setAnonymous(e.target.checked)}
+                      <div
                         style={{
                           width: "20px",
                           height: "20px",
-                          borderRadius: "50%", // Case circulaire
-                          border: "2px solid black", // Bordure noire
-                          appearance: "none", // Supprime le style par défaut
-                          outline: "none",
+                          borderRadius: "50%", // Forme circulaire
+                          border: "1px solid black", // Bordure noire
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
                           cursor: "pointer",
-                          backgroundColor: anonymous ? "green" : "white",
-                          display: "inline-block",
                           marginRight: "10px",
+                          transition: "background-color 0.3s ease", // Animation fluide
+                          backgroundColor: anonymous
+                            ? "rgba(0, 128, 0, 0.2)"
+                            : "white", // Léger vert en fond lorsqu'activé
                         }}
-                      />
+                        onClick={() => setAnonymous(!anonymous)} // Toggle lors du clic
+                      >
+                        <div
+                          style={{
+                            width: anonymous ? "10px" : "0px", // Taille animée
+                            height: anonymous ? "10px" : "0px",
+                            backgroundColor: "green",
+                            borderRadius: "50%",
+                            transition: "all 0.3s ease", // Effet fluide pour l'apparition/disparition
+                            opacity: anonymous ? 1 : 0, // Animation d'opacité
+                          }}
+                        />
+                      </div>
                       <label
                         htmlFor="anonymousComment"
                         style={{
@@ -456,6 +496,7 @@ function Forum() {
                           color: "black",
                           cursor: "pointer",
                         }}
+                        onClick={() => setAnonymous(!anonymous)} // Clique aussi sur le texte
                       >
                         Anonymous comment ?
                       </label>
@@ -463,7 +504,7 @@ function Forum() {
                   </div>
                 ))
               ) : (
-                <p>Aucun forum disponible.</p>
+                <p>There is any topic here !</p>
               )}
             </div>
           </div>
@@ -697,7 +738,7 @@ function Forum() {
             }}
           >
             <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
-              Commentaires
+              Comments
             </h3>
 
             {/* Affichage des commentaires */}
@@ -716,7 +757,7 @@ function Forum() {
                       <img
                         src={
                           comment.anonymous === true
-                            ? "/assets/img/user_icon.png"
+                            ? "/assets/img/anonymous_member.png"
                             : `http://localhost:5000/uploads/${comment.user_id.user_photo}`
                         }
                         alt="User Avatar"
@@ -733,22 +774,25 @@ function Forum() {
                           <p>Anonymous Member</p>
                         ) : (
                           <>
-                            <p>{comment.user_id.username}{" "}
-                            <span
-                              className="badge"
-                              style={{
-                                backgroundColor: "transparent",
-                                border: "1px solid #00BFFF", // Cadre bleu
-                                color: "#00BFFF", // Texte bleu
-                                padding: "2px 8px",
-                                borderRadius: "20px",
-                                boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)", // Lueur bleue
-                                fontSize: "0.875rem", // Petit texte
-                              }}
-                            >
-                              {comment.user_id.level}{""}
-                              {comment.user_id.speciality}
-                            </span></p>
+                            <p>
+                              {comment.user_id.username}{" "}
+                              <span
+                                className="badge"
+                                style={{
+                                  backgroundColor: "transparent",
+                                  border: "1px solid #00BFFF", // Cadre bleu
+                                  color: "#00BFFF", // Texte bleu
+                                  padding: "2px 8px",
+                                  borderRadius: "20px",
+                                  boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)", // Lueur bleue
+                                  fontSize: "0.875rem", // Petit texte
+                                }}
+                              >
+                                {comment.user_id.level}
+                                {""}
+                                {comment.user_id.speciality}
+                              </span>
+                            </p>
                           </>
                         )}
                       </div>
@@ -757,7 +801,7 @@ function Forum() {
                   </div>
                 ))
               ) : (
-                <p>Aucun commentaire disponible.</p>
+                <p>There is any comment here !.</p>
               )}
             </div>
 
