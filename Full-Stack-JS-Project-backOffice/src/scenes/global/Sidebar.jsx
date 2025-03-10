@@ -163,6 +163,13 @@ const Sidebar = () => {
               selected={selected}
               setSelected={setSelected}
             />
+                   <Item
+              title="Appointment Management"
+              to="/appointment"
+              icon={<ContactsOutlinedIcon />}
+              selected={selected}
+              setSelected={setSelected}
+            />
             <Item
               title="Invoices Balances"
               to="/invoices"
@@ -170,7 +177,13 @@ const Sidebar = () => {
               selected={selected}
               setSelected={setSelected}
             />
-
+            <Item
+              title="Forum management"
+              to="/forum"
+              icon={<ReceiptOutlinedIcon />}
+              selected={selected}
+              setSelected={setSelected}
+            />
             <Typography
               variant="h6"
               color={colors.grey[300]}
