@@ -117,7 +117,7 @@ if (formData.image) {
           <h2 className="breadcrumb-title">Add an Activity</h2>
           <ul className="breadcrumb-menu">
             <li>
-              <a href="/">Home</a>
+              <a href="/Home">Home</a>
             </li>
             <li className="active">Add an Activity</li>
           </ul>

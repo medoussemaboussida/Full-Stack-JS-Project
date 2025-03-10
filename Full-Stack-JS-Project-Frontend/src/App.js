@@ -78,8 +78,6 @@ function App(){
         <Route path="/add-activity" element={<AddActivity />} />
 
 
-
-
         </Routes>
             </Layout>
         </BrowserRouter>

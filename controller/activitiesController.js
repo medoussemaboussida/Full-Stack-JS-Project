@@ -157,8 +157,9 @@ module.exports.addActivity = (req, res) => {
 
 
 // ✅ Modifier une activité (réservé aux psychiatres qui l'ont créée)
+// ✅ Modifier une activité (tous les psychiatres peuvent le faire)
 module.exports.updateActivity = (req, res) => {
-    upload(req, res, async (err) => {
+    upload1(req, res, async (err) => {  // ✅ Correction ici, on utilise upload1
         if (err) {
             return res.status(400).json({ message: err.message });
         }
@@ -168,21 +169,19 @@ module.exports.updateActivity = (req, res) => {
             const { title, description, category } = req.body;
             const imageUrl = req.file ? `/uploads/activities/${req.file.filename}` : null;
 
+            // Vérifier si l'utilisateur est psychiatre
             const psychiatrist = await User.findById(id);
             if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
                 return res.status(403).json({ message: "Seuls les psychiatres peuvent modifier des activités" });
             }
 
+            // Vérifier si l'activité existe
             const activity = await Activity.findById(activityId);
             if (!activity) {
                 return res.status(404).json({ message: "Activité non trouvée" });
             }
 
-            if (activity.createdBy.toString() !== id) {
-                return res.status(403).json({ message: "Vous ne pouvez modifier que vos propres activités" });
-            }
-
-            // Mise à jour des champs
+            // ✅ Tous les psychiatres peuvent modifier les activités
             activity.title = title || activity.title;
             activity.description = description || activity.description;
             activity.category = category || activity.category;
@@ -191,10 +190,12 @@ module.exports.updateActivity = (req, res) => {
             await activity.save();
             res.status(200).json({ message: "Activité mise à jour avec succès", activity });
         } catch (error) {
+            console.error("❌ Erreur lors de la mise à jour:", error);
             res.status(500).json({ message: "Erreur serveur", error });
         }
     });
 };
+
 
 
 // ✅ Supprimer une activité (réservé aux psychiatres qui l'ont créée)

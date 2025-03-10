@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { useNavigate } from "react-router-dom";
 
 // Fonction pour supprimer les balises HTML
 const stripHtmlTags = (html) => {
@@ -48,7 +49,112 @@ function Activities() {
             setIsLoading(false);
         }
     };
+ // ✅ Pour la gestion du modal
+ const [showModal, setShowModal] = useState(false);
+ const [selectedActivity, setSelectedActivity] = useState(null);
 
+ const navigate = useNavigate();
+
+    //Update activity
+      // ✅ Ouvrir le modal avec les données de l'activité sélectionnée
+      const handleEdit = (activity) => {
+        setSelectedActivity(activity);
+        setShowModal(true);
+    };
+
+    // ✅ Fermer le modal
+    const closeModal = () => {
+        setShowModal(false);
+        setSelectedActivity(null);
+    };
+
+    // ✅ Gérer la mise à jour de l'activité
+    const handleUpdateActivity = async (e) => {
+        e.preventDefault();
+
+        if (!selectedActivity) return;
+
+        try {
+            const token = localStorage.getItem("jwt-token");
+            if (!token) {
+                toast.error("You must be logged in!");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("title", selectedActivity.title);
+            formData.append("description", selectedActivity.description);
+            formData.append("category", selectedActivity.category);
+            if (selectedActivity.image) {
+                formData.append("image", selectedActivity.image);
+            }
+
+            const response = await fetch(
+                `http://localhost:5000/users/psychiatrist/update-activity/${selectedActivity._id}`,
+                {
+                    method: "PUT",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: formData,
+                }
+            );
+
+            const result = await response.json();
+            if (response.ok) {
+                toast.success("Activity updated successfully!");
+                fetchActivities(); // Rafraîchir la liste des activités
+                closeModal();
+            } else {
+                toast.error(result.message || "Error updating activity.");
+            }
+        } catch (error) {
+            toast.error("Network error while updating the activity.");
+        }
+    };
+
+
+
+
+
+
+
+// Supprimer une activité
+const handleDelete = async (activityId) => {
+    if (!window.confirm("Are you sure you want to delete this activity?")) return;
+
+    try {
+        const token = localStorage.getItem("jwt-token");
+        if (!token) {
+            toast.error("You must be logged in!");
+            return;
+        }
+
+        const response = await fetch(`http://localhost:5000/users/psychiatrist/${userId}/delete-activity/${activityId}`, {
+            method: "DELETE",
+            headers: {
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json",
+            },
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+            setActivities(activities.filter(activity => activity._id !== activityId));
+            toast.success("Activity deleted successfully!");
+        } else {
+            toast.error(`Failed to delete activity: ${data.message}`);
+        }
+    } catch (error) {
+        console.error("Error deleting activity:", error);
+        toast.error("An error occurred while deleting the activity.");
+    }
+};
+
+ // Ouvrir la page "View Activity"
+ const handleViewActivity = (activityId) => {
+    window.location.href = `/activity/${activityId}`;
+};
     // Filtrer par catégorie
     const fetchActivitiesByCategory = async (category) => {
         setIsLoading(true);
@@ -120,7 +226,7 @@ function Activities() {
                         }}
                     >
                         <li style={{ marginRight: "10px" }}>
-                            <a href="/" style={{ color: "#fff", textDecoration: "none", fontWeight: "bold" }}>
+                            <a href="/Home" style={{ color: "#fff", textDecoration: "none", fontWeight: "bold" }}>
                                 Home
                             </a>
                         </li>
@@ -189,20 +295,29 @@ function Activities() {
                                     boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
                                     transition: "transform 0.3s ease",
                                     textAlign: "left",
-                                    position: "relative",
+                                    position: "relative"
                                 }}
+
                                 onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-10px)")}
                                 onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
                             >
-                                <img
-                                    src={activity.imageUrl ? `http://localhost:5000${activity.imageUrl}` : "/assets/img/activities/default.png"}
-                                    alt="Activity"
-                                    style={{ width: "100%", height: "250px", objectFit: "cover" }}
-                                />
+                               <img
+                                src={activity.imageUrl ? `http://localhost:5000${activity.imageUrl}` : "/assets/img/activities/default.png"}
+                                alt="Activity"
+                                style={{ width: "100%", height: "250px", objectFit: "cover" }}
+                                onClick={() => handleViewActivity(activity._id)} // ✅ Ajout du clic sur l'image
+                            />
+
                                 <div style={{ padding: "20px" }}>
                                     <h4>{stripHtmlTags(activity.title)}</h4>
                                     <p>{stripHtmlTags(activity.description)}</p>
                                 </div>
+                                {userRole === "psychiatrist" && (
+                                    <div style={{ display: "flex", justifyContent: "space-between", padding: "10px" }}>
+                                        <button onClick={() => handleEdit(activity)} className="btn btn-primary">Edit</button>
+                                        <button onClick={() => handleDelete(activity._id)} className="btn btn-danger">Delete</button>
+                                    </div>
+                                )}
                             </div>
                         ))
                     ) : (
@@ -212,6 +327,56 @@ function Activities() {
                     )}
                 </div>
             </div>
+{/* ✅ MODAL D'ÉDITION CENTRÉ */}
+{showModal && selectedActivity && (
+                <div style={{
+                    position: "fixed",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: "100%",
+                    backgroundColor: "rgba(0, 0, 0, 0.5)",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        backgroundColor: "white",
+                        padding: "20px",
+                        borderRadius: "8px",
+                        width: "400px",
+                        maxWidth: "90%",
+                        boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+                    }}>
+                        <h3 style={{ marginBottom: "20px", textAlign: "center" }}>Edit Activity</h3>
+                        <form onSubmit={handleUpdateActivity}>
+                            <input
+                                type="text"
+                                value={selectedActivity.title}
+                                onChange={(e) => setSelectedActivity({ ...selectedActivity, title: e.target.value })}
+                                placeholder="Activity Title"
+                                required
+                                style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
+                            />
+
+                            <textarea
+                                value={selectedActivity.description}
+                                onChange={(e) => setSelectedActivity({ ...selectedActivity, description: e.target.value })}
+                                placeholder="Activity Description"
+                                required
+                                rows="3"
+                                style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
+                            ></textarea>
+
+                            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+                                <button type="submit" style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", borderRadius: "5px" }}>Update</button>
+                                <button type="button" onClick={closeModal} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", borderRadius: "5px" }}>Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* ✅ Correction de la fermeture de `div` */}
             <ToastContainer position="top-right" autoClose={3000} />
