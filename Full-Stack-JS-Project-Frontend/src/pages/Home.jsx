@@ -80,40 +80,40 @@ function Home() {
             <main className="main">
                 {/* Hero area */}
                 <div className="hero-section">
-                    <div className="hero-single" style={{ backgroundImage: "url(assets/img/hero/bg.png)" }}>
-                        <div className="container">
-                            <div className="row align-items-center">
-                                <div className="col-md-12 col-lg-6">
-                                    <div className="hero-content">
-                        
-                                        <h1 className="hero-title" data-animation="fadeInRight" data-delay=".50s">
-                                            We Are Providing Best <span>Quality</span> Care For Seniors
-                                        </h1>
-                                        <p data-animation="fadeInLeft" data-delay=".75s">
-                                            There are many variations of passages orem psum available but the majority
-                                            have suffered alteration in some form by injected humour.
-                                        </p>
-                                        <div className="hero-btn" data-animation="fadeInUp" data-delay="1s">
-                                            <a href="about.html" className="theme-btn">
-                                                About More
-                                                <i className="fas fa-circle-arrow-right"></i>
-                                            </a>
-                                            <a href="contact.html" className="theme-btn2">
-                                                Learn More
-                                                <i className="fas fa-circle-arrow-right"></i>
-                                            </a> 
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="col-md-12 col-lg-6">
-                                    <div className="hero-img">
-                                        <img src="assets/img/hero/01.jpg" alt="" />
-                                    </div>
-                                </div>
-                            </div>
+    <div className="hero-single" style={{ backgroundImage: "url(assets/img/hero/bg.png)" }}>
+        <div className="container">
+            <div className="row align-items-center">
+                <div className="col-md-12 col-lg-6">
+                    <div className="hero-content">
+
+                        <h1 className="hero-title" data-animation="fadeInRight" data-delay=".50s">
+                            Nurturing Minds, Empowering Futures – Mental Health Care for ESPRIT Students
+                        </h1>
+                        <p data-animation="fadeInLeft" data-delay=".75s">
+                            Prioritizing your mental well-being, ESPRITCare offers the support and tools to help students thrive both academically and emotionally.
+                        </p>
+                        <div className="hero-btn" data-animation="fadeInUp" data-delay="1s">
+                            <a href="/About" className="theme-btn">
+                                Discover Our Services
+                                <i className="fas fa-circle-arrow-right"></i>
+                            </a>
+                            <a href="contact.html" className="theme-btn2">
+                                Reach Out for Support
+                                <i className="fas fa-circle-arrow-right"></i>
+                            </a>
                         </div>
                     </div>
                 </div>
+                <div className="col-md-12 col-lg-6">
+                    <div className="hero-img">
+                        <img src="assets/img/hero/01.jpg" alt="" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
                 {/* Hero area end */}
 
             {/* Psychiatrist List Section */}

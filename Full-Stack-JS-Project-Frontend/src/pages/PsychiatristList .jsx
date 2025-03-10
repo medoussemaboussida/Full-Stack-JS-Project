@@ -5,6 +5,8 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import { Navigation, Pagination } from 'swiper/modules';
+import { toast, ToastContainer } from 'react-toastify'; // Import react-toastify
+import 'react-toastify/dist/ReactToastify.css'; // Import the CSS for react-toastify
 import '../App.css';
 
 const PsychiatristList = () => {
@@ -12,7 +14,7 @@ const PsychiatristList = () => {
     const [selectedSlot, setSelectedSlot] = useState(null);
     const [selectedPsychiatristId, setSelectedPsychiatristId] = useState(null);
     const [availabilityPage, setAvailabilityPage] = useState({});
-    const [searchTerm, setSearchTerm] = useState(''); // New state for search term
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         axios.get('http://localhost:5000/users/psychiatrists')
@@ -24,18 +26,40 @@ const PsychiatristList = () => {
             })
             .catch(error => {
                 console.error('Error fetching psychiatrists:', error);
+                toast.error('Error fetching psychiatrists: ' + error.message, {
+                    position: 'top-right',
+                    autoClose: 5000,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    pauseOnHover: true,
+                    draggable: true,
+                });
             });
     }, []);
 
     const handleBookAppointment = async () => {
         if (!selectedSlot || !selectedPsychiatristId) {
-            alert("Please select an availability slot first!");
+            toast.error('Please select an availability slot first!', {
+                position: 'top-right',
+                autoClose: 3000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+            });
             return;
         }
 
-        const token = localStorage.getItem("jwt-token");
+        const token = localStorage.getItem('jwt-token');
         if (!token) {
-            alert("You must be logged in to book an appointment!");
+            toast.error('You must be logged in to book an appointment!', {
+                position: 'top-right',
+                autoClose: 3000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+            });
             return;
         }
 
@@ -52,14 +76,34 @@ const PsychiatristList = () => {
                 bookingData,
                 {
                     headers: {
-                        "Content-Type": "application/json",
+                        'Content-Type': 'application/json',
                         Authorization: `Bearer ${token}`,
                     },
                 }
             );
-            alert("Appointment booked successfully!");
+            toast.success('Appointment booked successfully!', {
+                position: 'top-right',
+                autoClose: 3000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+            });
+            // Optionally reset the selected slot and psychiatrist after booking
+            setSelectedSlot(null);
+            setSelectedPsychiatristId(null);
         } catch (error) {
-            alert(`Error booking appointment: ${error.response?.data?.message || error.message}`);
+            toast.error(
+                `Error booking appointment: ${error.response?.data?.message || error.message}`,
+                {
+                    position: 'top-right',
+                    autoClose: 5000,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    pauseOnHover: true,
+                    draggable: true,
+                }
+            );
         }
     };
 
@@ -71,7 +115,7 @@ const PsychiatristList = () => {
     const handleAvailabilityPagination = (psychiatristId, direction, total) => {
         setAvailabilityPage((prev) => {
             const currentPage = prev[psychiatristId] || 0;
-            let newPage = direction === "next" ? currentPage + 1 : currentPage - 1;
+            let newPage = direction === 'next' ? currentPage + 1 : currentPage - 1;
             const maxPage = Math.ceil(total / 3) - 1;
 
             if (newPage < 0) newPage = 0;
@@ -81,9 +125,8 @@ const PsychiatristList = () => {
         });
     };
 
-    // Filter availability based on search term
     const filterAvailability = (availability) => {
-        if (!searchTerm.trim()) return availability; // Return all if no search term
+        if (!searchTerm.trim()) return availability;
         return availability.filter(slot =>
             slot.day.toLowerCase().includes(searchTerm.toLowerCase()) ||
             slot.startTime.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -93,6 +136,8 @@ const PsychiatristList = () => {
 
     return (
         <main className="main">
+            {/* Add ToastContainer to render the toasts */}
+            <ToastContainer />
             <div className="testimonial-area pt-80 pb-60">
                 <div className="container">
                     <div className="row">
@@ -161,11 +206,11 @@ const PsychiatristList = () => {
                                                                 key={idx}
                                                                 onClick={() => selectSlot(psychiatrist._id, avail)}
                                                                 style={{
-                                                                    cursor: "pointer",
+                                                                    cursor: 'pointer',
                                                                     backgroundColor:
                                                                         selectedSlot === avail && selectedPsychiatristId === psychiatrist._id
-                                                                            ? "#e0f7fa"
-                                                                            : "transparent",
+                                                                            ? '#e0f7fa'
+                                                                            : 'transparent',
                                                                 }}
                                                             >
                                                                 {avail.day}: {avail.startTime} - {avail.endTime}
@@ -178,14 +223,14 @@ const PsychiatristList = () => {
                                                 <div className="pagination-buttons">
                                                     {hasPrev && (
                                                         <button
-                                                            onClick={() => handleAvailabilityPagination(psychiatrist._id, "prev", filteredAvailability.length)}
+                                                            onClick={() => handleAvailabilityPagination(psychiatrist._id, 'prev', filteredAvailability.length)}
                                                         >
                                                             ←
                                                         </button>
                                                     )}
                                                     {hasNext && (
                                                         <button
-                                                            onClick={() => handleAvailabilityPagination(psychiatrist._id, "next", filteredAvailability.length)}
+                                                            onClick={() => handleAvailabilityPagination(psychiatrist._id, 'next', filteredAvailability.length)}
                                                         >
                                                             →
                                                         </button>

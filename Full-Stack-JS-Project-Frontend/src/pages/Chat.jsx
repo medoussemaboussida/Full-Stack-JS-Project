@@ -110,21 +110,65 @@ const Chat = () => {
       <style>
         {`
           .chat-container {
-            background-color: white;
+            max-width: 800px;
+            margin: 40px auto 300px; /* Increased bottom margin to 100px to create more space */
+            padding: 20px;
+            background-color: #fff;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            width: 80%;
-            max-width: 600px;
-            padding: 20px;
-            transition: all 0.3s ease;
-            margin: 0 auto;
           }
 
           h2 {
-            font-size: 1.5rem;
-            color: #333;
-            margin-bottom: 15px;
+            font-size: 1.8rem;
+            color: #2c3e50;
+            margin-bottom: 20px;
             text-align: center;
+            font-weight: 600;
+          }
+
+          .join-container {
+            text-align: center;
+            padding: 30px; /* Increased padding for more internal space */
+            background-color: #ecf0f1;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+          }
+
+          .join-container input[type="text"] {
+            width: 60%;
+            max-width: 300px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+            margin-right: 10px;
+            box-sizing: border-box;
+            transition: border-color 0.3s ease;
+          }
+
+          .join-container input[type="text"]:focus {
+            border-color: #3498db;
+            outline: none;
+          }
+
+          .join-container button {
+            padding: 12px 20px;
+            background-color: #3498db;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+          }
+
+          .join-container button:hover {
+            background-color: #2980b9;
+          }
+
+          .join-container button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
           }
 
           .error {
@@ -132,38 +176,6 @@ const Chat = () => {
             font-size: 0.9rem;
             margin-top: 10px;
             text-align: center;
-          }
-
-          input[type="text"] {
-            width: 100%;
-            padding: 12px;
-            border-radius: 5px;
-            border: 1px solid #ddd;
-            margin: 5px 0;
-            font-size: 1rem;
-          }
-
-          button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            background-color: #3498db;
-            color: white;
-            cursor: pointer;
-            transition: background-color 0.2s;
-          }
-
-          button:hover {
-            background-color: #2980b9;
-          }
-
-          button:disabled {
-            background-color: #b0bec5;
-            cursor: not-allowed;
-          }
-
-          .join-container, .message-container {
-            text-align: right;
           }
 
           .message-container {
@@ -193,7 +205,7 @@ const Chat = () => {
           }
 
           .message.self {
-            background-color: rgb(110, 185, 236);
+            background-color: #3498db;
             color: white;
             align-self: flex-end;
           }
@@ -203,7 +215,7 @@ const Chat = () => {
             height: 30px;
             border-radius: 50%;
             object-fit: cover;
-            flex-shrink: 0; /* Prevent avatar from shrinking */
+            flex-shrink: 0;
           }
 
           .no-avatar {
@@ -238,7 +250,7 @@ const Chat = () => {
 
           .timestamp {
             font-size: 0.8rem;
-            color: rgb(19, 20, 20);
+            color: #333;
             margin-top: 5px;
             text-align: right;
           }
@@ -262,8 +274,29 @@ const Chat = () => {
             font-size: 1rem;
           }
 
+          .refresh-button, .leave-button, .send-button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
+          }
+
+          .send-button {
+            background-color: #2ecc71;
+          }
+
+          .send-button:hover {
+            background-color: #27ae60;
+          }
+
           .refresh-button {
-            margin-left: 10px;
+            background-color: #f39c12;
+          }
+
+          .refresh-button:hover {
+            background-color: #e67e22;
           }
 
           .leave-button {
@@ -272,10 +305,6 @@ const Chat = () => {
 
           .leave-button:hover {
             background-color: #c0392b;
-          }
-
-          .join-container input {
-            margin-top: 20px;
           }
         `}
       </style>
@@ -290,9 +319,8 @@ const Chat = () => {
               onChange={(e) => setRoomCode(e.target.value)}
               onKeyPress={handleRoomKeyPress}
               placeholder="Enter room code..."
-              className="room-input"
             />
-            <button onClick={joinRoom} disabled={!roomCode.trim()} className="join-button">
+            <button onClick={joinRoom} disabled={!roomCode.trim()}>
               Join
             </button>
             {error && <p className="error">{error}</p>}

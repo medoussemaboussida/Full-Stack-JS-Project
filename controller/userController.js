@@ -1431,6 +1431,8 @@ module.exports.getAppointmentHistory = async (req, res) => {
     }
 };
 
+
+
 module.exports.updateAppointmentStatus = async (req, res) => {
     try {
         const userId = req.userId; // ID de l'utilisateur connecté (from verifyToken middleware)
@@ -1456,16 +1458,14 @@ module.exports.updateAppointmentStatus = async (req, res) => {
         // Vérifier si le rendez-vous existe
         let appointment;
         if (user.role === 'psychiatrist') {
-            // Psychiatres ne peuvent modifier que leurs propres rendez-vous
-            appointment = await Appointment.findOne({ _id: appointmentId, psychiatrist: userId });
+            appointment = await Appointment.findOne({ _id: appointmentId, psychiatrist: userId }).populate('student psychiatrist');
             if (!appointment) {
                 return res.status(404).json({
                     message: "Rendez-vous non trouvé ou vous n'êtes pas autorisé à le modifier",
                 });
             }
         } else if (user.role === 'admin') {
-            // Admins peuvent modifier n'importe quel rendez-vous
-            appointment = await Appointment.findById(appointmentId);
+            appointment = await Appointment.findById(appointmentId).populate('student psychiatrist');
             if (!appointment) {
                 return res.status(404).json({ message: "Rendez-vous non trouvé" });
             }
@@ -1475,12 +1475,52 @@ module.exports.updateAppointmentStatus = async (req, res) => {
         appointment.status = status;
         await appointment.save();
 
+        // Générer un code unique pour l'accès au chat
+        const chatCode = Math.floor(100000 + Math.random() * 900000); // Code à 6 chiffres
+
+        // Envoyer un email si le rendez-vous est confirmé
+        if (status === 'confirmed' && appointment.student && appointment.psychiatrist) {
+            const studentEmail = appointment.student.email;
+            const psychiatristEmail = appointment.psychiatrist.email;
+            const subject = "Your Appointment is Confirmed on EspritCare";
+            const htmlContent = `
+                <h2>Your Appointment is Confirmed</h2>
+                <p>Hello ${appointment.student.username} and Dr. ${appointment.psychiatrist.username},</p>
+                <p>The appointment has been successfully confirmed.</p>
+                <ul>
+                    <li><strong>Date :</strong> ${new Date(appointment.date).toLocaleDateString()}</li>
+                    <li><strong>Time :</strong> ${appointment.startTime} - ${appointment.endTime}</li>
+                    <li><strong>Psychiatrist :</strong> ${appointment.psychiatrist.username}</li>
+                    <li><strong>Student :</strong> ${appointment.student.username}</li>
+                </ul>
+                <p>Please make sure to be available on time.</p>
+                <p>Use this unique code to access the chat:</p>
+                <h3 style="text-align: center; background-color: #0ea5e6; color: white; padding: 10px; border-radius: 5px;">
+                    ${chatCode}
+                </h3>
+                <p>Thank you for using EspritCare!</p>
+            `;
+
+            try {
+                // Envoyer les emails en parallèle
+                await Promise.all([
+                    sendEmail(studentEmail, subject, htmlContent),
+                    sendEmail(psychiatristEmail, subject, htmlContent)
+                ]);
+
+                console.log(`Emails envoyés à ${studentEmail} et ${psychiatristEmail} avec le code : ${chatCode}`);
+            } catch (emailError) {
+                console.error("Erreur lors de l'envoi des emails de confirmation :", emailError);
+            }
+        }
+
         res.status(200).json({ message: "Statut du rendez-vous mis à jour avec succès", appointment });
     } catch (error) {
         console.error('Erreur dans updateAppointmentStatus:', error);
         res.status(500).json({ message: "Erreur serveur", error: error.message });
     }
 };
+
 
 module.exports.deleteAppointment = async (req, res) => {
     try {
