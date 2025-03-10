@@ -49,6 +49,7 @@ router.get('/allAppointments', userController.getAllAppointments);
 router.get("/chat/:roomCode", userController.verifyToken, userController.RoomChat);
 router.post("/chat", userController.verifyToken, userController.Chat);
 router.get('/me', userController.verifyToken, userController.photo);
+router.get('/allappoint', userController.getAllAppoint);
 
 
 

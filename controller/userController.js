@@ -1344,26 +1344,42 @@ module.exports.getAppointmentHistory = async (req, res) => {
 
 module.exports.updateAppointmentStatus = async (req, res) => {
     try {
-        const userId = req.userId; // ID de l'utilisateur connecté
+        const userId = req.userId; // ID de l'utilisateur connecté (from verifyToken middleware)
         const { appointmentId } = req.params; // ID du rendez-vous à modifier
         const { status } = req.body; // Nouveau statut
 
         // Vérifier que le statut est valide
         const validStatuses = ['pending', 'confirmed', 'completed', 'canceled'];
         if (!validStatuses.includes(status)) {
-            return res.status(400).json({ message: "Statut invalide. Les valeurs autorisées sont : 'pending', 'confirmed', 'completed', 'canceled'." });
+            return res.status(400).json({
+                message: "Statut invalide. Les valeurs autorisées sont : 'pending', 'confirmed', 'completed', 'canceled'.",
+            });
         }
 
-        // Vérifier si l'utilisateur est un psychiatre
+        // Vérifier si l'utilisateur est un psychiatre ou un admin
         const user = await User.findById(userId);
-        if (!user || user.role !== "psychiatrist") {
-            return res.status(403).json({ message: "Seul un psychiatre peut modifier le statut d'un rendez-vous" });
+        if (!user || (user.role !== 'psychiatrist' && user.role !== 'admin')) {
+            return res.status(403).json({
+                message: "Seul un psychiatre ou un administrateur peut modifier le statut d'un rendez-vous",
+            });
         }
 
-        // Vérifier si le rendez-vous existe et appartient au psychiatre
-        const appointment = await Appointment.findOne({ _id: appointmentId, psychiatrist: userId });
-        if (!appointment) {
-            return res.status(404).json({ message: "Rendez-vous non trouvé ou vous n'êtes pas autorisé à le modifier" });
+        // Vérifier si le rendez-vous existe
+        let appointment;
+        if (user.role === 'psychiatrist') {
+            // Psychiatres ne peuvent modifier que leurs propres rendez-vous
+            appointment = await Appointment.findOne({ _id: appointmentId, psychiatrist: userId });
+            if (!appointment) {
+                return res.status(404).json({
+                    message: "Rendez-vous non trouvé ou vous n'êtes pas autorisé à le modifier",
+                });
+            }
+        } else if (user.role === 'admin') {
+            // Admins peuvent modifier n'importe quel rendez-vous
+            appointment = await Appointment.findById(appointmentId);
+            if (!appointment) {
+                return res.status(404).json({ message: "Rendez-vous non trouvé" });
+            }
         }
 
         // Mettre à jour le statut
@@ -1377,22 +1393,35 @@ module.exports.updateAppointmentStatus = async (req, res) => {
     }
 };
 
-
 module.exports.deleteAppointment = async (req, res) => {
     try {
-        const userId = req.userId; // ID de l'étudiant connecté
+        const userId = req.userId; // ID de l'utilisateur connecté (from verifyToken middleware)
         const { appointmentId } = req.params; // ID du rendez-vous à supprimer
 
-        // Vérifier si l'utilisateur est un étudiant
+        // Vérifier si l'utilisateur est un étudiant ou un admin
         const user = await User.findById(userId);
-        if (!user || user.role !== "student") {
-            return res.status(403).json({ message: "Seul un étudiant peut supprimer ses rendez-vous" });
+        if (!user || (user.role !== 'student' && user.role !== 'admin')) {
+            return res.status(403).json({
+                message: "Seul un étudiant ou un administrateur peut supprimer un rendez-vous",
+            });
         }
 
-        // Vérifier si le rendez-vous existe et appartient à l'étudiant
-        const appointment = await Appointment.findOne({ _id: appointmentId, student: userId });
-        if (!appointment) {
-            return res.status(404).json({ message: "Rendez-vous non trouvé ou vous n'êtes pas autorisé à le supprimer" });
+        // Vérifier si le rendez-vous existe
+        let appointment;
+        if (user.role === 'student') {
+            // Les étudiants ne peuvent supprimer que leurs propres rendez-vous
+            appointment = await Appointment.findOne({ _id: appointmentId, student: userId });
+            if (!appointment) {
+                return res.status(404).json({
+                    message: "Rendez-vous non trouvé ou vous n'êtes pas autorisé à le supprimer",
+                });
+            }
+        } else if (user.role === 'admin') {
+            // Les admins peuvent supprimer n'importe quel rendez-vous
+            appointment = await Appointment.findById(appointmentId);
+            if (!appointment) {
+                return res.status(404).json({ message: "Rendez-vous non trouvé" });
+            }
         }
 
         // Supprimer le rendez-vous
@@ -1404,6 +1433,8 @@ module.exports.deleteAppointment = async (req, res) => {
         res.status(500).json({ message: "Erreur serveur", error: error.message });
     }
 };
+
+
 module.exports.getAllAppointments = async (req, res) => {
     try {
         const appointments = await Appointment.find();
@@ -1463,6 +1494,18 @@ module.exports.RoomChat = async (req, res) => {
             res.status(200).json(user);
         } catch (err) {
             console.error('Error fetching user:', err);
+            res.status(500).json({ message: 'Server error' });
+        }
+    };
+
+    module.exports.getAllAppoint = async (req, res) => {
+        try {
+            const appointments = await Appointment.find()
+                .populate('student', 'username email')
+                .populate('psychiatrist', 'username email');
+            res.json({ appointments });
+        } catch (err) {
+            console.error('Error fetching all appointments:', err);
             res.status(500).json({ message: 'Server error' });
         }
     };
