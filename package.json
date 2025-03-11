@@ -37,9 +37,11 @@
     "passport-github2": "^0.1.12",
     "passport-google-oauth20": "^2.0.0",
     "password-strength": "^0.0.1",
+    "qrcode": "^1.5.4",
     "react-chat-engine": "^1.11.28",
     "react-helmet-async": "^2.0.5",
     "react-icons": "^5.5.0",
+    "simple-peer": "^9.11.1",
     "socket.io": "^4.8.1",
     "swiper": "^11.2.5",
     "yup": "^1.6.1"

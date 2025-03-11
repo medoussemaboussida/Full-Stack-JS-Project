@@ -512,10 +512,10 @@ function DetailsStudents() {
       <main style={{ padding: "20px", backgroundColor: "#f9f9f9" }}>
         <div className="site-breadcrumb" style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}>
           <div className="container">
-            <h2 className="breadcrumb-title">Volunteer Single</h2>
+            <h2 className="breadcrumb-title">Profile Details</h2>
             <ul className="breadcrumb-menu">
               <li><a href="index.html">Home</a></li>
-              <li className="active">Volunteer Single</li>
+              <li className="active">Profile Details</li>
             </ul>
           </div>
         </div>
