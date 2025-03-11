@@ -36,34 +36,29 @@ function EditActivity() {
           return;
         }
 
-        const decoded = jwtDecode(token);
-        const userId = decoded.id;
-
-        const response = await fetch(
-          `http://localhost:5000/users/activity/${id}`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const response = await fetch(`http://localhost:5000/users/activity/${id}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         const result = await response.json();
         if (response.ok) {
           console.log("Fetched activity data:", result);
-          const imageUrl = result.image
-            ? result.image.startsWith("http")
-              ? result.image
-              : `http://localhost:5000${result.image}`
+          const imageUrl = result.imageUrl
+            ? result.imageUrl.startsWith("http")
+              ? result.imageUrl
+              : `http://localhost:5000${result.imageUrl}`
             : null;
+          console.log("Computed image URL:", imageUrl);
           setFormData({
             title: result.title || "",
             description: result.description || "",
             category: result.category || "",
-            imageUrl: imageUrl || null,
+            imageUrl: result.imageUrl || null,
           });
-          setPreviewImage(imageUrl || null);
+          setPreviewImage(imageUrl);
         } else {
           toast.error(result.message || "Error fetching activity details.");
         }
@@ -80,11 +75,17 @@ function EditActivity() {
     const { name, value, files } = e.target;
     if (name === "image") {
       const file = files[0];
-      setFormData((prev) => ({ ...prev, imageUrl: file }));
+      setFormData((prev) => ({ ...prev, imageUrl: file || prev.imageUrl }));
       if (file) {
         setPreviewImage(URL.createObjectURL(file));
       } else {
-        setPreviewImage(formData.imageUrl ? `http://localhost:5000${formData.imageUrl}` : null);
+        setPreviewImage(
+          formData.imageUrl
+            ? formData.imageUrl.startsWith("http")
+              ? formData.imageUrl
+              : `http://localhost:5000${formData.imageUrl}`
+            : null
+        );
       }
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -110,7 +111,7 @@ function EditActivity() {
     data.append("description", formData.description);
     data.append("category", formData.category);
 
-    if (formData.imageUrl) {
+    if (formData.imageUrl && formData.imageUrl instanceof File) {
       data.append("image", formData.imageUrl);
     }
 
@@ -134,6 +135,7 @@ function EditActivity() {
         toast.error(result.message || "Error while updating the activity.");
       }
     } catch (error) {
+      console.error("Submit error:", error);
       toast.error("Network error while updating the activity.");
     } finally {
       setIsSubmitting(false);
@@ -161,15 +163,21 @@ function EditActivity() {
           <div className="row align-items-center">
             <div className="col-lg-6">
               <div className="become-volunteer-img">
-                <img
-                  src={previewImage || "/assets/img/activity/03.jpg"}
-                  alt="Activity Image"
-                  style={{ maxWidth: "100%", height: "auto" }}
-                  onError={(e) => {
-                    e.target.src = "/assets/img/default-image.jpg";
-                    console.log("Image failed to load, using default.");
-                  }}
-                />
+                {previewImage ? (
+                  <img
+                    src={previewImage}
+                    alt="Activity Image"
+                    style={{ maxWidth: "100%", height: "auto" }}
+                    onError={(e) => {
+                      e.target.src = "/assets/img/default-image.jpg";
+                      console.log("Activity image failed to load, using default.");
+                    }}
+                  />
+                ) : (
+                  <div>
+                    <p>No image available for this activity</p>
+                  </div>
+                )}
               </div>
             </div>
             <div className="col-lg-6">
