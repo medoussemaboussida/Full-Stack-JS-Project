@@ -17,7 +17,7 @@ const activitySchema = new mongoose.Schema({
         ],
         required: true
     },
-    imageUrl: { type: String, default: "default-activity.png" }, // Lien de l'image (par défaut)
+    imageUrl: { type: String},
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     createdAt: { type: Date, default: Date.now }
 });

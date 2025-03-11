@@ -109,7 +109,7 @@ module.exports.addActivity = (req, res) => {
 
             const { id } = req.params; // ID du psychiatre
             const { title, description, category } = req.body;
-            const imageUrl = req.file ? `/uploads/activities/${req.file.filename}` : "default-activity.png";
+            const imageUrl = req.file ? `/uploads/activities/${req.file.filename}` : "assets/img/activity/03.jpg";
 
             // Vérifier si l'utilisateur est un psychiatre
             const psychiatrist = await User.findById(id);
@@ -156,7 +156,24 @@ module.exports.addActivity = (req, res) => {
 
 
 
-// ✅ Modifier une activité (réservé aux psychiatres qui l'ont créée)
+// Exemple de fonction dans activitiesController
+exports.getActivityById = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // Trouver l'activité par son ID
+        const activity = await Activity.findById(id);
+
+        if (!activity) {
+            return res.status(404).json({ message: "Activity not found" });
+        }
+
+        res.status(200).json(activity);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "An error occurred while retrieving the activity" });
+    }
+};
 // ✅ Modifier une activité (tous les psychiatres peuvent le faire)
 module.exports.updateActivity = (req, res) => {
     upload1(req, res, async (err) => {  // ✅ Correction ici, on utilise upload1

@@ -17,7 +17,9 @@ function Activities() {
     const [activities, setActivities] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState("*");
-
+    const [activityToDelete, setActivityToDelete] = useState(null);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    
     // Liste des catégories stylées
     const categories = [
         { label: "All", value: "*" },
@@ -58,8 +60,7 @@ function Activities() {
     //Update activity
       // ✅ Ouvrir le modal avec les données de l'activité sélectionnée
       const handleEdit = (activity) => {
-        setSelectedActivity(activity);
-        setShowModal(true);
+        navigate(`/edit-activity/${activity._id}`);
     };
 
     // ✅ Fermer le modal
@@ -68,61 +69,14 @@ function Activities() {
         setSelectedActivity(null);
     };
 
-    // ✅ Gérer la mise à jour de l'activité
-    const handleUpdateActivity = async (e) => {
-        e.preventDefault();
-
-        if (!selectedActivity) return;
-
-        try {
-            const token = localStorage.getItem("jwt-token");
-            if (!token) {
-                toast.error("You must be logged in!");
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append("title", selectedActivity.title);
-            formData.append("description", selectedActivity.description);
-            formData.append("category", selectedActivity.category);
-            if (selectedActivity.image) {
-                formData.append("image", selectedActivity.image);
-            }
-
-            const response = await fetch(
-                `http://localhost:5000/users/psychiatrist/update-activity/${selectedActivity._id}`,
-                {
-                    method: "PUT",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: formData,
-                }
-            );
-
-            const result = await response.json();
-            if (response.ok) {
-                toast.success("Activity updated successfully!");
-                fetchActivities(); // Rafraîchir la liste des activités
-                closeModal();
-            } else {
-                toast.error(result.message || "Error updating activity.");
-            }
-        } catch (error) {
-            toast.error("Network error while updating the activity.");
-        }
-    };
-
-
-
-
-
-
 
 // Supprimer une activité
-const handleDelete = async (activityId) => {
-    if (!window.confirm("Are you sure you want to delete this activity?")) return;
 
+const handleDelete = (activityId) => {
+    setActivityToDelete(activityId);
+    setShowDeleteModal(true);
+};
+const handleConfirmDelete = async (activityId) => {
     try {
         const token = localStorage.getItem("jwt-token");
         if (!token) {
@@ -149,7 +103,14 @@ const handleDelete = async (activityId) => {
         console.error("Error deleting activity:", error);
         toast.error("An error occurred while deleting the activity.");
     }
+    closeDeleteModal();
 };
+
+const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setActivityToDelete(null);
+};
+
 
  // Ouvrir la page "View Activity"
  const handleViewActivity = (activityId) => {
@@ -327,8 +288,8 @@ const handleDelete = async (activityId) => {
                     )}
                 </div>
             </div>
-{/* ✅ MODAL D'ÉDITION CENTRÉ */}
-{showModal && selectedActivity && (
+
+        {showDeleteModal && (
                 <div style={{
                     position: "fixed",
                     top: 0,
@@ -349,34 +310,26 @@ const handleDelete = async (activityId) => {
                         maxWidth: "90%",
                         boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
                     }}>
-                        <h3 style={{ marginBottom: "20px", textAlign: "center" }}>Edit Activity</h3>
-                        <form onSubmit={handleUpdateActivity}>
-                            <input
-                                type="text"
-                                value={selectedActivity.title}
-                                onChange={(e) => setSelectedActivity({ ...selectedActivity, title: e.target.value })}
-                                placeholder="Activity Title"
-                                required
-                                style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
-                            />
-
-                            <textarea
-                                value={selectedActivity.description}
-                                onChange={(e) => setSelectedActivity({ ...selectedActivity, description: e.target.value })}
-                                placeholder="Activity Description"
-                                required
-                                rows="3"
-                                style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
-                            ></textarea>
-
-                            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-                                <button type="submit" style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", borderRadius: "5px" }}>Update</button>
-                                <button type="button" onClick={closeModal} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", borderRadius: "5px" }}>Cancel</button>
-                            </div>
-                        </form>
+                        <h3 style={{ marginBottom: "20px", textAlign: "center" }}>Confirm Deletion</h3>
+                        <p style={{ textAlign: "center" }}>Are you sure you want to delete this activity?</p>
+                        <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+                            <button
+                                onClick={() => handleConfirmDelete(activityToDelete)}
+                                style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", borderRadius: "5px" }}
+                            >
+                                Yes, Delete
+                            </button>
+                            <button
+                                onClick={closeDeleteModal}
+                                style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", borderRadius: "5px" }}
+                            >
+                                Cancel
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
+            
 
             {/* ✅ Correction de la fermeture de `div` */}
             <ToastContainer position="top-right" autoClose={3000} />

@@ -27,6 +27,7 @@ import AddForum from './pages/AddForum';
 import Forum from './pages/Forum';
 import Navbar from './pages/Navbar';
 import Footer from './pages/Footer';
+import EditActivity from './pages/edit-activity'; // Make sure you have this component for editing
 
 
 
@@ -78,6 +79,7 @@ function App(){
 
         <Route path="/Activities" element={<Activities />} />
         <Route path="/add-activity" element={<AddActivity />} />
+        <Route path="/edit-activity/:id" element={<EditActivity />} />
         <Route path="/AddAssociation" element={<AddAssociation/>}/>
         <Route path="/AssociationDetails/:id" element={<AssociationDetails />} />
         <Route path="/Associations" element={<Associations />} />
