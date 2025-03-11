@@ -1,19 +1,20 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { jwtDecode } from "jwt-decode";
 
-function AddActivity() {
+function EditActivity() {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     category: "",
-    image: null,
+    imageUrl: null,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
   const navigate = useNavigate();
+  const { id } = useParams();
 
   const categories = [
     "Professional and Intellectual",
@@ -26,16 +27,64 @@ function AddActivity() {
     "Nature and Animal-Related",
   ];
 
+  useEffect(() => {
+    const fetchActivity = async () => {
+      try {
+        const token = localStorage.getItem("jwt-token");
+        if (!token) {
+          toast.error("You must be logged in to edit an activity.");
+          return;
+        }
+
+        const decoded = jwtDecode(token);
+        const userId = decoded.id;
+
+        const response = await fetch(
+          `http://localhost:5000/users/activity/${id}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const result = await response.json();
+        if (response.ok) {
+          console.log("Fetched activity data:", result);
+          const imageUrl = result.image
+            ? result.image.startsWith("http")
+              ? result.image
+              : `http://localhost:5000${result.image}`
+            : null;
+          setFormData({
+            title: result.title || "",
+            description: result.description || "",
+            category: result.category || "",
+            imageUrl: imageUrl || null,
+          });
+          setPreviewImage(imageUrl || null);
+        } else {
+          toast.error(result.message || "Error fetching activity details.");
+        }
+      } catch (error) {
+        console.error("Fetch error:", error);
+        toast.error("Network error while fetching activity details.");
+      }
+    };
+
+    fetchActivity();
+  }, [id]);
+
   const handleChange = (e) => {
     const { name, value, files } = e.target;
     if (name === "image") {
       const file = files[0];
-      setFormData((prev) => ({ ...prev, image: file }));
+      setFormData((prev) => ({ ...prev, imageUrl: file }));
       if (file) {
-        const imageUrl = URL.createObjectURL(file);
-        setPreviewImage(imageUrl);
+        setPreviewImage(URL.createObjectURL(file));
       } else {
-        setPreviewImage(null);
+        setPreviewImage(formData.imageUrl ? `http://localhost:5000${formData.imageUrl}` : null);
       }
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -45,105 +94,87 @@ function AddActivity() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-  
+
     const token = localStorage.getItem("jwt-token");
     if (!token) {
-      toast.error("You must be logged in to add an activity.");
+      toast.error("You must be logged in to edit an activity.");
       setIsSubmitting(false);
       return;
     }
-  
-    let userId;
-    try {
-      const decoded = jwtDecode(token);
-      userId = decoded.id;
-    } catch (error) {
-      toast.error("Invalid session, please log in again.");
-      localStorage.removeItem("jwt-token");
-      navigate("/login");
-      return;
-    }
-  
-    if (!userId) {
-      toast.error("User not found, please log in again.");
-      setIsSubmitting(false);
-      return;
-    }
-  
+
+    const decoded = jwtDecode(token);
+    const userId = decoded.id;
+
     const data = new FormData();
     data.append("title", formData.title);
     data.append("description", formData.description);
     data.append("category", formData.category);
-  
-    // Vérification si une image est sélectionnée
-    if (formData.image) {
-      data.append("image", formData.image);
-    } else {
-      // Charge l'image par défaut en utilisant fetch et crée un blob
-      const response = await fetch("assets/img/activity/03.jpg");
-      const imageBlob = await response.blob();
-      const file = new File([imageBlob], "03.jpg", { type: "image/jpeg" });
-      data.append("image", file);
+
+    if (formData.imageUrl) {
+      data.append("image", formData.imageUrl);
     }
-  
+
     try {
       const response = await fetch(
-        `http://localhost:5000/users/psychiatrist/${userId}/add-activity`,
+        `http://localhost:5000/users/psychiatrist/${userId}/update-activity/${id}`,
         {
-          method: "POST",
+          method: "PUT",
           headers: {
             Authorization: `Bearer ${token}`,
           },
           body: data,
         }
       );
-  
+
       const result = await response.json();
       if (response.ok) {
-        toast.success("Activity successfully added!");
-        setFormData({ title: "", description: "", category: "", image: null });
-        setPreviewImage(null);
+        toast.success("Activity successfully updated!");
         setTimeout(() => navigate("/Activities"), 2000);
       } else {
-        toast.error(result.message || "Error while adding the activity.");
+        toast.error(result.message || "Error while updating the activity.");
       }
     } catch (error) {
-      toast.error("Network error while adding the activity.");
+      toast.error("Network error while updating the activity.");
     } finally {
       setIsSubmitting(false);
     }
   };
-  
 
   return (
     <div>
       <ToastContainer position="top-right" autoClose={3000} />
 
-      {/* Breadcrumb */}
       <div className="site-breadcrumb" style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}>
         <div className="container">
-          <h2 className="breadcrumb-title">Add an Activity</h2>
+          <h2 className="breadcrumb-title">Edit Activity</h2>
           <ul className="breadcrumb-menu">
             <li>
               <a href="/Home">Home</a>
             </li>
-            <li className="active">Add an Activity</li>
+            <li className="active">Edit Activity</li>
           </ul>
         </div>
       </div>
 
-      {/* Form Section */}
       <div className="py-120">
         <div className="container">
           <div className="row align-items-center">
             <div className="col-lg-6">
               <div className="become-volunteer-img">
-                <img src={previewImage || "assets/img/activity/03.jpg"} alt="Preview" />
+                <img
+                  src={previewImage || "/assets/img/activity/03.jpg"}
+                  alt="Activity Image"
+                  style={{ maxWidth: "100%", height: "auto" }}
+                  onError={(e) => {
+                    e.target.src = "/assets/img/default-image.jpg";
+                    console.log("Image failed to load, using default.");
+                  }}
+                />
               </div>
             </div>
             <div className="col-lg-6">
               <div className="become-volunteer-form">
-                <h2>Add a New Activity</h2>
+                <h2>Edit Activity</h2>
                 <form onSubmit={handleSubmit}>
                   <div className="row">
                     <div className="col-md-12">
@@ -206,8 +237,12 @@ function AddActivity() {
                     </div>
 
                     <div className="col-md-12">
-                      <button type="submit" className="theme-btn mt-2" disabled={isSubmitting}>
-                        {isSubmitting ? "Submitting..." : "Add Activity"}{" "}
+                      <button
+                        type="submit"
+                        className="theme-btn mt-2"
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? "Updating..." : "Update Activity"}{" "}
                         <i className="fas fa-circle-arrow-right"></i>
                       </button>
                     </div>
@@ -219,12 +254,11 @@ function AddActivity() {
         </div>
       </div>
 
-      {/* Footer */}
       <footer className="footer-area">
         <div className="container">
           <div className="copyright text-center">
             <p>
-              &copy; {new Date().getFullYear()} <a href="#">Lovcare</a> - All Rights Reserved.
+              © {new Date().getFullYear()} <a href="#">Lovcare</a> - All Rights Reserved.
             </p>
           </div>
         </div>
@@ -233,4 +267,4 @@ function AddActivity() {
   );
 }
 
-export default AddActivity;
+export default EditActivity;

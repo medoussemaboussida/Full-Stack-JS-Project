@@ -808,6 +808,61 @@ module.exports.getFavoritePublications = async (req, res) => {
     }
 };
 
+module.exports.searchPublications = async (req, res) => {
+    try {
+        const { searchTerm } = req.query;
+        if (!searchTerm) {
+            return res.status(400).json({ message: 'Un terme de recherche est requis' });
+        }
+
+        const publications = await Publication.aggregate([
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'author_id',
+                    foreignField: '_id',
+                    as: 'author_id'
+                }
+            },
+            {
+                $unwind: { path: '$author_id', preserveNullAndEmptyArrays: true }
+            },
+            {
+                $match: {
+                    $or: [
+                        { titrePublication: { $regex: searchTerm, $options: 'i' } },
+                        { 'author_id.username': { $regex: searchTerm, $options: 'i' } }
+                    ],
+                    status: { $ne: 'archived' }
+                }
+            },
+            {
+                $sort: { datePublication: -1 }
+            },
+            {
+                $project: {
+                    titrePublication: 1,
+                    description: 1,
+                    imagePublication: 1,
+                    datePublication: 1,
+                    tag: 1,
+                    status: 1,
+                    'author_id._id': 1,
+                    'author_id.username': 1,
+                    commentsCount: 1,
+                    likeCount: 1,
+                    dislikeCount: 1
+                }
+            }
+        ]);
+
+        res.status(200).json(publications);
+    } catch (error) {
+        console.error('Erreur lors de la recherche des publications:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
 //supprimer student
 module.exports.deleteStudentById = async (req, res) => {
     try {

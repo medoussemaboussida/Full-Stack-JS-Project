@@ -35,7 +35,7 @@ router.post('/publication/like/:publicationId', userController.verifyToken, user
 router.post('/publication/dislike/:publicationId', userController.verifyToken, userController.dislikePublication);
 router.post('/publication/favorite/:publicationId', userController.verifyToken, userController.toggleFavorite);
 router.get('/favoritePublications', userController.verifyToken, userController.getFavoritePublications);
-
+router.get('/searchPublications', userController.searchPublications);
 
 
 
@@ -78,6 +78,8 @@ router.post("/logout", userController.logout);
 
 
 
+// ✅ Récupérer une activité par son ID
+router.get("/activity/:id", activitiesController.getActivityById);
 
 // ✅ Récupérer toutes les activités
 router.get("/list/activities", activitiesController.getAllActivities);
@@ -101,10 +103,11 @@ router.put("/psychiatrist/:id/update-activity/:activityId", activitiesController
 // ✅ Supprimer une activité (psychiatre uniquement)
 router.delete("/psychiatrist/:id/delete-activity/:activityId", activitiesController.deleteActivity);
 
-// ✅ Récupérer les activités d'un psychiatre spécifique
+// ✅ Récupérer les activités 
 router.get("/psychiatrist/:id/activities", activitiesController.getPsychiatristActivities);
 
 // ✅ Route pour récupérer les activités par catégorie
 router.get("/activities/category", activitiesController.getActivitiesByCategory);
+
 
 module.exports = router;
