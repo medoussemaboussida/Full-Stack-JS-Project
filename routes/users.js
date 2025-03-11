@@ -35,7 +35,7 @@ router.post('/publication/like/:publicationId', userController.verifyToken, user
 router.post('/publication/dislike/:publicationId', userController.verifyToken, userController.dislikePublication);
 router.post('/publication/favorite/:publicationId', userController.verifyToken, userController.toggleFavorite);
 router.get('/favoritePublications', userController.verifyToken, userController.getFavoritePublications);
-
+router.get('/searchPublications', userController.searchPublications);
 
 
 

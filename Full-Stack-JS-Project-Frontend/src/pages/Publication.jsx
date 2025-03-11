@@ -25,7 +25,7 @@ function Publication() {
     const [userId, setUserId] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [publications, setPublications] = useState([]);
-    const [favoritePublications, setFavoritePublications] = useState([]); // Ajout pour les favoris
+    const [favoritePublications, setFavoritePublications] = useState([]);
     const [showEditModal, setShowEditModal] = useState(false);
     const [editFormData, setEditFormData] = useState({
         _id: '',
@@ -37,7 +37,9 @@ function Publication() {
     const [previewImage, setPreviewImage] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
-    const [filterType, setFilterType] = useState('all'); // Ajout pour le filtre
+    const [filterType, setFilterType] = useState('all');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [sortOrder, setSortOrder] = useState('recent'); // Nouvel état pour le tri par date
 
     const publicationsPerPage = 6;
 
@@ -45,7 +47,7 @@ function Publication() {
     const fetchPublications = async () => {
         try {
             console.log('Fetching publications from API...');
-            const response = await fetch('http://localhost:5000/users/allPublication', {
+            const response = await fetch(`http://localhost:5000/users/allPublication?sort=${sortOrder}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -107,7 +109,7 @@ function Publication() {
             const data = await response.json();
             if (response.ok) {
                 toast.success(data.message);
-                fetchFavoritePublications(); // Rafraîchir les favoris
+                fetchFavoritePublications();
             } else {
                 toast.error(`Erreur: ${data.message}`);
             }
@@ -116,12 +118,37 @@ function Publication() {
         }
     };
 
-    // Calcul des publications à afficher selon le filtre
+    // Gérer le changement du terme de recherche
+    const handleSearchChange = (e) => {
+        setSearchTerm(e.target.value);
+        setCurrentPage(1); // Réinitialiser la pagination à la première page
+    };
+
+    // Gérer le changement de l'ordre de tri
+    const handleSortChange = (e) => {
+        setSortOrder(e.target.value);
+        setCurrentPage(1); // Réinitialiser la pagination à la première page
+    };
+
+    // Filtrer et trier les publications
     const displayedPublications = filterType === 'favorites' ? favoritePublications : publications;
+    const filteredPublications = displayedPublications
+        .filter(post => {
+            const titre = stripHtmlTags(post.titrePublication).toLowerCase();
+            const auteur = (post.author_id?.username || 'Unknown').toLowerCase();
+            const term = searchTerm.toLowerCase();
+            return titre.includes(term) || auteur.includes(term);
+        })
+        .sort((a, b) => {
+            const dateA = new Date(a.datePublication);
+            const dateB = new Date(b.datePublication);
+            return sortOrder === 'recent' ? dateB - dateA : dateA - dateB;
+        });
+
     const indexOfLastPublication = currentPage * publicationsPerPage;
     const indexOfFirstPublication = indexOfLastPublication - publicationsPerPage;
-    const currentPublications = displayedPublications.slice(indexOfFirstPublication, indexOfLastPublication);
-    const totalPages = Math.ceil(displayedPublications.length / publicationsPerPage);
+    const currentPublications = filteredPublications.slice(indexOfFirstPublication, indexOfLastPublication);
+    const totalPages = Math.ceil(filteredPublications.length / publicationsPerPage);
 
     const handlePageChange = (pageNumber) => {
         setCurrentPage(pageNumber);
@@ -268,7 +295,7 @@ function Publication() {
 
                             if (response.ok) {
                                 setPublications(publications.filter(post => post._id !== publicationId));
-                                setFavoritePublications(favoritePublications.filter(post => post._id !== publicationId)); // Mise à jour des favoris
+                                setFavoritePublications(favoritePublications.filter(post => post._id !== publicationId));
                                 toast.success('Publication successfully deleted', { autoClose: 3000 });
                             } else {
                                 const data = await response.json();
@@ -314,7 +341,7 @@ function Publication() {
 
                             if (response.ok) {
                                 setPublications(publications.filter(post => post._id !== publicationId));
-                                setFavoritePublications(favoritePublications.filter(post => post._id !== publicationId)); // Mise à jour des favoris
+                                setFavoritePublications(favoritePublications.filter(post => post._id !== publicationId));
                                 toast.success('Publication successfully archived', { autoClose: 3000 });
                             } else {
                                 const data = await response.json();
@@ -359,7 +386,7 @@ function Publication() {
                             setUserRole(data.role);
                             console.log('User Role:', data.role);
                             if (data.role === 'student') {
-                                fetchFavoritePublications(); // Charger les favoris pour les étudiants
+                                fetchFavoritePublications();
                             }
                         } else {
                             console.error('Failed to fetch user:', data.message);
@@ -380,7 +407,7 @@ function Publication() {
         }
 
         fetchPublications();
-    }, []);
+    }, [sortOrder]); // Recharger les publications lorsque sortOrder change
 
     if (isLoading) {
         return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Loading...</div>;
@@ -475,6 +502,67 @@ function Publication() {
                                     </div>
                                 )}
                             </div>
+                        </div>
+
+                        {/* Conteneur pour la barre de recherche et le tri par date */}
+                        <div style={{ marginBottom: '30px', display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                            {/* Barre de recherche */}
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                                placeholder="Search ..."
+                                style={{
+                                    width: '60%',
+                                    maxWidth: '600px',
+                                    padding: '15px 20px',
+                                    borderRadius: '25px',
+                                    border: 'none',
+                                    backgroundColor: '#fff',
+                                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+                                    fontSize: '16px',
+                                    color: '#333',
+                                    outline: 'none',
+                                    transition: 'all 0.3s ease',
+                                }}
+                                onFocus={(e) => {
+                                    e.target.style.boxShadow = '0 6px 20px rgba(14, 165, 230, 0.3)';
+                                    e.target.style.width = '65%';
+                                }}
+                                onBlur={(e) => {
+                                    e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
+                                    e.target.style.width = '60%';
+                                }}
+                            />
+                            {/* Sélecteur de tri par date */}
+                            <select
+                                value={sortOrder}
+                                onChange={handleSortChange}
+                                style={{
+                                    padding: '15px 20px',
+                                    borderRadius: '25px',
+                                    border: 'none',
+                                    backgroundColor: '#fff',
+                                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+                                    fontSize: '16px',
+                                    color: '#333',
+                                    outline: 'none',
+                                    transition: 'all 0.3s ease',
+                                    width: '200px',
+                                    cursor: 'pointer',
+                                }}
+                                onFocus={(e) => {
+                                    e.target.style.boxShadow = '0 6px 20px rgba(14, 165, 230, 0.3)';
+                                    e.target.style.width = '220px';
+                                }}
+                                onBlur={(e) => {
+                                    e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
+                                    e.target.style.width = '200px';
+                                }}
+                            >
+                                <option value="recent">Most Recent</option>
+                                <option value="oldest">Oldest First</option>
+                            </select>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
