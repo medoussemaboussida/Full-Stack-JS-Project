@@ -33,6 +33,9 @@ function PublicationPsychiatristAll() {
     });
     const [previewImage, setPreviewImage] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [searchTerm, setSearchTerm] = useState(''); // État pour la barre de recherche
+    const [selectedDate, setSelectedDate] = useState(''); // État pour la date sélectionnée
+    const [sortOrder, setSortOrder] = useState('recent'); // Nouvel état pour le tri par date (recent ou oldest)
 
     // Fonction pour récupérer les publications de l'utilisateur connecté depuis l'API
     const fetchMyPublications = async () => {
@@ -43,7 +46,7 @@ function PublicationPsychiatristAll() {
             }
 
             console.log('Fetching my publications from API...');
-            const response = await fetch('http://localhost:5000/users/myPublications', {
+            const response = await fetch(`http://localhost:5000/users/myPublications?sort=${sortOrder}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -331,9 +334,43 @@ function PublicationPsychiatristAll() {
         );
     };
 
+    // Gérer le changement du terme de recherche
+    const handleSearchChange = (e) => {
+        setSearchTerm(e.target.value);
+    };
+
+    // Gérer le changement de la date sélectionnée
+    const handleDateChange = (e) => {
+        setSelectedDate(e.target.value);
+    };
+
+    // Gérer le changement de l'ordre de tri
+    const handleSortChange = (e) => {
+        setSortOrder(e.target.value);
+    };
+
+    // Filtrer et trier les publications
+    const filteredPublications = publications
+        .filter(post => {
+            const titre = stripHtmlTags(post.titrePublication).toLowerCase();
+            const description = stripHtmlTags(post.description).toLowerCase();
+            const term = searchTerm.toLowerCase();
+            const publicationDate = new Date(post.datePublication).toISOString().split('T')[0]; // Format YYYY-MM-DD
+
+            const matchesSearch = titre.includes(term) || description.includes(term);
+            const matchesDate = selectedDate ? publicationDate === selectedDate : true;
+
+            return matchesSearch && matchesDate;
+        })
+        .sort((a, b) => {
+            const dateA = new Date(a.datePublication);
+            const dateB = new Date(b.datePublication);
+            return sortOrder === 'recent' ? dateB - dateA : dateA - dateB;
+        });
+
     useEffect(() => {
         fetchMyPublications();
-    }, []);
+    }, [sortOrder]); // Recharger les publications lorsque l'ordre de tri change
 
     if (isLoading) {
         return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Loading...</div>;
@@ -362,9 +399,96 @@ function PublicationPsychiatristAll() {
                                 </div>
                             </div>
                         </div>
+                        {/* Conteneur pour la barre de recherche, filtre par date et tri */}
+                        <div style={{ marginBottom: '30px', display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                            {/* Barre de recherche */}
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                                placeholder="Search ..."
+                                style={{
+                                    width: '60%',
+                                    maxWidth: '600px',
+                                    padding: '15px 20px',
+                                    borderRadius: '25px',
+                                    border: 'none',
+                                    backgroundColor: '#fff',
+                                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+                                    fontSize: '16px',
+                                    color: '#333',
+                                    outline: 'none',
+                                    transition: 'all 0.3s ease',
+                                }}
+                                onFocus={(e) => {
+                                    e.target.style.boxShadow = '0 6px 20px rgba(14, 165, 230, 0.3)';
+                                    e.target.style.width = '65%';
+                                }}
+                                onBlur={(e) => {
+                                    e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
+                                    e.target.style.width = '60%';
+                                }}
+                            />
+                            {/* Filtre par date */}
+                            <input
+                                type="date"
+                                value={selectedDate}
+                                onChange={handleDateChange}
+                                style={{
+                                    padding: '15px 20px',
+                                    borderRadius: '25px',
+                                    border: 'none',
+                                    backgroundColor: '#fff',
+                                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+                                    fontSize: '16px',
+                                    color: '#333',
+                                    outline: 'none',
+                                    transition: 'all 0.3s ease',
+                                    width: '200px',
+                                    cursor: 'pointer',
+                                }}
+                                onFocus={(e) => {
+                                    e.target.style.boxShadow = '0 6px 20px rgba(14, 165, 230, 0.3)';
+                                    e.target.style.width = '220px';
+                                }}
+                                onBlur={(e) => {
+                                    e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
+                                    e.target.style.width = '200px';
+                                }}
+                            />
+                            {/* Sélecteur de tri par date */}
+                            <select
+                                value={sortOrder}
+                                onChange={handleSortChange}
+                                style={{
+                                    padding: '15px 20px',
+                                    borderRadius: '25px',
+                                    border: 'none',
+                                    backgroundColor: '#fff',
+                                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+                                    fontSize: '16px',
+                                    color: '#333',
+                                    outline: 'none',
+                                    transition: 'all 0.3s ease',
+                                    width: '200px',
+                                    cursor: 'pointer',
+                                }}
+                                onFocus={(e) => {
+                                    e.target.style.boxShadow = '0 6px 20px rgba(14, 165, 230, 0.3)';
+                                    e.target.style.width = '220px';
+                                }}
+                                onBlur={(e) => {
+                                    e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
+                                    e.target.style.width = '200px';
+                                }}
+                            >
+                                <option value="recent">Most Recent</option>
+                                <option value="oldest">Oldest First</option>
+                            </select>
+                        </div>
                         <div className="row g-4">
-                            {publications.length > 0 ? (
-                                publications.map((post, index) => (
+                            {filteredPublications.length > 0 ? (
+                                filteredPublications.map((post, index) => (
                                     <div className="col-lg-4" key={index}>
                                         <div className="donation-item" style={{ opacity: post.status === 'archived' ? 0.6 : 1 }}>
                                             <div className="donation-img">

@@ -39,6 +39,7 @@ function Publication() {
     const [currentPage, setCurrentPage] = useState(1);
     const [filterType, setFilterType] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
+    const [sortOrder, setSortOrder] = useState('recent'); // Nouvel état pour le tri par date
 
     const publicationsPerPage = 6;
 
@@ -46,7 +47,7 @@ function Publication() {
     const fetchPublications = async () => {
         try {
             console.log('Fetching publications from API...');
-            const response = await fetch('http://localhost:5000/users/allPublication', {
+            const response = await fetch(`http://localhost:5000/users/allPublication?sort=${sortOrder}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -123,14 +124,26 @@ function Publication() {
         setCurrentPage(1); // Réinitialiser la pagination à la première page
     };
 
-    // Filtrer les publications selon le terme de recherche
+    // Gérer le changement de l'ordre de tri
+    const handleSortChange = (e) => {
+        setSortOrder(e.target.value);
+        setCurrentPage(1); // Réinitialiser la pagination à la première page
+    };
+
+    // Filtrer et trier les publications
     const displayedPublications = filterType === 'favorites' ? favoritePublications : publications;
-    const filteredPublications = displayedPublications.filter(post => {
-        const titre = stripHtmlTags(post.titrePublication).toLowerCase();
-        const auteur = (post.author_id?.username || 'Unknown').toLowerCase();
-        const term = searchTerm.toLowerCase();
-        return titre.includes(term) || auteur.includes(term);
-    });
+    const filteredPublications = displayedPublications
+        .filter(post => {
+            const titre = stripHtmlTags(post.titrePublication).toLowerCase();
+            const auteur = (post.author_id?.username || 'Unknown').toLowerCase();
+            const term = searchTerm.toLowerCase();
+            return titre.includes(term) || auteur.includes(term);
+        })
+        .sort((a, b) => {
+            const dateA = new Date(a.datePublication);
+            const dateB = new Date(b.datePublication);
+            return sortOrder === 'recent' ? dateB - dateA : dateA - dateB;
+        });
 
     const indexOfLastPublication = currentPage * publicationsPerPage;
     const indexOfFirstPublication = indexOfLastPublication - publicationsPerPage;
@@ -394,7 +407,7 @@ function Publication() {
         }
 
         fetchPublications();
-    }, []);
+    }, [sortOrder]); // Recharger les publications lorsque sortOrder change
 
     if (isLoading) {
         return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Loading...</div>;
@@ -491,8 +504,9 @@ function Publication() {
                             </div>
                         </div>
 
-                        {/* Barre de recherche modernisée */}
-                        <div style={{ marginBottom: '30px', textAlign: 'center' }}>
+                        {/* Conteneur pour la barre de recherche et le tri par date */}
+                        <div style={{ marginBottom: '30px', display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                            {/* Barre de recherche */}
                             <input
                                 type="text"
                                 value={searchTerm}
@@ -510,10 +524,6 @@ function Publication() {
                                     color: '#333',
                                     outline: 'none',
                                     transition: 'all 0.3s ease',
-                                    '::placeholder': {
-                                        color: '#999',
-                                        opacity: 0.8,
-                                    },
                                 }}
                                 onFocus={(e) => {
                                     e.target.style.boxShadow = '0 6px 20px rgba(14, 165, 230, 0.3)';
@@ -524,6 +534,35 @@ function Publication() {
                                     e.target.style.width = '60%';
                                 }}
                             />
+                            {/* Sélecteur de tri par date */}
+                            <select
+                                value={sortOrder}
+                                onChange={handleSortChange}
+                                style={{
+                                    padding: '15px 20px',
+                                    borderRadius: '25px',
+                                    border: 'none',
+                                    backgroundColor: '#fff',
+                                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+                                    fontSize: '16px',
+                                    color: '#333',
+                                    outline: 'none',
+                                    transition: 'all 0.3s ease',
+                                    width: '200px',
+                                    cursor: 'pointer',
+                                }}
+                                onFocus={(e) => {
+                                    e.target.style.boxShadow = '0 6px 20px rgba(14, 165, 230, 0.3)';
+                                    e.target.style.width = '220px';
+                                }}
+                                onBlur={(e) => {
+                                    e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
+                                    e.target.style.width = '200px';
+                                }}
+                            >
+                                <option value="recent">Most Recent</option>
+                                <option value="oldest">Oldest First</option>
+                            </select>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
