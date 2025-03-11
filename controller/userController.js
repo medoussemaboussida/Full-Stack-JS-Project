@@ -39,6 +39,7 @@ const verifyToken = (req, res, next) => {
         }
         console.log('Token décodé:', decoded);
         req.userId = decoded.id;
+        req.userRole = decoded.role; 
         next();
     });
 };

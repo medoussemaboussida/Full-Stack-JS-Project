@@ -104,6 +104,7 @@ const Navbar = () => {
                                     <li className="nav-item">
                                         <a className="nav-link" href="/Publication">Publication</a>
                                     </li>
+                                
                                     <li className="nav-item dropdown">
                                         <a className="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
                                             Our Services
@@ -116,6 +117,19 @@ const Navbar = () => {
                                             {/* Add other dropdown items as needed */}
                                         </ul>
                                     </li>
+
+                                    <li className="nav-item dropdown">
+                                        <a className="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                                            Our Associations
+                                        </a>
+                                        <ul className="dropdown-menu fade-down">
+                                            <li><a className="dropdown-item" href="/Associations">Associations</a></li>
+                                            <li><a className="dropdown-item" href="/AddAssociation">Add Association</a></li>
+
+                                        </ul>
+                                    </li>
+                                
+
                                     <li className="nav-item dropdown">
                                         <a className="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
                                             Activity
@@ -134,6 +148,12 @@ const Navbar = () => {
                                             <li><a className="dropdown-item" href="/chat">Chat</a></li>
                                         </ul>
                                     </li>
+
+
+                                
+
+
+
                                 </ul>
                                 <div className="nav-right">
                                     <div className="search-btn">

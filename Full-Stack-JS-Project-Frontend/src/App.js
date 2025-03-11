@@ -17,7 +17,9 @@ import Activities from './pages/Activities';
 import AppointmentHistory from './pages/AppointmentHistory';
 import Chat from './pages/Chat';
 import AddActivity from './pages/add-activity';
-
+import Associations from './pages/Associations';
+import AssociationDetails from './pages/AssociationDetails';
+import AddAssociation from './pages/AddAssociation';
 
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import VerifyAccount from './pages/VerifyAuth';
@@ -68,7 +70,7 @@ function App(){
         <Route path="/PublicationDetailPsy/:id" element={<PublicationDetailPsy />} />
         <Route path="/PsychiatristList" element={<PsychiatristList />} />
         <Route path="/AddPublication" element={<AddPublication />} />
-        
+
         <Route path="/forum" element={<Forum />} />
         <Route path="/AddForum" element={<AddForum />} />
         <Route path="/appointment-history" element={<AppointmentHistory />} />
@@ -76,6 +78,9 @@ function App(){
 
         <Route path="/Activities" element={<Activities />} />
         <Route path="/add-activity" element={<AddActivity />} />
+        <Route path="/AddAssociation" element={<AddAssociation/>}/>
+        <Route path="/AssociationDetails/:id" element={<AssociationDetails />} />
+        <Route path="/Associations" element={<Associations />} />
 
 
         </Routes>

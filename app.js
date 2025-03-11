@@ -14,16 +14,15 @@ const createError = require('http-errors');
 const userModel = require('./model/user');
 const jwt = require("jsonwebtoken");
 const crypto = require('crypto');
-
-
+const association = require("./model/association");
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
 var forumRouter = require('./routes/forum');
 var forumCommentRouter = require('./routes/forumComment');
 var complaintRouter = require('./routes/complaint');
 var complaintResponseRouter = require('./routes/complaintResponse');
-
-
+const associationRoutes = require('./routes/association');
+const eventRoutes = require('./routes/event');
 const app = express();
 
 
@@ -40,7 +39,6 @@ const createTokenGoogle = (id) => {
 
 
 app.use('/uploads', express.static('uploads'));
-
 // Connexion à la base de données
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('Connexion à MongoDB réussie'))
@@ -54,7 +52,6 @@ app.use(cors({
     origin: ["http://localhost:3000", "http://localhost:5001"], // Autoriser frontend et back-office
     credentials: true,
 }));
-app.use('/uploads', express.static('uploads'));
 
 // Configurer le moteur de vue
 app.set('view engine', 'ejs');
@@ -93,6 +90,8 @@ app.use('/forum',forumRouter);
 app.use('/forumComment',forumCommentRouter);
 app.use('/complaint',complaintRouter);
 app.use('/complaintResponse',complaintResponseRouter);
+app.use('/association', associationRoutes);
+app.use('/event', eventRoutes);
 
 async function generateHashedPassword() {
   const randomPassword = crypto.randomBytes(16).toString('hex'); // 32 caractères aléatoires
@@ -101,10 +100,10 @@ async function generateHashedPassword() {
 
 
 
-
 //GITHUB CONFIG 
 // Configuration de Passport GitHub OAuth
 const axios = require("axios");
+const Association = require('./model/association');
 
 passport.use(
   new GithubStrategy(
@@ -170,10 +169,6 @@ passport.use(
 passport.serializeUser((user, done) => {
 done(null, user);
 });
-passport.deserializeUser((user, done) => {
-  done(null, user);
-});
-
 
 passport.deserializeUser((obj, done) => {
 done(null, obj);
@@ -185,10 +180,9 @@ app.get(
 passport.authenticate("github", { scope: ["user:email"] })
 );
 
-
 app.get(
-  "/auth/google/callback",
-  passport.authenticate("google", { failureRedirect: "/" }),
+  "/auth/github/callback",
+  passport.authenticate("github", { failureRedirect: "/" }),
   async (req, res) => {
     try {
       if (!req.user) {
@@ -222,10 +216,10 @@ app.get(
           password: "defaultPassword123", // Mot de passe par défaut
           email: emails[0].value,
           role: "student",
-          speciality: "A",
+          speciality: "BI",
           level: 1,
           dob: new Date(new Date().setFullYear(new Date().getFullYear() - 18)), // Âge 18 ans par défaut
-          isGoogleAuth: true, // Marquer comme authentifié par Google
+          isGitAuth: true, // Marquer comme authentifié par Google
         });
 
         const token = createTokenGoogle(newUser.id);
@@ -307,7 +301,7 @@ async (req, res) => {
           email: emails[0].value,
 
           role: "student",
-          speciality:'A',
+          speciality:"BI",
           level:1,
           dob: new Date(new Date().setFullYear(new Date().getFullYear() - 18)),
           isGoogleAuth: true, // Mark as Google authenticated
@@ -355,16 +349,19 @@ app.use(function(req, res, next) {
   next(createError(404));
 });
 
-app.use((err, req, res, next) => {
-  console.error("💥 Erreur détectée :", err);
-  res.status(err.status || 500).json({ 
-      message: err.message || "Une erreur interne est survenue",
-      error: err.stack 
-  });
+app.use(function(err, req, res, next) {
+  res.locals.message = err.message;
+  res.locals.error = req.app.get('env') === 'development' ? err : {};
+  res.status(err.status || 500);
+  res.render('error');
 });
 
 
-
+// Middleware de gestion des erreurs
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).render('error', { message: 'Something went wrong!', error: err.stack });
+});
 
 
 

@@ -11,6 +11,7 @@ router.put('/students/update-photo/:id', updateStudentPhoto);
 router.post('/addStudent',validate,userController.addStudent);
 router.post('/login',userController.login);
 router.get('/session/:id',userController.Session);
+router.get('/getStudentBytoken/:token', userController.getStudentBytoken);     // Récupérer un utilisateur par ID
 
 router.get('/all',userController.getAllUsers);
 
