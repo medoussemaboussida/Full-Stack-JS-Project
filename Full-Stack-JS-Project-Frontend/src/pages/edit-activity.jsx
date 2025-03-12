@@ -142,6 +142,11 @@ function EditActivity() {
     }
   };
 
+  // Handle Cancel Edit
+  const handleCancel = () => {
+    navigate("/Activities");
+  };
+
   return (
     <div>
       <ToastContainer position="top-right" autoClose={3000} />
@@ -245,14 +250,25 @@ function EditActivity() {
                     </div>
 
                     <div className="col-md-12">
-                      <button
-                        type="submit"
-                        className="theme-btn mt-2"
-                        disabled={isSubmitting}
-                      >
-                        {isSubmitting ? "Updating..." : "Update Activity"}{" "}
-                        <i className="fas fa-circle-arrow-right"></i>
-                      </button>
+                      <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+                        <button
+                          type="submit"
+                          className="theme-btn mt-2"
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting ? "Updating..." : "Update Activity"}{" "}
+                          <i className="fas fa-circle-arrow-right"></i>
+                        </button>
+                        <button
+                          type="button"
+                          className="theme-btn mt-2"
+                          onClick={handleCancel}
+                          disabled={isSubmitting}
+                          style={{ backgroundColor: "#f44336" }} // Red to indicate cancellation
+                        >
+                          Cancel Edit <i className="fas fa-times"></i>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </form>
