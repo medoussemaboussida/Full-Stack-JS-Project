@@ -2,7 +2,6 @@ var express = require('express');
 var router = express.Router();
 const userController = require('../controller/userController');
 const activitiesController = require('../controller/activitiesController');
-
 const validate = require('../middleware/validate')
 const { updateStudentProfile, updateStudentPhoto } = require('../controller/userController');
 
@@ -109,5 +108,12 @@ router.get("/psychiatrist/:id/activities", activitiesController.getPsychiatristA
 // ✅ Route pour récupérer les activités par catégorie
 router.get("/activities/category", activitiesController.getActivitiesByCategory);
 
+//schedule
+// POST /users/schedule/:userId - Save or update scheduled activities
+router.post("/schedule/:userId", userController.verifyToken, activitiesController.saveSchedule);
+
+// GET /users/schedule/:userId - Retrieve scheduled activities
+// routes/users.js (excerpt)
+router.get("/schedule/:userId", userController.verifyToken, activitiesController.getSchedule);
 
 module.exports = router;

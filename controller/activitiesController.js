@@ -2,7 +2,7 @@ const User = require("../model/user");
 const Activity = require("../model/activity"); // Import du modèle Activity
 const multer = require("multer");
 const path = require("path");
-
+const Schedule = require("../model/Schedule");
 
 // ✅ Récupérer les activités favorites d'un utilisateur
 module.exports.getFavoriteActivities = async (req, res) => {
@@ -300,5 +300,77 @@ module.exports.getActivitiesByCategory = async (req, res) => {
     } catch (error) {
         console.error("❌ Erreur serveur:", error);
         res.status(500).json({ message: "Erreur serveur", error });
+    }
+};
+
+
+
+
+exports.saveSchedule = async (req, res) => {
+    try {
+        console.log("Request Headers:", req.headers);
+        console.log("req.userId:", req.userId); // Log req.userId to debug
+
+        const userId = req.params.userId;
+        const { date, activities } = req.body;
+
+        // Validate input
+        if (!date || !activities || !Array.isArray(activities)) {
+            return res.status(400).json({ message: "Date and activities array are required." });
+        }
+
+        // Ensure the authenticated user matches the requested userId
+        if (!req.userId) {
+            return res.status(401).json({ message: "User not authenticated." });
+        }
+        if (req.userId !== userId) {
+            return res.status(403).json({ message: "Unauthorized access." });
+        }
+
+        // Check if a schedule exists for this user and date
+        let schedule = await Schedule.findOne({ userId, date });
+
+        if (schedule) {
+            // Update existing schedule
+            schedule.activities = activities;
+            await schedule.save();
+        } else {
+            // Create new schedule
+            schedule = new Schedule({ userId, date, activities });
+            await schedule.save();
+        }
+
+        res.status(200).json({ message: "Schedule saved successfully", schedule });
+    } catch (error) {
+        console.error("Error saving schedule:", error);
+        res.status(500).json({ message: "Error saving schedule", error: error.message });
+    }
+};
+
+exports.getSchedule = async (req, res) => {
+    try {
+        console.log("Request Headers:", req.headers);
+        console.log("req.userId:", req.userId); // Log req.userId to debug
+
+        const userId = req.params.userId;
+
+        if (!req.userId) {
+            return res.status(401).json({ message: "User not authenticated." });
+        }
+        if (req.userId !== userId) {
+            return res.status(403).json({ message: "Unauthorized access." });
+        }
+
+        const schedules = await Schedule.find({ userId });
+
+        const formattedSchedules = schedules.reduce((acc, schedule) => {
+            acc[schedule.date] = schedule.activities;
+            return acc;
+        }, {});
+
+        res.status(200).json({ schedules: formattedSchedules });
+    } catch (error) {
+        console.error("Error fetching schedules:", error);
+        res.status(500).json({ message: "Error fetching schedules", error: error.message });
     }
 };

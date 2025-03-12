@@ -27,12 +27,8 @@ function Activities() {
   const [activityToDelete, setActivityToDelete] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [favoriteActivities, setFavoriteActivities] = useState([]); // Track user's favorite activity IDs
-  const [showFavoriteList, setShowFavoriteList] = useState(false); // State to toggle favorite list visibility
   const [showModal, setShowModal] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(null);
-  const [showRemoveFavoriteModal, setShowRemoveFavoriteModal] = useState(false); // State for remove favorite modal
-  const [activityToRemove, setActivityToRemove] = useState(null); // Track the activity to remove
-  const [showClearAllFavoriteModal, setShowClearAllFavoriteModal] = useState(false); // State for clear all favorite modal
   const [currentPage, setCurrentPage] = useState(1); // State for current page
   const [searchTerm, setSearchTerm] = useState(""); // State for search input
   const itemsPerPage = 8; // Maximum activities per page
@@ -128,36 +124,6 @@ function Activities() {
     }
   };
 
-  // Supprimer toutes les activités favorites
-  const clearFavoriteActivities = async () => {
-    try {
-      const token = localStorage.getItem("jwt-token");
-      if (!token || !userId) {
-        toast.error("You must be logged in!");
-        return;
-      }
-
-      const response = await fetch(`http://localhost:5000/users/clear-favorite/${userId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        setFavoriteActivities([]); // Clear local state
-        toast.success("All favorite activities have been cleared!");
-      } else {
-        toast.error(`Failed to clear favorites: ${data.message}`);
-      }
-    } catch (error) {
-      console.error("Error clearing favorite activities:", error);
-      toast.error("An error occurred while clearing favorites.");
-    }
-  };
-
   // Update activity
   const handleEdit = (activity) => {
     navigate(`/edit-activity/${activity._id}`, { state: { imageUrl: activity.imageUrl } });
@@ -219,38 +185,6 @@ function Activities() {
     setSelectedActivity(null);
   };
 
-  // Afficher le modal de confirmation pour retirer une activité des favoris
-  const handleRemoveFavorite = (activityId) => {
-    setActivityToRemove(activityId);
-    setShowRemoveFavoriteModal(true);
-  };
-
-  const handleConfirmRemoveFavorite = async () => {
-    if (activityToRemove) {
-      await toggleFavoriteActivity(activityToRemove);
-    }
-    closeRemoveFavoriteModal();
-  };
-
-  const closeRemoveFavoriteModal = () => {
-    setShowRemoveFavoriteModal(false);
-    setActivityToRemove(null);
-  };
-
-  // Afficher le modal de confirmation pour vider tous les favoris
-  const handleClearAllFavorites = () => {
-    setShowClearAllFavoriteModal(true);
-  };
-
-  const handleConfirmClearAllFavorites = async () => {
-    await clearFavoriteActivities();
-    closeClearAllFavoriteModal();
-  };
-
-  const closeClearAllFavoriteModal = () => {
-    setShowClearAllFavoriteModal(false);
-  };
-
   // Filtrer par catégorie
   const fetchActivitiesByCategory = async (category) => {
     setIsLoading(true);
@@ -276,14 +210,6 @@ function Activities() {
     }
   };
 
-  // Toggle favorite list visibility
-  const toggleFavoriteList = () => {
-    setShowFavoriteList(!showFavoriteList);
-    if (!showFavoriteList) {
-      fetchFavoriteActivities(userId); // Refresh favorite list when opening
-    }
-  };
-
   // Handle Add Activity
   const handleAddActivity = () => {
     navigate("/add-activity");
@@ -293,6 +219,11 @@ function Activities() {
   const handleClearSearch = () => {
     setSearchTerm("");
     setCurrentPage(1); // Reset to first page when clearing search
+  };
+
+  // Navigate to ActivitySchedule
+  const navigateToActivitySchedule = () => {
+    navigate("/activity-schedule");
   };
 
   useEffect(() => {
@@ -403,7 +334,7 @@ function Activities() {
       {userRole === "student" && (
         <div style={{ textAlign: "center", margin: "20px 0" }}>
           <button
-            onClick={toggleFavoriteList}
+            onClick={navigateToActivitySchedule}
             style={{
               backgroundColor: "#0ea5e6",
               color: "white",
@@ -419,114 +350,6 @@ function Activities() {
           >
             My Favorite Activities
           </button>
-        </div>
-      )}
-
-      {/* Liste des activités favorites */}
-      {showFavoriteList && userRole === "student" && (
-        <div
-          style={{
-            padding: "20px",
-            backgroundColor: "#fff",
-            borderRadius: "15px",
-            boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
-            margin: "0 auto 40px",
-            maxWidth: "1200px",
-            textAlign: "left",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h3 style={{ fontSize: "24px", fontWeight: "700", marginBottom: "20px", color: "#333" }}>
-              My Favorite Activities
-            </h3>
-            {favoriteActivities.length > 0 && (
-              <button
-                onClick={handleClearAllFavorites}
-                style={{
-                  backgroundColor: "#f44336",
-                  color: "white",
-                  padding: "8px 16px",
-                  borderRadius: "5px",
-                  fontWeight: "bold",
-                  border: "none",
-                  cursor: "pointer",
-                  transition: "background-color 0.3s ease",
-                }}
-                onMouseEnter={(e) => (e.target.style.backgroundColor = "#d32f2f")}
-                onMouseLeave={(e) => (e.target.style.backgroundColor = "#f44336")}
-              >
-                Clear All Favorites
-              </button>
-            )}
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-              gap: "30px",
-            }}
-          >
-            {activities
-              .filter((activity) => favoriteActivities.includes(activity._id))
-              .map((activity, index) => (
-                <div
-                  key={index}
-                  style={{
-                    background: "#fff",
-                    borderRadius: "15px",
-                    overflow: "hidden",
-                    boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
-                    transition: "transform 0.3s ease",
-                    position: "relative",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-10px)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
-                >
-                  <div style={{ padding: "10px", backgroundColor: "#f9f9f9" }}>
-                    <p style={{ color: "#00aaff", fontStyle: "italic", margin: 0 }}>
-                      //{activity.category || "Uncategorized"}
-                    </p>
-                  </div>
-                  <img
-                    src={
-                      activity.imageUrl
-                        ? `http://localhost:5000${activity.imageUrl}`
-                        : "/assets/img/activities/default.png"
-                    }
-                    alt="Favorite Activity"
-                    style={{ width: "100%", height: "250px", objectFit: "cover" }}
-                    onClick={() => handleViewActivityModal(activity)}
-                  />
-                  <div style={{ padding: "20px" }}>
-                    <button
-                      onClick={() => handleRemoveFavorite(activity._id)}
-                      style={{
-                        display: "block",
-                        marginLeft: "auto",
-                        background: "rgba(244, 67, 54, 0.1)",
-                        border: "none",
-                        borderRadius: "50%",
-                        padding: "5px",
-                        cursor: "pointer",
-                        color: "#f44336",
-                        fontSize: "16px",
-                        transition: "background 0.3s ease",
-                        marginBottom: "10px",
-                      }}
-                      onMouseEnter={(e) => (e.target.style.background = "rgba(244, 67, 54, 0.3)")}
-                      onMouseLeave={(e) => (e.target.style.background = "rgba(244, 67, 54, 0.1)")}
-                    >
-                      <FontAwesomeIcon icon={faTrash} />
-                    </button>
-                    <h4>{stripHtmlTags(activity.title)}</h4>
-                    <p>{stripHtmlTags(activity.description)}</p>
-                  </div>
-                </div>
-              ))}
-          </div>
-          {activities.filter((activity) => favoriteActivities.includes(activity._id)).length === 0 && (
-            <p style={{ textAlign: "center", color: "#666" }}>No favorite activities yet.</p>
-          )}
         </div>
       )}
 
@@ -565,7 +388,7 @@ function Activities() {
         )}
 
         {/* Search Input */}
-        <div style={{ marginBottom: "30px", position: "relative", maxWidth: "500px", margin: "0 auto",minHeight: "40px", }}>
+        <div style={{ marginBottom: "30px", position: "relative", maxWidth: "500px", margin: "0 auto", minHeight: "40px" }}>
           <input
             type="text"
             placeholder="Search activities by title..."
@@ -594,7 +417,7 @@ function Activities() {
                 cursor: "pointer",
                 color: "#666",
                 fontSize: "16px",
-                minHeight: "40px"
+                minHeight: "40px",
               }}
             >
               <FontAwesomeIcon icon={faTimes} />
@@ -880,130 +703,6 @@ function Activities() {
         </div>
       )}
 
-      {/* Modal pour confirmer le retrait d'une activité des favoris */}
-      {showRemoveFavoriteModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "white",
-              padding: "20px",
-              borderRadius: "8px",
-              width: "400px",
-              maxWidth: "90%",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-            }}
-          >
-            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>Confirm Removal</h3>
-            <p style={{ textAlign: "center" }}>
-              Are you sure you want to remove this activity from favorites?
-            </p>
-            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-              <button
-                onClick={handleConfirmRemoveFavorite}
-                style={{
-                  backgroundColor: "#f44336",
-                  color: "white",
-                  padding: "10px 20px",
-                  borderRadius: "5px",
-                  marginTop: "20px",
-                  fontWeight: "bold",
-                }}
-              >
-                Yes, Remove
-              </button>
-              <button
-                onClick={closeRemoveFavoriteModal}
-                style={{
-                  backgroundColor: "#0ea5e6",
-                  color: "white",
-                  padding: "10px 20px",
-                  borderRadius: "5px",
-                  marginTop: "20px",
-                  fontWeight: "bold",
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal pour confirmer le vidage de tous les favoris */}
-      {showClearAllFavoriteModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "white",
-              padding: "20px",
-              borderRadius: "8px",
-              width: "400px",
-              maxWidth: "90%",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-            }}
-          >
-            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>Confirm Clear All</h3>
-            <p style={{ textAlign: "center" }}>
-              Are you sure you want to clear all favorite activities?
-            </p>
-            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-              <button
-                onClick={handleConfirmClearAllFavorites}
-                style={{
-                  backgroundColor: "#f44336",
-                  color: "white",
-                  padding: "10px 20px",
-                  borderRadius: "5px",
-                  marginTop: "20px",
-                  fontWeight: "bold",
-                }}
-              >
-                Yes, Clear All
-              </button>
-              <button
-                onClick={closeClearAllFavoriteModal}
-                style={{
-                  backgroundColor: "#0ea5e6",
-                  color: "white",
-                  padding: "10px 20px",
-                  borderRadius: "5px",
-                  marginTop: "20px",
-                  fontWeight: "bold",
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Modal pour afficher l'activité */}
       {showModal && selectedActivity && (
         <div
@@ -1023,9 +722,9 @@ function Activities() {
           <div
             style={{
               backgroundColor: "white",
-              padding: "8px", // Reduced from 20px to 15px
+              padding: "8px",
               borderRadius: "8px",
-              width: "550px", // Reduced from 600px to 450px
+              width: "550px",
               maxWidth: "90%",
               boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
               textAlign: "center",
@@ -1043,20 +742,19 @@ function Activities() {
               alt="Activity"
               style={{
                 width: "100%",
-                height: "300px", // Reduced from auto to 200px
+                height: "300px",
                 objectFit: "cover",
                 borderRadius: "8px",
-                marginBottom: "15px", // Adjusted from 20px to 15px
+                marginBottom: "15px",
               }}
             />
             <h3 style={{ fontSize: "20px", marginBottom: "10px" }}>{stripHtmlTags(selectedActivity.title)}</h3>
-            
             <p
               style={{
                 fontSize: "14px",
                 marginBottom: "15px",
-                maxHeight: "100px", // Added to prevent overflow
-                overflowY: "auto", // Scroll if description is too long
+                maxHeight: "100px",
+                overflowY: "auto",
                 padding: "0 5px",
               }}
             >
@@ -1067,7 +765,7 @@ function Activities() {
               style={{
                 backgroundColor: "#0ea5e6",
                 color: "white",
-                padding: "8px 16px", // Reduced from 10px 20px to 8px 16px
+                padding: "8px 16px",
                 borderRadius: "5px",
                 fontWeight: "bold",
               }}
