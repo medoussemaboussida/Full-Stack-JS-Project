@@ -39,7 +39,7 @@ function Publication() {
     const [currentPage, setCurrentPage] = useState(1);
     const [filterType, setFilterType] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
-    const [sortOrder, setSortOrder] = useState('recent'); // Nouvel état pour le tri par date
+    const [sortOrder, setSortOrder] = useState('recent');
 
     const publicationsPerPage = 6;
 
@@ -118,19 +118,51 @@ function Publication() {
         }
     };
 
+    // Gérer l'épinglage/désépinglage d'une publication via l'API
+    const handlePin = async (publicationId) => {
+        const token = localStorage.getItem('jwt-token');
+        if (!token) {
+            toast.error('Vous devez être connecté pour épingler une publication');
+            return;
+        }
+        try {
+            const response = await fetch(`http://localhost:5000/users/publication/pin/${publicationId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(data.message);
+                // Mettre à jour localement les publications avec le nouvel état isPinned
+                setPublications(prev =>
+                    prev.map(post =>
+                        post._id === publicationId ? { ...post, isPinned: data.publication.isPinned } : post
+                    )
+                );
+            } else {
+                toast.error(`Erreur: ${data.message}`);
+            }
+        } catch (error) {
+            toast.error(`Erreur: ${error.message}`);
+        }
+    };
+
     // Gérer le changement du terme de recherche
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
-        setCurrentPage(1); // Réinitialiser la pagination à la première page
+        setCurrentPage(1);
     };
 
     // Gérer le changement de l'ordre de tri
     const handleSortChange = (e) => {
         setSortOrder(e.target.value);
-        setCurrentPage(1); // Réinitialiser la pagination à la première page
+        setCurrentPage(1);
     };
 
-    // Filtrer et trier les publications
+    // Filtrer et trier les publications avec épinglage basé sur isPinned
     const displayedPublications = filterType === 'favorites' ? favoritePublications : publications;
     const filteredPublications = displayedPublications
         .filter(post => {
@@ -140,6 +172,12 @@ function Publication() {
             return titre.includes(term) || auteur.includes(term);
         })
         .sort((a, b) => {
+            const isAPinned = a.isPinned;
+            const isBPinned = b.isPinned;
+
+            if (isAPinned && !isBPinned) return -1; // A épinglé, B non -> A en premier
+            if (!isAPinned && isBPinned) return 1;  // B épinglé, A non -> B en premier
+            // Si les deux sont épinglés ou non épinglés, tri par date
             const dateA = new Date(a.datePublication);
             const dateB = new Date(b.datePublication);
             return sortOrder === 'recent' ? dateB - dateA : dateA - dateB;
@@ -407,7 +445,7 @@ function Publication() {
         }
 
         fetchPublications();
-    }, [sortOrder]); // Recharger les publications lorsque sortOrder change
+    }, [sortOrder]);
 
     if (isLoading) {
         return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Loading...</div>;
@@ -575,7 +613,8 @@ function Publication() {
                                             borderRadius: '10px',
                                             overflow: 'hidden',
                                             boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
-                                            transition: 'transform 0.3s ease'
+                                            transition: 'transform 0.3s ease',
+                                            border: post.isPinned ? '2px solid #ffd700' : 'none', // Bordure dorée si épinglé
                                         }}
                                         onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-10px)'}
                                         onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
@@ -721,6 +760,24 @@ function Publication() {
                                                             onMouseLeave={(e) => e.target.style.background = '#6c757d'}
                                                         >
                                                             Archive <i className="fas fa-archive" style={{ marginLeft: '5px' }}></i>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handlePin(post._id)}
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                background: post.isPinned ? '#ffd700' : '#ff9800',
+                                                                color: '#fff',
+                                                                padding: '10px 20px',
+                                                                borderRadius: '5px',
+                                                                border: 'none',
+                                                                cursor: 'pointer',
+                                                                transition: 'background 0.3s ease'
+                                                            }}
+                                                            onMouseEnter={(e) => e.target.style.background = post.isPinned ? '#ffca28' : '#f57c00'}
+                                                            onMouseLeave={(e) => e.target.style.background = post.isPinned ? '#ffd700' : '#ff9800'}
+                                                        >
+                                                            {post.isPinned ? 'Unpin' : 'Pin'} <i className="fas fa-thumbtack" style={{ marginLeft: '5px' }}></i>
                                                         </button>
                                                     </>
                                                 )}
