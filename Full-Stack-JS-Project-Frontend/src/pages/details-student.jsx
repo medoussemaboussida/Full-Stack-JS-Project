@@ -720,7 +720,7 @@ function DetailsStudents() {
             <div style={{ backgroundColor: "white", padding: "20px", borderRadius: "8px", width: "90%", maxWidth: "1000px", maxHeight: "90vh", overflow: "auto" }}>
               <h3 style={{ textAlign: "center", marginBottom: "10px" }}>Manage Your Availability</h3>
               <p style={{ textAlign: "center", color: "#555", marginBottom: "20px" }}>
-                Select a time slot to add availability, drag to move, or click to delete.
+                Select a time slot to add availability, drag to move, or click to delete
               </p>
               <FullCalendar
                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
