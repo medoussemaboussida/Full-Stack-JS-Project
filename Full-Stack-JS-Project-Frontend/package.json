@@ -4,7 +4,7 @@
   "private": true,
   "dependencies": {
     "@ckeditor/ckeditor5-build-classic": "^40.2.0",
-    "@ckeditor/ckeditor5-react": "^9.5.0",
+    "@ckeditor/ckeditor5-react": "^6.2.0",
     "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
