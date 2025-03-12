@@ -417,30 +417,60 @@ module.exports.updatePublicationStatus = async (req, res) => {
     }
 };
 
+// Épingler ou désépingler une publication
+module.exports.togglePinPublication = async (req, res) => {
+    try {
+        const { publicationId } = req.params;
+        const userId = req.userId; // Récupéré via verifyToken
+
+        // Vérifier si la publication existe et appartient à l'utilisateur
+        const publication = await Publication.findOne({ _id: publicationId, author_id: userId });
+        if (!publication) {
+            return res.status(404).json({ message: 'Publication non trouvée ou non autorisée' });
+        }
+
+        // Inverser l'état isPinned
+        publication.isPinned = !publication.isPinned;
+        const updatedPublication = await publication.save();
+
+        res.status(200).json({
+            message: publication.isPinned ? 'Publication épinglée avec succès' : 'Publication désépinglée avec succès',
+            publication: updatedPublication,
+        });
+    } catch (error) {
+        console.error('Erreur lors de la gestion de l’épinglage:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Mettre à jour getAllPublications pour inclure isPinned dans la réponse
 module.exports.getAllPublications = async (req, res) => {
     try {
+        const { sort } = req.query; // Accepter un paramètre de tri
+        const sortOrder = sort === 'oldest' ? 1 : -1; // Par défaut, tri récent (-1)
+
         const publications = await Publication.aggregate([
             {
                 $lookup: {
                     from: 'commentaires',
                     localField: '_id',
                     foreignField: 'publication_id',
-                    as: 'commentaires'
-                }
+                    as: 'commentaires',
+                },
             },
             {
                 $lookup: {
                     from: 'users',
                     localField: 'author_id',
                     foreignField: '_id',
-                    as: 'author_id'
-                }
+                    as: 'author_id',
+                },
             },
             {
-                $unwind: { path: '$author_id', preserveNullAndEmptyArrays: true }
+                $unwind: { path: '$author_id', preserveNullAndEmptyArrays: true },
             },
             {
-                $sort: { datePublication: -1 } // Trier par datePublication en ordre décroissant
+                $sort: { datePublication: sortOrder }, // Trier par date selon le paramètre
             },
             {
                 $project: {
@@ -450,13 +480,14 @@ module.exports.getAllPublications = async (req, res) => {
                     datePublication: 1,
                     tag: 1,
                     status: 1,
+                    isPinned: 1, // Inclure le champ isPinned
                     'author_id._id': 1,
                     'author_id.username': 1,
                     commentsCount: { $size: '$commentaires' },
                     likeCount: 1,
-                    dislikeCount: 1
-                }
-            }
+                    dislikeCount: 1,
+                },
+            },
         ]);
 
         // Filtrer les publications archivées côté serveur
