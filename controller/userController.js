@@ -1658,7 +1658,7 @@ module.exports.RoomChat = async (req, res) => {
     try {
         const { roomCode } = req.params;
         const messages = await Chat.find({ roomCode })
-          .populate('sender', 'username') // Optional: Populate sender's username
+          .populate('sender', 'username user_photo') // Optional: Populate sender's username
           .sort({ createdAt: 1 }); // Sort by creation time
     
         res.status(200).json(messages);
