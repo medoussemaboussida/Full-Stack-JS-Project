@@ -65,20 +65,17 @@ function DetailsStudents() {
     return availabilities.map((slot, index) => {
       let startDate, endDate;
 
-      // Si une date exacte est fournie par le serveur ou la sélection
       if (slot.date) {
         startDate = new Date(slot.date);
         startDate.setHours(parseInt(slot.startTime.split(':')[0]), parseInt(slot.startTime.split(':')[1]), 0, 0);
         endDate = new Date(slot.date);
         endDate.setHours(parseInt(slot.endTime.split(':')[0]), parseInt(slot.endTime.split(':')[1]), 0, 0);
       } else if (selectedStartDate) {
-        // Pour les nouvelles disponibilités ajoutées via le calendrier
         startDate = new Date(selectedStartDate);
         startDate.setHours(parseInt(slot.startTime.split(':')[0]), parseInt(slot.startTime.split(':')[1]), 0, 0);
         endDate = new Date(selectedStartDate);
         endDate.setHours(parseInt(slot.endTime.split(':')[0]), parseInt(slot.endTime.split(':')[1]), 0, 0);
       } else {
-        // Pour les anciennes données sans date exacte (compatibilité)
         const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const dayIndex = daysOfWeek.indexOf(slot.day);
         if (dayIndex === -1) return null;
@@ -91,14 +88,11 @@ function DetailsStudents() {
         endDate.setHours(parseInt(slot.endTime.split(':')[0]), parseInt(slot.endTime.split(':')[1]), 0, 0);
       }
 
-      console.log("Formatted event:", { start: startDate, end: endDate, title: slot.title }); // Débogage
-
       return {
         id: index,
         title: slot.title || `Available - ${slot.day}`,
         start: startDate.toISOString(),
         end: endDate.toISOString(),
-        // Pas de rrule pour les événements avec une date spécifique
       };
     }).filter(Boolean);
   };
@@ -128,7 +122,6 @@ function DetailsStudents() {
               });
               setPreviewPhoto(data.user_photo ? `${BASE_URL}${data.user_photo}` : "assets/img/user.png");
               if (data.availability) {
-                console.log("Server availability data:", data.availability); // Débogage
                 const formattedEvents = formatAvailabilitiesToEvents(data.availability);
                 setEvents(formattedEvents);
               }
@@ -317,7 +310,7 @@ function DetailsStudents() {
         day: new Date(info.event.start).toLocaleString('en-us', { weekday: 'long' }),
         startTime: info.event.start.toTimeString().slice(0, 5),
         endTime: info.event.end.toTimeString().slice(0, 5),
-        date: info.event.start.toISOString().split('T')[0], // Ajouter la date exacte
+        date: info.event.start.toISOString().split('T')[0],
       };
       try {
         const response = await fetch(`${BASE_URL}/users/psychiatrists/update-availability/${decoded.id}/${slotIndex}`, {
@@ -363,50 +356,72 @@ function DetailsStudents() {
     }
   };
 
-  const handleDateSelect = async (selectInfo) => {
-    console.log("Selected date:", selectInfo.start); // Débogage
+  const handleDateSelect = (selectInfo) => {
+    console.log("Selected date:", selectInfo.start);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to midnight for comparison
+    const selectedDate = new Date(selectInfo.start);
+    selectedDate.setHours(0, 0, 0, 0);
+
+    if (selectedDate < today) {
+      toast.error("You cannot select a date in the past!");
+      return; // Prevent opening the modal for past dates
+    }
+
     setSelectedDateInfo(selectInfo);
     setAvailabilityTitle("");
     setShowAvailabilityModal(true);
   };
 
   const handleAvailabilityConfirm = async () => {
-    if (availabilityTitle) {
-      const token = localStorage.getItem("jwt-token");
-      const decoded = jwtDecode(token);
-      const newAvailability = {
-        day: new Date(selectedDateInfo.start).toLocaleString('en-us', { weekday: 'long' }),
-        startTime: selectedDateInfo.start.toTimeString().slice(0, 5),
-        endTime: selectedDateInfo.end.toTimeString().slice(0, 5),
-        title: availabilityTitle,
-        date: selectedDateInfo.start.toISOString().split('T')[0], // Envoyer la date exacte
-      };
-      console.log("Sending to server:", newAvailability); // Débogage
-      try {
-        const response = await fetch(`${BASE_URL}/users/psychiatrists/add-availability/${decoded.id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(newAvailability),
-        });
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Server response:", data.user.availability); // Débogage
-          setEvents(formatAvailabilitiesToEvents(data.user.availability));
-          toast.success("Availability added successfully");
-          setShowAvailabilityModal(false);
-        } else {
-          const errorData = await response.json();
-          toast.error(`Error: ${errorData.message}`);
-        }
-      } catch (error) {
-        toast.error("Error adding availability");
-        console.error(error);
-      }
-    } else {
+    if (!availabilityTitle) {
       toast.error("Please enter a title");
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selectedDate = new Date(selectedDateInfo.start);
+    selectedDate.setHours(0, 0, 0, 0);
+
+    if (selectedDate < today) {
+      toast.error("Cannot save availability for a past date!");
+      setShowAvailabilityModal(false);
+      return;
+    }
+
+    const token = localStorage.getItem("jwt-token");
+    const decoded = jwtDecode(token);
+    const newAvailability = {
+      day: new Date(selectedDateInfo.start).toLocaleString('en-us', { weekday: 'long' }),
+      startTime: selectedDateInfo.start.toTimeString().slice(0, 5),
+      endTime: selectedDateInfo.end.toTimeString().slice(0, 5),
+      title: availabilityTitle,
+      date: selectedDateInfo.start.toISOString().split('T')[0],
+    };
+    console.log("Sending to server:", newAvailability);
+    try {
+      const response = await fetch(`${BASE_URL}/users/psychiatrists/add-availability/${decoded.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(newAvailability),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Server response:", data.user.availability);
+        setEvents(formatAvailabilitiesToEvents(data.user.availability));
+        toast.success("Availability added successfully");
+        setShowAvailabilityModal(false);
+      } else {
+        const errorData = await response.json();
+        toast.error(`Error: ${errorData.message}`);
+      }
+    } catch (error) {
+      toast.error("Error adding availability");
+      console.error(error);
     }
   };
 
@@ -512,10 +527,10 @@ function DetailsStudents() {
       <main style={{ padding: "20px", backgroundColor: "#f9f9f9" }}>
         <div className="site-breadcrumb" style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}>
           <div className="container">
-            <h2 className="breadcrumb-title">Volunteer Single</h2>
+            <h2 className="breadcrumb-title">Profile Details</h2>
             <ul className="breadcrumb-menu">
               <li><a href="index.html">Home</a></li>
-              <li className="active">Volunteer Single</li>
+              <li className="active">Profile Details</li>
             </ul>
           </div>
         </div>

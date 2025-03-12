@@ -36,6 +36,8 @@ function Forum() {
   const [comments, setComments] = useState([]); // Pour stocker les commentaires
   const [showCommentModal, setShowCommentModal] = useState(false); // Pour contrôler l'affichage du modal des commentaires
   const [forumIdForComments, setForumIdForComments] = useState(null); // Pour stocker l'ID du forum actuel
+  const [commentToDelete, setCommentToDelete] = useState(null); // Commentaire à supprimer
+  const [showDeleteCommentModal, setShowDeleteCommentModal] = useState(false); // Afficher/masquer le modal de suppression de commentaire
 
   const navigate = useNavigate();
 
@@ -113,17 +115,38 @@ function Forum() {
 
       if (response.ok) {
         console.log("Comment added:", data);
-        toast.success('Your Comment is added successfully!');
+        toast.success("Your Comment is added successfully!");
         setComment(""); // Clear the comment field
       } else {
         console.error("Error adding comment:", data.message || data);
-        toast.error('Failed to add your comment');
+        toast.error("Failed to add your comment");
       }
     } catch (error) {
       console.error("Error in API call:", error);
     }
   };
 
+  // Suppression d'un commentaire
+  const handleDeleteComment = (commentId) => {
+    fetch(`http://localhost:5000/forumComment/deleteComment/${commentId}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        console.log("Commentaire supprimé:", data);
+        setComments(comments.filter((comment) => comment._id !== commentId)); // Supprimer localement
+        setShowDeleteCommentModal(false); // Fermer le modal
+        toast.success("Your comment was deleted successfully!");
+      })
+      .catch((error) => {
+        console.error("Erreur lors de la suppression du commentaire:", error);
+        toast.error("Failed to delete your comment!");
+      });
+  };
   //afficher les comments :
   const handleViewComments = async (forumId) => {
     try {
@@ -161,11 +184,11 @@ function Forum() {
         console.log("Forum supprimé:", data);
         setForums(forums.filter((forum) => forum._id !== forumId)); // Supprimer localement
         setShowDeleteModal(false); // Fermer le modal
-        toast.success('Your topic was deleted successfully !');
+        toast.success("Your topic was deleted successfully !");
       })
       .catch((error) => {
         console.error("Erreur lors de la suppression du forum:", error);
-        toast.error('Failed to delete your topic !');
+        toast.error("Failed to delete your topic !");
       });
   };
 
@@ -206,11 +229,11 @@ function Forum() {
           )
         );
         setShowUpdateModal(false); // Fermer le modal de mise à jour
-         toast.success('Your topic is updated successfully!');
+        toast.success("Your topic is updated successfully!");
       })
       .catch((error) => {
         console.error("Erreur lors de la mise à jour du forum:", error);
-        toast.error('Failed to update your topic !');  
+        toast.error("Failed to update your topic !");
       });
   };
 
@@ -745,7 +768,18 @@ function Forum() {
             <div>
               {comments.length > 0 ? (
                 comments.map((comment, index) => (
-                  <div key={index} style={{ marginBottom: "10px" }}>
+                  <div
+                    key={index}
+                    style={{
+                      marginBottom: "10px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between", // Permet d'aligner les éléments à gauche et à droite
+                      padding: "10px",
+                      borderBottom: "1px solid #ddd",
+                    }}
+                  >
+                    {/* Partie gauche : Avatar + Nom + Contenu */}
                     <div
                       style={{
                         display: "flex",
@@ -753,10 +787,10 @@ function Forum() {
                         gap: "10px",
                       }}
                     >
-                      {/* Vérifier si l'utilisateur est anonyme */}
+                      {/* Avatar */}
                       <img
                         src={
-                          comment.anonymous === true
+                          comment.anonymous
                             ? "/assets/img/anonymous_member.png"
                             : `http://localhost:5000/uploads/${comment.user_id.user_photo}`
                         }
@@ -769,39 +803,55 @@ function Forum() {
                         }}
                       />
                       <div>
-                        {/* Affichage du nom d'utilisateur et spécialité si l'utilisateur n'est pas anonyme */}
-                        {comment.anonymous === true ? (
-                          <p>Anonymous Member</p>
+                        {/* Nom ou "Anonymous Member" */}
+                        {comment.anonymous ? (
+                          <p style={{ margin: 0 }}>Anonymous Member</p>
                         ) : (
-                          <>
-                            <p>
-                              {comment.user_id.username}{" "}
-                              <span
-                                className="badge"
-                                style={{
-                                  backgroundColor: "transparent",
-                                  border: "1px solid #00BFFF", // Cadre bleu
-                                  color: "#00BFFF", // Texte bleu
-                                  padding: "2px 8px",
-                                  borderRadius: "20px",
-                                  boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)", // Lueur bleue
-                                  fontSize: "0.875rem", // Petit texte
-                                }}
-                              >
-                                {comment.user_id.level}
-                                {""}
-                                {comment.user_id.speciality}
-                              </span>
-                            </p>
-                          </>
+                          <p style={{ margin: 0 }}>
+                            {comment.user_id.username}{" "}
+                            <span
+                              className="badge"
+                              style={{
+                                backgroundColor: "transparent",
+                                border: "1px solid #00BFFF",
+                                color: "#00BFFF",
+                                padding: "2px 8px",
+                                borderRadius: "20px",
+                                boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
+                                fontSize: "0.875rem",
+                              }}
+                            >
+                              {comment.user_id.level}{" "}
+                              {comment.user_id.speciality}
+                            </span>
+                          </p>
                         )}
+                        {/* Contenu du commentaire */}
+                        <p style={{ margin: 0 }}>{comment.content}</p>
                       </div>
                     </div>
-                    <p>{comment.content}</p>
+
+                    {/* Icône de suppression alignée à droite */}
+                    {userId === comment.user_id._id && (
+                      <span
+                        className="icon"
+                        style={{
+                          cursor: "pointer",
+                          fontSize: "18px",
+                          color: "red",
+                        }}
+                        onClick={() => {
+                          setCommentToDelete(comment._id); // Définir le commentaire à supprimer
+                          setShowDeleteCommentModal(true); // Afficher le modal de confirmation
+                        }}
+                      >
+                        <FontAwesomeIcon icon={faTrashAlt} />
+                      </span>
+                    )}
                   </div>
                 ))
               ) : (
-                <p>There is any comment here !.</p>
+                <p style={{ textAlign: "center" }}>There is no comment here!</p>
               )}
             </div>
 
@@ -825,6 +875,72 @@ function Forum() {
                 }}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de confirmation de suppression de commentaire */}
+      {showDeleteCommentModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "400px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+              Confirm Deletion
+            </h3>
+            <p style={{ marginBottom: "20px", textAlign: "center" }}>
+              Are you sure you want to delete this comment? This action cannot
+              be undone.
+            </p>
+            <div
+              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+            >
+              <button
+                onClick={() => setShowDeleteCommentModal(false)}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteComment(commentToDelete)}
+                style={{
+                  backgroundColor: "#4CAF50",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Delete
               </button>
             </div>
           </div>
