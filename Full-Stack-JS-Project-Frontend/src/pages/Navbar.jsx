@@ -121,7 +121,6 @@ const Navbar = () => {
                                             Activity
                                         </a>
                                         <ul className="dropdown-menu fade-down">
-                                            <li><a className="dropdown-item" href="/add-activity">Add Activity</a></li>
                                             <li><a className="dropdown-item" href="/Activities">Activities</a></li>
                                         </ul>
                                     </li>

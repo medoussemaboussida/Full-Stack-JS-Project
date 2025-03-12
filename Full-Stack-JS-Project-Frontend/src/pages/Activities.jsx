@@ -9,6 +9,7 @@ import { faHeart as faHeartRegular } from "@fortawesome/free-regular-svg-icons";
 import { faTrash } from "@fortawesome/free-solid-svg-icons"; // Trash icon for removing
 import { faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons"; // Chevron icons for pagination
 import { faPlus } from "@fortawesome/free-solid-svg-icons"; // Plus icon for Add Activity
+import { faTimes } from "@fortawesome/free-solid-svg-icons"; // Times icon for clearing search
 
 // Fonction pour supprimer les balises HTML
 const stripHtmlTags = (html) => {
@@ -33,6 +34,7 @@ function Activities() {
   const [activityToRemove, setActivityToRemove] = useState(null); // Track the activity to remove
   const [showClearAllFavoriteModal, setShowClearAllFavoriteModal] = useState(false); // State for clear all favorite modal
   const [currentPage, setCurrentPage] = useState(1); // State for current page
+  const [searchTerm, setSearchTerm] = useState(""); // State for search input
   const itemsPerPage = 8; // Maximum activities per page
 
   const navigate = useNavigate();
@@ -287,6 +289,12 @@ function Activities() {
     navigate("/add-activity");
   };
 
+  // Clear search term
+  const handleClearSearch = () => {
+    setSearchTerm("");
+    setCurrentPage(1); // Reset to first page when clearing search
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
     if (token) {
@@ -306,13 +314,29 @@ function Activities() {
     fetchActivitiesByCategory(selectedCategory);
   }, [selectedCategory]);
 
-  
+  // Reset page to 1 when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  // Filter activities by search term and category
+  const filteredActivities = activities.filter((activity) => {
+    const matchesCategory =
+      selectedCategory === "*" || activity.category === selectedCategory;
+    const matchesSearch =
+      !searchTerm ||
+      stripHtmlTags(activity.title)
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
   // Pagination logic
-  const totalActivities = activities.length;
+  const totalActivities = filteredActivities.length;
   const totalPages = Math.ceil(totalActivities / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentActivities = activities.slice(startIndex, endIndex);
+  const currentActivities = filteredActivities.slice(startIndex, endIndex);
 
   const handlePageChange = (pageNumber) => {
     setCurrentPage(pageNumber);
@@ -458,6 +482,11 @@ function Activities() {
                   onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-10px)")}
                   onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
                 >
+                  <div style={{ padding: "10px", backgroundColor: "#f9f9f9" }}>
+                    <p style={{ color: "#00aaff", fontStyle: "italic", margin: 0 }}>
+                      //{activity.category || "Uncategorized"}
+                    </p>
+                  </div>
                   <img
                     src={
                       activity.imageUrl
@@ -469,29 +498,29 @@ function Activities() {
                     onClick={() => handleViewActivityModal(activity)}
                   />
                   <div style={{ padding: "20px" }}>
+                    <button
+                      onClick={() => handleRemoveFavorite(activity._id)}
+                      style={{
+                        display: "block",
+                        marginLeft: "auto",
+                        background: "rgba(244, 67, 54, 0.1)",
+                        border: "none",
+                        borderRadius: "50%",
+                        padding: "5px",
+                        cursor: "pointer",
+                        color: "#f44336",
+                        fontSize: "16px",
+                        transition: "background 0.3s ease",
+                        marginBottom: "10px",
+                      }}
+                      onMouseEnter={(e) => (e.target.style.background = "rgba(244, 67, 54, 0.3)")}
+                      onMouseLeave={(e) => (e.target.style.background = "rgba(244, 67, 54, 0.1)")}
+                    >
+                      <FontAwesomeIcon icon={faTrash} />
+                    </button>
                     <h4>{stripHtmlTags(activity.title)}</h4>
                     <p>{stripHtmlTags(activity.description)}</p>
                   </div>
-                  <button
-                    onClick={() => handleRemoveFavorite(activity._id)}
-                    style={{
-                      position: "absolute",
-                      top: "10px",
-                      right: "10px",
-                      background: "rgba(0, 0, 0, 0.5)",
-                      border: "none",
-                      borderRadius: "50%",
-                      padding: "5px",
-                      cursor: "pointer",
-                      color: "#fff",
-                      fontSize: "16px",
-                      transition: "background 0.3s ease",
-                    }}
-                    onMouseEnter={(e) => (e.target.style.background = "rgba(244, 67, 54, 0.8)")}
-                    onMouseLeave={(e) => (e.target.style.background = "rgba(0, 0, 0, 0.5)")}
-                  >
-                    <FontAwesomeIcon icon={faTrash} />
-                  </button>
                 </div>
               ))}
           </div>
@@ -534,6 +563,44 @@ function Activities() {
             </button>
           </div>
         )}
+
+        {/* Search Input */}
+        <div style={{ marginBottom: "30px", position: "relative", maxWidth: "500px", margin: "0 auto",minHeight: "40px", }}>
+          <input
+            type="text"
+            placeholder="Search activities by title..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "10px 40px 10px 15px",
+              borderRadius: "20px",
+              border: "1px solid #ddd",
+              fontSize: "16px",
+              outline: "none",
+              boxShadow: "0 2px 5px rgba(0, 0, 0, 0.1)",
+            }}
+          />
+          {searchTerm && (
+            <button
+              onClick={handleClearSearch}
+              style={{
+                position: "absolute",
+                right: "10px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "#666",
+                fontSize: "16px",
+                minHeight: "40px"
+              }}
+            >
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+          )}
+        </div>
 
         {/* Filtres stylisés */}
         <ul
@@ -592,6 +659,11 @@ function Activities() {
                 onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-10px)")}
                 onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
               >
+                <div style={{ padding: "10px", backgroundColor: "#f9f9f9" }}>
+                  <p style={{ color: "#00aaff", fontStyle: "italic", margin: 0 }}>
+                    //{activity.category || "Uncategorized"}
+                  </p>
+                </div>
                 <img
                   src={
                     activity.imageUrl
@@ -602,7 +674,6 @@ function Activities() {
                   style={{ width: "100%", height: "250px", objectFit: "cover" }}
                   onClick={() => handleViewActivityModal(activity)}
                 />
-
                 <div style={{ padding: "20px" }}>
                   <h4>{stripHtmlTags(activity.title)}</h4>
                   <p>{stripHtmlTags(activity.description)}</p>
@@ -658,7 +729,7 @@ function Activities() {
             ))
           ) : (
             <div style={{ textAlign: "center", gridColumn: "span 3" }}>
-              <p>No activities available for this category.</p>
+              <p>No activities available for this category or search.</p>
             </div>
           )}
         </div>
@@ -952,14 +1023,17 @@ function Activities() {
           <div
             style={{
               backgroundColor: "white",
-              padding: "20px",
+              padding: "8px", // Reduced from 20px to 15px
               borderRadius: "8px",
-              width: "600px",
+              width: "550px", // Reduced from 600px to 450px
               maxWidth: "90%",
               boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
               textAlign: "center",
             }}
           >
+            <p style={{ color: "#00aaff", fontStyle: "italic", marginBottom: "10px" }}>
+              //{selectedActivity.category || "Uncategorized"}
+            </p>
             <img
               src={
                 selectedActivity.imageUrl
@@ -967,18 +1041,34 @@ function Activities() {
                   : "/assets/img/activities/default.png"
               }
               alt="Activity"
-              style={{ width: "100%", height: "auto", borderRadius: "8px", marginBottom: "20px" }}
+              style={{
+                width: "100%",
+                height: "300px", // Reduced from auto to 200px
+                objectFit: "cover",
+                borderRadius: "8px",
+                marginBottom: "15px", // Adjusted from 20px to 15px
+              }}
             />
-            <h3>{stripHtmlTags(selectedActivity.title)}</h3>
-            <p>{stripHtmlTags(selectedActivity.description)}</p>
+            <h3 style={{ fontSize: "20px", marginBottom: "10px" }}>{stripHtmlTags(selectedActivity.title)}</h3>
+            
+            <p
+              style={{
+                fontSize: "14px",
+                marginBottom: "15px",
+                maxHeight: "100px", // Added to prevent overflow
+                overflowY: "auto", // Scroll if description is too long
+                padding: "0 5px",
+              }}
+            >
+              {stripHtmlTags(selectedActivity.description)}
+            </p>
             <button
               onClick={closeViewActivityModal}
               style={{
                 backgroundColor: "#0ea5e6",
                 color: "white",
-                padding: "10px 20px",
+                padding: "8px 16px", // Reduced from 10px 20px to 8px 16px
                 borderRadius: "5px",
-                marginTop: "20px",
                 fontWeight: "bold",
               }}
             >

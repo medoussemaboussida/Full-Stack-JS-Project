@@ -45,14 +45,14 @@ function AddActivity() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-  
+
     const token = localStorage.getItem("jwt-token");
     if (!token) {
       toast.error("You must be logged in to add an activity.");
       setIsSubmitting(false);
       return;
     }
-  
+
     let userId;
     try {
       const decoded = jwtDecode(token);
@@ -63,18 +63,18 @@ function AddActivity() {
       navigate("/login");
       return;
     }
-  
+
     if (!userId) {
       toast.error("User not found, please log in again.");
       setIsSubmitting(false);
       return;
     }
-  
+
     const data = new FormData();
     data.append("title", formData.title);
     data.append("description", formData.description);
     data.append("category", formData.category);
-  
+
     // Vérification si une image est sélectionnée
     if (formData.image) {
       data.append("image", formData.image);
@@ -85,7 +85,7 @@ function AddActivity() {
       const file = new File([imageBlob], "03.jpg", { type: "image/jpeg" });
       data.append("image", file);
     }
-  
+
     try {
       const response = await fetch(
         `http://localhost:5000/users/psychiatrist/${userId}/add-activity`,
@@ -97,7 +97,7 @@ function AddActivity() {
           body: data,
         }
       );
-  
+
       const result = await response.json();
       if (response.ok) {
         toast.success("Activity successfully added!");
@@ -113,7 +113,11 @@ function AddActivity() {
       setIsSubmitting(false);
     }
   };
-  
+
+  // Handle Cancel Add
+  const handleCancelAdd = () => {
+    navigate("/Activities");
+  };
 
   return (
     <div>
@@ -206,10 +210,25 @@ function AddActivity() {
                     </div>
 
                     <div className="col-md-12">
-                      <button type="submit" className="theme-btn mt-2" disabled={isSubmitting}>
-                        {isSubmitting ? "Submitting..." : "Add Activity"}{" "}
-                        <i className="fas fa-circle-arrow-right"></i>
-                      </button>
+                      <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+                        <button
+                          type="submit"
+                          className="theme-btn mt-2"
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting ? "Submitting..." : "Add Activity"}{" "}
+                          <i className="fas fa-circle-arrow-right"></i>
+                        </button>
+                        <button
+                          type="button"
+                          className="theme-btn mt-2"
+                          onClick={handleCancelAdd}
+                          disabled={isSubmitting}
+                          style={{ backgroundColor: "#f44336" }} // Red to indicate cancellation
+                        >
+                          Cancel Add <i className="fas fa-times"></i>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </form>
@@ -224,7 +243,7 @@ function AddActivity() {
         <div className="container">
           <div className="copyright text-center">
             <p>
-              &copy; {new Date().getFullYear()} <a href="#">Lovcare</a> - All Rights Reserved.
+              © {new Date().getFullYear()} <a href="#">Lovcare</a> - All Rights Reserved.
             </p>
           </div>
         </div>
