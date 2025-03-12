@@ -65,6 +65,10 @@ const publicationSchema = new mongoose.Schema({
     nombreCommentaires: { type: Number, default: 0 },
     // Ou une référence aux commentaires (optionnel, si vous voulez les intégrer directement)
     commentaires: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Commentaire' }],
+    isPinned: {
+        type: Boolean,
+        default: false, // Par défaut, une publication n'est pas épinglée
+    },
 }, {
     timestamps: true, // Ajoute createdAt et updatedAt automatiquement
 });

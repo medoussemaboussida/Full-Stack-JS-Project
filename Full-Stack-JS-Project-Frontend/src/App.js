@@ -28,6 +28,7 @@ import Forum from './pages/Forum';
 import Navbar from './pages/Navbar';
 import Footer from './pages/Footer';
 import EditActivity from './pages/edit-activity'; // Make sure you have this component for editing
+import ActivitySchedule from './pages/ActivitySchedule';
 import Events from './pages/events';
 import EventDetails from './pages/EventDetails';
 
@@ -80,12 +81,7 @@ function App(){
         <Route path="/Activities" element={<Activities />} />
         <Route path="/add-activity" element={<AddActivity />} />
         <Route path="/edit-activity/:id" element={<EditActivity />} />
-        <Route path="/add-association" element={<AddAssociation />} />
-        <Route path="/AssociationDetails/:id" element={<AssociationDetails />} />
-        <Route path="/Associations" element={<Associations />} />
-        <Route path="/add-event" element={<AddEvent />} />
-        <Route path="/events" element={<Events />} />
-        <Route path="/event/:id" element={<EventDetails />} />
+
 
         </Routes>
             </Layout>
