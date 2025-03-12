@@ -6,6 +6,7 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import { useNavigate } from 'react-router-dom'; // Import pour la navigation
 
 function DetailsStudents() {
   const [user, setUser] = useState(null);
@@ -40,7 +41,7 @@ function DetailsStudents() {
   const [selectedDateInfo, setSelectedDateInfo] = useState(null);
 
   const BASE_URL = "http://localhost:5000";
-
+const navigate = useNavigate();
   const formatDateForInput = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -410,6 +411,15 @@ function DetailsStudents() {
     }
   };
 
+
+  const handleAddAssociation = () => {
+    navigate('/add-association');
+  };
+
+  const handleAddEvent = () => {
+    navigate('/add-event');
+  };
+
   if (!user) {
     return <div style={{ textAlign: "center", padding: "20px", fontSize: "18px" }}>Loading...</div>;
   }
@@ -632,6 +642,16 @@ function DetailsStudents() {
                         <i className="fas fa-clock" style={{ marginRight: "8px" }}></i> Manage Availability
                       </button>
                     )}
+                    {user.role === "association_member" && (
+  <>
+    <button onClick={handleAddAssociation} style={{ backgroundColor: "#00BCD4", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "8px" }}>
+      <i className="fas fa-users" style={{ marginRight: "8px" }}></i> Add Association
+    </button>
+    <button onClick={handleAddEvent} style={{ backgroundColor: "#8BC34A", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "8px" }}>
+      <i className="fas fa-calendar-plus" style={{ marginRight: "8px" }}></i> Add Event
+    </button>
+  </>
+)}
                   </div>
                 </div>
               </div>

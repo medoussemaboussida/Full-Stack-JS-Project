@@ -13,30 +13,46 @@ import '../App.css';
 const BASE_URL = "http://localhost:5000";
 
 const schema = yup.object().shape({
-  Name_event: yup.string().min(6, "Le nom doit contenir au moins 6 caractères").max(50, "Le nom doit contenir au plus 50 caractères").required("Le nom est requis"),
-  Description_event: yup.string().min(10, "La description doit contenir au moins 10 caractères").max(1000, "La description doit contenir au plus 1000 caractères").required("La description est requise"),
-  contact_email_event: yup.string().email("Format d'email invalide").required("L'email est requis"),
-  support_type_event: yup.string()
-    .oneOf([
-      'PsychologicalCounseling', 
-      'SupportGroup', 
-      'TherapeuticWorkshop', 
-      'AwarenessCampaign', 
-      'PeerSupport', 
-      'CrisisIntervention', 
-      'WellnessActivity'
-    ], "Type de soutien invalide")
-    .required("Le type de soutien est requis"),
-  Localisation_event: yup.string().required("Le lieu est requis"),
-  Date_event: yup.date().min(new Date(), "La date doit être dans le futur").required("La date est requise"),
-  Time_event: yup.string().matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, "L'heure doit être au format HH:MM").required("L'heure est requise"),
-  associations: yup.array().of(yup.string()),
+  title: yup.string()
+    .min(6, "Le titre doit contenir au moins 6 caractères")
+    .max(100, "Le titre doit contenir au plus 100 caractères")
+    .required("Le titre est requis"),
+  description: yup.string()
+    .min(10, "La description doit contenir au moins 10 caractères")
+    .max(1000, "La description doit contenir au plus 1000 caractères")
+    .required("La description est requise"),
+  date: yup.string()
+    .matches(/^\d{4}-\d{2}-\d{2}$/, "La date doit être au format YYYY-MM-DD")
+    .required("La date est requise")
+    .test('is-future', "La date doit être dans le futur", value => new Date(value) > new Date()),
+  localisation: yup.string()
+    .min(3, "La localisation doit contenir au moins 3 caractères")
+    .max(200, "La localisation doit contenir au plus 200 caractères")
+    .required("La localisation est requise"),
+  lieu: yup.string()
+    .min(3, "Le lieu doit contenir au moins 3 caractères")
+    .max(200, "Le lieu doit contenir au plus 200 caractères")
+    .required("Le lieu est requis"),
+  heure: yup.string()
+    .matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, "L'heure doit être au format HH:MM")
+    .required("L'heure est requise"),
+  contact_email: yup.string()
+    .email("Format d'email invalide")
+    .required("L'email est requis"),
+  image: yup.mixed()
+    .test('fileSize', 'Le fichier est trop volumineux (max 5MB)', value => !value || !value[0] || value[0].size <= 5 * 1024 * 1024)
+    .test('fileType', 'Seules les images JPEG, JPG, PNG ou GIF sont autorisées', value => !value || !value[0] || /image\/(jpeg|jpg|png|gif)$/.test(value[0].type))
 });
 
 const AddEvent = () => {
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({ resolver: yupResolver(schema) });
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
+    resolver: yupResolver(schema),
+    defaultValues: {
+      date: "",
+      heure: "",
+    },
+  });
   const [serverError, setServerError] = useState(null);
-  const [associations, setAssociations] = useState([]);
   const [userRole, setUserRole] = useState(null);
   const navigate = useNavigate();
 
@@ -51,16 +67,6 @@ const AddEvent = () => {
         toast.error("Token invalide, veuillez vous reconnecter");
       }
     }
-
-    const fetchAssociations = async () => {
-      try {
-        const response = await axios.get(`${BASE_URL}/association/getAssociations`);
-        setAssociations(response.data);
-      } catch (err) {
-        toast.error("Erreur lors de la récupération des associations");
-      }
-    };
-    fetchAssociations();
   }, []);
 
   const onSubmit = async (data) => {
@@ -75,15 +81,35 @@ const AddEvent = () => {
       return;
     }
 
+    // Créer un objet FormData pour inclure les fichiers
+    const formData = new FormData();
+    formData.append('title', data.title);
+    formData.append('description', data.description);
+    formData.append('date', data.date);
+    formData.append('localisation', data.localisation);
+    formData.append('lieu', data.lieu);
+    formData.append('heure', data.heure);
+    formData.append('contact_email', data.contact_email);
+    if (data.image && data.image[0]) {
+      formData.append('image', data.image[0]); // Ajouter l'image si présente
+    }
+
+    console.log('Données envoyées au backend:', Object.fromEntries(formData));
+
     try {
-      await axios.post(`${BASE_URL}/event/addEvent`, data, {
-        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      const response = await axios.post(`${BASE_URL}/events/addEvent`, formData, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          // Pas besoin de définir "Content-Type" manuellement avec FormData, axios le fait automatiquement
+        },
       });
       toast.success("Événement ajouté avec succès !", { autoClose: 2000 });
       reset();
-      setTimeout(() => navigate('/Associations'), 2000);
+      setTimeout(() => navigate('/events'), 2000);
     } catch (error) {
-      setServerError(error.response?.data?.message || "Une erreur est survenue");
+      setServerError(error.response?.data?.message || "Une erreur est survenue lors de l'ajout de l'événement");
+      console.error('Erreur de la requête:', error.response?.data);
+      toast.error(serverError);
     }
   };
 
@@ -106,7 +132,7 @@ const AddEvent = () => {
             <div className="row align-items-center">
               <div className="col-lg-6">
                 <div className="become-volunteer-img">
-                  <img src="/assets/img/volunteer/01.jpg" alt="Event" className="img-fluid rounded" />
+                  <img src="/assets/img/about/image.png" alt="Event" className="img-fluid rounded" />
                 </div>
               </div>
               <div className="col-lg-6">
@@ -116,53 +142,84 @@ const AddEvent = () => {
                   {serverError && <p className="text-danger">{serverError}</p>}
                   <form onSubmit={handleSubmit(onSubmit)}>
                     <div className="row">
-                      <div className="col-md-6">
-                        <input type="text" className="form-control" placeholder="Nom de l'événement" {...register("Name_event")} />
-                        <p className="text-danger">{errors.Name_event?.message}</p>
-                      </div>
-                      <div className="col-md-6">
-                        <input type="email" className="form-control" placeholder="Email de contact" {...register("contact_email_event")} />
-                        <p className="text-danger">{errors.contact_email_event?.message}</p>
+                      <div className="col-md-12">
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="Titre de l'événement"
+                          {...register("title")}
+                        />
+                        <p className="text-danger">{errors.title?.message}</p>
                       </div>
                       <div className="col-md-12">
-                        <textarea className="form-control" cols="30" rows="5" placeholder="Description" {...register("Description_event")} />
-                        <p className="text-danger">{errors.Description_event?.message}</p>
+                        <textarea
+                          className="form-control"
+                          cols="30"
+                          rows="5"
+                          placeholder="Description"
+                          {...register("description")}
+                        />
+                        <p className="text-danger">{errors.description?.message}</p>
                       </div>
                       <div className="col-md-6">
-                        <select className="form-control" {...register("support_type_event")}>
-                          <option value="">Type de soutien</option>
-                          <option value="PsychologicalCounseling">Conseil Psychologique</option>
-                          <option value="SupportGroup">Groupe de Soutien</option>
-                          <option value="TherapeuticWorkshop">Atelier Thérapeutique</option>
-                          <option value="AwarenessCampaign">Campagne de Sensibilisation</option>
-                          <option value="PeerSupport">Soutien par les Pairs</option>
-                          <option value="CrisisIntervention">Intervention en Crise</option>
-                          <option value="WellnessActivity">Activité de Bien-être</option>
-                        </select>
-                        <p className="text-danger">{errors.support_type_event?.message}</p>
+                        <input
+                          type="date"
+                          className="form-control"
+                          {...register("date")}
+                        />
+                        <p className="text-danger">{errors.date?.message}</p>
                       </div>
                       <div className="col-md-6">
-                        <input type="text" className="form-control" placeholder="Lieu" {...register("Localisation_event")} />
-                        <p className="text-danger">{errors.Localisation_event?.message}</p>
+                        <input
+                          type="time"
+                          className="form-control"
+                          placeholder="Heure (HH:MM)"
+                          {...register("heure")}
+                        />
+                        <p className="text-danger">{errors.heure?.message}</p>
                       </div>
                       <div className="col-md-6">
-                        <input type="date" className="form-control" {...register("Date_event")} />
-                        <p className="text-danger">{errors.Date_event?.message}</p>
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="Localisation (ex. ville)"
+                          {...register("localisation")}
+                        />
+                        <p className="text-danger">{errors.localisation?.message}</p>
                       </div>
                       <div className="col-md-6">
-                        <input type="time" className="form-control" {...register("Time_event")} />
-                        <p className="text-danger">{errors.Time_event?.message}</p>
+                        <input
+                          type="text"
+                          className="form-control"
+                          placeholder="Lieu (ex. salle)"
+                          {...register("lieu")}
+                        />
+                        <p className="text-danger">{errors.lieu?.message}</p>
                       </div>
                       <div className="col-md-12">
-                        <select multiple className="form-control" {...register("associations")}>
-                          {associations.map((assoc) => (
-                            <option key={assoc._id} value={assoc._id}>{assoc.Name_association}</option>
-                          ))}
-                        </select>
-                        <p className="text-muted">Maintenez Ctrl/Cmd pour sélectionner plusieurs associations</p>
+                        <input
+                          type="email"
+                          className="form-control"
+                          placeholder="Email de contact"
+                          {...register("contact_email")}
+                        />
+                        <p className="text-danger">{errors.contact_email?.message}</p>
+                      </div>
+                      <div className="col-md-12">
+                        <input
+                          type="file"
+                          className="form-control"
+                          accept="image/jpeg,image/jpg,image/png,image/gif"
+                          {...register("image")}
+                        />
+                        <p className="text-danger">{errors.image?.message}</p>
                       </div>
                     </div>
-                    <button type="submit" className="theme-btn mt-2" disabled={isSubmitting}>
+                    <button
+                      type="submit"
+                      className="theme-btn mt-2"
+                      disabled={isSubmitting}
+                    >
                       {isSubmitting ? "Envoi en cours..." : "Soumettre maintenant"} <i className="fas fa-circle-arrow-right"></i>
                     </button>
                   </form>

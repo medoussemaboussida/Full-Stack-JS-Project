@@ -178,7 +178,7 @@ exports.addAssociation = async (req, res) => {
             }
 
             // Création de l'association
-            const logoPath = `/uploads/${Date.now()}-${req.file.originalname}`;
+            const logoPath = `/uploads/${req.file.filename}`; // Utilise le nom généré par multer
             const newAssociation = new Association({
                 Name_association,
                 Description_association,
@@ -188,15 +188,17 @@ exports.addAssociation = async (req, res) => {
                 created_by: req.userId
             });
 
-            // Tentative de sauvegarde avec gestion des erreurs de doublon
+            // Sauvegarde dans la base de données
             const savedAssociation = await newAssociation.save();
-            await fs.writeFile(path.join(__dirname, '..', 'uploads', `${Date.now()}-${req.file.originalname}`), req.file.buffer);
+            console.log(`✅ Association "${Name_association}" created successfully.`);
 
             console.timeEnd('addAssociation');
             res.status(201).json({ message: 'Association ajoutée avec succès', data: savedAssociation });
         } catch (error) {
             if (error.code === 11000 && error.keyPattern.contact_email_association) {
-                return res.status(409).json({ message: `L’email ${req.body.contact_email_association} est déjà utilisé par une autre association` });
+                return res.status(409).json({ 
+                    message: `L’email ${req.body.contact_email_association} est déjà utilisé par une autre association` 
+                });
             }
             console.error('Erreur lors de l’ajout de l’association :', error);
             res.status(500).json({ message: 'Erreur serveur interne', error: error.message });

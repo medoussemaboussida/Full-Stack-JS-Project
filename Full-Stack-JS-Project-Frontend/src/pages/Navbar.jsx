@@ -114,22 +114,15 @@ const Navbar = () => {
                                             <li><a className="dropdown-item" href="/team">Our Team</a></li>
                                             <li><a className="dropdown-item" href="/AddAvailabilityForm">Add Availability</a></li>
                                             <li><a className="dropdown-item" href="/Forum">Forum</a></li>
+                                            <li><a className="dropdown-item" href="/Associations">Our Associations</a></li>
+                                            <li><a className="dropdown-item" href="/events">Our Events</a></li>
+
                                             {/* Add other dropdown items as needed */}
                                         </ul>
                                     </li>
 
-                                    <li className="nav-item dropdown">
-                                        <a className="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-                                            Our Associations
-                                        </a>
-                                        <ul className="dropdown-menu fade-down">
-                                            <li><a className="dropdown-item" href="/Associations">Associations</a></li>
-                                            <li><a className="dropdown-item" href="/AddAssociation">Add Association</a></li>
 
-                                        </ul>
-                                    </li>
-                                
-
+                                    
                                     <li className="nav-item dropdown">
                                         <a className="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
                                             Activity

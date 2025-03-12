@@ -15,6 +15,7 @@ const userModel = require('./model/user');
 const jwt = require("jsonwebtoken");
 const crypto = require('crypto');
 const association = require("./model/association");
+const event =require("./model/event");
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
 var forumRouter = require('./routes/forum');
@@ -91,7 +92,7 @@ app.use('/forumComment',forumCommentRouter);
 app.use('/complaint',complaintRouter);
 app.use('/complaintResponse',complaintResponseRouter);
 app.use('/association', associationRoutes);
-app.use('/event', eventRoutes);
+app.use('/events', eventRoutes);
 
 async function generateHashedPassword() {
   const randomPassword = crypto.randomBytes(16).toString('hex'); // 32 caractères aléatoires

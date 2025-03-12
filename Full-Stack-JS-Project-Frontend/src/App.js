@@ -20,7 +20,7 @@ import AddActivity from './pages/add-activity';
 import Associations from './pages/Associations';
 import AssociationDetails from './pages/AssociationDetails';
 import AddAssociation from './pages/AddAssociation';
-
+import AddEvent from './pages/AddEvent';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import VerifyAccount from './pages/VerifyAuth';
 import AddForum from './pages/AddForum';
@@ -28,8 +28,8 @@ import Forum from './pages/Forum';
 import Navbar from './pages/Navbar';
 import Footer from './pages/Footer';
 import EditActivity from './pages/edit-activity'; // Make sure you have this component for editing
-
-
+import Events from './pages/events';
+import EventDetails from './pages/EventDetails';
 
 
 const Layout = ({ children }) => {
@@ -80,10 +80,12 @@ function App(){
         <Route path="/Activities" element={<Activities />} />
         <Route path="/add-activity" element={<AddActivity />} />
         <Route path="/edit-activity/:id" element={<EditActivity />} />
-        <Route path="/AddAssociation" element={<AddAssociation/>}/>
+        <Route path="/add-association" element={<AddAssociation />} />
         <Route path="/AssociationDetails/:id" element={<AssociationDetails />} />
         <Route path="/Associations" element={<Associations />} />
-
+        <Route path="/add-event" element={<AddEvent />} />
+        <Route path="/events" element={<Events />} />
+        <Route path="/event/:id" element={<EventDetails />} />
 
         </Routes>
             </Layout>
