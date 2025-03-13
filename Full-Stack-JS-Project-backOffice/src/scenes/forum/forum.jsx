@@ -161,7 +161,7 @@ const Forum = () => {
               <Box key={index} mb={2}>
                 <Box display="flex" alignItems="center" gap={2}>
                   <Avatar
-                    src={`http://localhost:5000/uploads/${comment.user_id?.user_photo}`}
+                    src={`http://localhost:5000${comment.user_id?.user_photo}`}
                     alt="User Avatar"
                     sx={{
                       width: 40,
