@@ -13,7 +13,6 @@ try {
     console.error('Failed to load CKEditor:', error);
 }
 
-// Fonction pour supprimer les balises HTML et retourner uniquement le texte
 const stripHtmlTags = (html) => {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = html;
@@ -33,11 +32,11 @@ function PublicationPsychiatristAll() {
     });
     const [previewImage, setPreviewImage] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [searchTerm, setSearchTerm] = useState(''); // État pour la barre de recherche
-    const [selectedDate, setSelectedDate] = useState(''); // État pour la date sélectionnée
-    const [sortOrder, setSortOrder] = useState('recent'); // Nouvel état pour le tri par date (recent ou oldest)
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedDate, setSelectedDate] = useState('');
+    const [sortOrder, setSortOrder] = useState('recent');
+    const [filterStatus, setFilterStatus] = useState('all'); // Nouvel état pour filtrer par statut
 
-    // Fonction pour récupérer les publications de l'utilisateur connecté depuis l'API
     const fetchMyPublications = async () => {
         try {
             const token = localStorage.getItem('jwt-token');
@@ -69,9 +68,8 @@ function PublicationPsychiatristAll() {
         }
     };
 
-    // Fonction pour ouvrir le modal d'édition
     const handleEdit = (post) => {
-        console.log('post.tag:', post.tag, 'typeof:', typeof post.tag); // Debug
+        console.log('post.tag:', post.tag, 'typeof:', typeof post.tag);
         let tags = [''];
         if (post.tag) {
             if (Array.isArray(post.tag)) {
@@ -92,7 +90,6 @@ function PublicationPsychiatristAll() {
         setShowEditModal(true);
     };
 
-    // Calcul de la progression du formulaire
     const calculateProgress = () => {
         let filledFields = 0;
         const totalFields = 4;
@@ -107,7 +104,6 @@ function PublicationPsychiatristAll() {
 
     const progress = calculateProgress();
 
-    // Gestion des changements dans le formulaire
     const handleChange = (e) => {
         const { name, value, files } = e.target;
         if (name === 'imagePublication') {
@@ -145,7 +141,6 @@ function PublicationPsychiatristAll() {
         }));
     };
 
-    // Fonction pour sauvegarder les modifications
     const handleSaveEdit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -175,13 +170,13 @@ function PublicationPsychiatristAll() {
             });
 
             const result = await response.json();
-            console.log('Update API Response:', result); // Debug
+            console.log('Update API Response:', result);
 
             if (response.ok) {
                 setPublications(publications.map(post =>
                     post._id === editFormData._id ? { ...post, ...result.publication } : post
                 ));
-                toast.success('Publication mise à jour avec succès', { autoClose: 3000 });
+                toast.success('Publication updated successfully', { autoClose: 3000 });
                 setShowEditModal(false);
             } else {
                 toast.error(`Échec de la mise à jour : ${result.message}`, { autoClose: 3000 });
@@ -193,7 +188,6 @@ function PublicationPsychiatristAll() {
         }
     };
 
-    // Fonction pour supprimer une publication avec Toast
     const handleDelete = (publicationId) => {
         const toastId = toast(
             <div>
@@ -212,7 +206,7 @@ function PublicationPsychiatristAll() {
 
                             if (response.ok) {
                                 setPublications(publications.filter(post => post._id !== publicationId));
-                                toast.success(`Publication supprimée avec succès`, { autoClose: 3000 });
+                                toast.success(`Publication deleted successfully`, { autoClose: 3000 });
                             } else {
                                 const data = await response.json();
                                 toast.error(`Échec de la suppression : ${data.message}`, { autoClose: 3000 });
@@ -238,7 +232,6 @@ function PublicationPsychiatristAll() {
         );
     };
 
-    // Fonction pour archiver une publication avec Toast
     const handleArchive = (publicationId) => {
         const toastId = toast(
             <div>
@@ -260,7 +253,7 @@ function PublicationPsychiatristAll() {
                                 setPublications(publications.map(post =>
                                     post._id === publicationId ? { ...post, status: 'archived' } : post
                                 ));
-                                toast.success(`Publication archivée avec succès`, { autoClose: 3000 });
+                                toast.success(`Publication archived successfully`, { autoClose: 3000 });
                             } else {
                                 const data = await response.json();
                                 toast.error(`Échec de l'archivage : ${data.message}`, { autoClose: 3000 });
@@ -286,7 +279,6 @@ function PublicationPsychiatristAll() {
         );
     };
 
-    // Fonction pour restaurer une publication avec Toast
     const handleRestore = (publicationId) => {
         const toastId = toast(
             <div>
@@ -308,7 +300,7 @@ function PublicationPsychiatristAll() {
                                 setPublications(publications.map(post =>
                                     post._id === publicationId ? { ...post, status: 'published' } : post
                                 ));
-                                toast.success(`Publication restaurée avec succès`, { autoClose: 3000 });
+                                toast.success(`Publication restored successfully`, { autoClose: 3000 });
                             } else {
                                 const data = await response.json();
                                 toast.error(`Échec de la restauration : ${data.message}`, { autoClose: 3000 });
@@ -334,33 +326,33 @@ function PublicationPsychiatristAll() {
         );
     };
 
-    // Gérer le changement du terme de recherche
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
     };
 
-    // Gérer le changement de la date sélectionnée
     const handleDateChange = (e) => {
         setSelectedDate(e.target.value);
     };
 
-    // Gérer le changement de l'ordre de tri
     const handleSortChange = (e) => {
         setSortOrder(e.target.value);
     };
 
-    // Filtrer et trier les publications
+    const handleFilterStatusChange = (e) => {
+        setFilterStatus(e.target.value);
+    };
+
     const filteredPublications = publications
         .filter(post => {
             const titre = stripHtmlTags(post.titrePublication).toLowerCase();
             const description = stripHtmlTags(post.description).toLowerCase();
             const term = searchTerm.toLowerCase();
-            const publicationDate = new Date(post.datePublication).toISOString().split('T')[0]; // Format YYYY-MM-DD
-
+            const publicationDate = new Date(post.datePublication).toISOString().split('T')[0];
             const matchesSearch = titre.includes(term) || description.includes(term);
             const matchesDate = selectedDate ? publicationDate === selectedDate : true;
+            const matchesStatus = filterStatus === 'all' ? true : post.status === filterStatus;
 
-            return matchesSearch && matchesDate;
+            return matchesSearch && matchesDate && matchesStatus;
         })
         .sort((a, b) => {
             const dateA = new Date(a.datePublication);
@@ -370,7 +362,7 @@ function PublicationPsychiatristAll() {
 
     useEffect(() => {
         fetchMyPublications();
-    }, [sortOrder]); // Recharger les publications lorsque l'ordre de tri change
+    }, [sortOrder]);
 
     if (isLoading) {
         return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Loading...</div>;
@@ -399,9 +391,7 @@ function PublicationPsychiatristAll() {
                                 </div>
                             </div>
                         </div>
-                        {/* Conteneur pour la barre de recherche, filtre par date et tri */}
                         <div style={{ marginBottom: '30px', display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
-                            {/* Barre de recherche */}
                             <input
                                 type="text"
                                 value={searchTerm}
@@ -429,7 +419,6 @@ function PublicationPsychiatristAll() {
                                     e.target.style.width = '60%';
                                 }}
                             />
-                            {/* Filtre par date */}
                             <input
                                 type="date"
                                 value={selectedDate}
@@ -456,7 +445,6 @@ function PublicationPsychiatristAll() {
                                     e.target.style.width = '200px';
                                 }}
                             />
-                            {/* Sélecteur de tri par date */}
                             <select
                                 value={sortOrder}
                                 onChange={handleSortChange}
@@ -484,6 +472,35 @@ function PublicationPsychiatristAll() {
                             >
                                 <option value="recent">Most Recent</option>
                                 <option value="oldest">Oldest First</option>
+                            </select>
+                            {/* Nouvelle liste déroulante pour filtrer par statut */}
+                            <select
+                                value={filterStatus}
+                                onChange={handleFilterStatusChange}
+                                style={{
+                                    padding: '15px 20px',
+                                    borderRadius: '25px',
+                                    border: 'none',
+                                    backgroundColor: '#fff',
+                                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+                                    fontSize: '16px',
+                                    color: '#333',
+                                    outline: 'none',
+                                    transition: 'all 0.3s ease',
+                                    width: '200px',
+                                    cursor: 'pointer',
+                                }}
+                                onFocus={(e) => {
+                                    e.target.style.boxShadow = '0 6px 20px rgba(14, 165, 230, 0.3)';
+                                    e.target.style.width = '220px';
+                                }}
+                                onBlur={(e) => {
+                                    e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
+                                    e.target.style.width = '200px';
+                                }}
+                            >
+                                <option value="all">All Publications</option>
+                                <option value="archived">Archived Publications</option>
                             </select>
                         </div>
                         <div className="row g-4">
@@ -567,7 +584,6 @@ function PublicationPsychiatristAll() {
                 </div>
             </main>
 
-            {/* Modal pour éditer une publication */}
             {showEditModal && (
                 <div
                     style={{
@@ -596,7 +612,6 @@ function PublicationPsychiatristAll() {
                             gap: '30px',
                         }}
                     >
-                        {/* Section gauche : Formulaire */}
                         <div>
                             <h3 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '20px' }}>Edit Publication</h3>
                             <form onSubmit={handleSaveEdit}>
@@ -784,7 +799,6 @@ function PublicationPsychiatristAll() {
                             </form>
                         </div>
 
-                        {/* Section droite : Sidebar */}
                         <div style={{ padding: '20px 0' }}>
                             <div style={{ position: 'relative' }}>
                                 <img

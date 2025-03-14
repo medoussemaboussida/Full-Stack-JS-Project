@@ -418,37 +418,59 @@ module.exports.updatePublicationStatus = async (req, res) => {
     }
 };
 
-// Épingler ou désépingler une publication
+// Épingler ou désépingler une publication pour l'utilisateur connecté
 module.exports.togglePinPublication = async (req, res) => {
     try {
         const { publicationId } = req.params;
-        const userId = req.userId; // Récupéré via verifyToken
+        const userId = req.userId; // Récupéré via le middleware verifyToken
 
-        // Vérifier si la publication existe et appartient à l'utilisateur
-        const publication = await Publication.findOne({ _id: publicationId, author_id: userId });
-        if (!publication) {
-            return res.status(404).json({ message: 'Publication non trouvée ou non autorisée' });
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'Utilisateur non trouvé' });
         }
 
-        // Inverser l'état isPinned
-        publication.isPinned = !publication.isPinned;
-        const updatedPublication = await publication.save();
+        const publication = await Publication.findById(publicationId);
+        if (!publication) {
+            return res.status(404).json({ message: 'Publication non trouvée' });
+        }
 
-        res.status(200).json({
-            message: publication.isPinned ? 'Publication épinglée avec succès' : 'Publication désépinglée avec succès',
-            publication: updatedPublication,
-        });
+        const isPinned = user.pinnedPublications.includes(publicationId);
+        if (isPinned) {
+            user.pinnedPublications = user.pinnedPublications.filter(id => id.toString() !== publicationId);
+            await user.save();
+            return res.status(200).json({ message: 'Publication désépinglée avec succès' });
+        } else {
+            user.pinnedPublications.push(publicationId);
+            await user.save();
+            return res.status(200).json({ message: 'Publication épinglée avec succès' });
+        }
     } catch (error) {
         console.error('Erreur lors de la gestion de l’épinglage:', error);
         res.status(500).json({ message: 'Erreur serveur', error: error.message });
     }
 };
 
-// Mettre à jour getAllPublications pour inclure isPinned dans la réponse
+// Récupérer les publications épinglées de l'utilisateur connecté
+module.exports.getPinnedPublications = async (req, res) => {
+    try {
+        const userId = req.userId; // Récupéré via verifyToken
+        const user = await User.findById(userId).populate('pinnedPublications');
+        if (!user) {
+            return res.status(404).json({ message: 'Utilisateur non trouvé' });
+        }
+
+        res.status(200).json(user.pinnedPublications);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des publications épinglées:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// getAllPublications reste inchangé car il ne doit pas être affecté par les pins individuels
 module.exports.getAllPublications = async (req, res) => {
     try {
-        const { sort } = req.query; // Accepter un paramètre de tri
-        const sortOrder = sort === 'oldest' ? 1 : -1; // Par défaut, tri récent (-1)
+        const { sort } = req.query;
+        const sortOrder = sort === 'oldest' ? 1 : -1;
 
         const publications = await Publication.aggregate([
             {
@@ -471,7 +493,7 @@ module.exports.getAllPublications = async (req, res) => {
                 $unwind: { path: '$author_id', preserveNullAndEmptyArrays: true },
             },
             {
-                $sort: { datePublication: sortOrder }, // Trier par date selon le paramètre
+                $sort: { datePublication: sortOrder },
             },
             {
                 $project: {
@@ -481,7 +503,6 @@ module.exports.getAllPublications = async (req, res) => {
                     datePublication: 1,
                     tag: 1,
                     status: 1,
-                    isPinned: 1, // Inclure le champ isPinned
                     'author_id._id': 1,
                     'author_id.username': 1,
                     commentsCount: { $size: '$commentaires' },
@@ -491,7 +512,6 @@ module.exports.getAllPublications = async (req, res) => {
             },
         ]);
 
-        // Filtrer les publications archivées côté serveur
         const filteredPublications = publications.filter(post => post.status !== 'archived');
         res.status(200).json(filteredPublications);
     } catch (error) {

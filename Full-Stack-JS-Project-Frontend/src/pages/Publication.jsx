@@ -26,6 +26,7 @@ function Publication() {
     const [isLoading, setIsLoading] = useState(true);
     const [publications, setPublications] = useState([]);
     const [favoritePublications, setFavoritePublications] = useState([]);
+    const [pinnedPublications, setPinnedPublications] = useState([]); // État pour les publications épinglées
     const [showEditModal, setShowEditModal] = useState(false);
     const [editFormData, setEditFormData] = useState({
         _id: '',
@@ -43,7 +44,7 @@ function Publication() {
 
     const publicationsPerPage = 6;
 
-    // Fonction pour récupérer toutes les publications depuis l'API
+    // Récupérer toutes les publications depuis l'API
     const fetchPublications = async () => {
         try {
             console.log('Fetching publications from API...');
@@ -68,7 +69,7 @@ function Publication() {
         }
     };
 
-    // Fonction pour récupérer les publications favorites
+    // Récupérer les publications favorites
     const fetchFavoritePublications = async () => {
         try {
             const token = localStorage.getItem('jwt-token');
@@ -87,6 +88,31 @@ function Publication() {
             }
         } catch (error) {
             console.error('Error fetching favorite publications:', error);
+        }
+    };
+
+    // Récupérer les publications épinglées depuis l'API
+    const fetchPinnedPublications = async () => {
+        try {
+            const token = localStorage.getItem('jwt-token');
+            if (!token) return;
+
+            const response = await fetch('http://localhost:5000/users/pinnedPublications', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setPinnedPublications(data.map(pub => pub._id)); // Stocker uniquement les IDs
+                console.log('Pinned Publications fetched:', data);
+            } else {
+                console.error('Failed to fetch pinned publications:', data.message);
+            }
+        } catch (error) {
+            console.error('Error fetching pinned publications:', error);
         }
     };
 
@@ -118,16 +144,17 @@ function Publication() {
         }
     };
 
-    // Gérer l'épinglage/désépinglage d'une publication via l'API
+    // Gérer l'épinglage/désépinglage via l'API
     const handlePin = async (publicationId) => {
         const token = localStorage.getItem('jwt-token');
         if (!token) {
             toast.error('Vous devez être connecté pour épingler une publication');
             return;
         }
+
         try {
             const response = await fetch(`http://localhost:5000/users/publication/pin/${publicationId}`, {
-                method: 'PATCH',
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
@@ -136,11 +163,11 @@ function Publication() {
             const data = await response.json();
             if (response.ok) {
                 toast.success(data.message);
-                // Mettre à jour localement les publications avec le nouvel état isPinned
-                setPublications(prev =>
-                    prev.map(post =>
-                        post._id === publicationId ? { ...post, isPinned: data.publication.isPinned } : post
-                    )
+                // Mettre à jour localement l'état pinnedPublications
+                setPinnedPublications(prev => 
+                    prev.includes(publicationId) 
+                        ? prev.filter(id => id !== publicationId) 
+                        : [...prev, publicationId]
                 );
             } else {
                 toast.error(`Erreur: ${data.message}`);
@@ -162,7 +189,7 @@ function Publication() {
         setCurrentPage(1);
     };
 
-    // Filtrer et trier les publications avec épinglage basé sur isPinned
+    // Filtrer et trier les publications avec épinglage basé sur pinnedPublications
     const displayedPublications = filterType === 'favorites' ? favoritePublications : publications;
     const filteredPublications = displayedPublications
         .filter(post => {
@@ -172,8 +199,8 @@ function Publication() {
             return titre.includes(term) || auteur.includes(term);
         })
         .sort((a, b) => {
-            const isAPinned = a.isPinned;
-            const isBPinned = b.isPinned;
+            const isAPinned = pinnedPublications.includes(a._id);
+            const isBPinned = pinnedPublications.includes(b._id);
 
             if (isAPinned && !isBPinned) return -1; // A épinglé, B non -> A en premier
             if (!isAPinned && isBPinned) return 1;  // B épinglé, A non -> B en premier
@@ -334,6 +361,7 @@ function Publication() {
                             if (response.ok) {
                                 setPublications(publications.filter(post => post._id !== publicationId));
                                 setFavoritePublications(favoritePublications.filter(post => post._id !== publicationId));
+                                setPinnedPublications(pinnedPublications.filter(id => id !== publicationId)); // Retirer des épinglés
                                 toast.success('Publication successfully deleted', { autoClose: 3000 });
                             } else {
                                 const data = await response.json();
@@ -380,6 +408,7 @@ function Publication() {
                             if (response.ok) {
                                 setPublications(publications.filter(post => post._id !== publicationId));
                                 setFavoritePublications(favoritePublications.filter(post => post._id !== publicationId));
+                                setPinnedPublications(pinnedPublications.filter(id => id !== publicationId)); // Retirer des épinglés
                                 toast.success('Publication successfully archived', { autoClose: 3000 });
                             } else {
                                 const data = await response.json();
@@ -426,6 +455,7 @@ function Publication() {
                             if (data.role === 'student') {
                                 fetchFavoritePublications();
                             }
+                            fetchPinnedPublications(); // Charger les publications épinglées au démarrage
                         } else {
                             console.error('Failed to fetch user:', data.message);
                         }
@@ -614,7 +644,7 @@ function Publication() {
                                             overflow: 'hidden',
                                             boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
                                             transition: 'transform 0.3s ease',
-                                            border: post.isPinned ? '2px solid #ffd700' : 'none', // Bordure dorée si épinglé
+                                            border: pinnedPublications.includes(post._id) ? '2px solid #ffd700' : 'none', // Bordure dorée si épinglé
                                         }}
                                         onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-10px)'}
                                         onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
@@ -761,26 +791,27 @@ function Publication() {
                                                         >
                                                             Archive <i className="fas fa-archive" style={{ marginLeft: '5px' }}></i>
                                                         </button>
-                                                        <button
-                                                            onClick={() => handlePin(post._id)}
-                                                            style={{
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                background: post.isPinned ? '#ffd700' : '#ff9800',
-                                                                color: '#fff',
-                                                                padding: '10px 20px',
-                                                                borderRadius: '5px',
-                                                                border: 'none',
-                                                                cursor: 'pointer',
-                                                                transition: 'background 0.3s ease'
-                                                            }}
-                                                            onMouseEnter={(e) => e.target.style.background = post.isPinned ? '#ffca28' : '#f57c00'}
-                                                            onMouseLeave={(e) => e.target.style.background = post.isPinned ? '#ffd700' : '#ff9800'}
-                                                        >
-                                                            {post.isPinned ? 'Unpin' : 'Pin'} <i className="fas fa-thumbtack" style={{ marginLeft: '5px' }}></i>
-                                                        </button>
                                                     </>
                                                 )}
+                                                {/* Bouton Pin pour toutes les publications */}
+                                                <button
+                                                    onClick={() => handlePin(post._id)}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        background: pinnedPublications.includes(post._id) ? '#ffd700' : '#ff9800',
+                                                        color: '#fff',
+                                                        padding: '10px 20px',
+                                                        borderRadius: '5px',
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        transition: 'background 0.3s ease'
+                                                    }}
+                                                    onMouseEnter={(e) => e.target.style.background = pinnedPublications.includes(post._id) ? '#ffca28' : '#f57c00'}
+                                                    onMouseLeave={(e) => e.target.style.background = pinnedPublications.includes(post._id) ? '#ffd700' : '#ff9800'}
+                                                >
+                                                    {pinnedPublications.includes(post._id) ? 'Unpin' : 'Pin'} <i className="fas fa-thumbtack" style={{ marginLeft: '5px' }}></i>
+                                                </button>
                                             </div>
                                         </div>
                                     </div>

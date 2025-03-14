@@ -36,7 +36,8 @@ router.post('/publication/dislike/:publicationId', userController.verifyToken, u
 router.post('/publication/favorite/:publicationId', userController.verifyToken, userController.toggleFavorite);
 router.get('/favoritePublications', userController.verifyToken, userController.getFavoritePublications);
 router.get('/searchPublications', userController.searchPublications);
-router.patch('/publication/pin/:publicationId', userController.verifyToken, userController.togglePinPublication);
+router.post('/publication/pin/:publicationId', userController.verifyToken, userController.togglePinPublication); // Nouvelle route pour épingler/désépingler
+router.get('/pinnedPublications', userController.verifyToken, userController.getPinnedPublications); // Nouvelle route pour récupérer les épinglés
 
 
 

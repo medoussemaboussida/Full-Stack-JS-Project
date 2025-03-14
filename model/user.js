@@ -87,6 +87,11 @@ availability: [
     ],
 
     favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Publication' }],
+
+    pinnedPublications: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Publication', // Référence au modèle Publication
+    }],
 },
 
 
