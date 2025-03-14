@@ -124,7 +124,8 @@ module.exports.Session = async (req, res) => {
             level: user.level,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
-            availability: user.availability
+            availability: user.availability,
+            receiveEmails: user.receiveEmails // Ajouté ici
         });
     } catch (error) {
         res.status(500).json({ message: 'Erreur serveur', error });
@@ -323,21 +324,27 @@ module.exports.getStudentById = async (req, res) => {
     }
 };
 
+// Nouvelle route pour mettre à jour la préférence email
+module.exports.updateReceiveEmails = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const { receiveEmails } = req.body;
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
+        user.receiveEmails = receiveEmails;
+        const updatedUser = await user.save();
+        res.status(200).json({ message: "Préférence email mise à jour avec succès", user: updatedUser });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
 module.exports.addPublication = (req, res) => {
     upload1(req, res, async (err) => {
-        if (err) {
-            console.log('Erreur Multer:', err);
-            return res.status(400).json({ message: err });
-        }
-
+        if (err) return res.status(400).json({ message: err });
         try {
-            console.log('Données reçues:', req.body, req.file);
             const { titrePublication, description } = req.body;
-
-            if (!titrePublication || !description) {
-                return res.status(400).json({ message: 'Le titre et la description sont obligatoires' });
-            }
-
+            if (!titrePublication || !description) return res.status(400).json({ message: 'The title and description are required' });
             const publication = new Publication({
                 titrePublication,
                 description,
@@ -347,45 +354,36 @@ module.exports.addPublication = (req, res) => {
                 datePublication: new Date(),
                 tag: req.body.tag ? req.body.tag.split(',') : []
             });
-
             const savedPublication = await publication.save();
-
-            // Récupérer tous les étudiants
-            const students = await User.find({ role: 'student' });
+            const students = await User.find({ role: 'student', receiveEmails: true }); // Filtrer les étudiants qui veulent recevoir des emails
             if (students.length === 0) {
                 console.log('Aucun étudiant trouvé pour recevoir l’email.');
             } else {
-                // Construire le contenu de l'email
                 const publicationLink = `http://localhost:3000/PublicationDetailPsy/${savedPublication._id}`;
                 const subject = 'New Publication Added on EspritCare';
                 const htmlContent = `
-                    <h2>New Publication Available!"</h2>
+                    <h2>New Publication Available!</h2>
                     <p>Hello</p>
                     <p>A new publication has been added by a psychiatrist on EspritCare:</p>
                     <ul>
                         <li><strong>Title :</strong> ${titrePublication}</li>
                         <li><strong>Description :</strong> ${description}</li>
                     </ul>
-                    <p>Click on the link below to view it. :</p>
+                    <p>Click on the link below to view it:</p>
                     <a href="${publicationLink}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #0ea5e6; color: #fff; text-decoration: none; border-radius: 5px;">
                         View Publication
                     </a>
-                    <p>Stay connected for more updates !</p>
+                    <p>Stay connected for more updates!</p>
                 `;
-
-                // Envoyer un email à chaque étudiant
                 const emailPromises = students.map(student =>
                     sendEmail(student.email, subject, htmlContent)
                         .catch(err => console.error(`Erreur lors de l’envoi à ${student.email} :`, err))
                 );
-
                 await Promise.all(emailPromises);
                 console.log(`Emails envoyés à ${students.length} étudiants.`);
             }
-
-            res.status(201).json({ message: 'Publication ajoutée avec succès', publication: savedPublication });
+            res.status(201).json({ message: 'Publication added successfully', publication: savedPublication });
         } catch (error) {
-            console.log('Erreur lors de l’ajout:', error);
             res.status(500).json({ message: 'Erreur lors de l’ajout de la publication', error: error.message });
         }
     });
@@ -438,11 +436,11 @@ module.exports.togglePinPublication = async (req, res) => {
         if (isPinned) {
             user.pinnedPublications = user.pinnedPublications.filter(id => id.toString() !== publicationId);
             await user.save();
-            return res.status(200).json({ message: 'Publication désépinglée avec succès' });
+            return res.status(200).json({ message: 'Publication unpinned successfully' });
         } else {
             user.pinnedPublications.push(publicationId);
             await user.save();
-            return res.status(200).json({ message: 'Publication épinglée avec succès' });
+            return res.status(200).json({ message: 'Publication pinned successfully' });
         }
     } catch (error) {
         console.error('Erreur lors de la gestion de l’épinglage:', error);

@@ -6,7 +6,7 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { useNavigate } from 'react-router-dom'; // Import pour la navigation
+import { useNavigate } from 'react-router-dom';
 
 function DetailsStudents() {
   const [user, setUser] = useState(null);
@@ -24,6 +24,7 @@ function DetailsStudents() {
     role: "",
     etat: "",
     user_photo: "",
+    receiveEmails: true
   });
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
@@ -41,7 +42,8 @@ function DetailsStudents() {
   const [selectedDateInfo, setSelectedDateInfo] = useState(null);
 
   const BASE_URL = "http://localhost:5000";
-const navigate = useNavigate();
+  const navigate = useNavigate();
+
   const formatDateForInput = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -120,6 +122,7 @@ const navigate = useNavigate();
                 role: data.role,
                 etat: data.etat,
                 user_photo: data.user_photo || "",
+                receiveEmails: data.receiveEmails
               });
               setPreviewPhoto(data.user_photo ? `${BASE_URL}${data.user_photo}` : "assets/img/user.png");
               if (data.availability) {
@@ -153,6 +156,7 @@ const navigate = useNavigate();
       role: user.role,
       etat: user.etat,
       user_photo: user.user_photo || "",
+      receiveEmails: user.receiveEmails
     });
   };
 
@@ -178,6 +182,32 @@ const navigate = useNavigate();
       const reader = new FileReader();
       reader.onloadend = () => setPreviewPhoto(reader.result);
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleReceiveEmailsChange = async (e) => {
+    const value = e.target.value === "yes";
+    setFormData((prevData) => ({ ...prevData, receiveEmails: value }));
+    try {
+      const token = localStorage.getItem("jwt-token");
+      const decoded = jwtDecode(token);
+      const response = await fetch(`${BASE_URL}/users/update-receive-emails/${decoded.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ receiveEmails: value }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setUser((prevUser) => ({ ...prevUser, receiveEmails: value }));
+        toast.success("Email preference updated successfully");
+      } else {
+        toast.error(`Error updating email preference: ${data.message}`);
+      }
+    } catch (error) {
+      toast.error("Error updating email preference");
     }
   };
 
@@ -360,13 +390,13 @@ const navigate = useNavigate();
   const handleDateSelect = (selectInfo) => {
     console.log("Selected date:", selectInfo.start);
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to midnight for comparison
+    today.setHours(0, 0, 0, 0);
     const selectedDate = new Date(selectInfo.start);
     selectedDate.setHours(0, 0, 0, 0);
 
     if (selectedDate < today) {
       toast.error("You cannot select a date in the past!");
-      return; // Prevent opening the modal for past dates
+      return;
     }
 
     setSelectedDateInfo(selectInfo);
@@ -425,7 +455,6 @@ const navigate = useNavigate();
       console.error(error);
     }
   };
-
 
   const handleAddAssociation = () => {
     navigate('/add-association');
@@ -626,6 +655,70 @@ const navigate = useNavigate();
                     ))}
                   </div>
 
+                  {/* Section "Receive Email Notifications" améliorée */}
+                  {user.role === "student" && (
+                    <div style={{
+                      marginTop: "20px",
+                      background: "#ffffff",
+                      borderRadius: "12px",
+                      padding: "20px",
+                      boxShadow: "0 2px 10px rgba(0, 0, 0, 0.05)",
+                    }}>
+                      <h6 style={{
+                        fontSize: "1rem",
+                        color: "#2d3748",
+                        marginBottom: "15px",
+                        fontWeight: "600",
+                      }}>
+                        Receive Email Notifications
+                      </h6>
+                      <div style={{ display: "flex", gap: "25px" }}>
+                        <label style={{
+                          display: "flex",
+                          alignItems: "center",
+                          cursor: "pointer",
+                          padding: "8px 16px",
+                          borderRadius: "20px",
+                          backgroundColor: formData.receiveEmails === true ? "#4CAF50" : "#f1f5f9",
+                          color: formData.receiveEmails === true ? "#ffffff" : "#2d3748",
+                          transition: "all 0.3s ease",
+                          boxShadow: formData.receiveEmails === true ? "0 2px 5px rgba(0, 0, 0, 0.1)" : "none",
+                        }}>
+                          <input
+                            type="radio"
+                            name="receiveEmails"
+                            value="yes"
+                            checked={formData.receiveEmails === true}
+                            onChange={handleReceiveEmailsChange}
+                            style={{ display: "none" }}
+                          />
+                          <span style={{ marginLeft: "8px", fontWeight: "500" }}>Yes</span>
+                        </label>
+                        <label style={{
+                          display: "flex",
+                          alignItems: "center",
+                          cursor: "pointer",
+                          padding: "8px 16px",
+                          borderRadius: "20px",
+                          backgroundColor: formData.receiveEmails === false ? "#f44336" : "#f1f5f9",
+                          color: formData.receiveEmails === false ? "#ffffff" : "#2d3748",
+                          transition: "all 0.3s ease",
+                          boxShadow: formData.receiveEmails === false ? "0 2px 5px rgba(0, 0, 0, 0.1)" : "none",
+                        }}>
+                          <input
+                            type="radio"
+                            name="receiveEmails"
+                            value="no"
+                            checked={formData.receiveEmails === false}
+                            onChange={handleReceiveEmailsChange}
+                            style={{ display: "none" }}
+                          />
+                          <span style={{ marginLeft: "8px", fontWeight: "500" }}>No</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
                   <div style={{ display: "flex", gap: "15px", marginTop: "30px", flexWrap: "wrap" }}>
                     {user.role === "student" && (
                       isEditing ? (
@@ -658,15 +751,15 @@ const navigate = useNavigate();
                       </button>
                     )}
                     {user.role === "association_member" && (
-  <>
-    <button onClick={handleAddAssociation} style={{ backgroundColor: "#00BCD4", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "8px" }}>
-      <i className="fas fa-users" style={{ marginRight: "8px" }}></i> Add Association
-    </button>
-    <button onClick={handleAddEvent} style={{ backgroundColor: "#8BC34A", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "8px" }}>
-      <i className="fas fa-calendar-plus" style={{ marginRight: "8px" }}></i> Add Event
-    </button>
-  </>
-)}
+                      <>
+                        <button onClick={handleAddAssociation} style={{ backgroundColor: "#00BCD4", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "8px" }}>
+                          <i className="fas fa-users" style={{ marginRight: "8px" }}></i> Add Association
+                        </button>
+                        <button onClick={handleAddEvent} style={{ backgroundColor: "#8BC34A", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "8px" }}>
+                          <i className="fas fa-calendar-plus" style={{ marginRight: "8px" }}></i> Add Event
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
