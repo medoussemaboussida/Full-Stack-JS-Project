@@ -30,7 +30,7 @@ function Forum() {
   const [updatedDescription, setUpdatedDescription] = useState(""); // Valeur pour mettre à jour la description
   const [updatedPhoto, setUpdatedPhoto] = useState(null); // Valeur pour mettre à jour la photo du forum
   const [updatedAnonymous, setUpdatedAnonymous] = useState(false); // Valeur pour mettre à jour l'option "anonyme"
-  const [comment, setComment] = useState(""); // État pour le commentaire
+  const [comment, setComment] = useState({}); // État pour le commentaire
   const [expanded, setExpanded] = useState({}); // Suivi de l'état d'expansion de chaque forum
   const [anonymous, setAnonymous] = useState(false);
   const [comments, setComments] = useState([]); // Pour stocker les commentaires
@@ -116,7 +116,10 @@ function Forum() {
       if (response.ok) {
         console.log("Comment added:", data);
         toast.success("Your Comment is added successfully!");
-        setComment(""); // Clear the comment field
+        setComments((prev) => ({
+          ...prev,
+          [forumId]: "", // Réinitialiser uniquement cet input
+        }));
       } else {
         console.error("Error adding comment:", data.message || data);
         toast.error("Failed to add your comment");
@@ -380,7 +383,17 @@ function Forum() {
                           </div>
                         )}
                     </div>
-                    <h3>{forum.title}</h3>
+                    <h3
+                      style={{
+                        wordBreak: "break-word", // Coupe les mots trop longs si nécessaire
+                        overflowWrap: "break-word", // Assure le retour à la ligne pour les mots longs
+                        whiteSpace: "normal", // Permet le retour à la ligne naturel
+                        maxWidth: "100%", // Limite à la largeur du conteneur parent
+                        margin: 0, // Assure qu'il n'y a pas de marge supplémentaire qui interfère
+                      }}
+                    >
+                      {forum.title}
+                    </h3>
                     <br />
                     <p
                       className="forum-description mb-0 "
@@ -436,14 +449,23 @@ function Forum() {
                           fontSize: "14px",
                           maxWidth: "90%",
                         }}
-                        value={comment}
-                        onChange={(e) => setComment(e.target.value)}
+                        value={comments[forum._id] || ""} // Valeur spécifique à ce forum
+                        onChange={(e) =>
+                          setComments((prev) => ({
+                            ...prev,
+                            [forum._id]: e.target.value, // Mise à jour pour ce forum uniquement
+                          }))
+                        }
                       />
 
                       {/* Bouton d'envoi avec icône */}
                       <button
                         onClick={() =>
-                          handleAddComment(forum._id, comment, anonymous)
+                          handleAddComment(
+                            forum._id,
+                            comments[forum._id] || "",
+                            anonymous
+                          )
                         }
                         className="btn btn-primary d-flex align-items-center justify-content-center"
                         style={{
@@ -765,7 +787,13 @@ function Forum() {
             </h3>
 
             {/* Affichage des commentaires */}
-            <div>
+            <div
+              style={{
+                maxHeight: comments.length > 3 ? "300px" : "auto",
+                overflowY: comments.length > 3 ? "auto" : "visible",
+                marginBottom: "20px",
+              }}
+            >
               {comments.length > 0 ? (
                 comments.map((comment, index) => (
                   <div
@@ -774,7 +802,7 @@ function Forum() {
                       marginBottom: "10px",
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "space-between", // Permet d'aligner les éléments à gauche et à droite
+                      justifyContent: "space-between",
                       padding: "10px",
                       borderBottom: "1px solid #ddd",
                     }}
@@ -826,8 +854,18 @@ function Forum() {
                             </span>
                           </p>
                         )}
-                        {/* Contenu du commentaire */}
-                        <p style={{ margin: 0 }}>{comment.content}</p>
+                        {/* Contenu du commentaire avec retour à la ligne */}
+                        <p
+                          style={{
+                            margin: 0,
+                            wordBreak: "break-word", // Coupe les mots trop longs si nécessaire
+                            overflowWrap: "break-word", // Assure le retour à la ligne pour les mots longs
+                            whiteSpace: "normal", // Permet le retour à la ligne naturel
+                            maxWidth: "700px", // Limite la largeur pour éviter le débordement
+                          }}
+                        >
+                          {comment.content}
+                        </p>
                       </div>
                     </div>
 
@@ -841,8 +879,8 @@ function Forum() {
                           color: "red",
                         }}
                         onClick={() => {
-                          setCommentToDelete(comment._id); // Définir le commentaire à supprimer
-                          setShowDeleteCommentModal(true); // Afficher le modal de confirmation
+                          setCommentToDelete(comment._id);
+                          setShowDeleteCommentModal(true);
                         }}
                       >
                         <FontAwesomeIcon icon={faTrashAlt} />
