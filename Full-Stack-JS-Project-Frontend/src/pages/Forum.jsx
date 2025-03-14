@@ -8,6 +8,7 @@ import {
   faPaperPlane,
   faEye,
 } from "@fortawesome/free-regular-svg-icons";
+import { faSearch } from "@fortawesome/free-solid-svg-icons"; // Ajout de l'icône faSearch
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
 
@@ -38,7 +39,10 @@ function Forum() {
   const [forumIdForComments, setForumIdForComments] = useState(null); // Pour stocker l'ID du forum actuel
   const [commentToDelete, setCommentToDelete] = useState(null); // Commentaire à supprimer
   const [showDeleteCommentModal, setShowDeleteCommentModal] = useState(false); // Afficher/masquer le modal de suppression de commentaire
-
+  const [updatedTag, setUpdatedTag] = useState(""); // Nouvel état pour le tag
+  const [searchQuery, setSearchQuery] = useState(""); // État pour la valeur de recherche
+  const [isSearchOpen, setIsSearchOpen] = useState(false); // État pour contrôler l'affichage du champ de recherche
+  const [sortOption, setSortOption] = useState("newest"); // État pour l'option de tri
   const navigate = useNavigate();
 
   // Fonction pour basculer l'état d'expansion
@@ -48,7 +52,42 @@ function Forum() {
       [forumId]: !prev[forumId], // Inverse l'état d'expansion pour ce forum
     }));
   };
-
+  // Fonction pour basculer l'affichage du champ de recherche
+  const toggleSearch = () => {
+    setIsSearchOpen((prev) => !prev);
+    if (isSearchOpen) {
+      setSearchQuery(""); // Réinitialiser la recherche quand le champ disparaît
+    }
+  };
+  const filteredForums = forums
+    .filter((forum) => {
+      if (!searchQuery) return true; // Si pas de recherche, afficher tous les forums
+      const query = searchQuery.toLowerCase();
+      const titleMatch = forum.title.toLowerCase().includes(query);
+      const descriptionMatch = forum.description.toLowerCase().includes(query);
+      const tagsMatch =
+        forum.tags &&
+        forum.tags.some((tag) => tag.toLowerCase().includes(query));
+      return titleMatch || descriptionMatch || tagsMatch;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.createdAt);
+      const dateB = new Date(b.createdAt);
+      return sortOption === "newest" ? dateB - dateA : dateA - dateB; // Tri par date
+    });
+  // Liste des tags prédéfinis
+  const tagOptions = [
+    "anxiety",
+    "stress",
+    "depression",
+    "burnout",
+    "studies",
+    "loneliness",
+    "motivation",
+    "support",
+    "insomnia",
+    "pressure",
+  ];
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
     if (token) {
@@ -201,7 +240,7 @@ function Forum() {
     formData.append("title", updatedTitle);
     formData.append("description", updatedDescription);
     formData.append("anonymous", updatedAnonymous);
-
+    formData.append("tags", JSON.stringify(updatedTag ? [updatedTag] : [])); // Ajouter les tags
     if (updatedPhoto) {
       formData.append("forum_photo", updatedPhoto);
     }
@@ -227,6 +266,7 @@ function Forum() {
                     ? URL.createObjectURL(updatedPhoto)
                     : forum.forum_photo,
                   anonymous: updatedAnonymous,
+                  tags: updatedTag ? [updatedTag] : [], // Mettre à jour les tags localement
                 }
               : forum
           )
@@ -277,12 +317,92 @@ function Forum() {
             style={{ maxWidth: "800px", margin: "0 auto" }}
           >
             <div className="forum-header d-flex justify-content-between align-items-center mb-4">
-              <button
-                className="theme-btn"
-                onClick={() => navigate("/addforum")}
+              {/* Champ de recherche à gauche avec icône et animation */}
+              <div
+                style={{
+                  position: "relative",
+                  width: isSearchOpen ? "400px" : "40px",
+                  transition: "width 0.3s ease",
+                }}
               >
-                Add New Topic
-              </button>
+                {!isSearchOpen ? (
+                  <FontAwesomeIcon
+                    icon={faSearch}
+                    style={{
+                      fontSize: "20px",
+                      color: "#007bff",
+                      cursor: "pointer",
+                    }}
+                    onClick={toggleSearch}
+                  />
+                ) : (
+                  <>
+                    <FontAwesomeIcon
+                      icon={faSearch}
+                      style={{
+                        position: "absolute",
+                        left: "15px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: "#007bff",
+                        fontSize: "18px",
+                        cursor: "pointer",
+                      }}
+                      onClick={toggleSearch}
+                    />
+                    <input
+                      type="text"
+                      placeholder=" Search any topic..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      style={{
+                        padding: "8px 8px 8px 40px",
+                        borderRadius: "50px",
+                        border: "1px solid #007bff",
+                        outline: "none",
+                        width: isSearchOpen ? "100%" : "0%", // Animation de la largeur
+                        boxSizing: "border-box",
+                        opacity: isSearchOpen ? 1 : 0, // Animation de l'opacité
+                        transition: "opacity 0.10s ease, width 0.10s ease", // Transition pour l'apparition et la disparition
+                        visibility: isSearchOpen ? "visible" : "hidden", // S'assurer que l'input est complètement caché
+                      }}
+                    />
+                  </>
+                )}
+              </div>
+              {/* Conteneur pour la liste déroulante et le bouton */}
+              <div className="d-flex align-items-center">
+                {/* Liste déroulante à gauche */}
+                <select
+                  value={sortOption}
+                  onChange={(e) => setSortOption(e.target.value)}
+                  style={{
+                    padding: "10px",
+                    borderRadius: "50px",
+                    border: "1px solid #007bff",
+                    outline: "none",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    marginRight: "10px",
+                    width: "200px", // Augmentation de la largeur
+                    
+                  }}
+                >
+                  <option value="newest">Newest Topics</option>
+                  <option value="oldest">Oldest Topics</option>
+                </select>
+
+                {/* Bouton Add New Topic */}
+                <button
+                  className="theme-btn"
+                  style={{
+                    borderRadius: "50px",
+                  }}
+                  onClick={() => navigate("/addforum")}
+                >
+                  New Topic
+                </button>
+              </div>
             </div>
 
             <div
@@ -293,8 +413,8 @@ function Forum() {
                 width: "100%", // Responsive
               }}
             >
-              {forums.length > 0 ? (
-                forums.map((forum) => (
+              {filteredForums.length > 0 ? (
+                filteredForums.map((forum) => (
                   <div
                     key={forum._id}
                     className="forum-item p-4 border rounded mb-4"
@@ -315,7 +435,6 @@ function Forum() {
                             objectFit: "cover", // Cela garantit que l'image est redimensionnée pour garder un bon aspect circulaire
                           }}
                         />
-
                         <h6 className="mb-0 me-3">
                           {forum.anonymous
                             ? "Anonymous member"
@@ -338,7 +457,26 @@ function Forum() {
                             >
                               {forum.user_id.level} {forum.user_id.speciality}
                             </span>
-                          )}
+                          )}{" "}
+                        &nbsp;&nbsp;
+                        {/* Badge pour les tags (affiché dans tous les cas) */}
+                        {forum.tags && forum.tags.length > 0 && (
+                          <span
+                            className="badge"
+                            style={{
+                              backgroundColor: "transparent",
+                              border: "1px solid #FF0000", // Cadre rouge
+                              color: "#FF0000", // Texte rouge
+                              padding: "2px 8px",
+                              borderRadius: "20px",
+                              boxShadow: "0 0 10px rgba(255, 0, 0, 0.5)", // Lueur rouge
+                              fontSize: "0.875rem",
+                            }}
+                          >
+                            {forum.tags.join(", ")}{" "}
+                            {/* Affiche les tags séparés par une virgule */}
+                          </span>
+                        )}
                       </div>
 
                       {/* Alignement des icônes à droite */}
@@ -360,6 +498,7 @@ function Forum() {
                                 setUpdatedDescription(forum.description); // Pré-remplir la description
                                 setUpdatedAnonymous(forum.anonymous); // Pré-remplir l'option anonyme
                                 setShowUpdateModal(true); // Afficher le modal d'édition
+                                setUpdatedTag(forum.tags && forum.tags.length > 0 ? forum.tags[0] : "");
                               }}
                             >
                               <FontAwesomeIcon icon={faEdit} />{" "}
@@ -546,6 +685,22 @@ function Forum() {
                         Anonymous comment ?
                       </label>
                     </div>
+                    {/* Affichage des dates createdAt et updatedAt */}
+                    <div
+                      className="mt-3 text-muted"
+                      style={{ fontSize: "14px" }}
+                    >
+                      <p style={{ margin: 0 }}>
+                        Posted at :{" "}
+                        {new Date(forum.createdAt).toLocaleString("fr-FR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
                   </div>
                 ))
               ) : (
@@ -694,6 +849,26 @@ function Forum() {
               >
                 <option value="false">No</option>
                 <option value="true">Yes</option>
+              </select>
+            </div>
+            <div style={{ marginBottom: "15px" }}>
+              <label style={{ color: "black" }}>Tag:</label>
+              <select
+                value={updatedTag}
+                onChange={(e) => setUpdatedTag(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px",
+                  borderRadius: "50px",
+                  border: "1px solid #ddd",
+                }}
+              >
+                <option value="">Select a tag</option>
+                {tagOptions.map((tag) => (
+                  <option key={tag} value={tag}>
+                    {tag}
+                  </option>
+                ))}
               </select>
             </div>
             <div style={{ marginBottom: "15px" }}>

@@ -9,7 +9,12 @@ const AddForum = () => {
   const [userId, setUserId] = useState(null);
   const [token, setToken] = useState(null);
   const [anonymous, setAnonymous] = useState('no'); // Valeur initiale à 'no'
-
+  const [tags, setTags] = useState(""); // Nouvel état pour les tags
+  // Liste des tags prédéfinis
+  const tagOptions = [
+    "anxiety", "stress", "depression", "burnout", "studies",
+    "loneliness", "motivation", "support", "insomnia", "pressure"
+  ];
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
     if (token) {
@@ -52,7 +57,7 @@ const AddForum = () => {
     formData.append("title", title);
     formData.append("description", description);
     formData.append("anonymous", anonymous); 
-
+    formData.append("tags", JSON.stringify(tags ? [tags] : []));
     if (forumPhoto) {
         formData.append("forum_photo", forumPhoto);
       }
@@ -76,7 +81,8 @@ const AddForum = () => {
       setDescription("");
       setAnonymous('no'); // Réinitialiser la valeur de "anonymous"
       setForumPhoto(null);
-        toast.success('Your topic is added successfully!');
+      setTags(""); // Réinitialiser le tag
+      toast.success('Your topic is added successfully!');
 
 
     } catch (error) {
@@ -176,6 +182,25 @@ const AddForum = () => {
                     >
                       <option value="yes">Yes</option>
                       <option value="no">No</option>
+                    </select>
+                  </div>
+                  {/* Liste déroulante simple pour les tags */}
+                  <div className="form-group">
+                    <label htmlFor="tag" className="font-semibold text-lg">
+                      Tag:
+                    </label>
+                    <select
+                      id="tag"
+                      value={tags}
+                      onChange={(e) => setTags(e.target.value)}
+                      className="form-control"
+                    >
+                      <option value="">Select a tag</option>
+                      {tagOptions.map((tagOption) => (
+                        <option key={tagOption} value={tagOption}>
+                          {tagOption}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="auth-group text-center">

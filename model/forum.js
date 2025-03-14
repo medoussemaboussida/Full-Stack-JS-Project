@@ -6,8 +6,15 @@ const forumSchema = new mongoose.Schema({
     forum_photo: {type : String , required: false},
     status: { type: String, enum: ["actif", "inactif"], default: "actif" },
     user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },   
-    anonymous: { type: Boolean } 
-
+    anonymous: { type: Boolean } ,
+    tags: {
+        type: [String], // Tableau de chaînes de caractères
+        default: [],    // Valeur par défaut : tableau vide
+        enum: [         // Liste des tags autorisés
+          "anxiety", "stress", "depression", "burnout", "studies",
+          "loneliness", "motivation", "support", "insomnia", "pressure"
+        ],
+      },
 },
 {
     timestamps:true

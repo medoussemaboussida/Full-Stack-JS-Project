@@ -8,7 +8,7 @@ module.exports.addForum = async (req, res) => {
        
 
         // Récupérer les données du corps de la requête
-        const { title, description,anonymous  } = req.body;
+        const { title, description,anonymous, } = req.body;
         const { user_id } = req.params;
 
         // Vérifier si l'utilisateur existe
@@ -18,9 +18,9 @@ module.exports.addForum = async (req, res) => {
         }
 
         const forum_photo = req.file ? req.file.filename : null; // Si pas de fichier, forum_photo sera null
-
+        const tags = req.body.tags ? JSON.parse(req.body.tags) : [];
         // Créer un nouveau forum
-        const forum = new Forum({ title, description, forum_photo, user_id,anonymous });
+        const forum = new Forum({ title, description, forum_photo, user_id,anonymous ,tags});
 
         // Sauvegarder le forum dans la base de données
         const forumAdded = await forum.save();
@@ -66,7 +66,7 @@ module.exports.updateForum = async (req, res) => {
         const { forum_id } = req.params;
 
         // Récupérer les données du corps de la requête
-        const { title, description, anonymous } = req.body;
+        const { title, description, anonymous,tags} = req.body;
 
         // Vérifier si le forum existe
         const forum = await Forum.findById(forum_id);
@@ -78,7 +78,16 @@ module.exports.updateForum = async (req, res) => {
         if (title) forum.title = title;
         if (description) forum.description = description;
         if (anonymous !== undefined) forum.anonymous = anonymous;
-
+        if (tags) {
+            // Parser les tags (envoyés sous forme de chaîne JSON)
+            const parsedTags = JSON.parse(tags);
+            // Vérifier que les tags sont valides (présents dans l'enum du schéma)
+            const validTags = parsedTags.filter(tag => 
+                ["anxiety", "stress", "depression", "burnout", "studies", 
+                 "loneliness", "motivation", "support", "insomnia", "pressure"].includes(tag)
+            );
+            forum.tags = validTags; // Mettre à jour les tags
+        }
         // Mettre à jour la photo du forum si un fichier est envoyé
         const forum_photo = req.file ? req.file.filename : null;
         if (forum_photo) {
