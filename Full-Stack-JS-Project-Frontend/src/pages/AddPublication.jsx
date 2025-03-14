@@ -298,16 +298,29 @@ function AddPublication() {
                                             <label
                                                 htmlFor="imageUpload"
                                                 style={{
-                                                    display: 'inline-block',
-                                                    background: '#0ea5e6',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    background: '#28a745', // Nouvelle couleur : Vert
                                                     color: '#fff',
-                                                    padding: '10px 20px',
-                                                    borderRadius: '5px',
+                                                    padding: '12px 24px',
+                                                    borderRadius: '8px',
                                                     fontSize: '16px',
                                                     fontWeight: '600',
                                                     cursor: 'pointer',
+                                                    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
+                                                    transition: 'all 0.3s ease',
+                                                    gap: '8px', // Espacement entre l'icône et le texte
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.target.style.background = '#218838'; // Couleur au survol
+                                                    e.target.style.transform = 'scale(1.05)';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.target.style.background = '#28a745';
+                                                    e.target.style.transform = 'scale(1)';
                                                 }}
                                             >
+                                                <i className="fas fa-camera" /> {/* Icône FontAwesome */}
                                                 Add Photo
                                             </label>
                                         </div>
