@@ -5,15 +5,19 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import { Navigation, Pagination } from 'swiper/modules';
-import { toast, ToastContainer } from 'react-toastify'; // Import react-toastify
-import 'react-toastify/dist/ReactToastify.css'; // Import the CSS for react-toastify
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
 import '../App.css';
 
 const PsychiatristList = () => {
     const [psychiatrists, setPsychiatrists] = useState([]);
-    const [selectedSlot, setSelectedSlot] = useState(null);
-    const [selectedPsychiatristId, setSelectedPsychiatristId] = useState(null);
-    const [availabilityPage, setAvailabilityPage] = useState({});
+    const [selectedPsychiatrist, setSelectedPsychiatrist] = useState(null);
+    const [showCalendarModal, setShowCalendarModal] = useState(false);
+    const [events, setEvents] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
@@ -26,48 +30,65 @@ const PsychiatristList = () => {
             })
             .catch(error => {
                 console.error('Error fetching psychiatrists:', error);
-                toast.error('Error fetching psychiatrists: ' + error.message, {
-                    position: 'top-right',
-                    autoClose: 5000,
-                    hideProgressBar: false,
-                    closeOnClick: true,
-                    pauseOnHover: true,
-                    draggable: true,
-                });
+                toast.error('Error fetching psychiatrists: ' + error.message);
             });
     }, []);
 
-    const handleBookAppointment = async () => {
-        if (!selectedSlot || !selectedPsychiatristId) {
-            toast.error('Please select an availability slot first!', {
-                position: 'top-right',
-                autoClose: 3000,
-                hideProgressBar: false,
-                closeOnClick: true,
-                pauseOnHover: true,
-                draggable: true,
-            });
+    const formatAvailabilitiesToEvents = (availabilities) => {
+        return availabilities.map((slot, index) => {
+            let startDate, endDate;
+
+            if (slot.date) {
+                startDate = new Date(slot.date);
+                startDate.setHours(parseInt(slot.startTime.split(':')[0]), parseInt(slot.startTime.split(':')[1]), 0, 0);
+                endDate = new Date(slot.date);
+                endDate.setHours(parseInt(slot.endTime.split(':')[0]), parseInt(slot.endTime.split(':')[1]), 0, 0);
+            } else {
+                const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                const dayIndex = daysOfWeek.indexOf(slot.day);
+                if (dayIndex === -1) return null;
+                const currentDate = new Date();
+                startDate = new Date(currentDate);
+                const daysToAdd = (dayIndex - currentDate.getDay() + 7) % 7;
+                startDate.setDate(currentDate.getDate() + daysToAdd);
+                startDate.setHours(parseInt(slot.startTime.split(':')[0]), parseInt(slot.startTime.split(':')[1]), 0, 0);
+                endDate = new Date(startDate);
+                endDate.setHours(parseInt(slot.endTime.split(':')[0]), parseInt(slot.endTime.split(':')[1]), 0, 0);
+            }
+
+            return {
+                id: index,
+                title: slot.title || `Available - ${slot.day}`,
+                start: startDate.toISOString(),
+                end: endDate.toISOString(),
+            };
+        }).filter(Boolean);
+    };
+
+    const handleViewAvailability = (psychiatrist) => {
+        setSelectedPsychiatrist(psychiatrist);
+        const formattedEvents = formatAvailabilitiesToEvents(psychiatrist.availability);
+        setEvents(formattedEvents);
+        setShowCalendarModal(true);
+    };
+
+    const handleBookAppointment = async (eventInfo) => {
+        if (!eventInfo) {
+            toast.error('Please select an availability slot from the calendar!');
             return;
         }
 
         const token = localStorage.getItem('jwt-token');
         if (!token) {
-            toast.error('You must be logged in to book an appointment!', {
-                position: 'top-right',
-                autoClose: 3000,
-                hideProgressBar: false,
-                closeOnClick: true,
-                pauseOnHover: true,
-                draggable: true,
-            });
+            toast.error('You must be logged in to book an appointment!');
             return;
         }
 
         const bookingData = {
-            psychiatristId: selectedPsychiatristId,
-            day: selectedSlot.day,
-            startTime: selectedSlot.startTime,
-            endTime: selectedSlot.endTime,
+            psychiatristId: selectedPsychiatrist._id,
+            day: new Date(eventInfo.start).toLocaleString('en-us', { weekday: 'long' }),
+            startTime: eventInfo.start.toTimeString().slice(0, 5),
+            endTime: eventInfo.end.toTimeString().slice(0, 5),
         };
 
         try {
@@ -81,62 +102,27 @@ const PsychiatristList = () => {
                     },
                 }
             );
-            toast.success('Appointment booked successfully!', {
-                position: 'top-right',
-                autoClose: 3000,
-                hideProgressBar: false,
-                closeOnClick: true,
-                pauseOnHover: true,
-                draggable: true,
-            });
-            // Optionally reset the selected slot and psychiatrist after booking
-            setSelectedSlot(null);
-            setSelectedPsychiatristId(null);
+            toast.success('Appointment booked successfully!');
+            setShowCalendarModal(false);
         } catch (error) {
-            toast.error(
-                `Error booking appointment: ${error.response?.data?.message || error.message}`,
-                {
-                    position: 'top-right',
-                    autoClose: 5000,
-                    hideProgressBar: false,
-                    closeOnClick: true,
-                    pauseOnHover: true,
-                    draggable: true,
-                }
-            );
+            toast.error(`Error booking appointment: ${error.response?.data?.message || error.message}`);
         }
     };
 
-    const selectSlot = (psychiatristId, slot) => {
-        setSelectedPsychiatristId(psychiatristId);
-        setSelectedSlot(slot);
-    };
-
-    const handleAvailabilityPagination = (psychiatristId, direction, total) => {
-        setAvailabilityPage((prev) => {
-            const currentPage = prev[psychiatristId] || 0;
-            let newPage = direction === 'next' ? currentPage + 1 : currentPage - 1;
-            const maxPage = Math.ceil(total / 3) - 1;
-
-            if (newPage < 0) newPage = 0;
-            if (newPage > maxPage) newPage = maxPage;
-
-            return { ...prev, [psychiatristId]: newPage };
-        });
-    };
-
-    const filterAvailability = (availability) => {
-        if (!searchTerm.trim()) return availability;
-        return availability.filter(slot =>
-            slot.day.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            slot.startTime.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            slot.endTime.toLowerCase().includes(searchTerm.toLowerCase())
+    const filterPsychiatrists = () => {
+        if (!searchTerm.trim()) return psychiatrists;
+        return psychiatrists.filter(psy =>
+            psy.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            psy.availability.some(slot =>
+                slot.day.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                slot.startTime.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                slot.endTime.toLowerCase().includes(searchTerm.toLowerCase())
+            )
         );
     };
 
     return (
         <main className="main">
-            {/* Add ToastContainer to render the toasts */}
             <ToastContainer />
             <div className="testimonial-area pt-80 pb-60">
                 <div className="container">
@@ -157,7 +143,7 @@ const PsychiatristList = () => {
                             type="text"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Search availability (e.g., Monday, 10:00)"
+                            placeholder="Search by name or availability (e.g., Monday, 10:00)"
                             className="search-input"
                         />
                     </div>
@@ -174,86 +160,110 @@ const PsychiatristList = () => {
                         }}
                         className="testimonial-slider"
                     >
-                        {psychiatrists.length > 0 ? (
-                            psychiatrists.map((psychiatrist) => {
-                                const filteredAvailability = filterAvailability(psychiatrist.availability);
-                                const page = availabilityPage[psychiatrist._id] || 0;
-                                const paginatedAvailability = filteredAvailability.slice(page * 3, (page + 1) * 3);
-                                const hasNext = (page + 1) * 3 < filteredAvailability.length;
-                                const hasPrev = page > 0;
-
-                                return (
-                                    <SwiperSlide key={psychiatrist._id}>
-                                        <div className="psychiatrist-card">
-                                            <div className="psychiatrist-img">
-                                                {psychiatrist.user_photo ? (
-                                                    <img
-                                                        src={`http://localhost:5000${psychiatrist.user_photo}`}
-                                                        alt={psychiatrist.username}
-                                                    />
-                                                ) : (
-                                                    <div className="no-image">No Image</div>
-                                                )}
-                                            </div>
-                                            <div className="psychiatrist-info">
-                                                <h4>{psychiatrist.username}</h4>
-                                                <p>Psychiatrist</p>
-                                                <strong>Availability:</strong>
-                                                {paginatedAvailability.length > 0 ? (
-                                                    <ul>
-                                                        {paginatedAvailability.map((avail, idx) => (
-                                                            <li
-                                                                key={idx}
-                                                                onClick={() => selectSlot(psychiatrist._id, avail)}
-                                                                style={{
-                                                                    cursor: 'pointer',
-                                                                    backgroundColor:
-                                                                        selectedSlot === avail && selectedPsychiatristId === psychiatrist._id
-                                                                            ? '#e0f7fa'
-                                                                            : 'transparent',
-                                                                }}
-                                                            >
-                                                                {avail.day}: {avail.startTime} - {avail.endTime}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                ) : (
-                                                    <span>No matching availability</span>
-                                                )}
-                                                <div className="pagination-buttons">
-                                                    {hasPrev && (
-                                                        <button
-                                                            onClick={() => handleAvailabilityPagination(psychiatrist._id, 'prev', filteredAvailability.length)}
-                                                        >
-                                                            ←
-                                                        </button>
-                                                    )}
-                                                    {hasNext && (
-                                                        <button
-                                                            onClick={() => handleAvailabilityPagination(psychiatrist._id, 'next', filteredAvailability.length)}
-                                                        >
-                                                            →
-                                                        </button>
-                                                    )}
-                                                </div>
-                                                <button
-                                                    className="book-appointment-btn"
-                                                    onClick={handleBookAppointment}
-                                                    disabled={!selectedSlot || selectedPsychiatristId !== psychiatrist._id}
-                                                >
-                                                    Book Appointment
-                                                </button>
-                                            </div>
+                        {filterPsychiatrists().length > 0 ? (
+                            filterPsychiatrists().map((psychiatrist) => (
+                                <SwiperSlide key={psychiatrist._id}>
+                                    <div className="psychiatrist-card">
+                                        <div className="psychiatrist-img">
+                                            {psychiatrist.user_photo ? (
+                                                <img
+                                                    src={`http://localhost:5000${psychiatrist.user_photo}`}
+                                                    alt={psychiatrist.username}
+                                                />
+                                            ) : (
+                                                <div className="no-image">No Image</div>
+                                            )}
                                         </div>
-                                    </SwiperSlide>
-                                );
-                            })
+                                        <div className="psychiatrist-info">
+                                            <h4>{psychiatrist.username}</h4>
+                                            <p>Psychiatrist</p>
+                                            <button
+                                                className="view-availability-btn"
+                                                onClick={() => handleViewAvailability(psychiatrist)}
+                                                style={{
+                                                    backgroundColor: '#6CB4EE',
+                                                    color: 'white',
+                                                    padding: '10px 20px',
+                                                    border: 'none',
+                                                    borderRadius: '5px',
+                                                    cursor: 'pointer',
+                                                }}
+                                            >
+                                                View Availability
+                                            </button>
+                                        </div>
+                                    </div>
+                                </SwiperSlide>
+                            ))
                         ) : (
                             <div className="text-center text-gray-500">No psychiatrists found.</div>
                         )}
                     </Swiper>
                 </div>
             </div>
+
+            {showCalendarModal && selectedPsychiatrist && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: 1000,
+                }}>
+                    <div style={{
+                        backgroundColor: 'white',
+                        padding: '20px',
+                        borderRadius: '8px',
+                        width: '90%',
+                        maxWidth: '1000px',
+                        maxHeight: '90vh',
+                        overflow: 'auto',
+                    }}>
+                        <h3 style={{ textAlign: 'center', marginBottom: '10px' }}>
+                            {selectedPsychiatrist.username}'s Availability
+                        </h3>
+                        <p style={{ textAlign: 'center', color: '#555', marginBottom: '20px' }}>
+                            Click an event to book an appointment
+                        </p>
+                        <FullCalendar
+                            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                            initialView="timeGridWeek"
+                            events={events}
+                            eventClick={(info) => handleBookAppointment(info.event)}
+                            slotMinTime="08:00:00"
+                            slotMaxTime="20:00:00"
+                            headerToolbar={{
+                                left: 'prev,next today',
+                                center: 'title',
+                                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                            }}
+                            selectable={false} // Disable selection since we're using eventClick for booking
+                        />
+                        <button
+                            onClick={() => setShowCalendarModal(false)}
+                            style={{
+                                backgroundColor: '#f44336',
+                                color: 'white',
+                                padding: '10px 20px',
+                                fontSize: '16px',
+                                border: 'none',
+                                cursor: 'pointer',
+                                borderRadius: '5px',
+                                marginTop: '20px',
+                                display: 'block',
+                                marginLeft: 'auto',
+                            }}
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
         </main>
     );
 };
