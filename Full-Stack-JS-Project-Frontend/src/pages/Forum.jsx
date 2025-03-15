@@ -7,6 +7,7 @@ import {
   faTrashAlt,
   faPaperPlane,
   faEye,
+  faFlag,
 } from "@fortawesome/free-regular-svg-icons";
 import { faSearch } from "@fortawesome/free-solid-svg-icons"; // Ajout de l'icône faSearch
 import "react-toastify/dist/ReactToastify.css";
@@ -43,6 +44,15 @@ function Forum() {
   const [searchQuery, setSearchQuery] = useState(""); // État pour la valeur de recherche
   const [isSearchOpen, setIsSearchOpen] = useState(false); // État pour contrôler l'affichage du champ de recherche
   const [sortOption, setSortOption] = useState("newest"); // État pour l'option de tri
+  const [showUpdateCommentModal, setShowUpdateCommentModal] = useState(false); // Contrôler l'affichage du modal de mise à jour
+  const [commentToUpdate, setCommentToUpdate] = useState(null); // Commentaire à mettre à jour
+  const [updatedCommentContent, setUpdatedCommentContent] = useState(""); // Contenu modifié du commentaire
+  const [showReportForumModal, setShowReportForumModal] = useState(false); // Contrôler l'affichage du modal de signalement
+  const [forumToReport, setForumToReport] = useState(null); // Forum à signaler
+  const [reportReason, setReportReason] = useState(""); // Raison du signalement
+  const [showReportCommentModal, setShowReportCommentModal] = useState(false); // Contrôler l'affichage du modal de signalement des commentaires
+  const [commentToReport, setCommentToReport] = useState(null); // Commentaire à signaler
+  const [commentReportReason, setCommentReportReason] = useState(""); // Raison du signalement du commentaire (séparée pour différencier des forums)
   const navigate = useNavigate();
 
   // Fonction pour basculer l'état d'expansion
@@ -279,6 +289,115 @@ function Forum() {
         toast.error("Failed to update your topic !");
       });
   };
+  // Mettre à jour un commentaire
+  const handleUpdateComment = async (commentId) => {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/forumComment/updateComment/${commentId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ content: updatedCommentContent }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Mettre à jour localement la liste des commentaires
+        setComments((prevComments) =>
+          prevComments.map((comment) =>
+            comment._id === commentId
+              ? { ...comment, content: updatedCommentContent }
+              : comment
+          )
+        );
+        setShowUpdateCommentModal(false); // Fermer le modal
+        toast.success("Your comment was updated successfully!");
+      } else {
+        console.error(
+          "Erreur lors de la mise à jour du commentaire:",
+          data.message
+        );
+        toast.error("Failed to update your comment!");
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'appel API:", error);
+      toast.error("Failed to update your comment!");
+    }
+  };
+  // Signaler un forum
+  const handleReportForum = async () => {
+    if (!reportReason) {
+      toast.error("Please select a reason for reporting!");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:5000/forum/reportForum", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          forum_id: forumToReport,
+          user_id: userId,
+          reason: reportReason,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        toast.success("Forum reported successfully!");
+        setShowReportForumModal(false); // Fermer le modal
+        setReportReason(""); // Réinitialiser la raison
+      } else {
+        toast.error("Failed to report forum: " + data.message);
+      }
+    } catch (error) {
+      toast.error("Error reporting forum: " + error.message);
+    }
+  };
+  // Signaler un commentaire
+  const handleReportComment = async () => {
+    if (!commentReportReason) {
+      toast.error("Please select a reason for reporting!");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        "http://localhost:5000/forumComment/reportComment",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            comment_id: commentToReport,
+            user_id: userId,
+            reason: commentReportReason,
+          }),
+        }
+      );
+
+      const data = await response.json();
+      if (response.ok) {
+        toast.success("Comment reported successfully!");
+        setShowReportCommentModal(false); // Fermer le modal
+        setCommentReportReason(""); // Réinitialiser la raison
+      } else {
+        toast.error("Failed to report comment: " + data.message);
+      }
+    } catch (error) {
+      toast.error("Error reporting comment: " + error.message);
+    }
+  };
 
   return (
     <div>
@@ -385,7 +504,6 @@ function Forum() {
                     fontSize: "14px",
                     marginRight: "10px",
                     width: "200px", // Augmentation de la largeur
-                    
                   }}
                 >
                   <option value="newest">Newest Topics</option>
@@ -425,7 +543,7 @@ function Forum() {
                           src={
                             forum.anonymous
                               ? "assets/img/anonymous_member.png"
-                              : `http://localhost:5000${forum.user_id.user_photo}`
+                              : `http://localhost:5000/uploads/${forum.user_id.user_photo}`
                           }
                           alt="User"
                           className="rounded-circle me-2"
@@ -478,49 +596,70 @@ function Forum() {
                           </span>
                         )}
                       </div>
-
-                      {/* Alignement des icônes à droite */}
-                      {userId &&
-                        forum.user_id &&
-                        userId === forum.user_id._id && (
-                          <div className="d-flex align-items-center">
-                            <span
-                              className="icon"
-                              style={{
-                                cursor: "pointer",
-                                fontSize: "20px",
-                                color: "#007bff",
-                                marginRight: "15px",
-                              }}
-                              onClick={() => {
-                                setForumToUpdate(forum); // Définir le forum à mettre à jour
-                                setUpdatedTitle(forum.title); // Pré-remplir le titre
-                                setUpdatedDescription(forum.description); // Pré-remplir la description
-                                setUpdatedAnonymous(forum.anonymous); // Pré-remplir l'option anonyme
-                                setShowUpdateModal(true); // Afficher le modal d'édition
-                                setUpdatedTag(forum.tags && forum.tags.length > 0 ? forum.tags[0] : "");
-                              }}
-                            >
-                              <FontAwesomeIcon icon={faEdit} />{" "}
-                              {/* Icône Edit */}
-                            </span>
-                            <span
-                              className="icon"
-                              style={{
-                                cursor: "pointer",
-                                fontSize: "20px",
-                                color: "red",
-                              }}
-                              onClick={() => {
-                                setForumToDelete(forum._id); // Définir le forum à supprimer
-                                setShowDeleteModal(true); // Afficher le modal de confirmation
-                              }}
-                            >
-                              <FontAwesomeIcon icon={faTrashAlt} />{" "}
-                              {/* Icône Delete */}
-                            </span>
-                          </div>
+                      <div className="d-flex align-items-center">
+                        {/* Icônes d'édition et de suppression (seulement pour l'auteur) */}
+                        {userId &&
+                          forum.user_id &&
+                          userId === forum.user_id._id && (
+                            <>
+                              <span
+                                className="icon"
+                                style={{
+                                  cursor: "pointer",
+                                  fontSize: "20px",
+                                  color: "#007bff",
+                                  marginRight: "15px",
+                                }}
+                                onClick={() => {
+                                  setForumToUpdate(forum);
+                                  setUpdatedTitle(forum.title);
+                                  setUpdatedDescription(forum.description);
+                                  setUpdatedAnonymous(forum.anonymous);
+                                  setShowUpdateModal(true);
+                                  setUpdatedTag(
+                                    forum.tags && forum.tags.length > 0
+                                      ? forum.tags[0]
+                                      : ""
+                                  );
+                                }}
+                              >
+                                <FontAwesomeIcon icon={faEdit} />
+                              </span>
+                              <span
+                                className="icon"
+                                style={{
+                                  cursor: "pointer",
+                                  fontSize: "20px",
+                                  color: "red",
+                                  marginRight: "15px",
+                                }}
+                                onClick={() => {
+                                  setForumToDelete(forum._id);
+                                  setShowDeleteModal(true);
+                                }}
+                              >
+                                <FontAwesomeIcon icon={faTrashAlt} />
+                              </span>
+                            </>
+                          )}
+                        {/* Icône de signalement (visible pour tous les utilisateurs authentifiés) */}
+                        {userId && (
+                          <span
+                            className="icon"
+                            style={{
+                              cursor: "pointer",
+                              fontSize: "20px",
+                              color: "orange",
+                            }}
+                            onClick={() => {
+                              setForumToReport(forum._id); // Définir le forum à signaler
+                              setShowReportForumModal(true); // Afficher le modal de signalement
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faFlag} />
+                          </span>
                         )}
+                      </div>
                     </div>
                     <h3
                       style={{
@@ -976,7 +1115,7 @@ function Forum() {
                     style={{
                       marginBottom: "10px",
                       display: "flex",
-                      alignItems: "center",
+                      alignItems: "flex-start", // Alignement en haut
                       justifyContent: "space-between",
                       padding: "10px",
                       borderBottom: "1px solid #ddd",
@@ -986,31 +1125,38 @@ function Forum() {
                     <div
                       style={{
                         display: "flex",
-                        alignItems: "center",
+                        alignItems: "flex-start", // Alignement en haut
                         gap: "10px",
+                        flex: 1, // Prendre l'espace disponible
                       }}
                     >
-                      {/* Avatar */}
-                      <img
-                        src={
-                          comment.anonymous
-                            ? "/assets/img/anonymous_member.png"
-                            : `http://localhost:5000${comment.user_id.user_photo}`
-                        }
-                        alt="User Avatar"
-                        style={{
-                          width: "40px",
-                          height: "40px",
-                          borderRadius: "50%",
-                          objectFit: "cover",
-                        }}
-                      />
-                      <div>
+                      {/* Avatar avec largeur fixe */}
+                      <div style={{ flexShrink: 0 }}>
+                        <img
+                          src={
+                            comment.anonymous
+                              ? "/assets/img/anonymous_member.png"
+                              : `http://localhost:5000/uploads/${comment.user_id.user_photo}`
+                          }
+                          alt="User Avatar"
+                          style={{
+                            width: "40px",
+                            height: "40px",
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      </div>
+
+                      {/* Nom et Contenu */}
+                      <div style={{ flex: 1 }}>
                         {/* Nom ou "Anonymous Member" */}
                         {comment.anonymous ? (
-                          <p style={{ margin: 0 }}>Anonymous Member</p>
+                          <p style={{ margin: 0, fontWeight: "bold" }}>
+                            Anonymous Member
+                          </p>
                         ) : (
-                          <p style={{ margin: 0 }}>
+                          <p style={{ margin: 0, fontWeight: "bold" }}>
                             {comment.user_id.username}{" "}
                             <span
                               className="badge"
@@ -1033,10 +1179,10 @@ function Forum() {
                         <p
                           style={{
                             margin: 0,
-                            wordBreak: "break-word", // Coupe les mots trop longs si nécessaire
-                            overflowWrap: "break-word", // Assure le retour à la ligne pour les mots longs
-                            whiteSpace: "normal", // Permet le retour à la ligne naturel
-                            maxWidth: "700px", // Limite la largeur pour éviter le débordement
+                            wordBreak: "break-word",
+                            overflowWrap: "break-word",
+                            whiteSpace: "normal",
+                            color: "#333", // Couleur du texte pour correspondre à l'image
                           }}
                         >
                           {comment.content}
@@ -1044,23 +1190,67 @@ function Forum() {
                       </div>
                     </div>
 
-                    {/* Icône de suppression alignée à droite */}
-                    {userId === comment.user_id._id && (
-                      <span
-                        className="icon"
-                        style={{
-                          cursor: "pointer",
-                          fontSize: "18px",
-                          color: "red",
-                        }}
-                        onClick={() => {
-                          setCommentToDelete(comment._id);
-                          setShowDeleteCommentModal(true);
-                        }}
-                      >
-                        <FontAwesomeIcon icon={faTrashAlt} />
-                      </span>
-                    )}
+                    {/* Icônes d'édition, suppression et signalement alignées à droite */}
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "10px",
+                        alignItems: "center",
+                      }}
+                    >
+                      {/* Icône d'édition (seulement pour l'auteur) */}
+                      {userId === comment.user_id._id && (
+                        <span
+                          className="icon"
+                          style={{
+                            cursor: "pointer",
+                            fontSize: "18px",
+                            color: "#007bff",
+                          }}
+                          onClick={() => {
+                            setCommentToUpdate(comment);
+                            setUpdatedCommentContent(comment.content);
+                            setShowUpdateCommentModal(true);
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faEdit} />
+                        </span>
+                      )}
+                      {/* Icône de suppression (seulement pour l'auteur) */}
+                      {userId === comment.user_id._id && (
+                        <span
+                          className="icon"
+                          style={{
+                            cursor: "pointer",
+                            fontSize: "18px",
+                            color: "red",
+                          }}
+                          onClick={() => {
+                            setCommentToDelete(comment._id);
+                            setShowDeleteCommentModal(true);
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faTrashAlt} />
+                        </span>
+                      )}
+                      {/* Icône de signalement (visible pour tous les utilisateurs authentifiés) */}
+                      {userId && (
+                        <span
+                          className="icon"
+                          style={{
+                            cursor: "pointer",
+                            fontSize: "18px",
+                            color: "orange",
+                          }}
+                          onClick={() => {
+                            setCommentToReport(comment._id); // Définir le commentaire à signaler
+                            setShowReportCommentModal(true); // Afficher le modal de signalement
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faFlag} />
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))
               ) : (
@@ -1154,6 +1344,258 @@ function Forum() {
                 }}
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de mise à jour du commentaire */}
+      {showUpdateCommentModal && commentToUpdate && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "500px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+              Update Comment
+            </h3>
+            <div style={{ marginBottom: "15px" }}>
+              <label style={{ color: "black" }}>Comment Content:</label>
+              <textarea
+                value={updatedCommentContent}
+                onChange={(e) => setUpdatedCommentContent(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px",
+                  borderRadius: "10px",
+                  border: "1px solid #ddd",
+                  minHeight: "100px",
+                }}
+              />
+            </div>
+            <div
+              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+            >
+              <button
+                onClick={() => setShowUpdateCommentModal(false)}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleUpdateComment(commentToUpdate._id)}
+                style={{
+                  backgroundColor: "#4CAF50",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Update
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de signalement de forum */}
+      {showReportForumModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "400px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+              Report Forum
+            </h3>
+            <div style={{ marginBottom: "15px" }}>
+              <label style={{ color: "black" }}>Reason for reporting:</label>
+              <select
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px",
+                  borderRadius: "50px",
+                  border: "1px solid #ddd",
+                }}
+              >
+                <option value="">Select a reason</option>
+                <option value="inappropriate_content">
+                  Inappropriate Content
+                </option>
+                <option value="spam">Spam</option>
+                <option value="harassment">Harassment</option>
+                <option value="offensive_language">Offensive Language</option>
+                <option value="misinformation">Misinformation</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div
+              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+            >
+              <button
+                onClick={() => {
+                  setShowReportForumModal(false);
+                  setReportReason(""); // Réinitialiser la raison
+                }}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReportForum}
+                style={{
+                  backgroundColor: "#4CAF50",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de signalement de commentaire */}
+      {showReportCommentModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "400px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+              Report Comment
+            </h3>
+            <div style={{ marginBottom: "15px" }}>
+              <label style={{ color: "black" }}>Reason for reporting:</label>
+              <select
+                value={commentReportReason}
+                onChange={(e) => setCommentReportReason(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px",
+                  borderRadius: "50px",
+                  border: "1px solid #ddd",
+                }}
+              >
+                <option value="">Select a reason</option>
+                <option value="inappropriate_content">
+                  Inappropriate Content
+                </option>
+                <option value="spam">Spam</option>
+                <option value="harassment">Harassment</option>
+                <option value="offensive_language">Offensive Language</option>
+                <option value="misinformation">Misinformation</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div
+              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+            >
+              <button
+                onClick={() => {
+                  setShowReportCommentModal(false);
+                  setCommentReportReason(""); // Réinitialiser la raison
+                }}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReportComment}
+                style={{
+                  backgroundColor: "#4CAF50",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Report
               </button>
             </div>
           </div>
