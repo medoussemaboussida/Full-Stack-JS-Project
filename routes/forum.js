@@ -7,6 +7,6 @@ router.post('/addForum/:user_id',upload.single("forum_photo"),forumController.ad
 router.get('/getForum',forumController.getForum);
 router.put('/updateForum/:forum_id',upload.single("forum_photo"),forumController.updateForum);
 router.delete('/deleteForum/:forum_id',forumController.deleteForum);
-
-
+router.post("/reportForum", forumController.addReportForum);
+router.get("/getForumReports/:forumId", forumController.getForumReports);
 module.exports = router;

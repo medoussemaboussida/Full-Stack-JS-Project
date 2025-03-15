@@ -1,6 +1,6 @@
 const User = require('../model/user');
 const Forum = require('../model/forum');
-
+const Report = require("../model/ForumReport");
 //add forum topic
 module.exports.addForum = async (req, res) => {
     try {
@@ -126,3 +126,56 @@ module.exports.deleteForum = async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 };
+//report forum content
+exports.addReportForum = async (req, res) => {
+    try {
+      const { forum_id, user_id, reason } = req.body;
+  
+      // Vérifier si le forum existe
+      const forum = await Forum.findById(forum_id);
+      if (!forum) {
+        return res.status(404).json({ message: "Forum not found!" });
+      }
+  
+      // Vérifier si l'utilisateur a déjà signalé ce forum
+      const existingReport = await Report.findOne({
+        forum_id,
+        user_id,
+      });
+      if (existingReport) {
+        return res.status(400).json({ message: "You have already reported this forum!" });
+      }
+  
+      // Créer un nouveau signalement
+      const newReport = new Report({
+        forum_id,
+        user_id,
+        reason,
+      });
+  
+      const savedReport = await newReport.save();
+      res.status(201).json({ message: "Forum reported successfully!", report: savedReport });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  };
+
+  // Récupérer les rapports d'un forum spécifique
+exports.getForumReports = async (req, res) => {
+    try {
+      const forumId = req.params.forumId;
+  
+      // Vérifier si le forum existe
+      const forum = await Forum.findById(forumId);
+      if (!forum) {
+        return res.status(404).json({ message: "Forum not found!" });
+      }
+  
+      // Récupérer tous les rapports associés à ce forum
+      const reports = await Report.find({ forum_id: forumId }).populate("user_id", "username speciality level"); // Populate pour inclure le nom d'utilisateur
+  
+      res.status(200).json(reports);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  };
