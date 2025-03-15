@@ -543,7 +543,7 @@ function Forum() {
                           src={
                             forum.anonymous
                               ? "assets/img/anonymous_member.png"
-                              : `http://localhost:5000/uploads/${forum.user_id.user_photo}`
+                              : `http://localhost:5000${forum.user_id.user_photo}`
                           }
                           alt="User"
                           className="rounded-circle me-2"
@@ -1136,7 +1136,7 @@ function Forum() {
                           src={
                             comment.anonymous
                               ? "/assets/img/anonymous_member.png"
-                              : `http://localhost:5000/uploads/${comment.user_id.user_photo}`
+                              : `http://localhost:5000${comment.user_id.user_photo}`
                           }
                           alt="User Avatar"
                           style={{
