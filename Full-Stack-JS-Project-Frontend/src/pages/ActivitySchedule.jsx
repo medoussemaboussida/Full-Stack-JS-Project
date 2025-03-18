@@ -22,6 +22,22 @@ const generateDatesForMonth = () => {
   return dates;
 };
 
+// Function to get the first day of the month (0 = Sunday, 1 = Monday, etc.)
+const getFirstDayOfMonth = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  return new Date(year, month, 1).getDay();
+};
+
+// Function to get the number of days in the current month
+const getDaysInMonth = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  return new Date(year, month + 1, 0).getDate();
+};
+
 function ActivitySchedule() {
   const [userId, setUserId] = useState(null);
   const [favoriteActivities, setFavoriteActivities] = useState([]);
@@ -30,12 +46,12 @@ function ActivitySchedule() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [showFavoriteList, setShowFavoriteList] = useState(false); // Toggle favorite list visibility
-  const [showRemoveFavoriteModal, setShowRemoveFavoriteModal] = useState(false); // Modal for removing a single favorite
-  const [activityToRemove, setActivityToRemove] = useState(null); // Activity to remove from favorites
-  const [selectedActivity, setSelectedActivity] = useState(null); // State for the activity to view
-  const [showViewActivityModal, setShowViewActivityModal] = useState(false); // Modal for viewing activity
-  const [showClearAllFavoriteModal, setShowClearAllFavoriteModal] = useState(false); // Modal for clearing all favorites
+  const [showFavoriteList, setShowFavoriteList] = useState(false);
+  const [showRemoveFavoriteModal, setShowRemoveFavoriteModal] = useState(false);
+  const [activityToRemove, setActivityToRemove] = useState(null);
+  const [selectedActivity, setSelectedActivity] = useState(null);
+  const [showViewActivityModal, setShowViewActivityModal] = useState(false);
+  const [showClearAllFavoriteModal, setShowClearAllFavoriteModal] = useState(false);
   const dates = generateDatesForMonth();
   const navigate = useNavigate();
 
@@ -50,7 +66,7 @@ function ActivitySchedule() {
 
       const response = await fetch(`http://localhost:5000/users/favorite-activities/${userId}`, {
         headers: {
-          Authorization: `Bearer ${token}`, // Send token for authentication
+          Authorization: `Bearer ${token}`,
         },
       });
       const data = await response.json();
@@ -87,7 +103,7 @@ function ActivitySchedule() {
       const token = localStorage.getItem("jwt-token");
       const response = await fetch(`http://localhost:5000/users/schedule/${userId}`, {
         headers: {
-          Authorization: `Bearer ${token}`, // Send token for authentication
+          Authorization: `Bearer ${token}`,
         },
       });
       const data = await response.json();
@@ -102,7 +118,7 @@ function ActivitySchedule() {
     }
   };
 
-  // Save scheduled activities to the backend
+  // Save scheduled activities
   const saveScheduledActivities = async () => {
     try {
       const token = localStorage.getItem("jwt-token");
@@ -114,7 +130,7 @@ function ActivitySchedule() {
       const response = await fetch(`http://localhost:5000/users/schedule/${userId}`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`, // Send token for authentication
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ date: selectedDate, activities: scheduledActivities[selectedDate] || [] }),
@@ -183,7 +199,7 @@ function ActivitySchedule() {
 
       const data = await response.json();
       if (response.ok) {
-        setFavoriteActivities([]); // Clear local state
+        setFavoriteActivities([]);
         toast.success("All favorite activities have been cleared!");
       } else {
         toast.error(`Failed to clear favorites: ${data.message}`);
@@ -269,12 +285,12 @@ function ActivitySchedule() {
   };
 
   // Schedule activities for the selected date
-  const handleConfirmSchedule = (selectedActivityIds) => {
+  const handleConfirmSchedule = async (selectedActivityIds) => {
     if (!selectedDate || !selectedActivityIds.length) {
       toast.error("Please select at least one activity to schedule.");
       return;
     }
-
+  
     setScheduledActivities((prev) => {
       const updated = {
         ...prev,
@@ -283,28 +299,27 @@ function ActivitySchedule() {
           completed: false,
         })),
       };
-      saveScheduledActivities(); // Save to backend
       return updated;
     });
+  
+    await saveScheduledActivities(); // Attendre la sauvegarde
     toast.success(`Activities scheduled for ${selectedDate}!`);
     closeScheduleModal();
   };
 
   // Toggle completion status of an activity
-  const handleToggleComplete = (date, activityId) => {
+  const handleToggleComplete = async (date, activityId) => {
     setScheduledActivities((prev) => {
       const updatedActivities = prev[date].map((activity) =>
         activity.activityId === activityId
           ? { ...activity, completed: !activity.completed }
           : activity
       );
-      const updated = {
-        ...prev,
-        [date]: updatedActivities,
-      };
-      saveScheduledActivities(); // Save to backend
+      const updated = { ...prev, [date]: updatedActivities };
       return updated;
     });
+  
+    await saveScheduledActivities(); // Sauvegarder après mise à jour
     toast.info(
       `Activity marked as ${
         scheduledActivities[date].find((act) => act.activityId === activityId).completed
@@ -316,6 +331,21 @@ function ActivitySchedule() {
 
   if (isLoading) {
     return <div style={{ textAlign: "center", padding: "20px", fontSize: "18px" }}>Loading...</div>;
+  }
+
+  // Calendar logic
+  const firstDay = getFirstDayOfMonth();
+  const daysInMonth = getDaysInMonth();
+  const today = new Date().getDate();
+  const monthName = new Date().toLocaleString("default", { month: "long" });
+  const year = new Date().getFullYear();
+
+  const calendarDays = [];
+  for (let i = 0; i < firstDay; i++) {
+    calendarDays.push(null); // Empty cells before the first day
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    calendarDays.push(day); // Days of the month
   }
 
   return (
@@ -368,7 +398,7 @@ function ActivitySchedule() {
         <button
           onClick={() => {
             setShowFavoriteList(!showFavoriteList);
-            if (!showFavoriteList) fetchFavoriteActivities(userId); // Refresh when opening
+            if (!showFavoriteList) fetchFavoriteActivities(userId);
           }}
           style={{
             backgroundColor: "#0ea5e6",
@@ -692,7 +722,7 @@ function ActivitySchedule() {
         </div>
       )}
 
-      {/* Schedule Section */}
+      {/* Schedule Section - Calendar View */}
       <div style={{ padding: "40px", backgroundColor: "#f9f9f9", textAlign: "center" }}>
         <h2 style={{ fontSize: "32px", fontWeight: "700", marginBottom: "20px" }}>
           Plan Your <span style={{ color: "#ff5a5f" }}>Activity Schedule</span>
@@ -707,104 +737,111 @@ function ActivitySchedule() {
             to add some favorites.
           </p>
         ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-              gap: "20px",
-              maxWidth: "1200px",
-              margin: "0 auto",
-            }}
-          >
-            {dates.map((date) => (
-              <div
-                key={date}
-                style={{
-                  background: "#fff",
-                  borderRadius: "15px",
-                  padding: "20px",
-                  boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
-                  textAlign: "left",
-                }}
-              >
-                <h4 style={{ fontSize: "18px", marginBottom: "10px" }}>
-                  {new Date(date).toLocaleDateString("en-US", {
-                    weekday: "long",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </h4>
-                <button
-                  onClick={() => handleScheduleActivity(date)}
-                  style={{
-                    backgroundColor: "#0ea5e6",
-                    color: "white",
-                    padding: "8px 16px",
-                    borderRadius: "5px",
-                    fontWeight: "bold",
-                    border: "none",
-                    cursor: "pointer",
-                    marginBottom: "10px",
-                    transition: "background-color 0.3s ease",
-                  }}
-                  onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
-                  onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
-                >
-                  Schedule Activities <FontAwesomeIcon icon={faCalendarAlt} />
-                </button>
+          <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
+            {/* Calendar Header */}
+            <div style={{ marginBottom: "20px" }}>
+              <h3 style={{ fontSize: "24px", color: "#333" }}>{monthName} {year}</h3>
+            </div>
 
-                {/* Display scheduled activities for the date */}
-                {scheduledActivities[date] && scheduledActivities[date].length > 0 ? (
-                  <ul style={{ listStyle: "none", padding: 0 }}>
-                    {scheduledActivities[date].map((scheduledActivity, index) => {
-                      const activity = activities.find(
-                        (act) => act._id === scheduledActivity.activityId
-                      );
-                      return (
-                        <li
-                          key={index}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "10px",
-                            marginBottom: "10px",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={scheduledActivity.completed}
-                            onChange={() =>
-                              handleToggleComplete(date, scheduledActivity.activityId)
-                            }
-                            style={{ cursor: "pointer" }}
-                          />
-                          <span
-                            style={{
-                              textDecoration: scheduledActivity.completed
-                                ? "line-through"
-                                : "none",
-                              color: scheduledActivity.completed ? "#666" : "#333",
-                            }}
-                          >
-                            {activity ? activity.title : "Unknown Activity"}
-                          </span>
-                          {scheduledActivity.completed && (
-                            <FontAwesomeIcon
-                              icon={faCheckCircle}
-                              style={{ color: "#28a745", fontSize: "16px" }}
-                            />
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : (
-                  <p style={{ color: "#666", fontStyle: "italic" }}>
-                    No activities scheduled for this day.
-                  </p>
-                )}
-              </div>
-            ))}
+            {/* Calendar Grid */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(7, 1fr)",
+                gap: "5px",
+                backgroundColor: "#fff",
+                padding: "10px",
+                borderRadius: "10px",
+                boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
+              }}
+            >
+              {/* Weekday Headers */}
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                <div
+                  key={day}
+                  style={{
+                    textAlign: "center",
+                    fontWeight: "bold",
+                    color: "#666",
+                    padding: "10px 0",
+                  }}
+                >
+                  {day}
+                </div>
+              ))}
+
+              {/* Calendar Days */}
+              {calendarDays.map((day, index) => {
+                const dateStr = day ? `${year}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}` : null;
+                const isToday = day === today;
+                return (
+                  <div
+                    key={index}
+                    style={{
+                      background: day ? "#fff" : "#f0f0f0",
+                      borderRadius: "8px",
+                      padding: "10px",
+                      minHeight: "100px",
+                      border: isToday ? "2px solid #ff5a5f" : "1px solid #ddd",
+                      cursor: day ? "pointer" : "default",
+                      position: "relative",
+                      transition: "transform 0.2s ease",
+                    }}
+                    onClick={() => day && handleScheduleActivity(dateStr)}
+                    onMouseEnter={(e) => day && (e.currentTarget.style.transform = "scale(1.05)")}
+                    onMouseLeave={(e) => day && (e.currentTarget.style.transform = "scale(1)")}
+                  >
+                    {day && (
+                      <>
+                        <div style={{ fontWeight: "bold", color: "#333", marginBottom: "5px" }}>
+                          {day}
+                        </div>
+                        {scheduledActivities[dateStr] && scheduledActivities[dateStr].length > 0 && (
+                          <ul style={{ listStyle: "none", padding: "0", fontSize: "12px" }}>
+                            {scheduledActivities[dateStr].map((scheduledActivity, idx) => {
+                              const activity = activities.find(
+                                (act) => act._id === scheduledActivity.activityId
+                              );
+                              return (
+                                <li
+                                  key={idx}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "5px",
+                                    marginBottom: "5px",
+                                  }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={scheduledActivity.completed}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      handleToggleComplete(dateStr, scheduledActivity.activityId);
+                                    }}
+                                    style={{ cursor: "pointer" }}
+                                  />
+                                  <span
+                                    style={{
+                                      textDecoration: scheduledActivity.completed
+                                        ? "line-through"
+                                        : "none",
+                                      color: scheduledActivity.completed ? "#666" : "#333",
+                                    }}
+                                  >
+                                    {activity ? activity.title : "Unknown"}
+                                  </span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -870,7 +907,7 @@ function ScheduleModalContent({ favoriteActivities, activities, onConfirm, onCan
 
   return (
     <div>
-      <ul style={{ listStyle: "none", padding: 0, maxHeight: "200px", overflowY: "auto" }}>
+      <ul style={{ listStyle: "none", padding: "0", maxHeight: "200px", overflowY: "auto" }}>
         {favoriteActivities.map((activityId) => {
           const activity = activities.find((act) => act._id === activityId);
           return (
