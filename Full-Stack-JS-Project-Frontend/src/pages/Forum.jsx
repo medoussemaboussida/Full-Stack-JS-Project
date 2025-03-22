@@ -28,6 +28,7 @@ function Forum() {
   const [forums, setForums] = useState([]);
   const [token, setToken] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [userRole, setUserRole] = useState(null); // Ajout de l'état pour le rôle
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [forumToDelete, setForumToDelete] = useState(null);
@@ -89,19 +90,16 @@ function Forum() {
     })
     .sort((a, b) => {
       if (sortOption === "pinned") {
-        // Si l'option est "pinned", on place les topics épinglés en haut
         const aIsPinned = pinnedTopics.has(a._id);
         const bIsPinned = pinnedTopics.has(b._id);
 
-        if (aIsPinned && !bIsPinned) return -1; // a est épinglé, b ne l'est pas -> a avant b
-        if (!aIsPinned && bIsPinned) return 1;  // b est épinglé, a ne l'est pas -> b avant a
+        if (aIsPinned && !bIsPinned) return -1;
+        if (!aIsPinned && bIsPinned) return 1;
 
-        // Si les deux sont épinglés ou non épinglés, on trie par date (newest)
         const dateA = new Date(a.createdAt);
         const dateB = new Date(b.createdAt);
-        return dateB - dateA; // Tri par date décroissante (newest)
+        return dateB - dateA;
       } else {
-        // Tri par date pour "newest" ou "oldest"
         const dateA = new Date(a.createdAt);
         const dateB = new Date(b.createdAt);
         return sortOption === "newest" ? dateB - dateA : dateA - dateB;
@@ -122,7 +120,7 @@ function Forum() {
     "pressure",
   ];
 
-  // Charger le token et les topics épinglés au montage et à chaque changement de token
+  // Charger le token, l'ID utilisateur, le rôle et les topics épinglés au montage
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
     if (token) {
@@ -135,33 +133,38 @@ function Forum() {
           localStorage.removeItem("jwt-token");
           setToken(null);
           setUserId(null);
-          setPinnedTopics(new Set()); // Réinitialiser les topics épinglés
+          setUserRole(null); // Réinitialiser le rôle
+          setPinnedTopics(new Set());
           return;
         }
 
         setToken(token);
         setUserId(decoded.id);
-        // Charger les topics épinglés pour cet utilisateur
+        setUserRole(decoded.role); // Récupérer le rôle du token
+        console.log("User role:", decoded.role); // Log pour déboguer
+
         const storedPinnedTopics = localStorage.getItem(`pinnedTopics_${decoded.id}`);
         if (storedPinnedTopics) {
           setPinnedTopics(new Set(JSON.parse(storedPinnedTopics)));
         } else {
-          setPinnedTopics(new Set()); // Réinitialiser si rien n'est trouvé
+          setPinnedTopics(new Set());
         }
       } catch (error) {
         console.error("Erreur de décodage du token:", error);
         localStorage.removeItem("jwt-token");
         setToken(null);
         setUserId(null);
+        setUserRole(null); // Réinitialiser le rôle en cas d'erreur
         setPinnedTopics(new Set());
       }
     } else {
       console.log("Aucun token trouvé.");
       setToken(null);
       setUserId(null);
-      setPinnedTopics(new Set()); // Réinitialiser les topics épinglés si aucun token
+      setUserRole(null); // Réinitialiser le rôle si aucun token
+      setPinnedTopics(new Set());
     }
-  }, [token]); // Dépendance sur `token` pour détecter les changements
+  }, [token]);
 
   // Surveiller les changements de userId pour recharger les topics épinglés
   useEffect(() => {
@@ -170,10 +173,10 @@ function Forum() {
       if (storedPinnedTopics) {
         setPinnedTopics(new Set(JSON.parse(storedPinnedTopics)));
       } else {
-        setPinnedTopics(new Set()); // Réinitialiser si rien n'est trouvé
+        setPinnedTopics(new Set());
       }
     } else {
-      setPinnedTopics(new Set()); // Réinitialiser si aucun utilisateur n'est connecté
+      setPinnedTopics(new Set());
     }
   }, [userId]);
 
@@ -467,12 +470,12 @@ function Forum() {
         if (isPinned) {
           newPinnedTopics.delete(forumId);
           toast.success("Topic unpinned!", {
-            toastId: `pin-${forumId}`, // ID unique pour éviter les doublons
+            toastId: `pin-${forumId}`,
           });
         } else {
           newPinnedTopics.add(forumId);
           toast.success("Topic pinned!", {
-            toastId: `pin-${forumId}`, // ID unique pour éviter les doublons
+            toastId: `pin-${forumId}`,
           });
         }
         return newPinnedTopics;
@@ -571,7 +574,7 @@ function Forum() {
                   </>
                 )}
               </div>
-              {/* Conteneur pour la liste déroulante et le bouton */}
+              {/* Conteneur pour la liste déroulante et les boutons */}
               <div className="d-flex align-items-center">
                 {/* Liste déroulante à gauche */}
                 <select
@@ -590,7 +593,7 @@ function Forum() {
                 >
                   <option value="newest">Newest Topics</option>
                   <option value="oldest">Oldest Topics</option>
-                  <option value="pinned">Pinned Topics</option> {/* Nouvelle option */}
+                  <option value="pinned">Pinned Topics</option>
                 </select>
 
                 {/* Bouton Add New Topic */}
@@ -598,11 +601,26 @@ function Forum() {
                   className="theme-btn"
                   style={{
                     borderRadius: "50px",
+                    marginRight: "10px", // Ajout d'un espacement entre les boutons
                   }}
                   onClick={() => navigate("/addforum")}
                 >
                   New Topic
                 </button>
+
+                {/* Bouton Moderate (affiché uniquement pour teacher ou psychiatrist) */}
+                {userRole && ["teacher", "psychiatrist"].includes(userRole) && (
+                  <button
+                    className="theme-btn"
+                    style={{
+                      borderRadius: "50px",
+                      backgroundColor: "#ff4d4f", // Couleur différente pour le bouton Moderate
+                    }}
+                    onClick={() => navigate("/moderateForum")} // Redirection vers la page de modération
+                  >
+                    Moderate
+                  </button>
+                )}
               </div>
             </div>
 
