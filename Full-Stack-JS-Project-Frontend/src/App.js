@@ -11,7 +11,7 @@ import AccountDisabled from './pages/AccountDisabled'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Forum from './pages/Forum';
 import AddForum from './pages/AddForum';
-
+import ForumModerate from './pages/ForumModerate'
 
 function App(){
 
@@ -32,6 +32,8 @@ function App(){
         <Route path="/AccountDisabled" element={<AccountDisabled />} />
         <Route path="/forum" element={<Forum />} />
         <Route path="/addforum" element={<AddForum />} />
+        <Route path="/moderateForum" element={<ForumModerate />} />
+
 
 
         </Routes>
