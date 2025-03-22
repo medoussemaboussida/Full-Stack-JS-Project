@@ -1602,7 +1602,7 @@ function Forum() {
                   border: "1px solid #ddd",
                 }}
               >
-                <option value="">Select a reason</option>
+                <option value="">Select a reason :</option>
                 <option value="inappropriate_content">Inappropriate Content</option>
                 <option value="spam">Spam</option>
                 <option value="harassment">Harassment</option>
