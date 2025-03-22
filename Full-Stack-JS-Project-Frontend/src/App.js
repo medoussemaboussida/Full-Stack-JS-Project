@@ -31,6 +31,7 @@ import EditActivity from './pages/edit-activity'; // Make sure you have this com
 import ActivitySchedule from './pages/ActivitySchedule';
 import Events from './pages/events';
 import EventDetails from './pages/EventDetails';
+import ForumModerate from './pages/ForumModerate';
 
 
 const Layout = ({ children }) => {
@@ -75,6 +76,7 @@ function App(){
 
         <Route path="/forum" element={<Forum />} />
         <Route path="/AddForum" element={<AddForum />} />
+        <Route path="/moderateForum" element={<ForumModerate />} />
         <Route path="/appointment-history" element={<AppointmentHistory />} />
         <Route path="/chat" element={<Chat />} />
 
