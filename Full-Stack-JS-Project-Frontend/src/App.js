@@ -33,6 +33,7 @@ import Events from './pages/events';
 import EventDetails from './pages/EventDetails';
 import ForumModerate from './pages/ForumModerate';
 import StudentDashboard from './pages/StudentDashboard';
+import SleepCalculator from './pages/SleepCalculator';
 
 
 const Layout = ({ children }) => {
@@ -94,7 +95,9 @@ function App(){
         <Route path="/Events" element={<Events />} />
         <Route path="/event/:id" element={<EventDetails />} />
 
-        <Route path="/moods" element={<StudentDashboard />} />
+        <Route path="/StudentDashboard" element={<StudentDashboard />} />
+        <Route path="/SleepCalculator" element={<SleepCalculator />} />
+
 
 
         </Routes>

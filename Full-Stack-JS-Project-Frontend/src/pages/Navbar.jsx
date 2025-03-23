@@ -116,7 +116,6 @@ const Navbar = () => {
                                             <li><a className="dropdown-item" href="/Forum">Forum</a></li>
                                             <li><a className="dropdown-item" href="/Associations">Our Associations</a></li>
                                             <li><a className="dropdown-item" href="/events">Our Events</a></li>
-                                            <li><a className="dropdown-item" href="/moods">Student Dashboard</a></li>
 
                                             {/* Add other dropdown items as needed */}
                                         </ul>
@@ -130,6 +129,9 @@ const Navbar = () => {
                                         </a>
                                         <ul className="dropdown-menu fade-down">
                                             <li><a className="dropdown-item" href="/Activities">Activities</a></li>
+                                            <li><a className="dropdown-item" href="/StudentDashboard">Student Dashboard</a></li>
+                                            <li><a className="dropdown-item" href="/SleepCalculator">Sleep Calculator</a></li>
+
                                         </ul>
                                     </li>
                                     <li className="nav-item dropdown">

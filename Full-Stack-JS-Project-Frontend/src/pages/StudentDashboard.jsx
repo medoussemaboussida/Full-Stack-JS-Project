@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { jwtDecode } from "jwt-decode";
-import { Bar, Line, Doughnut } from "react-chartjs-2"; // Importer Doughnut pour le graphique circulaire
+import { Bar, Line, Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -11,7 +11,7 @@ import {
   BarElement,
   LineElement,
   PointElement,
-  ArcElement, // Importer ArcElement pour le graphique circulaire
+  ArcElement,
   Title,
   Tooltip,
   Legend,
@@ -55,6 +55,13 @@ function StudentDashboard() {
     Neutral: "#d3d3d3",
     Happy: "#69c0ff",
     "Very Happy": "#40a9ff",
+  };
+
+  // Couleurs pour le graphique de satisfaction
+  const satisfactionColors = {
+    Satisfied: "#40a9ff", // Bleu pour satisfait (Happy, Very Happy)
+    NotSatisfied: "#ff7875", // Rouge pour non satisfait (Sad, Very Sad)
+    NeutralOrUnspecified: "#d3d3d3", // Gris pour neutre ou non spécifié
   };
 
   // Fetch all activities
@@ -160,12 +167,18 @@ function StudentDashboard() {
     return moodImpact;
   };
 
-  // Calculer le pourcentage de satisfaction pour chaque activité
-  const calculateSatisfaction = () => {
+  // Calculer la répartition des humeurs pour chaque activité (Satisfait, Non Satisfait, Neutre)
+  const calculateSatisfactionDistribution = () => {
     const satisfactionData = {};
 
     activities.forEach((activity) => {
-      satisfactionData[activity._id] = { title: activity.title, positiveMoods: 0, totalMoods: 0, percentage: 0 };
+      satisfactionData[activity._id] = {
+        title: activity.title,
+        satisfied: 0, // Happy et Very Happy
+        notSatisfied: 0, // Sad et Very Sad
+        neutralOrUnspecified: 0, // Neutral
+        totalMoods: 0,
+      };
     });
 
     moods.forEach((mood) => {
@@ -173,15 +186,12 @@ function StudentDashboard() {
       if (satisfactionData[activityId]) {
         satisfactionData[activityId].totalMoods += 1;
         if (mood.mood === "Happy" || mood.mood === "Very Happy") {
-          satisfactionData[activityId].positiveMoods += 1;
+          satisfactionData[activityId].satisfied += 1;
+        } else if (mood.mood === "Sad" || mood.mood === "Very Sad") {
+          satisfactionData[activityId].notSatisfied += 1;
+        } else {
+          satisfactionData[activityId].neutralOrUnspecified += 1;
         }
-      }
-    });
-
-    Object.keys(satisfactionData).forEach((activityId) => {
-      const { positiveMoods, totalMoods } = satisfactionData[activityId];
-      if (totalMoods > 0) {
-        satisfactionData[activityId].percentage = (positiveMoods / totalMoods) * 100;
       }
     });
 
@@ -284,14 +294,34 @@ function StudentDashboard() {
     };
   };
 
-  // Préparer les données pour le graphique de satisfaction d'une activité
-  const prepareSatisfactionChartData = (percentage) => {
+  // Préparer les données pour le graphique de satisfaction (Satisfait, Non Satisfait, Neutre)
+  const prepareSatisfactionChartData = (satisfactionData) => {
+    const { satisfied, notSatisfied, neutralOrUnspecified } = satisfactionData;
+    const total = satisfied + notSatisfied + neutralOrUnspecified;
+
+    if (total === 0) {
+      return {
+        labels: ["No Data"],
+        datasets: [
+          {
+            data: [100],
+            backgroundColor: [satisfactionColors.NeutralOrUnspecified],
+            borderWidth: 0,
+          },
+        ],
+      };
+    }
+
     return {
-      labels: ["Satisfaction", "Remaining"],
+      labels: ["Satisfied", "Not Satisfied", "Neutral"],
       datasets: [
         {
-          data: [percentage, 100 - percentage],
-          backgroundColor: ["#40a9ff", "#e5e7eb"],
+          data: [satisfied, notSatisfied, neutralOrUnspecified],
+          backgroundColor: [
+            satisfactionColors.Satisfied,
+            satisfactionColors.NotSatisfied,
+            satisfactionColors.NeutralOrUnspecified,
+          ],
           borderWidth: 0,
         },
       ],
@@ -351,7 +381,7 @@ function StudentDashboard() {
 
   const moodChartData = prepareMoodChartData();
   const activityCompletionChartData = prepareActivityCompletionChartData();
-  const satisfactionData = calculateSatisfaction();
+  const satisfactionData = calculateSatisfactionDistribution();
 
   const moodChartOptions = {
     responsive: true,
@@ -463,16 +493,20 @@ function StudentDashboard() {
     cutout: "70%", // Taille du trou central pour ressembler à une jauge
     plugins: {
       legend: {
-        display: false, // Cacher la légende
+        display: false, // Désactiver la légende individuelle pour chaque graphique
       },
       tooltip: {
-        enabled: false, // Désactiver les tooltips
+        callbacks: {
+          label: (context) => {
+            const label = context.label || "";
+            const value = context.raw || 0;
+            const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+            return `${label}: ${percentage}%`;
+          },
+        },
       },
       title: {
-        display: false,
-      },
-      // Plugin pour afficher le pourcentage au centre
-      datalabels: {
         display: false,
       },
     },
@@ -614,9 +648,59 @@ function StudentDashboard() {
 
       {/* Satisfaction Chart Section */}
       <div style={{ maxWidth: "800px", margin: "0 auto", textAlign: "center" }}>
-        <h2 style={{ fontSize: "32px", fontWeight: "700", marginBottom: "20px" }}>
+        <h2 style={{ fontSize: "32px", fontWeight: "700", marginBottom: "10px" }}>
           Your <span style={{ color: "#ff5a5f" }}>Satisfaction</span> After Activities
         </h2>
+
+        {/* Légende personnalisée pour les barèmes de couleurs */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "20px",
+            marginBottom: "20px",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <span
+              style={{
+                display: "inline-block",
+                width: "20px",
+                height: "20px",
+                backgroundColor: satisfactionColors.Satisfied,
+                marginRight: "8px",
+                borderRadius: "3px",
+              }}
+            ></span>
+            <span style={{ fontSize: "14px", color: "#333" }}>Satisfied (Happy, Very Happy)</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <span
+              style={{
+                display: "inline-block",
+                width: "20px",
+                height: "20px",
+                backgroundColor: satisfactionColors.NotSatisfied,
+                marginRight: "8px",
+                borderRadius: "3px",
+              }}
+            ></span>
+            <span style={{ fontSize: "14px", color: "#333" }}>Not Satisfied (Sad, Very Sad)</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <span
+              style={{
+                display: "inline-block",
+                width: "20px",
+                height: "20px",
+                backgroundColor: satisfactionColors.NeutralOrUnspecified,
+                marginRight: "8px",
+                borderRadius: "3px",
+              }}
+            ></span>
+            <span style={{ fontSize: "14px", color: "#333" }}>Neutral</span>
+          </div>
+        </div>
 
         {moods.length === 0 ? (
           <p style={{ textAlign: "center", color: "#666" }}>
@@ -638,8 +722,8 @@ function StudentDashboard() {
             {Object.keys(satisfactionData)
               .filter((activityId) => satisfactionData[activityId].totalMoods > 0)
               .map((activityId) => {
-                const { title, percentage } = satisfactionData[activityId];
-                const chartData = prepareSatisfactionChartData(percentage);
+                const { title } = satisfactionData[activityId];
+                const chartData = prepareSatisfactionChartData(satisfactionData[activityId]);
 
                 return (
                   <div
@@ -656,19 +740,6 @@ function StudentDashboard() {
                     <h4 style={{ fontSize: "16px", marginBottom: "10px", color: "#333" }}>{title}</h4>
                     <div style={{ position: "relative", width: "120px", height: "120px", margin: "0 auto" }}>
                       <Doughnut data={chartData} options={satisfactionChartOptions} />
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "50%",
-                          left: "50%",
-                          transform: "translate(-50%, -50%)",
-                          fontSize: "24px",
-                          fontWeight: "bold",
-                          color: "#333",
-                        }}
-                      >
-                        {percentage.toFixed(0)}%
-                      </div>
                     </div>
                   </div>
                 );
