@@ -8,6 +8,7 @@ import {
   faPaperPlane,
   faEye,
   faFlag,
+  faSmile, // Icône pour ouvrir le sélecteur d'emojis
 } from "@fortawesome/free-regular-svg-icons";
 import {
   faSearch,
@@ -15,6 +16,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
+import EmojiPicker from "emoji-picker-react"; // Importer le composant EmojiPicker
 
 // Fonction pour couper la description à 3 lignes
 const truncateDescription = (text, isExpanded) => {
@@ -28,7 +30,7 @@ function Forum() {
   const [forums, setForums] = useState([]);
   const [token, setToken] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [userRole, setUserRole] = useState(null); // Ajout de l'état pour le rôle
+  const [userRole, setUserRole] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [forumToDelete, setForumToDelete] = useState(null);
@@ -59,6 +61,7 @@ function Forum() {
   const [commentToReport, setCommentToReport] = useState(null);
   const [commentReportReason, setCommentReportReason] = useState("");
   const [pinnedTopics, setPinnedTopics] = useState(new Set());
+  const [showEmojiPicker, setShowEmojiPicker] = useState({}); // État pour gérer l'affichage du sélecteur d'emojis par forum
   const navigate = useNavigate();
 
   // Fonction pour basculer l'état d'expansion
@@ -75,6 +78,26 @@ function Forum() {
     if (isSearchOpen) {
       setSearchQuery("");
     }
+  };
+
+  // Fonction pour basculer l'affichage du sélecteur d'emojis
+  const toggleEmojiPicker = (forumId) => {
+    setShowEmojiPicker((prev) => ({
+      ...prev,
+      [forumId]: !prev[forumId],
+    }));
+  };
+
+  // Fonction pour ajouter un emoji au commentaire
+  const onEmojiClick = (forumId, emojiObject) => {
+    setComment((prev) => ({
+      ...prev,
+      [forumId]: (prev[forumId] || "") + emojiObject.emoji,
+    }));
+    setShowEmojiPicker((prev) => ({
+      ...prev,
+      [forumId]: false, // Ferme le sélecteur après sélection
+    }));
   };
 
   // Filtrer et trier les forums
@@ -133,15 +156,15 @@ function Forum() {
           localStorage.removeItem("jwt-token");
           setToken(null);
           setUserId(null);
-          setUserRole(null); // Réinitialiser le rôle
+          setUserRole(null);
           setPinnedTopics(new Set());
           return;
         }
 
         setToken(token);
         setUserId(decoded.id);
-        setUserRole(decoded.role); // Récupérer le rôle du token
-        console.log("User role:", decoded.role); // Log pour déboguer
+        setUserRole(decoded.role);
+        console.log("User role:", decoded.role);
 
         const storedPinnedTopics = localStorage.getItem(`pinnedTopics_${decoded.id}`);
         if (storedPinnedTopics) {
@@ -154,14 +177,14 @@ function Forum() {
         localStorage.removeItem("jwt-token");
         setToken(null);
         setUserId(null);
-        setUserRole(null); // Réinitialiser le rôle en cas d'erreur
+        setUserRole(null);
         setPinnedTopics(new Set());
       }
     } else {
       console.log("Aucun token trouvé.");
       setToken(null);
       setUserId(null);
-      setUserRole(null); // Réinitialiser le rôle si aucun token
+      setUserRole(null);
       setPinnedTopics(new Set());
     }
   }, [token]);
@@ -227,7 +250,7 @@ function Forum() {
       if (response.ok) {
         console.log("Comment added:", data);
         toast.success("Your Comment is added successfully!");
-        setComments((prev) => ({
+        setComment((prev) => ({
           ...prev,
           [forumId]: "",
         }));
@@ -601,7 +624,7 @@ function Forum() {
                   className="theme-btn"
                   style={{
                     borderRadius: "50px",
-                    marginRight: "10px", // Ajout d'un espacement entre les boutons
+                    marginRight: "10px",
                   }}
                   onClick={() => navigate("/addforum")}
                 >
@@ -614,9 +637,9 @@ function Forum() {
                     className="theme-btn"
                     style={{
                       borderRadius: "50px",
-                      backgroundColor: "#ff4d4f", // Couleur différente pour le bouton Moderate
+                      backgroundColor: "#ff4d4f",
                     }}
-                    onClick={() => navigate("/moderateForum")} // Redirection vers la page de modération
+                    onClick={() => navigate("/moderateForum")}
                   >
                     Moderate
                   </button>
@@ -825,7 +848,7 @@ function Forum() {
                         }}
                       />
                     )}
-                    <div className="d-flex align-items-center mt-2">
+                    <div className="d-flex align-items-center mt-2 position-relative">
                       <input
                         type="text"
                         placeholder="Type your comment..."
@@ -835,20 +858,52 @@ function Forum() {
                           paddingLeft: "10px",
                           fontSize: "14px",
                           maxWidth: "90%",
+                          paddingRight: "40px", // Espace pour l'icône emoji
                         }}
-                        value={comments[forum._id] || ""}
+                        value={comment[forum._id] || ""}
                         onChange={(e) =>
-                          setComments((prev) => ({
+                          setComment((prev) => ({
                             ...prev,
                             [forum._id]: e.target.value,
                           }))
                         }
                       />
+                      {/* Icône pour ouvrir le sélecteur d'emojis */}
+                      <FontAwesomeIcon
+                        icon={faSmile}
+                        style={{
+                          position: "absolute",
+                          right: "100px", // Ajuster selon l'espace nécessaire
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          fontSize: "18px",
+                          color: "#007bff",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => toggleEmojiPicker(forum._id)}
+                      />
+                      {/* Sélecteur d'emojis */}
+                      {showEmojiPicker[forum._id] && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            zIndex: 1000,
+                            bottom: "50px", // Positionner au-dessus de l'input
+                            right: "0",
+                          }}
+                        >
+                          <EmojiPicker
+                            onEmojiClick={(emojiObject) => onEmojiClick(forum._id, emojiObject)}
+                            width={300}
+                            height={400}
+                          />
+                        </div>
+                      )}
                       <button
                         onClick={() =>
                           handleAddComment(
                             forum._id,
-                            comments[forum._id] || "",
+                            comment[forum._id] || "",
                             anonymous
                           )
                         }
