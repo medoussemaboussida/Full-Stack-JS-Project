@@ -131,6 +131,7 @@ const Navbar = () => {
                                             <li><a className="dropdown-item" href="/Activities">Activities</a></li>
                                             <li><a className="dropdown-item" href="/StudentDashboard">Student Dashboard</a></li>
                                             <li><a className="dropdown-item" href="/SleepCalculator">Sleep Calculator</a></li>
+                                            <li><a className="dropdown-item" href="/Exercices">Exercices</a></li>
 
                                         </ul>
                                     </li>

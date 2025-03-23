@@ -34,6 +34,7 @@ import EventDetails from './pages/EventDetails';
 import ForumModerate from './pages/ForumModerate';
 import StudentDashboard from './pages/StudentDashboard';
 import SleepCalculator from './pages/SleepCalculator';
+import Exercises from './pages/Exercices';
 
 
 const Layout = ({ children }) => {
@@ -97,7 +98,7 @@ function App(){
 
         <Route path="/StudentDashboard" element={<StudentDashboard />} />
         <Route path="/SleepCalculator" element={<SleepCalculator />} />
-
+        <Route path="/Exercices" element={<Exercises />} />
 
 
         </Routes>
