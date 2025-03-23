@@ -32,6 +32,7 @@ import ActivitySchedule from './pages/ActivitySchedule';
 import Events from './pages/events';
 import EventDetails from './pages/EventDetails';
 import ForumModerate from './pages/ForumModerate';
+import StudentDashboard from './pages/StudentDashboard';
 
 
 const Layout = ({ children }) => {
@@ -92,6 +93,8 @@ function App(){
         <Route path="/add-event" element={<AddEvent />} />
         <Route path="/Events" element={<Events />} />
         <Route path="/event/:id" element={<EventDetails />} />
+
+        <Route path="/moods" element={<StudentDashboard />} />
 
 
         </Routes>

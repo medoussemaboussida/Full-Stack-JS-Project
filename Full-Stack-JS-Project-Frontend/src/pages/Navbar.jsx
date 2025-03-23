@@ -116,6 +116,7 @@ const Navbar = () => {
                                             <li><a className="dropdown-item" href="/Forum">Forum</a></li>
                                             <li><a className="dropdown-item" href="/Associations">Our Associations</a></li>
                                             <li><a className="dropdown-item" href="/events">Our Events</a></li>
+                                            <li><a className="dropdown-item" href="/moods">Student Dashboard</a></li>
 
                                             {/* Add other dropdown items as needed */}
                                         </ul>
