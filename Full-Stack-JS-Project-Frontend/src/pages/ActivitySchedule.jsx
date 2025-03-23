@@ -49,9 +49,22 @@ function ActivitySchedule() {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [showViewActivityModal, setShowViewActivityModal] = useState(false);
   const [showClearAllFavoriteModal, setShowClearAllFavoriteModal] = useState(false);
-  const [currentDate, setCurrentDate] = useState(new Date()); // Nouvel état pour la date actuelle
-  const dates = generateDatesForMonth(currentDate); // Utiliser currentDate
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [showMoodModal, setShowMoodModal] = useState(false);
+  const [selectedMood, setSelectedMood] = useState(null);
+  const [currentActivity, setCurrentActivity] = useState(null);
+  const [moods, setMoods] = useState([]); // État pour les humeurs
+  const dates = generateDatesForMonth(currentDate);
   const navigate = useNavigate();
+
+  // Icônes pour les humeurs
+  const moodIcons = {
+    "Very Sad": "😢",
+    Sad: "😔",
+    Neutral: "😐",
+    Happy: "🙂",
+    "Very Happy": "😊",
+  };
 
   // Fetch favorite activities
   const fetchFavoriteActivities = async (userId) => {
@@ -116,6 +129,35 @@ function ActivitySchedule() {
     }
   };
 
+  // Fetch moods for the user
+  const fetchMoods = async () => {
+    try {
+      const token = localStorage.getItem("jwt-token");
+      if (!token || !userId) {
+        toast.error("You must be logged in!");
+        return [];
+      }
+
+      const response = await fetch(`http://localhost:5000/users/moods/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        return data;
+      } else {
+        toast.error(`Failed to fetch moods: ${data.message}`);
+        return [];
+      }
+    } catch (error) {
+      console.error("Error fetching moods:", error);
+      toast.error("An error occurred while fetching moods.");
+      return [];
+    }
+  };
+
   // Save scheduled activities
   const saveScheduledActivities = async (date, activities) => {
     try {
@@ -142,6 +184,39 @@ function ActivitySchedule() {
     } catch (error) {
       console.error("Error saving scheduled activities:", error);
       toast.error(`Error saving schedule: ${error.message}`);
+    }
+  };
+
+  // Save mood to the server
+  const saveMood = async (activityId, mood) => {
+    try {
+      const token = localStorage.getItem("jwt-token");
+      if (!token) {
+        toast.error("No authentication token found. Please log in.");
+        navigate("/login");
+        return;
+      }
+
+      const response = await fetch(`http://localhost:5000/users/moods/${userId}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          activityId,
+          mood,
+          date: new Date().toISOString(),
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Failed to save mood");
+
+      toast.success("Mood saved successfully!");
+    } catch (error) {
+      console.error("Error saving mood:", error);
+      toast.error(`Error saving mood: ${error.message}`);
     }
   };
 
@@ -250,7 +325,7 @@ function ActivitySchedule() {
     setShowClearAllFavoriteModal(false);
   };
 
-  // Naviguer vers le mois précédent
+  // Navigate to previous month
   const handlePreviousMonth = () => {
     setCurrentDate((prev) => {
       const newDate = new Date(prev);
@@ -259,13 +334,38 @@ function ActivitySchedule() {
     });
   };
 
-  // Naviguer vers le mois suivant
+  // Navigate to next month
   const handleNextMonth = () => {
     setCurrentDate((prev) => {
       const newDate = new Date(prev);
       newDate.setMonth(prev.getMonth() + 1);
       return newDate;
     });
+  };
+
+  // Handle mood selection
+  const handleMoodSelect = (mood) => {
+    setSelectedMood(mood);
+  };
+
+  // Confirm mood and save to server
+  const handleMoodConfirm = async () => {
+    if (selectedMood !== null && currentActivity) {
+      await saveMood(currentActivity._id, selectedMood);
+      fetchMoods().then((moodsData) => {
+        setMoods(moodsData);
+      });
+    }
+    setShowMoodModal(false);
+    setSelectedMood(null);
+    setCurrentActivity(null);
+  };
+
+  // Cancel and close the mood modal
+  const closeMoodModal = () => {
+    setShowMoodModal(false);
+    setSelectedMood(null);
+    setCurrentActivity(null);
   };
 
   useEffect(() => {
@@ -278,6 +378,9 @@ function ActivitySchedule() {
           fetchFavoriteActivities(decoded.id);
           fetchActivities();
           fetchScheduledActivities(decoded.id);
+          fetchMoods().then((moodsData) => {
+            setMoods(moodsData);
+          });
         }
       } catch (error) {
         console.error("Invalid token:", error);
@@ -310,22 +413,17 @@ function ActivitySchedule() {
       return;
     }
 
-    // Récupérer les activités déjà planifiées pour cette date
     const existingActivities = scheduledActivities[selectedDate] || [];
-    
-    // Créer la nouvelle liste d'activités en préservant le statut "completed" des activités existantes
     const newActivities = selectedActivityIds.map((activityId) => {
       const existingActivity = existingActivities.find((act) => act.activityId === activityId);
       return existingActivity ? existingActivity : { activityId, completed: false };
     });
 
-    // Mettre à jour l'état local
     setScheduledActivities((prev) => ({
       ...prev,
       [selectedDate]: newActivities,
     }));
 
-    // Sauvegarder sur le serveur
     await saveScheduledActivities(selectedDate, newActivities);
     toast.success(`Activities scheduled for ${selectedDate}!`);
     closeScheduleModal();
@@ -348,25 +446,30 @@ function ActivitySchedule() {
 
     await saveScheduledActivities(date, updatedActivities);
     toast.info(`Activity marked as ${newCompletedStatus ? "completed" : "incomplete"}!`);
+
+    if (newCompletedStatus) {
+      const activity = activities.find((act) => act._id === activityId);
+      setCurrentActivity(activity);
+      setShowMoodModal(true);
+    }
   };
 
   if (isLoading) {
     return <div style={{ textAlign: "center", padding: "20px", fontSize: "18px" }}>Loading...</div>;
   }
 
-  // Calendar logic
   const firstDay = getFirstDayOfMonth(currentDate);
   const daysInMonth = getDaysInMonth(currentDate);
   const today = new Date().getDate();
-  const monthName = currentDate.toLocaleString("en-US", { month: "long" }); // Forcer l'anglais
+  const monthName = currentDate.toLocaleString("en-US", { month: "long" });
   const year = currentDate.getFullYear();
 
   const calendarDays = [];
   for (let i = 0; i < firstDay; i++) {
-    calendarDays.push(null); // Empty cells before the first day
+    calendarDays.push(null);
   }
   for (let day = 1; day <= daysInMonth; day++) {
-    calendarDays.push(day); // Days of the month
+    calendarDays.push(day);
   }
 
   return (
@@ -743,6 +846,104 @@ function ActivitySchedule() {
         </div>
       )}
 
+      {/* Mood Impact Modal */}
+      {showMoodModal && currentActivity && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "400px",
+              maxWidth: "90%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              textAlign: "center",
+            }}
+          >
+            <h3 style={{ marginBottom: "10px" }}>
+              How do you feel right now after completing {currentActivity.title}?
+            </h3>
+            <p style={{ fontSize: "14px", color: "#666", marginBottom: "20px" }}>
+              Indicate your current mood to integrate a first piece of data into your statistics.
+            </p>
+            <div style={{ display: "flex", justifyContent: "center", gap: "15px", marginBottom: "20px" }}>
+              {[
+                { mood: "Very Sad", emoji: "😢" },
+                { mood: "Sad", emoji: "😔" },
+                { mood: "Neutral", emoji: "😐" },
+                { mood: "Happy", emoji: "🙂" },
+                { mood: "Very Happy", emoji: "😊" },
+              ].map((item, index) => (
+                <div
+                  key={index}
+                  onClick={() => handleMoodSelect(item.mood)}
+                  style={{
+                    fontSize: "30px",
+                    cursor: "pointer",
+                    padding: "10px",
+                    borderRadius: "50%",
+                    backgroundColor: selectedMood === item.mood ? "#e0e0e0" : "transparent",
+                    transition: "background-color 0.3s ease",
+                  }}
+                >
+                  {item.emoji}
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+              <button
+                onClick={handleMoodConfirm}
+                disabled={selectedMood === null}
+                style={{
+                  backgroundColor: selectedMood === null ? "#ccc" : "#0ea5e6",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  fontWeight: "bold",
+                  border: "none",
+                  cursor: selectedMood === null ? "not-allowed" : "pointer",
+                  transition: "background-color 0.3s ease",
+                }}
+                onMouseEnter={(e) => selectedMood !== null && (e.target.style.backgroundColor = "#0d8bc2")}
+                onMouseLeave={(e) => selectedMood !== null && (e.target.style.backgroundColor = "#0ea5e6")}
+              >
+                Confirm
+              </button>
+              <button
+                onClick={closeMoodModal}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  fontWeight: "bold",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s ease",
+                }}
+                onMouseEnter={(e) => (e.target.style.backgroundColor = "#d32f2f")}
+                onMouseLeave={(e) => (e.target.style.backgroundColor = "#f44336")}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Schedule Section - Calendar View */}
       <div style={{ padding: "40px", backgroundColor: "#f9f9f9", textAlign: "center" }}>
         <h2 style={{ fontSize: "32px", fontWeight: "700", marginBottom: "20px" }}>
@@ -873,7 +1074,7 @@ function ActivitySchedule() {
                             onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
                             onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
                           >
-                            <FontAwesomeIcon icon={faCalendarPlus} /> plan the day
+                            <FontAwesomeIcon icon={faCalendarPlus} /> Plan the Day
                           </button>
                         </div>
                         {scheduledActivities[dateStr] && scheduledActivities[dateStr].length > 0 && (
@@ -881,6 +1082,11 @@ function ActivitySchedule() {
                             {scheduledActivities[dateStr].map((scheduledActivity, idx) => {
                               const activity = activities.find(
                                 (act) => act._id === scheduledActivity.activityId
+                              );
+                              const moodEntry = moods.find(
+                                (mood) =>
+                                  mood.activityId === scheduledActivity.activityId &&
+                                  new Date(mood.date).toISOString().split("T")[0] === dateStr
                               );
                               return (
                                 <li
@@ -923,6 +1129,17 @@ function ActivitySchedule() {
                                   >
                                     {activity ? activity.title : "Unknown"}
                                   </span>
+                                  {moodEntry && scheduledActivity.completed && (
+                                    <span
+                                      style={{
+                                        fontSize: "12px",
+                                        color: "#0ea5e6",
+                                        fontStyle: "italic",
+                                      }}
+                                    >
+                                      ({moodIcons[moodEntry.mood]} {moodEntry.mood})
+                                    </span>
+                                  )}
                                 </li>
                               );
                             })}
@@ -934,6 +1151,60 @@ function ActivitySchedule() {
                 );
               })}
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Mood History Section */}
+      <div style={{ padding: "40px", backgroundColor: "#f9f9f9", textAlign: "center" }}>
+        <h2 style={{ fontSize: "24px", fontWeight: "700", marginBottom: "20px" }}>
+          Your Mood History
+        </h2>
+        {moods.length === 0 ? (
+          <p style={{ textAlign: "center", color: "#666" }}>
+            No moods recorded yet. Complete some activities to record your mood!
+          </p>
+        ) : (
+          <div
+            style={{
+              maxWidth: "800px",
+              margin: "0 auto",
+              backgroundColor: "#fff",
+              borderRadius: "10px",
+              boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
+              padding: "20px",
+            }}
+          >
+            <ul style={{ listStyle: "none", padding: "0" }}>
+              {moods.map((mood, index) => {
+                const activity = activities.find((act) => act._id === mood.activityId);
+                return (
+                  <li
+                    key={index}
+                    style={{
+                      padding: "10px 0",
+                      borderBottom: index < moods.length - 1 ? "1px solid #ddd" : "none",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      fontSize: "14px",
+                    }}
+                  >
+                    <span>
+                      <strong>{activity ? activity.title : "Unknown Activity"}</strong> -{" "}
+                      {moodIcons[mood.mood]} {mood.mood}
+                    </span>
+                    <span style={{ color: "#666", fontSize: "12px" }}>
+                      {new Date(mood.date).toLocaleDateString("en-US", {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
       </div>
@@ -989,7 +1260,6 @@ function ActivitySchedule() {
 // Component for the modal content to select activities
 function ScheduleModalContent({ activities, scheduledActivities, selectedDate, onConfirm, onCancel }) {
   const [selectedActivities, setSelectedActivities] = useState(() => {
-    // Pré-sélectionner les activités déjà planifiées pour cette date, sans tenir compte de "completed"
     const existingActivities = scheduledActivities[selectedDate] || [];
     return existingActivities.map((activity) => activity.activityId);
   });
