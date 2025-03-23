@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrashAlt, faEye } from "@fortawesome/free-regular-svg-icons";
-import { faSearch, faHeart } from "@fortawesome/free-solid-svg-icons"; // Remplacement de faThumbtack par faHeart
+import { faSearch, faHeart } from "@fortawesome/free-solid-svg-icons";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
 
@@ -30,8 +30,10 @@ function ForumModerate() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [sortOption, setSortOption] = useState("newest");
-  const [favoriteTopics, setFavoriteTopics] = useState(new Set()); // Remplacement de pinnedTopics par favoriteTopics
+  const [favoriteTopics, setFavoriteTopics] = useState(new Set());
   const [expanded, setExpanded] = useState({});
+  const [showPertinentOnly, setShowPertinentOnly] = useState(false); // État pour afficher uniquement les topics pertinents
+  const [commentsCountMap, setCommentsCountMap] = useState({}); // Stocker le nombre de commentaires par topic
   const navigate = useNavigate();
 
   const toggleDescription = (forumId) => {
@@ -48,34 +50,53 @@ function ForumModerate() {
     }
   };
 
-  const filteredForums = forums
-    .filter((forum) => {
-      if (!searchQuery) return true;
-      const query = searchQuery.toLowerCase();
-      const titleMatch = forum.title.toLowerCase().includes(query);
-      const descriptionMatch = forum.description.toLowerCase().includes(query);
-      const tagsMatch =
-        forum.tags && forum.tags.some((tag) => tag.toLowerCase().includes(query));
-      return titleMatch || descriptionMatch || tagsMatch;
-    })
-    .sort((a, b) => {
-      if (sortOption === "favorites") { // Changement de "pinned" à "favorites"
-        const aIsFavorite = favoriteTopics.has(a._id);
-        const bIsFavorite = favoriteTopics.has(b._id);
-
-        if (aIsFavorite && !bIsFavorite) return -1;
-        if (!aIsFavorite && bIsFavorite) return 1;
-
-        const dateA = new Date(a.createdAt);
-        const dateB = new Date(b.createdAt);
-        return dateB - dateA;
+  // Fonction pour récupérer le nombre de commentaires pour chaque topic
+  const fetchCommentsCount = async (forumId) => {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/forumComment/getComment/${forumId}`
+      );
+      const data = await response.json();
+      if (response.ok) {
+        return data.length; // Retourner le nombre de commentaires
       } else {
-        const dateA = new Date(a.createdAt);
-        const dateB = new Date(b.createdAt);
-        return sortOption === "newest" ? dateB - dateA : dateA - dateB;
+        console.error(
+          "Erreur lors de la récupération des commentaires:",
+          data.message || data
+        );
+        return 0;
       }
-    });
+    } catch (error) {
+      console.error("Erreur lors de l'appel API:", error);
+      return 0;
+    }
+  };
 
+  // Charger les topics et le nombre de commentaires
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Récupérer les topics
+        const forumsResponse = await fetch("http://localhost:5000/forum/getForum");
+        const forumsData = await forumsResponse.json();
+        setForums(forumsData);
+
+        // Récupérer le nombre de commentaires pour chaque topic
+        const commentsCount = {};
+        for (const forum of forumsData) {
+          const count = await fetchCommentsCount(forum._id);
+          commentsCount[forum._id] = count;
+        }
+        setCommentsCountMap(commentsCount);
+      } catch (error) {
+        console.error("Erreur lors de la récupération des données:", error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Gérer le token et les favoris
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
     console.log("Token from localStorage:", token);
@@ -98,7 +119,7 @@ function ForumModerate() {
         setUserId(decoded.id);
         console.log("Set userId to:", decoded.id);
 
-        const storedFavoriteTopics = localStorage.getItem(`favoriteTopics_${decoded.id}`); // Changement de pinnedTopics à favoriteTopics
+        const storedFavoriteTopics = localStorage.getItem(`favoriteTopics_${decoded.id}`);
         if (storedFavoriteTopics) {
           setFavoriteTopics(new Set(JSON.parse(storedFavoriteTopics)));
         } else {
@@ -139,19 +160,45 @@ function ForumModerate() {
     }
   }, [favoriteTopics, userId]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const forumsResponse = await fetch("http://localhost:5000/forum/getForum");
-        const forumsData = await forumsResponse.json();
-        setForums(forumsData);
-      } catch (error) {
-        console.error("Erreur lors de la récupération des données:", error);
-      }
-    };
+  // Fonction pour filtrer les topics pertinents
+  const filterPertinentForums = (forums) => {
+    return forums.filter((forum) => {
+      const commentsCount = commentsCountMap[forum._id] || 0;
+      const favoritesCount = favoriteTopics.has(forum._id) ? 1 : 0; // Simuler le nombre de favoris (1 si l'utilisateur actuel l'a mis en favori)
+      const isPertinent = commentsCount > 5 || favoritesCount > 3; // Critères de pertinence
+      return showPertinentOnly ? isPertinent : true;
+    });
+  };
 
-    fetchData();
-  }, []);
+  const filteredForums = filterPertinentForums(
+    forums
+      .filter((forum) => {
+        if (!searchQuery) return true;
+        const query = searchQuery.toLowerCase();
+        const titleMatch = forum.title.toLowerCase().includes(query);
+        const descriptionMatch = forum.description.toLowerCase().includes(query);
+        const tagsMatch =
+          forum.tags && forum.tags.some((tag) => tag.toLowerCase().includes(query));
+        return titleMatch || descriptionMatch || tagsMatch;
+      })
+      .sort((a, b) => {
+        if (sortOption === "favorites") {
+          const aIsFavorite = favoriteTopics.has(a._id);
+          const bIsFavorite = favoriteTopics.has(b._id);
+
+          if (aIsFavorite && !bIsFavorite) return -1;
+          if (!aIsFavorite && bIsFavorite) return 1;
+
+          const dateA = new Date(a.createdAt);
+          const dateB = new Date(b.createdAt);
+          return dateB - dateA;
+        } else {
+          const dateA = new Date(a.createdAt);
+          const dateB = new Date(b.createdAt);
+          return sortOption === "newest" ? dateB - dateA : dateA - dateB;
+        }
+      })
+  );
 
   const handleDeleteComment = (commentId) => {
     fetch(`http://localhost:5000/forumComment/deleteComment/${commentId}`, {
@@ -318,7 +365,7 @@ function ForumModerate() {
               <div
                 style={{
                   position: "relative",
-                  width: isSearchOpen ? "400px" : "40px",
+                  width: isSearchOpen ? "200px" : "20px",
                   transition: "width 0.3s ease",
                 }}
               >
@@ -368,6 +415,23 @@ function ForumModerate() {
                 )}
               </div>
               <div className="d-flex align-items-center">
+                <button
+                  onClick={() => setShowPertinentOnly(!showPertinentOnly)}
+                   className="theme-btn"
+                  style={{
+                    padding: "10px 20px",
+                    backgroundColor: showPertinentOnly ? "#0056b3" : "#007bff",
+                    color: "white",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    marginRight: "10px",
+                    borderRadius: "50px",
+                    transition: "background-color 0.3s ease",
+                  }}
+                >
+                  {showPertinentOnly ? "Show All Topics" : "Show Pertinent Topics"}
+                </button>
                 <select
                   value={sortOption}
                   onChange={(e) => setSortOption(e.target.value)}
@@ -384,7 +448,7 @@ function ForumModerate() {
                 >
                   <option value="newest">Newest Topics</option>
                   <option value="oldest">Oldest Topics</option>
-                  <option value="favorites">Favorite Topics</option> {/* Changement de "pinned" à "favorites" */}
+                  <option value="favorites">Favorite Topics</option>
                 </select>
               </div>
             </div>
@@ -406,7 +470,7 @@ function ForumModerate() {
                     <div className="d-flex justify-content-between align-items-center mb-2">
                       <div className="d-flex align-items-center">
                         <img
-                          src={`http://localhost:5000${forum.user_id.user_photo}`} // Suppression de la condition anonymous
+                          src={`http://localhost:5000${forum.user_id.user_photo}`}
                           alt="User"
                           className="rounded-circle me-2"
                           style={{
@@ -416,7 +480,7 @@ function ForumModerate() {
                           }}
                         />
                         <h6 className="mb-0 me-3">
-                          {forum.user_id.username || "Utilisateur inconnu"} {/* Suppression de la condition anonymous */}
+                          {forum.user_id.username || "Utilisateur inconnu"}
                         </h6>
                         {forum.user_id.level && forum.user_id.speciality && (
                           <span
@@ -472,11 +536,11 @@ function ForumModerate() {
                           style={{
                             cursor: "pointer",
                             fontSize: "20px",
-                            color: favoriteTopics.has(forum._id) ? "red" : "gray", // Changement de couleur pour le cœur
+                            color: favoriteTopics.has(forum._id) ? "red" : "gray",
                           }}
                           onClick={() => toggleFavorite(forum._id)}
                         >
-                          <FontAwesomeIcon icon={faHeart} /> {/* Remplacement de faThumbtack par faHeart */}
+                          <FontAwesomeIcon icon={faHeart} />
                         </span>
                       </div>
                     </div>
@@ -692,7 +756,7 @@ function ForumModerate() {
                     >
                       <div style={{ flexShrink: 0 }}>
                         <img
-                          src={`http://localhost:5000${comment.user_id.user_photo}`} // Suppression de la condition anonymous
+                          src={`http://localhost:5000${comment.user_id.user_photo}`}
                           alt="User Avatar"
                           style={{
                             width: "40px",
@@ -704,7 +768,7 @@ function ForumModerate() {
                       </div>
                       <div style={{ flex: 1 }}>
                         <p style={{ margin: 0, fontWeight: "bold" }}>
-                          {comment.user_id.username} {/* Suppression de la condition anonymous */}
+                          {comment.user_id.username}
                           <span
                             className="badge"
                             style={{
