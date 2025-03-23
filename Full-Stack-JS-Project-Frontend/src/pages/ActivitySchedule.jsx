@@ -4,37 +4,34 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { jwtDecode } from "jwt-decode";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCalendarAlt, faTimes, faCheckCircle, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faCalendarAlt, faTimes, faCheckCircle, faTrash, faCalendarPlus } from "@fortawesome/free-solid-svg-icons";
 
-// Function to generate a list of dates for the current month
-const generateDatesForMonth = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
+// Function to generate a list of dates for the specified month
+const generateDatesForMonth = (date) => {
+  const year = date.getFullYear();
+  const month = date.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const dates = [];
 
   for (let day = 1; day <= daysInMonth; day++) {
-    const date = new Date(year, month, day);
-    dates.push(date.toISOString().split("T")[0]); // Format: YYYY-MM-DD
+    const currentDate = new Date(year, month, day);
+    dates.push(currentDate.toISOString().split("T")[0]); // Format: YYYY-MM-DD
   }
 
   return dates;
 };
 
-// Function to get the first day of the month (0 = Sunday, 1 = Monday, etc.)
-const getFirstDayOfMonth = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
+// Function to get the first day of the specified month (0 = Sunday, 1 = Monday, etc.)
+const getFirstDayOfMonth = (date) => {
+  const year = date.getFullYear();
+  const month = date.getMonth();
   return new Date(year, month, 1).getDay();
 };
 
-// Function to get the number of days in the current month
-const getDaysInMonth = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
+// Function to get the number of days in the specified month
+const getDaysInMonth = (date) => {
+  const year = date.getFullYear();
+  const month = date.getMonth();
   return new Date(year, month + 1, 0).getDate();
 };
 
@@ -52,7 +49,8 @@ function ActivitySchedule() {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [showViewActivityModal, setShowViewActivityModal] = useState(false);
   const [showClearAllFavoriteModal, setShowClearAllFavoriteModal] = useState(false);
-  const dates = generateDatesForMonth();
+  const [currentDate, setCurrentDate] = useState(new Date()); // Nouvel état pour la date actuelle
+  const dates = generateDatesForMonth(currentDate); // Utiliser currentDate
   const navigate = useNavigate();
 
   // Fetch favorite activities
@@ -119,7 +117,7 @@ function ActivitySchedule() {
   };
 
   // Save scheduled activities
-  const saveScheduledActivities = async () => {
+  const saveScheduledActivities = async (date, activities) => {
     try {
       const token = localStorage.getItem("jwt-token");
       if (!token) {
@@ -127,13 +125,16 @@ function ActivitySchedule() {
         navigate("/login");
         return;
       }
+      if (!date || !activities) {
+        throw new Error("Date or activities missing");
+      }
       const response = await fetch(`http://localhost:5000/users/schedule/${userId}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ date: selectedDate, activities: scheduledActivities[selectedDate] || [] }),
+        body: JSON.stringify({ date, activities }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Failed to save schedule");
@@ -249,6 +250,24 @@ function ActivitySchedule() {
     setShowClearAllFavoriteModal(false);
   };
 
+  // Naviguer vers le mois précédent
+  const handlePreviousMonth = () => {
+    setCurrentDate((prev) => {
+      const newDate = new Date(prev);
+      newDate.setMonth(prev.getMonth() - 1);
+      return newDate;
+    });
+  };
+
+  // Naviguer vers le mois suivant
+  const handleNextMonth = () => {
+    setCurrentDate((prev) => {
+      const newDate = new Date(prev);
+      newDate.setMonth(prev.getMonth() + 1);
+      return newDate;
+    });
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
     if (token) {
@@ -290,43 +309,45 @@ function ActivitySchedule() {
       toast.error("Please select at least one activity to schedule.");
       return;
     }
-  
-    setScheduledActivities((prev) => {
-      const updated = {
-        ...prev,
-        [selectedDate]: selectedActivityIds.map((activityId) => ({
-          activityId,
-          completed: false,
-        })),
-      };
-      return updated;
+
+    // Récupérer les activités déjà planifiées pour cette date
+    const existingActivities = scheduledActivities[selectedDate] || [];
+    
+    // Créer la nouvelle liste d'activités en préservant le statut "completed" des activités existantes
+    const newActivities = selectedActivityIds.map((activityId) => {
+      const existingActivity = existingActivities.find((act) => act.activityId === activityId);
+      return existingActivity ? existingActivity : { activityId, completed: false };
     });
-  
-    await saveScheduledActivities(); // Attendre la sauvegarde
+
+    // Mettre à jour l'état local
+    setScheduledActivities((prev) => ({
+      ...prev,
+      [selectedDate]: newActivities,
+    }));
+
+    // Sauvegarder sur le serveur
+    await saveScheduledActivities(selectedDate, newActivities);
     toast.success(`Activities scheduled for ${selectedDate}!`);
     closeScheduleModal();
   };
 
   // Toggle completion status of an activity
   const handleToggleComplete = async (date, activityId) => {
-    setScheduledActivities((prev) => {
-      const updatedActivities = prev[date].map((activity) =>
-        activity.activityId === activityId
-          ? { ...activity, completed: !activity.completed }
-          : activity
-      );
-      const updated = { ...prev, [date]: updatedActivities };
-      return updated;
-    });
-  
-    await saveScheduledActivities(); // Sauvegarder après mise à jour
-    toast.info(
-      `Activity marked as ${
-        scheduledActivities[date].find((act) => act.activityId === activityId).completed
-          ? "incomplete"
-          : "completed"
-      }!`
+    const updatedActivities = scheduledActivities[date].map((activity) =>
+      activity.activityId === activityId
+        ? { ...activity, completed: !activity.completed }
+        : activity
     );
+
+    setScheduledActivities((prev) => ({
+      ...prev,
+      [date]: updatedActivities,
+    }));
+
+    const newCompletedStatus = updatedActivities.find((act) => act.activityId === activityId).completed;
+
+    await saveScheduledActivities(date, updatedActivities);
+    toast.info(`Activity marked as ${newCompletedStatus ? "completed" : "incomplete"}!`);
   };
 
   if (isLoading) {
@@ -334,11 +355,11 @@ function ActivitySchedule() {
   }
 
   // Calendar logic
-  const firstDay = getFirstDayOfMonth();
-  const daysInMonth = getDaysInMonth();
+  const firstDay = getFirstDayOfMonth(currentDate);
+  const daysInMonth = getDaysInMonth(currentDate);
   const today = new Date().getDate();
-  const monthName = new Date().toLocaleString("default", { month: "long" });
-  const year = new Date().getFullYear();
+  const monthName = currentDate.toLocaleString("en-US", { month: "long" }); // Forcer l'anglais
+  const year = currentDate.getFullYear();
 
   const calendarDays = [];
   for (let i = 0; i < firstDay; i++) {
@@ -738,9 +759,43 @@ function ActivitySchedule() {
           </p>
         ) : (
           <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
-            {/* Calendar Header */}
-            <div style={{ marginBottom: "20px" }}>
-              <h3 style={{ fontSize: "24px", color: "#333" }}>{monthName} {year}</h3>
+            {/* Calendar Header with Pagination */}
+            <div style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <button
+                onClick={handlePreviousMonth}
+                style={{
+                  backgroundColor: "#0ea5e6",
+                  color: "white",
+                  padding: "8px 16px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s ease",
+                }}
+                onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
+                onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
+              >
+                Previous
+              </button>
+              <h3 style={{ fontSize: "24px", color: "#333" }}>
+                {monthName} {year}
+              </h3>
+              <button
+                onClick={handleNextMonth}
+                style={{
+                  backgroundColor: "#0ea5e6",
+                  color: "white",
+                  padding: "8px 16px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s ease",
+                }}
+                onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
+                onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
+              >
+                Next
+              </button>
             </div>
 
             {/* Calendar Grid */}
@@ -772,8 +827,13 @@ function ActivitySchedule() {
 
               {/* Calendar Days */}
               {calendarDays.map((day, index) => {
-                const dateStr = day ? `${year}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}` : null;
-                const isToday = day === today;
+                const dateStr = day
+                  ? `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+                  : null;
+                const isToday =
+                  day === new Date().getDate() &&
+                  currentDate.getMonth() === new Date().getMonth() &&
+                  currentDate.getFullYear() === new Date().getFullYear();
                 return (
                   <div
                     key={index}
@@ -781,13 +841,11 @@ function ActivitySchedule() {
                       background: day ? "#fff" : "#f0f0f0",
                       borderRadius: "8px",
                       padding: "10px",
-                      minHeight: "100px",
+                      minHeight: "120px",
                       border: isToday ? "2px solid #ff5a5f" : "1px solid #ddd",
-                      cursor: day ? "pointer" : "default",
                       position: "relative",
                       transition: "transform 0.2s ease",
                     }}
-                    onClick={() => day && handleScheduleActivity(dateStr)}
                     onMouseEnter={(e) => day && (e.currentTarget.style.transform = "scale(1.05)")}
                     onMouseLeave={(e) => day && (e.currentTarget.style.transform = "scale(1)")}
                   >
@@ -795,6 +853,28 @@ function ActivitySchedule() {
                       <>
                         <div style={{ fontWeight: "bold", color: "#333", marginBottom: "5px" }}>
                           {day}
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "center", marginBottom: "5px" }}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleScheduleActivity(dateStr);
+                            }}
+                            style={{
+                              backgroundColor: "#0ea5e6",
+                              color: "white",
+                              padding: "5px 10px",
+                              borderRadius: "5px",
+                              fontSize: "12px",
+                              border: "none",
+                              cursor: "pointer",
+                              transition: "background-color 0.3s ease",
+                            }}
+                            onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
+                            onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
+                          >
+                            <FontAwesomeIcon icon={faCalendarPlus} /> plan the day
+                          </button>
                         </div>
                         {scheduledActivities[dateStr] && scheduledActivities[dateStr].length > 0 && (
                           <ul style={{ listStyle: "none", padding: "0", fontSize: "12px" }}>
@@ -812,15 +892,27 @@ function ActivitySchedule() {
                                     marginBottom: "5px",
                                   }}
                                 >
-                                  <input
-                                    type="checkbox"
-                                    checked={scheduledActivity.completed}
-                                    onChange={(e) => {
+                                  <span
+                                    onClick={(e) => {
                                       e.stopPropagation();
                                       handleToggleComplete(dateStr, scheduledActivity.activityId);
                                     }}
-                                    style={{ cursor: "pointer" }}
-                                  />
+                                    style={{
+                                      display: "inline-block",
+                                      width: "16px",
+                                      height: "16px",
+                                      lineHeight: "16px",
+                                      textAlign: "center",
+                                      borderRadius: "4px",
+                                      backgroundColor: scheduledActivity.completed ? "#e6ffe6" : "#ffe6e6",
+                                      color: scheduledActivity.completed ? "#00cc00" : "#ff0000",
+                                      cursor: "pointer",
+                                      fontSize: "12px",
+                                      fontWeight: "bold",
+                                    }}
+                                  >
+                                    {scheduledActivity.completed ? "✔" : "✘"}
+                                  </span>
                                   <span
                                     style={{
                                       textDecoration: scheduledActivity.completed
@@ -881,8 +973,9 @@ function ActivitySchedule() {
               })}
             </h3>
             <ScheduleModalContent
-              favoriteActivities={favoriteActivities}
               activities={activities}
+              scheduledActivities={scheduledActivities}
+              selectedDate={selectedDate}
               onConfirm={handleConfirmSchedule}
               onCancel={closeScheduleModal}
             />
@@ -894,8 +987,12 @@ function ActivitySchedule() {
 }
 
 // Component for the modal content to select activities
-function ScheduleModalContent({ favoriteActivities, activities, onConfirm, onCancel }) {
-  const [selectedActivities, setSelectedActivities] = useState([]);
+function ScheduleModalContent({ activities, scheduledActivities, selectedDate, onConfirm, onCancel }) {
+  const [selectedActivities, setSelectedActivities] = useState(() => {
+    // Pré-sélectionner les activités déjà planifiées pour cette date, sans tenir compte de "completed"
+    const existingActivities = scheduledActivities[selectedDate] || [];
+    return existingActivities.map((activity) => activity.activityId);
+  });
 
   const handleToggleActivity = (activityId) => {
     setSelectedActivities((prev) =>
@@ -908,29 +1005,26 @@ function ScheduleModalContent({ favoriteActivities, activities, onConfirm, onCan
   return (
     <div>
       <ul style={{ listStyle: "none", padding: "0", maxHeight: "200px", overflowY: "auto" }}>
-        {favoriteActivities.map((activityId) => {
-          const activity = activities.find((act) => act._id === activityId);
-          return (
-            <li
-              key={activityId}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                padding: "10px",
-                borderBottom: "1px solid #ddd",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={selectedActivities.includes(activityId)}
-                onChange={() => handleToggleActivity(activityId)}
-                style={{ cursor: "pointer" }}
-              />
-              <span>{activity ? activity.title : "Unknown Activity"}</span>
-            </li>
-          );
-        })}
+        {activities.map((activity) => (
+          <li
+            key={activity._id}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              padding: "10px",
+              borderBottom: "1px solid #ddd",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={selectedActivities.includes(activity._id)}
+              onChange={() => handleToggleActivity(activity._id)}
+              style={{ cursor: "pointer" }}
+            />
+            <span>{activity.title}</span>
+          </li>
+        ))}
       </ul>
       <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginTop: "20px" }}>
         <button
