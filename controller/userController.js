@@ -540,16 +540,40 @@ module.exports.getMyPublications = async (req, res) => {
 module.exports.getPublicationById = async (req, res) => {
     try {
         const { id } = req.params;
-        const publication = await Publication.findById(id)
-            .populate('author_id', 'username user_photo')
-            .populate('likes', 'username') // Optionnel : inclure les détails des utilisateurs qui ont aimé
-            .populate('dislikes', 'username'); // Optionnel : inclure les détails des utilisateurs qui ont désapprouvé
+        const token = req.headers.authorization?.split(' ')[1]; // Récupérer le token (optionnel)
+        let userId = null;
 
+        // Décoder le token pour obtenir l'ID de l'utilisateur (si connecté)
+        if (token) {
+            const decoded = jwt.verify(token, 'randa');
+            userId = decoded.id;
+        }
+
+        // Récupérer la publication
+        const publication = await Publication.findById(id);
         if (!publication) {
             return res.status(404).json({ message: 'Publication non trouvée' });
         }
 
-        res.status(200).json(publication);
+        // Vérifier si l'utilisateur est connecté et s'il n'a pas encore vu la publication
+        if (userId) {
+            if (!publication.viewedBy) publication.viewedBy = []; // Initialiser viewedBy si vide
+            if (!publication.viewedBy.includes(userId)) {
+                publication.viewCount += 1; // Incrémenter uniquement la première fois
+                publication.viewedBy.push(userId); // Ajouter l'utilisateur à viewedBy
+                await publication.save();
+            }
+        }
+        // Note : Si l'utilisateur n'est pas connecté (pas de token), on n'incrémente pas viewCount.
+        // Si vous voulez compter les vues anonymes différemment, précisez-le-moi.
+
+        // Peupler les champs nécessaires après mise à jour
+        const populatedPublication = await Publication.findById(id)
+            .populate('author_id', 'username user_photo')
+            .populate('likes', 'username')
+            .populate('dislikes', 'username');
+
+        res.status(200).json(populatedPublication);
     } catch (error) {
         console.error('Erreur lors de la récupération de la publication:', error);
         res.status(500).json({ message: 'Erreur serveur', error: error.message });

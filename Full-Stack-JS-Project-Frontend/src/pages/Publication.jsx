@@ -194,9 +194,10 @@ function Publication() {
     const filteredPublications = displayedPublications
         .filter(post => {
             const titre = stripHtmlTags(post.titrePublication).toLowerCase();
+            const tag = stripHtmlTags(post.tag).toLowerCase();
             const auteur = (post.author_id?.username || 'Unknown').toLowerCase();
             const term = searchTerm.toLowerCase();
-            return titre.includes(term) || auteur.includes(term);
+            return titre.includes(term) || auteur.includes(term) || tag.includes(term);
         })
         .sort((a, b) => {
             const isAPinned = pinnedPublications.includes(a._id);

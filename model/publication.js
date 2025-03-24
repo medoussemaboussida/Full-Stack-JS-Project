@@ -69,6 +69,12 @@ const publicationSchema = new mongoose.Schema({
         type: Boolean,
         default: false, // Par défaut, une publication n'est pas épinglée
     },
+    // Nouveau champ pour le compteur de vues
+    viewCount: {
+        type: Number,
+        default: 0, // Par défaut, 0 vue
+    },
+    viewedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 }, {
     timestamps: true, // Ajoute createdAt et updatedAt automatiquement
 });

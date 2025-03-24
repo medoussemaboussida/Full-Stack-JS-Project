@@ -30,7 +30,7 @@ function PublicationDetailPsy() {
 
     // Initialiser le filtre bad-words
     const filter = new Filter();
-    filter.addWords('con', 'salope', 'connard', 'merde','putain'); // Ajoutez vos mots ici
+    filter.addWords('con', 'salope', 'connard', 'merde', 'putain');
 
     // Fonction pour vérifier les mots interdits
     const containsBadWords = (text) => {
@@ -145,7 +145,6 @@ function PublicationDetailPsy() {
             return;
         }
 
-        // Vérification des mots interdits
         if (containsBadWords(newComment)) {
             toast.error('Votre commentaire contient des mots inappropriés. Veuillez les supprimer.');
             return;
@@ -189,7 +188,6 @@ function PublicationDetailPsy() {
             return;
         }
 
-        // Vérification des mots interdits lors de la modification
         if (containsBadWords(editCommentContent)) {
             toast.error('Votre commentaire modifié contient des mots inappropriés. Veuillez les supprimer.');
             return;
@@ -418,7 +416,14 @@ function PublicationDetailPsy() {
                                                 <div className="blog-meta-left">
                                                     <ul>
                                                         <li><i className="far fa-user"></i>{publication.author_id?.username || 'Unknown'}</li>
-                                                        <li><i className="far fa-calendar"></i>{new Date(publication.datePublication).toLocaleDateString()}</li>
+                                                        <li>
+                                                            <i className="far fa-calendar"></i>
+                                                            {new Date(publication.datePublication).toLocaleDateString()}
+                                                        </li>
+                                                        <li>
+                                                            <i className="far fa-eye"></i> {/* Icône pour les vues */}
+                                                            {publication.viewCount || 0} vues
+                                                        </li>
                                                     </ul>
                                                 </div>
                                                 <div className="blog-meta-right">
