@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import { jwtDecode } from 'jwt-decode';
 import EmojiPicker from 'emoji-picker-react';
+import { Filter } from 'bad-words';
 import 'react-toastify/dist/ReactToastify.css';
 
 const stripHtmlTags = (html) => {
@@ -23,9 +24,18 @@ function PublicationDetailPsy() {
     const [editCommentContent, setEditCommentContent] = useState('');
     const [relatedPublications, setRelatedPublications] = useState([]);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-    const [showEditEmojiPicker, setShowEditEmojiPicker] = useState(false); // Nouveau state pour l'édition
+    const [showEditEmojiPicker, setShowEditEmojiPicker] = useState(false);
 
     const BASE_URL = "http://localhost:5000";
+
+    // Initialiser le filtre bad-words
+    const filter = new Filter();
+    filter.addWords('con', 'salope', 'connard', 'merde','putain'); // Ajoutez vos mots ici
+
+    // Fonction pour vérifier les mots interdits
+    const containsBadWords = (text) => {
+        return filter.isProfane(text);
+    };
 
     const fetchPublicationDetail = async () => {
         try {
@@ -135,6 +145,12 @@ function PublicationDetailPsy() {
             return;
         }
 
+        // Vérification des mots interdits
+        if (containsBadWords(newComment)) {
+            toast.error('Votre commentaire contient des mots inappropriés. Veuillez les supprimer.');
+            return;
+        }
+
         try {
             const response = await fetch(`${BASE_URL}/users/commentaire`, {
                 method: 'POST',
@@ -173,6 +189,12 @@ function PublicationDetailPsy() {
             return;
         }
 
+        // Vérification des mots interdits lors de la modification
+        if (containsBadWords(editCommentContent)) {
+            toast.error('Votre commentaire modifié contient des mots inappropriés. Veuillez les supprimer.');
+            return;
+        }
+
         try {
             const response = await fetch(`${BASE_URL}/users/commentaire/${commentId}`, {
                 method: 'PUT',
@@ -190,7 +212,7 @@ function PublicationDetailPsy() {
                 ));
                 setEditCommentId(null);
                 setEditCommentContent('');
-                setShowEditEmojiPicker(false); // Cacher le picker après mise à jour
+                setShowEditEmojiPicker(false);
                 toast.success('Commentaire modifié avec succès');
             } else {
                 toast.error(`Erreur: ${result.message}`);
@@ -343,7 +365,7 @@ function PublicationDetailPsy() {
 
     const handleEditEmojiClick = (emojiObject) => {
         setEditCommentContent(prev => prev + emojiObject.emoji);
-        setShowEditEmojiPicker(false); // Optionnel : cacher après sélection
+        setShowEditEmojiPicker(false);
     };
 
     useEffect(() => {
