@@ -446,3 +446,76 @@ exports.saveMood = async (req, res) => {
         res.status(500).json({ message: "Error fetching moods", error: error.message });
     }
 };
+
+// ✅ Récupérer les activités épinglées d'un utilisateur
+exports.getPinnedActivities = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+
+        // Vérifier que l'utilisateur authentifié correspond à l'userId
+        if (req.userId !== userId) {
+            return res.status(403).json({ message: "Unauthorized access" });
+        }
+
+        // Trouver l'utilisateur et récupérer ses activités épinglées
+        const user = await User.findById(userId).select('pinnedActivities');
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Optionnel : Récupérer les détails complets des activités épinglées
+        const pinnedActivitiesDetails = await Activity.find({
+            _id: { $in: user.pinnedActivities },
+        });
+
+        res.status(200).json({ pinnedActivities: user.pinnedActivities });
+    } catch (error) {
+        console.error("Error fetching pinned activities:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+// ✅ Basculer l'état épinglé d'une activité (pin/unpin)
+exports.togglePinActivity = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const { activity } = req.body;
+
+        // Vérifier que l'utilisateur authentifié correspond à l'userId
+        if (req.userId !== userId) {
+            return res.status(403).json({ message: "Unauthorized access" });
+        }
+
+        // Trouver l'utilisateur
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Vérifier si l'activité existe
+        const activityExists = await Activity.findById(activity);
+        if (!activityExists) {
+            return res.status(404).json({ message: "Activity not found" });
+        }
+
+        // Basculer l'état épinglé
+        const isPinned = user.pinnedActivities.includes(activity);
+        if (isPinned) {
+            user.pinnedActivities = user.pinnedActivities.filter(
+                (id) => id.toString() !== activity
+            );
+        } else {
+            user.pinnedActivities.push(activity);
+        }
+
+        await user.save();
+
+        res.status(200).json({
+            message: `Activity ${isPinned ? "unpinned" : "pinned"} successfully`,
+            pinnedActivities: user.pinnedActivities,
+        });
+    } catch (error) {
+        console.error("Error toggling pinned activity:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};

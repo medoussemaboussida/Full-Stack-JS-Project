@@ -329,10 +329,10 @@ function BreathingExerciseModal({ isOpen, onClose }) {
             </div>
             <h4 style={{ fontSize: "18px", color: "#333", marginTop: "20px", textAlign: "center" }}>
               {currentPhase === "inhale"
-                ? "Inspire"
+                ? "inhale"
                 : currentPhase === "hold"
-                ? "Retiens l'air"
-                : "Expire"}
+                ? "hold"
+                : "exhale"}
             </h4>
             <p style={{ color: "#666", fontSize: "14px", marginTop: "10px", textAlign: "center" }}>
               Cycle {cycleCount} of {exerciseData.cycles}

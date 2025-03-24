@@ -76,7 +76,7 @@ const userSchema = new mongoose.Schema({
     validationToken: { type: String, required: false },
 
     favoriteActivities: [{ type: String ,required: false}], // Liste des activités favorites
-
+    pinnedActivities: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Activity' }],
 availability: [
         {
             day: { type: String, required: true },

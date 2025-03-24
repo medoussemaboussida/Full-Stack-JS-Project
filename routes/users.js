@@ -123,4 +123,11 @@ router.get("/schedule/:userId", userController.verifyToken, activitiesController
 // Nouvelles routes pour les humeurs
 router.post("/moods/:userId", userController.verifyToken, activitiesController.saveMood);
 router.get("/moods/:userId", userController.verifyToken, activitiesController.getMoods);
+
+// Route to get the user's pinned activities
+router.get("/pinned-activities/:userId", userController.verifyToken, activitiesController.getPinnedActivities);
+
+// Route to toggle (pin/unpin) an activity
+router.post("/pin-activity/:userId", userController.verifyToken, activitiesController.togglePinActivity);
+
 module.exports = router;

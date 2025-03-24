@@ -10,6 +10,7 @@ import { faTrash } from "@fortawesome/free-solid-svg-icons"; // Trash icon for r
 import { faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons"; // Chevron icons for pagination
 import { faPlus } from "@fortawesome/free-solid-svg-icons"; // Plus icon for Add Activity
 import { faTimes } from "@fortawesome/free-solid-svg-icons"; // Times icon for clearing search
+import { faThumbtack } from "@fortawesome/free-solid-svg-icons"; // Pushpin icon for pinning
 
 // Fonction pour supprimer les balises HTML
 const stripHtmlTags = (html) => {
@@ -27,6 +28,7 @@ function Activities() {
   const [activityToDelete, setActivityToDelete] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [favoriteActivities, setFavoriteActivities] = useState([]); // Track user's favorite activity IDs
+  const [pinnedActivities, setPinnedActivities] = useState([]); // Track user's pinned activity IDs
   const [showModal, setShowModal] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [currentPage, setCurrentPage] = useState(1); // State for current page
@@ -88,6 +90,28 @@ function Activities() {
     }
   };
 
+  // Récupérer les activités épinglées de l'utilisateur
+  const fetchPinnedActivities = async (userId) => {
+    try {
+      const token = localStorage.getItem("jwt-token");
+      if (!token || !userId) return;
+
+      const response = await fetch(`http://localhost:5000/users/pinned-activities/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setPinnedActivities(data.pinnedActivities || []);
+      } else {
+        console.error("Failed to fetch pinned activities:", data.message);
+      }
+    } catch (error) {
+      console.error("Error fetching pinned activities:", error);
+    }
+  };
+
   // Basculer l'état favori d'une activité
   const toggleFavoriteActivity = async (activityId) => {
     try {
@@ -121,6 +145,42 @@ function Activities() {
     } catch (error) {
       console.error("Error toggling favorite activity:", error);
       toast.error("An error occurred while toggling the favorite.");
+    }
+  };
+
+  // Basculer l'état épinglé d'une activité
+  const togglePinActivity = async (activityId) => {
+    try {
+      const token = localStorage.getItem("jwt-token");
+      if (!token || !userId) {
+        toast.error("You must be logged in!");
+        return;
+      }
+
+      const response = await fetch(`http://localhost:5000/users/pin-activity/${userId}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ activity: activityId }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        const isPinned = pinnedActivities.includes(activityId);
+        setPinnedActivities((prev) =>
+          isPinned
+            ? prev.filter((id) => id !== activityId)
+            : [...prev, activityId]
+        );
+        toast.success(`Activity ${isPinned ? "unpinned" : "pinned"} successfully!`);
+      } else {
+        toast.error(`Failed to toggle pin: ${data.message}`);
+      }
+    } catch (error) {
+      console.error("Error toggling pinned activity:", error);
+      toast.error("An error occurred while toggling the pin.");
     }
   };
 
@@ -233,7 +293,8 @@ function Activities() {
         const decoded = jwtDecode(token);
         if (decoded.id) setUserId(decoded.id);
         if (decoded.role) setUserRole(decoded.role);
-        fetchFavoriteActivities(decoded.id); // Fetch favorites when user is logged in
+        fetchFavoriteActivities(decoded.id); // Fetch favorites
+        fetchPinnedActivities(decoded.id); // Fetch pinned activities
       } catch (error) {
         console.error("Invalid token:", error);
       }
@@ -250,16 +311,22 @@ function Activities() {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  // Filter activities by search term and category
-const filteredActivities = activities.filter((activity) => {
-  const matchesCategory =
-    selectedCategory === "*" || activity.category === selectedCategory;
-  const matchesSearch =
-    !searchTerm ||
-    stripHtmlTags(activity.title).toLowerCase().includes(searchTerm.toLowerCase()) ||
-    stripHtmlTags(activity.description).toLowerCase().includes(searchTerm.toLowerCase());
-  return matchesCategory && matchesSearch;
-});
+  // Filter activities by search term and category, and sort by pinned status
+  const filteredActivities = activities
+    .filter((activity) => {
+      const matchesCategory =
+        selectedCategory === "*" || activity.category === selectedCategory;
+      const matchesSearch =
+        !searchTerm ||
+        stripHtmlTags(activity.title).toLowerCase().includes(searchTerm.toLowerCase()) ||
+        stripHtmlTags(activity.description).toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesCategory && matchesSearch;
+    })
+    .sort((a, b) => {
+      const aIsPinned = pinnedActivities.includes(a._id);
+      const bIsPinned = pinnedActivities.includes(b._id);
+      return aIsPinned === bIsPinned ? 0 : aIsPinned ? -1 : 1; // Pinned activities come first
+    });
 
   // Pagination logic
   const totalActivities = filteredActivities.length;
@@ -530,7 +597,35 @@ const filteredActivities = activities.filter((activity) => {
                     </button>
                   </div>
                 ) : userRole === "student" ? (
-                  <div style={{ padding: "10px" }}>
+                  <div style={{ padding: "10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                   
+                    {/* Pin/Unpin Button */}
+                    <button
+                      onClick={() => togglePinActivity(activity._id)}
+                      style={{
+                        backgroundColor: pinnedActivities.includes(activity._id) ? "#f4b400" : "#ff9500",
+                        color: "white",
+                        padding: "8px 16px",
+                        borderRadius: "8px",
+                        fontWeight: "bold",
+                        border: "none",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        transition: "background-color 0.3s ease",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.target.style.backgroundColor = pinnedActivities.includes(activity._id) ? "#d9a300" : "#e68600")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.target.style.backgroundColor = pinnedActivities.includes(activity._id) ? "#f4b400" : "#ff9500")
+                      }
+                    >
+                      <FontAwesomeIcon icon={faThumbtack} />
+                      {pinnedActivities.includes(activity._id) ? "Unpin" : "Pin"}
+                    </button>
+                     {/* Favorite Button */}
                     <button
                       onClick={() => toggleFavoriteActivity(activity._id)}
                       style={{
