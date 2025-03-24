@@ -120,4 +120,7 @@ router.post("/schedule/:userId", userController.verifyToken, activitiesControlle
 // routes/users.js (excerpt)
 router.get("/schedule/:userId", userController.verifyToken, activitiesController.getSchedule);
 
+// Nouvelles routes pour les humeurs
+router.post("/moods/:userId", userController.verifyToken, activitiesController.saveMood);
+router.get("/moods/:userId", userController.verifyToken, activitiesController.getMoods);
 module.exports = router;

@@ -4,37 +4,34 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { jwtDecode } from "jwt-decode";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCalendarAlt, faTimes, faCheckCircle, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faCalendarAlt, faTimes, faCheckCircle, faTrash, faCalendarPlus } from "@fortawesome/free-solid-svg-icons";
 
-// Function to generate a list of dates for the current month
-const generateDatesForMonth = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
+// Function to generate a list of dates for the specified month
+const generateDatesForMonth = (date) => {
+  const year = date.getFullYear();
+  const month = date.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const dates = [];
 
   for (let day = 1; day <= daysInMonth; day++) {
-    const date = new Date(year, month, day);
-    dates.push(date.toISOString().split("T")[0]); // Format: YYYY-MM-DD
+    const currentDate = new Date(year, month, day);
+    dates.push(currentDate.toISOString().split("T")[0]); // Format: YYYY-MM-DD
   }
 
   return dates;
 };
 
-// Function to get the first day of the month (0 = Sunday, 1 = Monday, etc.)
-const getFirstDayOfMonth = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
+// Function to get the first day of the specified month (0 = Sunday, 1 = Monday, etc.)
+const getFirstDayOfMonth = (date) => {
+  const year = date.getFullYear();
+  const month = date.getMonth();
   return new Date(year, month, 1).getDay();
 };
 
-// Function to get the number of days in the current month
-const getDaysInMonth = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
+// Function to get the number of days in the specified month
+const getDaysInMonth = (date) => {
+  const year = date.getFullYear();
+  const month = date.getMonth();
   return new Date(year, month + 1, 0).getDate();
 };
 
@@ -52,8 +49,22 @@ function ActivitySchedule() {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [showViewActivityModal, setShowViewActivityModal] = useState(false);
   const [showClearAllFavoriteModal, setShowClearAllFavoriteModal] = useState(false);
-  const dates = generateDatesForMonth();
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [showMoodModal, setShowMoodModal] = useState(false);
+  const [selectedMood, setSelectedMood] = useState(null);
+  const [currentActivity, setCurrentActivity] = useState(null);
+  const [moods, setMoods] = useState([]); // État pour les humeurs
+  const dates = generateDatesForMonth(currentDate);
   const navigate = useNavigate();
+
+  // Icônes pour les humeurs
+  const moodIcons = {
+    "Very Sad": "😢",
+    Sad: "😔",
+    Neutral: "😐",
+    Happy: "🙂",
+    "Very Happy": "😊",
+  };
 
   // Fetch favorite activities
   const fetchFavoriteActivities = async (userId) => {
@@ -118,8 +129,37 @@ function ActivitySchedule() {
     }
   };
 
+  // Fetch moods for the user
+  const fetchMoods = async () => {
+    try {
+      const token = localStorage.getItem("jwt-token");
+      if (!token || !userId) {
+        toast.error("You must be logged in!");
+        return [];
+      }
+
+      const response = await fetch(`http://localhost:5000/users/moods/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        return data;
+      } else {
+        toast.error(`Failed to fetch moods: ${data.message}`);
+        return [];
+      }
+    } catch (error) {
+      console.error("Error fetching moods:", error);
+      toast.error("An error occurred while fetching moods.");
+      return [];
+    }
+  };
+
   // Save scheduled activities
-  const saveScheduledActivities = async () => {
+  const saveScheduledActivities = async (date, activities) => {
     try {
       const token = localStorage.getItem("jwt-token");
       if (!token) {
@@ -127,13 +167,16 @@ function ActivitySchedule() {
         navigate("/login");
         return;
       }
+      if (!date || !activities) {
+        throw new Error("Date or activities missing");
+      }
       const response = await fetch(`http://localhost:5000/users/schedule/${userId}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ date: selectedDate, activities: scheduledActivities[selectedDate] || [] }),
+        body: JSON.stringify({ date, activities }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Failed to save schedule");
@@ -141,6 +184,39 @@ function ActivitySchedule() {
     } catch (error) {
       console.error("Error saving scheduled activities:", error);
       toast.error(`Error saving schedule: ${error.message}`);
+    }
+  };
+
+  // Save mood to the server
+  const saveMood = async (activityId, mood) => {
+    try {
+      const token = localStorage.getItem("jwt-token");
+      if (!token) {
+        toast.error("No authentication token found. Please log in.");
+        navigate("/login");
+        return;
+      }
+
+      const response = await fetch(`http://localhost:5000/users/moods/${userId}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          activityId,
+          mood,
+          date: new Date().toISOString(),
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Failed to save mood");
+
+      toast.success("Mood saved successfully!");
+    } catch (error) {
+      console.error("Error saving mood:", error);
+      toast.error(`Error saving mood: ${error.message}`);
     }
   };
 
@@ -249,6 +325,49 @@ function ActivitySchedule() {
     setShowClearAllFavoriteModal(false);
   };
 
+  // Navigate to previous month
+  const handlePreviousMonth = () => {
+    setCurrentDate((prev) => {
+      const newDate = new Date(prev);
+      newDate.setMonth(prev.getMonth() - 1);
+      return newDate;
+    });
+  };
+
+  // Navigate to next month
+  const handleNextMonth = () => {
+    setCurrentDate((prev) => {
+      const newDate = new Date(prev);
+      newDate.setMonth(prev.getMonth() + 1);
+      return newDate;
+    });
+  };
+
+  // Handle mood selection
+  const handleMoodSelect = (mood) => {
+    setSelectedMood(mood);
+  };
+
+  // Confirm mood and save to server
+  const handleMoodConfirm = async () => {
+    if (selectedMood !== null && currentActivity) {
+      await saveMood(currentActivity._id, selectedMood);
+      fetchMoods().then((moodsData) => {
+        setMoods(moodsData);
+      });
+    }
+    setShowMoodModal(false);
+    setSelectedMood(null);
+    setCurrentActivity(null);
+  };
+
+  // Cancel and close the mood modal
+  const closeMoodModal = () => {
+    setShowMoodModal(false);
+    setSelectedMood(null);
+    setCurrentActivity(null);
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
     if (token) {
@@ -259,6 +378,9 @@ function ActivitySchedule() {
           fetchFavoriteActivities(decoded.id);
           fetchActivities();
           fetchScheduledActivities(decoded.id);
+          fetchMoods().then((moodsData) => {
+            setMoods(moodsData);
+          });
         }
       } catch (error) {
         console.error("Invalid token:", error);
@@ -290,62 +412,64 @@ function ActivitySchedule() {
       toast.error("Please select at least one activity to schedule.");
       return;
     }
-  
-    setScheduledActivities((prev) => {
-      const updated = {
-        ...prev,
-        [selectedDate]: selectedActivityIds.map((activityId) => ({
-          activityId,
-          completed: false,
-        })),
-      };
-      return updated;
+
+    const existingActivities = scheduledActivities[selectedDate] || [];
+    const newActivities = selectedActivityIds.map((activityId) => {
+      const existingActivity = existingActivities.find((act) => act.activityId === activityId);
+      return existingActivity ? existingActivity : { activityId, completed: false };
     });
-  
-    await saveScheduledActivities(); // Attendre la sauvegarde
+
+    setScheduledActivities((prev) => ({
+      ...prev,
+      [selectedDate]: newActivities,
+    }));
+
+    await saveScheduledActivities(selectedDate, newActivities);
     toast.success(`Activities scheduled for ${selectedDate}!`);
     closeScheduleModal();
   };
 
   // Toggle completion status of an activity
   const handleToggleComplete = async (date, activityId) => {
-    setScheduledActivities((prev) => {
-      const updatedActivities = prev[date].map((activity) =>
-        activity.activityId === activityId
-          ? { ...activity, completed: !activity.completed }
-          : activity
-      );
-      const updated = { ...prev, [date]: updatedActivities };
-      return updated;
-    });
-  
-    await saveScheduledActivities(); // Sauvegarder après mise à jour
-    toast.info(
-      `Activity marked as ${
-        scheduledActivities[date].find((act) => act.activityId === activityId).completed
-          ? "incomplete"
-          : "completed"
-      }!`
+    const updatedActivities = scheduledActivities[date].map((activity) =>
+      activity.activityId === activityId
+        ? { ...activity, completed: !activity.completed }
+        : activity
     );
+
+    setScheduledActivities((prev) => ({
+      ...prev,
+      [date]: updatedActivities,
+    }));
+
+    const newCompletedStatus = updatedActivities.find((act) => act.activityId === activityId).completed;
+
+    await saveScheduledActivities(date, updatedActivities);
+    toast.info(`Activity marked as ${newCompletedStatus ? "completed" : "incomplete"}!`);
+
+    if (newCompletedStatus) {
+      const activity = activities.find((act) => act._id === activityId);
+      setCurrentActivity(activity);
+      setShowMoodModal(true);
+    }
   };
 
   if (isLoading) {
     return <div style={{ textAlign: "center", padding: "20px", fontSize: "18px" }}>Loading...</div>;
   }
 
-  // Calendar logic
-  const firstDay = getFirstDayOfMonth();
-  const daysInMonth = getDaysInMonth();
+  const firstDay = getFirstDayOfMonth(currentDate);
+  const daysInMonth = getDaysInMonth(currentDate);
   const today = new Date().getDate();
-  const monthName = new Date().toLocaleString("default", { month: "long" });
-  const year = new Date().getFullYear();
+  const monthName = currentDate.toLocaleString("en-US", { month: "long" });
+  const year = currentDate.getFullYear();
 
   const calendarDays = [];
   for (let i = 0; i < firstDay; i++) {
-    calendarDays.push(null); // Empty cells before the first day
+    calendarDays.push(null);
   }
   for (let day = 1; day <= daysInMonth; day++) {
-    calendarDays.push(day); // Days of the month
+    calendarDays.push(day);
   }
 
   return (
@@ -722,6 +846,104 @@ function ActivitySchedule() {
         </div>
       )}
 
+      {/* Mood Impact Modal */}
+      {showMoodModal && currentActivity && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "400px",
+              maxWidth: "90%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              textAlign: "center",
+            }}
+          >
+            <h3 style={{ marginBottom: "10px" }}>
+              How do you feel right now after completing {currentActivity.title}?
+            </h3>
+            <p style={{ fontSize: "14px", color: "#666", marginBottom: "20px" }}>
+              Indicate your current mood to integrate a first piece of data into your statistics.
+            </p>
+            <div style={{ display: "flex", justifyContent: "center", gap: "15px", marginBottom: "20px" }}>
+              {[
+                { mood: "Very Sad", emoji: "😢" },
+                { mood: "Sad", emoji: "😔" },
+                { mood: "Neutral", emoji: "😐" },
+                { mood: "Happy", emoji: "🙂" },
+                { mood: "Very Happy", emoji: "😊" },
+              ].map((item, index) => (
+                <div
+                  key={index}
+                  onClick={() => handleMoodSelect(item.mood)}
+                  style={{
+                    fontSize: "30px",
+                    cursor: "pointer",
+                    padding: "10px",
+                    borderRadius: "50%",
+                    backgroundColor: selectedMood === item.mood ? "#e0e0e0" : "transparent",
+                    transition: "background-color 0.3s ease",
+                  }}
+                >
+                  {item.emoji}
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+              <button
+                onClick={handleMoodConfirm}
+                disabled={selectedMood === null}
+                style={{
+                  backgroundColor: selectedMood === null ? "#ccc" : "#0ea5e6",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  fontWeight: "bold",
+                  border: "none",
+                  cursor: selectedMood === null ? "not-allowed" : "pointer",
+                  transition: "background-color 0.3s ease",
+                }}
+                onMouseEnter={(e) => selectedMood !== null && (e.target.style.backgroundColor = "#0d8bc2")}
+                onMouseLeave={(e) => selectedMood !== null && (e.target.style.backgroundColor = "#0ea5e6")}
+              >
+                Confirm
+              </button>
+              <button
+                onClick={closeMoodModal}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  fontWeight: "bold",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s ease",
+                }}
+                onMouseEnter={(e) => (e.target.style.backgroundColor = "#d32f2f")}
+                onMouseLeave={(e) => (e.target.style.backgroundColor = "#f44336")}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Schedule Section - Calendar View */}
       <div style={{ padding: "40px", backgroundColor: "#f9f9f9", textAlign: "center" }}>
         <h2 style={{ fontSize: "32px", fontWeight: "700", marginBottom: "20px" }}>
@@ -738,9 +960,43 @@ function ActivitySchedule() {
           </p>
         ) : (
           <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
-            {/* Calendar Header */}
-            <div style={{ marginBottom: "20px" }}>
-              <h3 style={{ fontSize: "24px", color: "#333" }}>{monthName} {year}</h3>
+            {/* Calendar Header with Pagination */}
+            <div style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <button
+                onClick={handlePreviousMonth}
+                style={{
+                  backgroundColor: "#0ea5e6",
+                  color: "white",
+                  padding: "8px 16px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s ease",
+                }}
+                onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
+                onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
+              >
+                Previous
+              </button>
+              <h3 style={{ fontSize: "24px", color: "#333" }}>
+                {monthName} {year}
+              </h3>
+              <button
+                onClick={handleNextMonth}
+                style={{
+                  backgroundColor: "#0ea5e6",
+                  color: "white",
+                  padding: "8px 16px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s ease",
+                }}
+                onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
+                onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
+              >
+                Next
+              </button>
             </div>
 
             {/* Calendar Grid */}
@@ -772,8 +1028,13 @@ function ActivitySchedule() {
 
               {/* Calendar Days */}
               {calendarDays.map((day, index) => {
-                const dateStr = day ? `${year}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}` : null;
-                const isToday = day === today;
+                const dateStr = day
+                  ? `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+                  : null;
+                const isToday =
+                  day === new Date().getDate() &&
+                  currentDate.getMonth() === new Date().getMonth() &&
+                  currentDate.getFullYear() === new Date().getFullYear();
                 return (
                   <div
                     key={index}
@@ -781,13 +1042,11 @@ function ActivitySchedule() {
                       background: day ? "#fff" : "#f0f0f0",
                       borderRadius: "8px",
                       padding: "10px",
-                      minHeight: "100px",
+                      minHeight: "120px",
                       border: isToday ? "2px solid #ff5a5f" : "1px solid #ddd",
-                      cursor: day ? "pointer" : "default",
                       position: "relative",
                       transition: "transform 0.2s ease",
                     }}
-                    onClick={() => day && handleScheduleActivity(dateStr)}
                     onMouseEnter={(e) => day && (e.currentTarget.style.transform = "scale(1.05)")}
                     onMouseLeave={(e) => day && (e.currentTarget.style.transform = "scale(1)")}
                   >
@@ -796,11 +1055,38 @@ function ActivitySchedule() {
                         <div style={{ fontWeight: "bold", color: "#333", marginBottom: "5px" }}>
                           {day}
                         </div>
+                        <div style={{ display: "flex", justifyContent: "center", marginBottom: "5px" }}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleScheduleActivity(dateStr);
+                            }}
+                            style={{
+                              backgroundColor: "#0ea5e6",
+                              color: "white",
+                              padding: "5px 10px",
+                              borderRadius: "5px",
+                              fontSize: "12px",
+                              border: "none",
+                              cursor: "pointer",
+                              transition: "background-color 0.3s ease",
+                            }}
+                            onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
+                            onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
+                          >
+                            <FontAwesomeIcon icon={faCalendarPlus} /> Plan the Day
+                          </button>
+                        </div>
                         {scheduledActivities[dateStr] && scheduledActivities[dateStr].length > 0 && (
                           <ul style={{ listStyle: "none", padding: "0", fontSize: "12px" }}>
                             {scheduledActivities[dateStr].map((scheduledActivity, idx) => {
                               const activity = activities.find(
                                 (act) => act._id === scheduledActivity.activityId
+                              );
+                              const moodEntry = moods.find(
+                                (mood) =>
+                                  mood.activityId === scheduledActivity.activityId &&
+                                  new Date(mood.date).toISOString().split("T")[0] === dateStr
                               );
                               return (
                                 <li
@@ -812,15 +1098,27 @@ function ActivitySchedule() {
                                     marginBottom: "5px",
                                   }}
                                 >
-                                  <input
-                                    type="checkbox"
-                                    checked={scheduledActivity.completed}
-                                    onChange={(e) => {
+                                  <span
+                                    onClick={(e) => {
                                       e.stopPropagation();
                                       handleToggleComplete(dateStr, scheduledActivity.activityId);
                                     }}
-                                    style={{ cursor: "pointer" }}
-                                  />
+                                    style={{
+                                      display: "inline-block",
+                                      width: "16px",
+                                      height: "16px",
+                                      lineHeight: "16px",
+                                      textAlign: "center",
+                                      borderRadius: "4px",
+                                      backgroundColor: scheduledActivity.completed ? "#e6ffe6" : "#ffe6e6",
+                                      color: scheduledActivity.completed ? "#00cc00" : "#ff0000",
+                                      cursor: "pointer",
+                                      fontSize: "12px",
+                                      fontWeight: "bold",
+                                    }}
+                                  >
+                                    {scheduledActivity.completed ? "✔" : "✘"}
+                                  </span>
                                   <span
                                     style={{
                                       textDecoration: scheduledActivity.completed
@@ -831,6 +1129,17 @@ function ActivitySchedule() {
                                   >
                                     {activity ? activity.title : "Unknown"}
                                   </span>
+                                  {moodEntry && scheduledActivity.completed && (
+                                    <span
+                                      style={{
+                                        fontSize: "12px",
+                                        color: "#0ea5e6",
+                                        fontStyle: "italic",
+                                      }}
+                                    >
+                                      ({moodIcons[moodEntry.mood]} {moodEntry.mood})
+                                    </span>
+                                  )}
                                 </li>
                               );
                             })}
@@ -842,6 +1151,60 @@ function ActivitySchedule() {
                 );
               })}
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Mood History Section */}
+      <div style={{ padding: "40px", backgroundColor: "#f9f9f9", textAlign: "center" }}>
+        <h2 style={{ fontSize: "24px", fontWeight: "700", marginBottom: "20px" }}>
+          Your Mood History
+        </h2>
+        {moods.length === 0 ? (
+          <p style={{ textAlign: "center", color: "#666" }}>
+            No moods recorded yet. Complete some activities to record your mood!
+          </p>
+        ) : (
+          <div
+            style={{
+              maxWidth: "800px",
+              margin: "0 auto",
+              backgroundColor: "#fff",
+              borderRadius: "10px",
+              boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
+              padding: "20px",
+            }}
+          >
+            <ul style={{ listStyle: "none", padding: "0" }}>
+              {moods.map((mood, index) => {
+                const activity = activities.find((act) => act._id === mood.activityId);
+                return (
+                  <li
+                    key={index}
+                    style={{
+                      padding: "10px 0",
+                      borderBottom: index < moods.length - 1 ? "1px solid #ddd" : "none",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      fontSize: "14px",
+                    }}
+                  >
+                    <span>
+                      <strong>{activity ? activity.title : "Unknown Activity"}</strong> -{" "}
+                      {moodIcons[mood.mood]} {mood.mood}
+                    </span>
+                    <span style={{ color: "#666", fontSize: "12px" }}>
+                      {new Date(mood.date).toLocaleDateString("en-US", {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
       </div>
@@ -881,8 +1244,9 @@ function ActivitySchedule() {
               })}
             </h3>
             <ScheduleModalContent
-              favoriteActivities={favoriteActivities}
               activities={activities}
+              scheduledActivities={scheduledActivities}
+              selectedDate={selectedDate}
               onConfirm={handleConfirmSchedule}
               onCancel={closeScheduleModal}
             />
@@ -894,8 +1258,11 @@ function ActivitySchedule() {
 }
 
 // Component for the modal content to select activities
-function ScheduleModalContent({ favoriteActivities, activities, onConfirm, onCancel }) {
-  const [selectedActivities, setSelectedActivities] = useState([]);
+function ScheduleModalContent({ activities, scheduledActivities, selectedDate, onConfirm, onCancel }) {
+  const [selectedActivities, setSelectedActivities] = useState(() => {
+    const existingActivities = scheduledActivities[selectedDate] || [];
+    return existingActivities.map((activity) => activity.activityId);
+  });
 
   const handleToggleActivity = (activityId) => {
     setSelectedActivities((prev) =>
@@ -908,29 +1275,26 @@ function ScheduleModalContent({ favoriteActivities, activities, onConfirm, onCan
   return (
     <div>
       <ul style={{ listStyle: "none", padding: "0", maxHeight: "200px", overflowY: "auto" }}>
-        {favoriteActivities.map((activityId) => {
-          const activity = activities.find((act) => act._id === activityId);
-          return (
-            <li
-              key={activityId}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                padding: "10px",
-                borderBottom: "1px solid #ddd",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={selectedActivities.includes(activityId)}
-                onChange={() => handleToggleActivity(activityId)}
-                style={{ cursor: "pointer" }}
-              />
-              <span>{activity ? activity.title : "Unknown Activity"}</span>
-            </li>
-          );
-        })}
+        {activities.map((activity) => (
+          <li
+            key={activity._id}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              padding: "10px",
+              borderBottom: "1px solid #ddd",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={selectedActivities.includes(activity._id)}
+              onChange={() => handleToggleActivity(activity._id)}
+              style={{ cursor: "pointer" }}
+            />
+            <span>{activity.title}</span>
+          </li>
+        ))}
       </ul>
       <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginTop: "20px" }}>
         <button

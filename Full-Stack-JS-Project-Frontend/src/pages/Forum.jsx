@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -8,83 +8,127 @@ import {
   faPaperPlane,
   faEye,
   faFlag,
+  faSmile, // Icône pour ouvrir le sélecteur d'emojis
 } from "@fortawesome/free-regular-svg-icons";
-import { faSearch } from "@fortawesome/free-solid-svg-icons"; // Ajout de l'icône faSearch
+import {
+  faSearch,
+  faThumbtack,
+} from "@fortawesome/free-solid-svg-icons";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
+import EmojiPicker from "emoji-picker-react"; // Importer le composant EmojiPicker
 
 // Fonction pour couper la description à 3 lignes
 const truncateDescription = (text, isExpanded) => {
   if (!isExpanded) {
-    return `${text.substring(0, 150)}...`; // Vous pouvez ajuster le nombre de caractères ou utiliser une méthode CSS pour couper après 3 lignes
+    return `${text.substring(0, 150)}...`;
   }
   return text;
 };
+
 function Forum() {
   const [forums, setForums] = useState([]);
   const [token, setToken] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [showDeleteModal, setShowDeleteModal] = useState(false); // État pour afficher le modal de suppression
-  const [showUpdateModal, setShowUpdateModal] = useState(false); // État pour afficher le modal de mise à jour
-  const [forumToDelete, setForumToDelete] = useState(null); // Forum à supprimer
-  const [forumToUpdate, setForumToUpdate] = useState(null); // Forum à mettre à jour
-  const [updatedTitle, setUpdatedTitle] = useState(""); // Valeur pour mettre à jour le titre
-  const [updatedDescription, setUpdatedDescription] = useState(""); // Valeur pour mettre à jour la description
-  const [updatedPhoto, setUpdatedPhoto] = useState(null); // Valeur pour mettre à jour la photo du forum
-  const [updatedAnonymous, setUpdatedAnonymous] = useState(false); // Valeur pour mettre à jour l'option "anonyme"
-  const [comment, setComment] = useState({}); // État pour le commentaire
-  const [expanded, setExpanded] = useState({}); // Suivi de l'état d'expansion de chaque forum
+  const [userRole, setUserRole] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [forumToDelete, setForumToDelete] = useState(null);
+  const [forumToUpdate, setForumToUpdate] = useState(null);
+  const [updatedTitle, setUpdatedTitle] = useState("");
+  const [updatedDescription, setUpdatedDescription] = useState("");
+  const [updatedPhoto, setUpdatedPhoto] = useState(null);
+  const [updatedAnonymous, setUpdatedAnonymous] = useState(false);
+  const [comment, setComment] = useState({});
+  const [expanded, setExpanded] = useState({});
   const [anonymous, setAnonymous] = useState(false);
-  const [comments, setComments] = useState([]); // Pour stocker les commentaires
-  const [showCommentModal, setShowCommentModal] = useState(false); // Pour contrôler l'affichage du modal des commentaires
-  const [forumIdForComments, setForumIdForComments] = useState(null); // Pour stocker l'ID du forum actuel
-  const [commentToDelete, setCommentToDelete] = useState(null); // Commentaire à supprimer
-  const [showDeleteCommentModal, setShowDeleteCommentModal] = useState(false); // Afficher/masquer le modal de suppression de commentaire
-  const [updatedTag, setUpdatedTag] = useState(""); // Nouvel état pour le tag
-  const [searchQuery, setSearchQuery] = useState(""); // État pour la valeur de recherche
-  const [isSearchOpen, setIsSearchOpen] = useState(false); // État pour contrôler l'affichage du champ de recherche
-  const [sortOption, setSortOption] = useState("newest"); // État pour l'option de tri
-  const [showUpdateCommentModal, setShowUpdateCommentModal] = useState(false); // Contrôler l'affichage du modal de mise à jour
-  const [commentToUpdate, setCommentToUpdate] = useState(null); // Commentaire à mettre à jour
-  const [updatedCommentContent, setUpdatedCommentContent] = useState(""); // Contenu modifié du commentaire
-  const [showReportForumModal, setShowReportForumModal] = useState(false); // Contrôler l'affichage du modal de signalement
-  const [forumToReport, setForumToReport] = useState(null); // Forum à signaler
-  const [reportReason, setReportReason] = useState(""); // Raison du signalement
-  const [showReportCommentModal, setShowReportCommentModal] = useState(false); // Contrôler l'affichage du modal de signalement des commentaires
-  const [commentToReport, setCommentToReport] = useState(null); // Commentaire à signaler
-  const [commentReportReason, setCommentReportReason] = useState(""); // Raison du signalement du commentaire (séparée pour différencier des forums)
+  const [comments, setComments] = useState([]);
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [forumIdForComments, setForumIdForComments] = useState(null);
+  const [commentToDelete, setCommentToDelete] = useState(null);
+  const [showDeleteCommentModal, setShowDeleteCommentModal] = useState(false);
+  const [updatedTag, setUpdatedTag] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [sortOption, setSortOption] = useState("newest");
+  const [showUpdateCommentModal, setShowUpdateCommentModal] = useState(false);
+  const [commentToUpdate, setCommentToUpdate] = useState(null);
+  const [updatedCommentContent, setUpdatedCommentContent] = useState("");
+  const [showReportForumModal, setShowReportForumModal] = useState(false);
+  const [forumToReport, setForumToReport] = useState(null);
+  const [reportReason, setReportReason] = useState("");
+  const [showReportCommentModal, setShowReportCommentModal] = useState(false);
+  const [commentToReport, setCommentToReport] = useState(null);
+  const [commentReportReason, setCommentReportReason] = useState("");
+  const [pinnedTopics, setPinnedTopics] = useState(new Set());
+  const [showEmojiPicker, setShowEmojiPicker] = useState({}); // État pour gérer l'affichage du sélecteur d'emojis par forum
   const navigate = useNavigate();
 
   // Fonction pour basculer l'état d'expansion
   const toggleDescription = (forumId) => {
     setExpanded((prev) => ({
       ...prev,
-      [forumId]: !prev[forumId], // Inverse l'état d'expansion pour ce forum
+      [forumId]: !prev[forumId],
     }));
   };
+
   // Fonction pour basculer l'affichage du champ de recherche
   const toggleSearch = () => {
     setIsSearchOpen((prev) => !prev);
     if (isSearchOpen) {
-      setSearchQuery(""); // Réinitialiser la recherche quand le champ disparaît
+      setSearchQuery("");
     }
   };
+
+  // Fonction pour basculer l'affichage du sélecteur d'emojis
+  const toggleEmojiPicker = (forumId) => {
+    setShowEmojiPicker((prev) => ({
+      ...prev,
+      [forumId]: !prev[forumId],
+    }));
+  };
+
+  // Fonction pour ajouter un emoji au commentaire
+  const onEmojiClick = (forumId, emojiObject) => {
+    setComment((prev) => ({
+      ...prev,
+      [forumId]: (prev[forumId] || "") + emojiObject.emoji,
+    }));
+    setShowEmojiPicker((prev) => ({
+      ...prev,
+      [forumId]: false, // Ferme le sélecteur après sélection
+    }));
+  };
+
+  // Filtrer et trier les forums
   const filteredForums = forums
     .filter((forum) => {
-      if (!searchQuery) return true; // Si pas de recherche, afficher tous les forums
+      if (!searchQuery) return true;
       const query = searchQuery.toLowerCase();
       const titleMatch = forum.title.toLowerCase().includes(query);
       const descriptionMatch = forum.description.toLowerCase().includes(query);
       const tagsMatch =
-        forum.tags &&
-        forum.tags.some((tag) => tag.toLowerCase().includes(query));
+        forum.tags && forum.tags.some((tag) => tag.toLowerCase().includes(query));
       return titleMatch || descriptionMatch || tagsMatch;
     })
     .sort((a, b) => {
-      const dateA = new Date(a.createdAt);
-      const dateB = new Date(b.createdAt);
-      return sortOption === "newest" ? dateB - dateA : dateA - dateB; // Tri par date
+      if (sortOption === "pinned") {
+        const aIsPinned = pinnedTopics.has(a._id);
+        const bIsPinned = pinnedTopics.has(b._id);
+
+        if (aIsPinned && !bIsPinned) return -1;
+        if (!aIsPinned && bIsPinned) return 1;
+
+        const dateA = new Date(a.createdAt);
+        const dateB = new Date(b.createdAt);
+        return dateB - dateA;
+      } else {
+        const dateA = new Date(a.createdAt);
+        const dateB = new Date(b.createdAt);
+        return sortOption === "newest" ? dateB - dateA : dateA - dateB;
+      }
     });
+
   // Liste des tags prédéfinis
   const tagOptions = [
     "anxiety",
@@ -98,38 +142,79 @@ function Forum() {
     "insomnia",
     "pressure",
   ];
+
+  // Charger le token, l'ID utilisateur, le rôle et les topics épinglés au montage
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
     if (token) {
       try {
         const decoded = jwtDecode(token);
-        const currentTime = Date.now() / 1000; // En secondes
+        const currentTime = Date.now() / 1000;
 
-        // Vérifier si le token est expiré
         if (decoded.exp < currentTime) {
           console.log("Token expiré.");
           localStorage.removeItem("jwt-token");
+          setToken(null);
+          setUserId(null);
+          setUserRole(null);
+          setPinnedTopics(new Set());
           return;
         }
 
-        setToken(token); // Sauvegarder le token valide
-        setUserId(decoded.id); // Récupérer l'id de l'utilisateur depuis le token
+        setToken(token);
+        setUserId(decoded.id);
+        setUserRole(decoded.role);
+        console.log("User role:", decoded.role);
+
+        const storedPinnedTopics = localStorage.getItem(`pinnedTopics_${decoded.id}`);
+        if (storedPinnedTopics) {
+          setPinnedTopics(new Set(JSON.parse(storedPinnedTopics)));
+        } else {
+          setPinnedTopics(new Set());
+        }
       } catch (error) {
         console.error("Erreur de décodage du token:", error);
         localStorage.removeItem("jwt-token");
+        setToken(null);
+        setUserId(null);
+        setUserRole(null);
+        setPinnedTopics(new Set());
       }
     } else {
       console.log("Aucun token trouvé.");
+      setToken(null);
+      setUserId(null);
+      setUserRole(null);
+      setPinnedTopics(new Set());
     }
-  }, []);
+  }, [token]);
 
-  //affichage forum
+  // Surveiller les changements de userId pour recharger les topics épinglés
+  useEffect(() => {
+    if (userId) {
+      const storedPinnedTopics = localStorage.getItem(`pinnedTopics_${userId}`);
+      if (storedPinnedTopics) {
+        setPinnedTopics(new Set(JSON.parse(storedPinnedTopics)));
+      } else {
+        setPinnedTopics(new Set());
+      }
+    } else {
+      setPinnedTopics(new Set());
+    }
+  }, [userId]);
+
+  // Sauvegarder les topics épinglés dans le localStorage à chaque modification
+  useEffect(() => {
+    if (userId) {
+      localStorage.setItem(`pinnedTopics_${userId}`, JSON.stringify([...pinnedTopics]));
+    }
+  }, [pinnedTopics, userId]);
+
+  // Affichage des forums
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const forumsResponse = await fetch(
-          "http://localhost:5000/forum/getForum"
-        );
+        const forumsResponse = await fetch("http://localhost:5000/forum/getForum");
         const forumsData = await forumsResponse.json();
         setForums(forumsData);
       } catch (error) {
@@ -140,7 +225,7 @@ function Forum() {
     fetchData();
   }, []);
 
-  //ajouter commentaire a un forum
+  // Ajouter un commentaire à un forum
   const handleAddComment = async (forumId, content, anonymous) => {
     if (!userId) {
       console.log("User not authenticated.");
@@ -165,9 +250,9 @@ function Forum() {
       if (response.ok) {
         console.log("Comment added:", data);
         toast.success("Your Comment is added successfully!");
-        setComments((prev) => ({
+        setComment((prev) => ({
           ...prev,
-          [forumId]: "", // Réinitialiser uniquement cet input
+          [forumId]: "",
         }));
       } else {
         console.error("Error adding comment:", data.message || data);
@@ -190,8 +275,8 @@ function Forum() {
       .then((response) => response.json())
       .then((data) => {
         console.log("Commentaire supprimé:", data);
-        setComments(comments.filter((comment) => comment._id !== commentId)); // Supprimer localement
-        setShowDeleteCommentModal(false); // Fermer le modal
+        setComments(comments.filter((comment) => comment._id !== commentId));
+        setShowDeleteCommentModal(false);
         toast.success("Your comment was deleted successfully!");
       })
       .catch((error) => {
@@ -199,7 +284,8 @@ function Forum() {
         toast.error("Failed to delete your comment!");
       });
   };
-  //afficher les comments :
+
+  // Afficher les commentaires
   const handleViewComments = async (forumId) => {
     try {
       const response = await fetch(
@@ -208,9 +294,9 @@ function Forum() {
       const data = await response.json();
 
       if (response.ok) {
-        setComments(data); // Enregistrer les commentaires
-        setForumIdForComments(forumId); // Enregistrer l'ID du forum pour référence
-        setShowCommentModal(true); // Ouvrir le modal
+        setComments(data);
+        setForumIdForComments(forumId);
+        setShowCommentModal(true);
       } else {
         console.error(
           "Erreur lors de la récupération des commentaires:",
@@ -222,7 +308,7 @@ function Forum() {
     }
   };
 
-  //delete forum
+  // Supprimer un forum
   const handleDelete = (forumId) => {
     fetch(`http://localhost:5000/forum/deleteForum/${forumId}`, {
       method: "DELETE",
@@ -234,8 +320,8 @@ function Forum() {
       .then((response) => response.json())
       .then((data) => {
         console.log("Forum supprimé:", data);
-        setForums(forums.filter((forum) => forum._id !== forumId)); // Supprimer localement
-        setShowDeleteModal(false); // Fermer le modal
+        setForums(forums.filter((forum) => forum._id !== forumId));
+        setShowDeleteModal(false);
         toast.success("Your topic was deleted successfully !");
       })
       .catch((error) => {
@@ -244,13 +330,13 @@ function Forum() {
       });
   };
 
-  //update forum
+  // Mettre à jour un forum
   const handleUpdate = (forumId) => {
     const formData = new FormData();
     formData.append("title", updatedTitle);
     formData.append("description", updatedDescription);
     formData.append("anonymous", updatedAnonymous);
-    formData.append("tags", JSON.stringify(updatedTag ? [updatedTag] : [])); // Ajouter les tags
+    formData.append("tags", JSON.stringify(updatedTag ? [updatedTag] : []));
     if (updatedPhoto) {
       formData.append("forum_photo", updatedPhoto);
     }
@@ -276,12 +362,12 @@ function Forum() {
                     ? URL.createObjectURL(updatedPhoto)
                     : forum.forum_photo,
                   anonymous: updatedAnonymous,
-                  tags: updatedTag ? [updatedTag] : [], // Mettre à jour les tags localement
+                  tags: updatedTag ? [updatedTag] : [],
                 }
               : forum
           )
         );
-        setShowUpdateModal(false); // Fermer le modal de mise à jour
+        setShowUpdateModal(false);
         toast.success("Your topic is updated successfully!");
       })
       .catch((error) => {
@@ -289,6 +375,7 @@ function Forum() {
         toast.error("Failed to update your topic !");
       });
   };
+
   // Mettre à jour un commentaire
   const handleUpdateComment = async (commentId) => {
     try {
@@ -307,7 +394,6 @@ function Forum() {
       const data = await response.json();
 
       if (response.ok) {
-        // Mettre à jour localement la liste des commentaires
         setComments((prevComments) =>
           prevComments.map((comment) =>
             comment._id === commentId
@@ -315,13 +401,10 @@ function Forum() {
               : comment
           )
         );
-        setShowUpdateCommentModal(false); // Fermer le modal
+        setShowUpdateCommentModal(false);
         toast.success("Your comment was updated successfully!");
       } else {
-        console.error(
-          "Erreur lors de la mise à jour du commentaire:",
-          data.message
-        );
+        console.error("Erreur lors de la mise à jour du commentaire:", data.message);
         toast.error("Failed to update your comment!");
       }
     } catch (error) {
@@ -329,6 +412,7 @@ function Forum() {
       toast.error("Failed to update your comment!");
     }
   };
+
   // Signaler un forum
   const handleReportForum = async () => {
     if (!reportReason) {
@@ -353,8 +437,8 @@ function Forum() {
       const data = await response.json();
       if (response.ok) {
         toast.success("Forum reported successfully!");
-        setShowReportForumModal(false); // Fermer le modal
-        setReportReason(""); // Réinitialiser la raison
+        setShowReportForumModal(false);
+        setReportReason("");
       } else {
         toast.error("Failed to report forum: " + data.message);
       }
@@ -362,6 +446,7 @@ function Forum() {
       toast.error("Error reporting forum: " + error.message);
     }
   };
+
   // Signaler un commentaire
   const handleReportComment = async () => {
     if (!commentReportReason) {
@@ -389,8 +474,8 @@ function Forum() {
       const data = await response.json();
       if (response.ok) {
         toast.success("Comment reported successfully!");
-        setShowReportCommentModal(false); // Fermer le modal
-        setCommentReportReason(""); // Réinitialiser la raison
+        setShowReportCommentModal(false);
+        setCommentReportReason("");
       } else {
         toast.error("Failed to report comment: " + data.message);
       }
@@ -398,6 +483,29 @@ function Forum() {
       toast.error("Error reporting comment: " + error.message);
     }
   };
+
+  // Fonction pour basculer l'état "pinned/unpinned" avec useCallback
+  const togglePin = useCallback(
+    (forumId) => {
+      setPinnedTopics((prevPinnedTopics) => {
+        const newPinnedTopics = new Set(prevPinnedTopics);
+        const isPinned = newPinnedTopics.has(forumId);
+        if (isPinned) {
+          newPinnedTopics.delete(forumId);
+          toast.success("Topic unpinned!", {
+            toastId: `pin-${forumId}`,
+          });
+        } else {
+          newPinnedTopics.add(forumId);
+          toast.success("Topic pinned!", {
+            toastId: `pin-${forumId}`,
+          });
+        }
+        return newPinnedTopics;
+      });
+    },
+    []
+  );
 
   return (
     <div>
@@ -479,17 +587,17 @@ function Forum() {
                         borderRadius: "50px",
                         border: "1px solid #007bff",
                         outline: "none",
-                        width: isSearchOpen ? "100%" : "0%", // Animation de la largeur
+                        width: isSearchOpen ? "100%" : "0%",
                         boxSizing: "border-box",
-                        opacity: isSearchOpen ? 1 : 0, // Animation de l'opacité
-                        transition: "opacity 0.10s ease, width 0.10s ease", // Transition pour l'apparition et la disparition
-                        visibility: isSearchOpen ? "visible" : "hidden", // S'assurer que l'input est complètement caché
+                        opacity: isSearchOpen ? 1 : 0,
+                        transition: "opacity 0.10s ease, width 0.10s ease",
+                        visibility: isSearchOpen ? "visible" : "hidden",
                       }}
                     />
                   </>
                 )}
               </div>
-              {/* Conteneur pour la liste déroulante et le bouton */}
+              {/* Conteneur pour la liste déroulante et les boutons */}
               <div className="d-flex align-items-center">
                 {/* Liste déroulante à gauche */}
                 <select
@@ -503,11 +611,12 @@ function Forum() {
                     cursor: "pointer",
                     fontSize: "14px",
                     marginRight: "10px",
-                    width: "200px", // Augmentation de la largeur
+                    width: "200px",
                   }}
                 >
                   <option value="newest">Newest Topics</option>
                   <option value="oldest">Oldest Topics</option>
+                  <option value="pinned">Pinned Topics</option>
                 </select>
 
                 {/* Bouton Add New Topic */}
@@ -515,20 +624,35 @@ function Forum() {
                   className="theme-btn"
                   style={{
                     borderRadius: "50px",
+                    marginRight: "10px",
                   }}
                   onClick={() => navigate("/addforum")}
                 >
                   New Topic
                 </button>
+
+                {/* Bouton Moderate (affiché uniquement pour teacher ou psychiatrist) */}
+                {userRole && ["teacher", "psychiatrist"].includes(userRole) && (
+                  <button
+                    className="theme-btn"
+                    style={{
+                      borderRadius: "50px",
+                      backgroundColor: "#ff4d4f",
+                    }}
+                    onClick={() => navigate("/moderateForum")}
+                  >
+                    Moderate
+                  </button>
+                )}
               </div>
             </div>
 
             <div
               className="forum-list"
               style={{
-                maxWidth: "800px", // Réduit la largeur
-                margin: "0 auto", // Centre la section
-                width: "100%", // Responsive
+                maxWidth: "800px",
+                margin: "0 auto",
+                width: "100%",
               }}
             >
               {filteredForums.length > 0 ? (
@@ -550,7 +674,7 @@ function Forum() {
                           style={{
                             width: "40px",
                             height: "40px",
-                            objectFit: "cover", // Cela garantit que l'image est redimensionnée pour garder un bon aspect circulaire
+                            objectFit: "cover",
                           }}
                         />
                         <h6 className="mb-0 me-3">
@@ -565,39 +689,35 @@ function Forum() {
                               className="badge"
                               style={{
                                 backgroundColor: "transparent",
-                                border: "1px solid #00BFFF", // Cadre bleu
-                                color: "#00BFFF", // Texte bleu
+                                border: "1px solid #00BFFF",
+                                color: "#00BFFF",
                                 padding: "2px 8px",
                                 borderRadius: "20px",
-                                boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)", // Lueur bleue
-                                fontSize: "0.875rem", // Petit texte
+                                boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
+                                fontSize: "0.875rem",
                               }}
                             >
                               {forum.user_id.level} {forum.user_id.speciality}
                             </span>
-                          )}{" "}
-                        &nbsp;&nbsp;
-                        {/* Badge pour les tags (affiché dans tous les cas) */}
+                          )}
                         {forum.tags && forum.tags.length > 0 && (
                           <span
                             className="badge"
                             style={{
                               backgroundColor: "transparent",
-                              border: "1px solid #FF0000", // Cadre rouge
-                              color: "#FF0000", // Texte rouge
+                              border: "1px solid #FF0000",
+                              color: "#FF0000",
                               padding: "2px 8px",
                               borderRadius: "20px",
-                              boxShadow: "0 0 10px rgba(255, 0, 0, 0.5)", // Lueur rouge
+                              boxShadow: "0 0 10px rgba(255, 0, 0, 0.5)",
                               fontSize: "0.875rem",
                             }}
                           >
-                            {forum.tags.join(", ")}{" "}
-                            {/* Affiche les tags séparés par une virgule */}
+                            {forum.tags.join(", ")}
                           </span>
                         )}
                       </div>
                       <div className="d-flex align-items-center">
-                        {/* Icônes d'édition et de suppression (seulement pour l'auteur) */}
                         {userId &&
                           forum.user_id &&
                           userId === forum.user_id._id && (
@@ -642,7 +762,6 @@ function Forum() {
                               </span>
                             </>
                           )}
-                        {/* Icône de signalement (visible pour tous les utilisateurs authentifiés) */}
                         {userId && (
                           <span
                             className="icon"
@@ -650,43 +769,57 @@ function Forum() {
                               cursor: "pointer",
                               fontSize: "20px",
                               color: "orange",
+                              marginRight: "15px",
                             }}
                             onClick={() => {
-                              setForumToReport(forum._id); // Définir le forum à signaler
-                              setShowReportForumModal(true); // Afficher le modal de signalement
+                              setForumToReport(forum._id);
+                              setShowReportForumModal(true);
                             }}
                           >
                             <FontAwesomeIcon icon={faFlag} />
+                          </span>
+                        )}
+                        {userId && (
+                          <span
+                            className="icon"
+                            style={{
+                              cursor: "pointer",
+                              fontSize: "20px",
+                              color: pinnedTopics.has(forum._id) ? "#007bff" : "gray",
+                              transform: pinnedTopics.has(forum._id) ? "rotate(-45deg)" : "none",
+                              transition: "transform 0.3s ease",
+                            }}
+                            onClick={() => togglePin(forum._id)}
+                          >
+                            <FontAwesomeIcon icon={faThumbtack} />
                           </span>
                         )}
                       </div>
                     </div>
                     <h3
                       style={{
-                        wordBreak: "break-word", // Coupe les mots trop longs si nécessaire
-                        overflowWrap: "break-word", // Assure le retour à la ligne pour les mots longs
-                        whiteSpace: "normal", // Permet le retour à la ligne naturel
-                        maxWidth: "100%", // Limite à la largeur du conteneur parent
-                        margin: 0, // Assure qu'il n'y a pas de marge supplémentaire qui interfère
+                        wordBreak: "break-word",
+                        overflowWrap: "break-word",
+                        whiteSpace: "normal",
+                        maxWidth: "100%",
+                        margin: 0,
                       }}
                     >
                       {forum.title}
                     </h3>
                     <br />
                     <p
-                      className="forum-description mb-0 "
+                      className="forum-description mb-0"
                       style={{
-                        fontSize: "18px" /* Augmente la taille de la police */,
-                        color: "black" /* Change la couleur du texte en noir */,
-                        lineHeight:
-                          "1.5" /* Optionnel : espacement entre les lignes */,
+                        fontSize: "18px",
+                        color: "black",
+                        lineHeight: "1.5",
                       }}
                     >
                       {truncateDescription(
                         forum.description,
                         expanded[forum._id]
                       )}
-                      {/* Ajouter le bouton "Voir plus/moins" */}
                       {forum.description.length > 150 && (
                         <button
                           onClick={() => toggleDescription(forum._id)}
@@ -701,7 +834,7 @@ function Forum() {
                           {expanded[forum._id] ? "See less" : "See more"}
                         </button>
                       )}
-                    </p>{" "}
+                    </p>
                     {forum.forum_photo && (
                       <img
                         src={forum.forum_photo}
@@ -715,8 +848,7 @@ function Forum() {
                         }}
                       />
                     )}
-                    <div className="d-flex align-items-center mt-2">
-                      {/* Champ de saisie du commentaire */}
+                    <div className="d-flex align-items-center mt-2 position-relative">
                       <input
                         type="text"
                         placeholder="Type your comment..."
@@ -726,22 +858,52 @@ function Forum() {
                           paddingLeft: "10px",
                           fontSize: "14px",
                           maxWidth: "90%",
+                          paddingRight: "40px", // Espace pour l'icône emoji
                         }}
-                        value={comments[forum._id] || ""} // Valeur spécifique à ce forum
+                        value={comment[forum._id] || ""}
                         onChange={(e) =>
-                          setComments((prev) => ({
+                          setComment((prev) => ({
                             ...prev,
-                            [forum._id]: e.target.value, // Mise à jour pour ce forum uniquement
+                            [forum._id]: e.target.value,
                           }))
                         }
                       />
-
-                      {/* Bouton d'envoi avec icône */}
+                      {/* Icône pour ouvrir le sélecteur d'emojis */}
+                      <FontAwesomeIcon
+                        icon={faSmile}
+                        style={{
+                          position: "absolute",
+                          right: "100px", // Ajuster selon l'espace nécessaire
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          fontSize: "18px",
+                          color: "#007bff",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => toggleEmojiPicker(forum._id)}
+                      />
+                      {/* Sélecteur d'emojis */}
+                      {showEmojiPicker[forum._id] && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            zIndex: 1000,
+                            bottom: "50px", // Positionner au-dessus de l'input
+                            right: "0",
+                          }}
+                        >
+                          <EmojiPicker
+                            onEmojiClick={(emojiObject) => onEmojiClick(forum._id, emojiObject)}
+                            width={300}
+                            height={400}
+                          />
+                        </div>
+                      )}
                       <button
                         onClick={() =>
                           handleAddComment(
                             forum._id,
-                            comments[forum._id] || "",
+                            comment[forum._id] || "",
                             anonymous
                           )
                         }
@@ -749,66 +911,56 @@ function Forum() {
                         style={{
                           width: "40px",
                           height: "40px",
-                          borderRadius: "50%", // Bouton circulaire
+                          borderRadius: "50%",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
                           padding: "5px",
                         }}
                       >
-                        <FontAwesomeIcon
-                          icon={faPaperPlane}
-                          style={{ fontSize: "14px" }}
-                        />
+                        <FontAwesomeIcon icon={faPaperPlane} style={{ fontSize: "14px" }} />
                       </button>
-                      {/* Bouton "view" avec icône */}
                       <button
                         onClick={() => handleViewComments(forum._id)}
                         className="btn btn-secondary d-flex align-items-center justify-content-center ms-2"
                         style={{
                           width: "40px",
                           height: "40px",
-                          borderRadius: "50%", // Bouton circulaire
+                          borderRadius: "50%",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
                           padding: "5px",
                         }}
                       >
-                        <FontAwesomeIcon
-                          icon={faEye}
-                          style={{ fontSize: "14px" }}
-                        />
+                        <FontAwesomeIcon icon={faEye} style={{ fontSize: "14px" }} />
                       </button>
                     </div>
-                    {/* Checkbox pour commenter en anonyme */}
                     <div className="mt-2 d-flex align-items-center">
                       <div
                         style={{
                           width: "20px",
                           height: "20px",
-                          borderRadius: "50%", // Forme circulaire
-                          border: "1px solid black", // Bordure noire
+                          borderRadius: "50%",
+                          border: "1px solid black",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
                           cursor: "pointer",
                           marginRight: "10px",
-                          transition: "background-color 0.3s ease", // Animation fluide
-                          backgroundColor: anonymous
-                            ? "rgba(0, 128, 0, 0.2)"
-                            : "white", // Léger vert en fond lorsqu'activé
+                          transition: "background-color 0.3s ease",
+                          backgroundColor: anonymous ? "rgba(0, 128, 0, 0.2)" : "white",
                         }}
-                        onClick={() => setAnonymous(!anonymous)} // Toggle lors du clic
+                        onClick={() => setAnonymous(!anonymous)}
                       >
                         <div
                           style={{
-                            width: anonymous ? "10px" : "0px", // Taille animée
+                            width: anonymous ? "10px" : "0px",
                             height: anonymous ? "10px" : "0px",
                             backgroundColor: "green",
                             borderRadius: "50%",
-                            transition: "all 0.3s ease", // Effet fluide pour l'apparition/disparition
-                            opacity: anonymous ? 1 : 0, // Animation d'opacité
+                            transition: "all 0.3s ease",
+                            opacity: anonymous ? 1 : 0,
                           }}
                         />
                       </div>
@@ -819,16 +971,12 @@ function Forum() {
                           color: "black",
                           cursor: "pointer",
                         }}
-                        onClick={() => setAnonymous(!anonymous)} // Clique aussi sur le texte
+                        onClick={() => setAnonymous(!anonymous)}
                       >
                         Anonymous comment ?
                       </label>
                     </div>
-                    {/* Affichage des dates createdAt et updatedAt */}
-                    <div
-                      className="mt-3 text-muted"
-                      style={{ fontSize: "14px" }}
-                    >
+                    <div className="mt-3 text-muted" style={{ fontSize: "14px" }}>
                       <p style={{ margin: 0 }}>
                         Posted at :{" "}
                         {new Date(forum.createdAt).toLocaleString("fr-FR", {
@@ -883,9 +1031,7 @@ function Forum() {
               Are you sure you want to delete this forum? This action cannot be
               undone.
             </p>
-            <div
-              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
-            >
+            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
               <button
                 onClick={() => setShowDeleteModal(false)}
                 style={{
@@ -1037,9 +1183,7 @@ function Forum() {
                 </div>
               )}
             </div>
-            <div
-              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
-            >
+            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
               <button
                 onClick={() => setShowUpdateModal(false)}
                 style={{
@@ -1099,8 +1243,6 @@ function Forum() {
             <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
               Comments
             </h3>
-
-            {/* Affichage des commentaires */}
             <div
               style={{
                 maxHeight: comments.length > 3 ? "300px" : "auto",
@@ -1115,22 +1257,20 @@ function Forum() {
                     style={{
                       marginBottom: "10px",
                       display: "flex",
-                      alignItems: "flex-start", // Alignement en haut
+                      alignItems: "flex-start",
                       justifyContent: "space-between",
                       padding: "10px",
                       borderBottom: "1px solid #ddd",
                     }}
                   >
-                    {/* Partie gauche : Avatar + Nom + Contenu */}
                     <div
                       style={{
                         display: "flex",
-                        alignItems: "flex-start", // Alignement en haut
+                        alignItems: "flex-start",
                         gap: "10px",
-                        flex: 1, // Prendre l'espace disponible
+                        flex: 1,
                       }}
                     >
-                      {/* Avatar avec largeur fixe */}
                       <div style={{ flexShrink: 0 }}>
                         <img
                           src={
@@ -1147,17 +1287,14 @@ function Forum() {
                           }}
                         />
                       </div>
-
-                      {/* Nom et Contenu */}
                       <div style={{ flex: 1 }}>
-                        {/* Nom ou "Anonymous Member" */}
                         {comment.anonymous ? (
                           <p style={{ margin: 0, fontWeight: "bold" }}>
                             Anonymous Member
                           </p>
                         ) : (
                           <p style={{ margin: 0, fontWeight: "bold" }}>
-                            {comment.user_id.username}{" "}
+                            {comment.user_id.username}
                             <span
                               className="badge"
                               style={{
@@ -1170,43 +1307,28 @@ function Forum() {
                                 fontSize: "0.875rem",
                               }}
                             >
-                              {comment.user_id.level}{" "}
-                              {comment.user_id.speciality}
+                              {comment.user_id.level} {comment.user_id.speciality}
                             </span>
                           </p>
                         )}
-                        {/* Contenu du commentaire avec retour à la ligne */}
                         <p
                           style={{
                             margin: 0,
                             wordBreak: "break-word",
                             overflowWrap: "break-word",
                             whiteSpace: "normal",
-                            color: "#333", // Couleur du texte pour correspondre à l'image
+                            color: "#333",
                           }}
                         >
                           {comment.content}
                         </p>
                       </div>
                     </div>
-
-                    {/* Icônes d'édition, suppression et signalement alignées à droite */}
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "10px",
-                        alignItems: "center",
-                      }}
-                    >
-                      {/* Icône d'édition (seulement pour l'auteur) */}
+                    <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
                       {userId === comment.user_id._id && (
                         <span
                           className="icon"
-                          style={{
-                            cursor: "pointer",
-                            fontSize: "18px",
-                            color: "#007bff",
-                          }}
+                          style={{ cursor: "pointer", fontSize: "18px", color: "#007bff" }}
                           onClick={() => {
                             setCommentToUpdate(comment);
                             setUpdatedCommentContent(comment.content);
@@ -1216,15 +1338,10 @@ function Forum() {
                           <FontAwesomeIcon icon={faEdit} />
                         </span>
                       )}
-                      {/* Icône de suppression (seulement pour l'auteur) */}
                       {userId === comment.user_id._id && (
                         <span
                           className="icon"
-                          style={{
-                            cursor: "pointer",
-                            fontSize: "18px",
-                            color: "red",
-                          }}
+                          style={{ cursor: "pointer", fontSize: "18px", color: "red" }}
                           onClick={() => {
                             setCommentToDelete(comment._id);
                             setShowDeleteCommentModal(true);
@@ -1233,18 +1350,13 @@ function Forum() {
                           <FontAwesomeIcon icon={faTrashAlt} />
                         </span>
                       )}
-                      {/* Icône de signalement (visible pour tous les utilisateurs authentifiés) */}
                       {userId && (
                         <span
                           className="icon"
-                          style={{
-                            cursor: "pointer",
-                            fontSize: "18px",
-                            color: "orange",
-                          }}
+                          style={{ cursor: "pointer", fontSize: "18px", color: "orange" }}
                           onClick={() => {
-                            setCommentToReport(comment._id); // Définir le commentaire à signaler
-                            setShowReportCommentModal(true); // Afficher le modal de signalement
+                            setCommentToReport(comment._id);
+                            setShowReportCommentModal(true);
                           }}
                         >
                           <FontAwesomeIcon icon={faFlag} />
@@ -1257,7 +1369,6 @@ function Forum() {
                 <p style={{ textAlign: "center" }}>There is no comment here!</p>
               )}
             </div>
-
             <div
               style={{
                 display: "flex",
@@ -1316,9 +1427,7 @@ function Forum() {
               Are you sure you want to delete this comment? This action cannot
               be undone.
             </p>
-            <div
-              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
-            >
+            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
               <button
                 onClick={() => setShowDeleteCommentModal(false)}
                 style={{
@@ -1392,9 +1501,7 @@ function Forum() {
                 }}
               />
             </div>
-            <div
-              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
-            >
+            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
               <button
                 onClick={() => setShowUpdateCommentModal(false)}
                 style={{
@@ -1467,9 +1574,7 @@ function Forum() {
                 }}
               >
                 <option value="">Select a reason</option>
-                <option value="inappropriate_content">
-                  Inappropriate Content
-                </option>
+                <option value="inappropriate_content">Inappropriate Content</option>
                 <option value="spam">Spam</option>
                 <option value="harassment">Harassment</option>
                 <option value="offensive_language">Offensive Language</option>
@@ -1477,13 +1582,11 @@ function Forum() {
                 <option value="other">Other</option>
               </select>
             </div>
-            <div
-              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
-            >
+            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
               <button
                 onClick={() => {
                   setShowReportForumModal(false);
-                  setReportReason(""); // Réinitialiser la raison
+                  setReportReason("");
                 }}
                 style={{
                   backgroundColor: "#f44336",
@@ -1554,10 +1657,8 @@ function Forum() {
                   border: "1px solid #ddd",
                 }}
               >
-                <option value="">Select a reason</option>
-                <option value="inappropriate_content">
-                  Inappropriate Content
-                </option>
+                <option value="">Select a reason :</option>
+                <option value="inappropriate_content">Inappropriate Content</option>
                 <option value="spam">Spam</option>
                 <option value="harassment">Harassment</option>
                 <option value="offensive_language">Offensive Language</option>
@@ -1565,13 +1666,11 @@ function Forum() {
                 <option value="other">Other</option>
               </select>
             </div>
-            <div
-              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
-            >
+            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
               <button
                 onClick={() => {
                   setShowReportCommentModal(false);
-                  setCommentReportReason(""); // Réinitialiser la raison
+                  setCommentReportReason("");
                 }}
                 style={{
                   backgroundColor: "#f44336",

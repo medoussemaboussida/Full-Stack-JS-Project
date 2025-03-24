@@ -251,16 +251,15 @@ function Activities() {
   }, [searchTerm]);
 
   // Filter activities by search term and category
-  const filteredActivities = activities.filter((activity) => {
-    const matchesCategory =
-      selectedCategory === "*" || activity.category === selectedCategory;
-    const matchesSearch =
-      !searchTerm ||
-      stripHtmlTags(activity.title)
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+const filteredActivities = activities.filter((activity) => {
+  const matchesCategory =
+    selectedCategory === "*" || activity.category === selectedCategory;
+  const matchesSearch =
+    !searchTerm ||
+    stripHtmlTags(activity.title).toLowerCase().includes(searchTerm.toLowerCase()) ||
+    stripHtmlTags(activity.description).toLowerCase().includes(searchTerm.toLowerCase());
+  return matchesCategory && matchesSearch;
+});
 
   // Pagination logic
   const totalActivities = filteredActivities.length;
