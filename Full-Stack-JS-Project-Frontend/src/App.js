@@ -73,6 +73,10 @@ function App(){
         <Route path="/PsychiatristList" element={<PsychiatristList />} />
         <Route path="/AddPublication" element={<AddPublication />} />
 
+
+
+
+
         <Route path="/forum" element={<Forum />} />
         <Route path="/AddForum" element={<AddForum />} />
         <Route path="/appointment-history" element={<AppointmentHistory />} />

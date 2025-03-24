@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import 'bootstrap/dist/css/bootstrap.min.css'; // Ensure Bootstrap is imported
-import EmojiPicker from 'emoji-picker-react'; // Import emoji picker
+import 'bootstrap/dist/css/bootstrap.min.css';
+import EmojiPicker from 'emoji-picker-react';
+import { jsPDF } from 'jspdf';
+import { jwtDecode } from 'jwt-decode';
+import VideoChat from './VideoChat'; // Import the Jitsi Meet-based VideoChat component
 
 const Chat = () => {
   const [messages, setMessages] = useState([]);
@@ -11,15 +14,18 @@ const Chat = () => {
   const [error, setError] = useState(null);
   const [userId, setUserId] = useState(null);
   const [token, setToken] = useState(null);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false); // State for emoji picker visibility
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [userRole, setUserRole] = useState(null);
+  const [showVideoCall, setShowVideoCall] = useState(false);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('jwt-token');
     if (storedToken) {
       setToken(storedToken);
       try {
-        const decoded = JSON.parse(atob(storedToken.split('.')[1]));
+        const decoded = jwtDecode(storedToken);
         setUserId(decoded.id);
+        setUserRole(decoded.role);
       } catch (err) {
         console.error('Error decoding token:', err);
         setError('Invalid token format');
@@ -53,7 +59,7 @@ const Chat = () => {
       );
       setNewMessage('');
       fetchMessages();
-      setShowEmojiPicker(false); // Hide picker after sending
+      setShowEmojiPicker(false);
     } catch (err) {
       console.error('Error sending message:', err.response?.data || err.message);
       setError('Failed to send message: ' + (err.response?.data?.message || err.message));
@@ -90,9 +96,125 @@ const Chat = () => {
     if (e.key === 'Enter') joinRoom();
   };
 
-  // Handle emoji selection
   const handleEmojiClick = (emojiObject) => {
     setNewMessage((prev) => prev + emojiObject.emoji);
+  };
+
+  const summarizeStudentMessages = (messages, userId) => {
+    if (!messages || messages.length === 0) return 'No messages from the student to summarize.';
+
+    const studentMessages = messages
+      .filter((msg) => msg.sender._id === userId)
+      .map((msg) => `${msg.sender.username || 'Student'}: ${msg.message}`)
+      .join('\n');
+
+    if (!studentMessages) return 'No messages from the student found.';
+
+    const stopWords = new Set([
+      'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from',
+      'has', 'he', 'in', 'is', 'it', 'its', 'of', 'on', 'that', 'the',
+      'to', 'was', 'were', 'will', 'with', 'i', 'you', 'we', 'they',
+    ]);
+
+    const sentences = studentMessages.split('\n').filter((s) => s.trim() !== '');
+    if (sentences.length === 0) return 'No messages from the student to summarize.';
+
+    const wordFreq = {};
+    const words = studentMessages.toLowerCase().split(/\s+/);
+    words.forEach((word) => {
+      if (!stopWords.has(word) && word.length > 2) {
+        wordFreq[word] = (wordFreq[word] || 0) + 1;
+      }
+    });
+
+    const sentenceScores = sentences.map((sentence) => {
+      const sentenceWords = sentence.toLowerCase().split(/\s+/);
+      let score = 0;
+      sentenceWords.forEach((word) => {
+        if (wordFreq[word]) {
+          score += wordFreq[word];
+        }
+      });
+      return { sentence, score };
+    });
+
+    const sortedSentences = sentenceScores.sort((a, b) => b.score - a.score);
+    const topSentences = sortedSentences
+      .slice(0, Math.min(2, sortedSentences.length))
+      .map((item) => item.sentence);
+
+    return topSentences.join('\n');
+  };
+
+  const generateStudentSummary = (messages, userId) => {
+    if (messages.length === 0) return 'No messages to process.';
+    const summary = summarizeStudentMessages(messages, userId);
+    return `Summary of the Student's Messages:\n\n${summary}`;
+  };
+
+  const exportToPDF = async () => {
+    const doc = new jsPDF();
+    let yOffset = 10;
+
+    doc.setFontSize(16);
+    doc.text(`Chat Room: ${joinedRoom}`, 10, yOffset);
+    yOffset += 10;
+
+    doc.setFontSize(12);
+    doc.text('Chat Messages:', 10, yOffset);
+    yOffset += 10;
+
+    messages.forEach((msg) => {
+      const sender = msg.sender.username || 'Unknown';
+      const time = new Date(msg.createdAt).toLocaleTimeString();
+      const messageText = `[${time}] ${sender}: ${msg.message}`;
+      const splitText = doc.splitTextToSize(messageText, 180);
+      splitText.forEach((line) => {
+        if (yOffset > 280) {
+          doc.addPage();
+          yOffset = 10;
+        }
+        doc.text(line, 10, yOffset);
+        yOffset += 7;
+      });
+    });
+
+    yOffset += 10;
+    if (yOffset > 280) {
+      doc.addPage();
+      yOffset = 10;
+    }
+    doc.text('--------------------------------------------------', 10, yOffset);
+    yOffset += 10;
+
+    doc.setFontSize(12);
+    doc.text("Summary of the Student's Messages:", 10, yOffset);
+    yOffset += 10;
+
+    const summary = generateStudentSummary(messages, userId);
+    const splitSummary = doc.splitTextToSize(summary, 180);
+    splitSummary.forEach((line) => {
+      if (yOffset > 280) {
+        doc.addPage();
+        yOffset = 10;
+      }
+      doc.text(line, 10, yOffset);
+      yOffset += 7;
+    });
+
+    doc.save(`chat_room_${joinedRoom}_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const joinVideoChat = () => {
+    if (!joinedRoom || !userId) {
+      setError('Please join a room and ensure you are logged in.');
+      return;
+    }
+    setShowVideoCall(true);
+  };
+
+  const closeVideoChat = () => {
+    setShowVideoCall(false);
   };
 
   if (!token) {
@@ -106,7 +228,9 @@ const Chat = () => {
                   <h5 className="mb-0">Please Log In</h5>
                 </div>
                 <div className="card-body" style={{ position: 'relative', height: '400px' }}>
-                  <p>You need to log in to use the chat. <a href="/login">Go to Login</a></p>
+                  <p>
+                    You need to log in to use the chat. <a href="/login">Go to Login</a>
+                  </p>
                   {error && <p className="text-danger">{error}</p>}
                 </div>
               </div>
@@ -161,7 +285,7 @@ const Chat = () => {
             left: 0;
             right: 0;
             bottom: 0;
-           background: rgba(103, 153, 214, 0.4); /* Overlay to improve text readability */
+            background: rgba(103, 153, 214, 0.4);
             border-radius: 10px;
             z-index: 1;
           }
@@ -247,11 +371,82 @@ const Chat = () => {
             color: #007bff;
           }
 
+          .video-button {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0 10px;
+            color: #666;
+            transition: color 0.3s ease;
+          }
+
+          .video-button:hover {
+            color: #007bff;
+          }
+
           .emoji-picker-container {
             position: absolute;
-            bottom: 60px; /* Position above the input area */
+            bottom: 60px;
             right: 20px;
             z-index: 10;
+          }
+
+          .export-pdf-btn {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+          }
+
+          .export-pdf-btn:hover {
+            background-color: #218838;
+          }
+
+          .video-call-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+          }
+
+          .video-call-content {
+            background: white;
+            width: 80%;
+            max-width: 800px;
+            height: 80%;
+            max-height: 600px;
+            border-radius: 10px;
+            position: relative;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+          }
+
+          .close-video-call {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+          }
+
+          .close-video-call:hover {
+            background: #e55a5a;
           }
         `}
       </style>
@@ -284,13 +479,20 @@ const Chat = () => {
                   <>
                     <div className="card-header d-flex justify-content-between align-items-center p-3">
                       <h5 className="mb-0">Chat Room: {joinedRoom}</h5>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        onClick={() => setJoinedRoom(null)}
-                      >
-                        Leave Room
-                      </button>
+                      <div>
+                        {userRole === 'psychiatrist' && (
+                          <button onClick={exportToPDF} className="export-pdf-btn me-2">
+                            Export to PDF
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          onClick={() => setJoinedRoom(null)}
+                        >
+                          Leave Room
+                        </button>
+                      </div>
                     </div>
                     <div
                       className="card-body"
@@ -331,7 +533,7 @@ const Chat = () => {
                                       cursor: 'pointer',
                                       objectFit: 'cover',
                                     }}
-                                    onClick={() => window.location.href = '/student'}
+                                    onClick={() => (window.location.href = '/student')}
                                   />
                                 </div>
                               )}
@@ -379,7 +581,7 @@ const Chat = () => {
                                       cursor: 'pointer',
                                       objectFit: 'cover',
                                     }}
-                                    onClick={() => window.location.href = '/student'}
+                                    onClick={() => (window.location.href = '/student')}
                                   />
                                 </div>
                               )}
@@ -405,7 +607,7 @@ const Chat = () => {
                             cursor: 'pointer',
                             objectFit: 'cover',
                           }}
-                          onClick={() => window.location.href = '/student'}
+                          onClick={() => (window.location.href = '/student')}
                         />
                       </div>
                       <input
@@ -429,6 +631,9 @@ const Chat = () => {
                       <button onClick={fetchMessages} className="btn btn-link text-muted">
                         <i className="fas fa-sync-alt"></i>
                       </button>
+                      <button onClick={joinVideoChat} className="video-button">
+                        <i className="fas fa-video"></i>
+                      </button>
                       {showEmojiPicker && (
                         <div className="emoji-picker-container">
                           <EmojiPicker onEmojiClick={handleEmojiClick} />
@@ -442,6 +647,18 @@ const Chat = () => {
           </div>
         </div>
       </section>
+
+      {/* Video Call Modal */}
+      {showVideoCall && (
+        <div className="video-call-modal">
+          <div className="video-call-content">
+            <button onClick={closeVideoChat} className="close-video-call">
+              Close
+            </button>
+            <VideoChat userId={userId} roomCode={joinedRoom} onClose={closeVideoChat} />
+          </div>
+        </div>
+      )}
     </>
   );
 };
