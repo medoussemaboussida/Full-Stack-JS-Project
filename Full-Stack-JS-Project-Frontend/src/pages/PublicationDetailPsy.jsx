@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import { jwtDecode } from 'jwt-decode';
+import EmojiPicker from 'emoji-picker-react';
 import 'react-toastify/dist/ReactToastify.css';
 
 const stripHtmlTags = (html) => {
@@ -21,6 +22,8 @@ function PublicationDetailPsy() {
     const [editCommentId, setEditCommentId] = useState(null);
     const [editCommentContent, setEditCommentContent] = useState('');
     const [relatedPublications, setRelatedPublications] = useState([]);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [showEditEmojiPicker, setShowEditEmojiPicker] = useState(false); // Nouveau state pour l'édition
 
     const BASE_URL = "http://localhost:5000";
 
@@ -38,7 +41,7 @@ function PublicationDetailPsy() {
             });
             const data = await response.json();
             if (response.ok) {
-                console.log('Publication récupérée:', data); // Débogage
+                console.log('Publication récupérée:', data);
                 setPublication(data);
                 return data;
             } else {
@@ -147,6 +150,7 @@ function PublicationDetailPsy() {
                 console.log('Nouveau commentaire ajouté:', result.commentaire);
                 setCommentaires([result.commentaire, ...commentaires]);
                 setNewComment('');
+                setShowEmojiPicker(false);
                 toast.success('Commentaire ajouté avec succès');
             } else {
                 toast.error(`Erreur: ${result.message}`);
@@ -186,6 +190,7 @@ function PublicationDetailPsy() {
                 ));
                 setEditCommentId(null);
                 setEditCommentContent('');
+                setShowEditEmojiPicker(false); // Cacher le picker après mise à jour
                 toast.success('Commentaire modifié avec succès');
             } else {
                 toast.error(`Erreur: ${result.message}`);
@@ -275,7 +280,6 @@ function PublicationDetailPsy() {
         );
     };
 
-    // Ajout des fonctions pour Like et Dislike
     const handleLike = async () => {
         const token = localStorage.getItem('jwt-token');
         if (!token) {
@@ -330,6 +334,16 @@ function PublicationDetailPsy() {
         } catch (error) {
             toast.error(`Erreur lors de l'ajout du Dislike: ${error.message}`);
         }
+    };
+
+    const handleEmojiClick = (emojiObject) => {
+        setNewComment(prev => prev + emojiObject.emoji);
+        setShowEmojiPicker(false);
+    };
+
+    const handleEditEmojiClick = (emojiObject) => {
+        setEditCommentContent(prev => prev + emojiObject.emoji);
+        setShowEditEmojiPicker(false); // Optionnel : cacher après sélection
     };
 
     useEffect(() => {
@@ -392,25 +406,24 @@ function PublicationDetailPsy() {
                                             <div className="blog-details">
                                                 <h3 className="blog-details-title mb-20">{stripHtmlTags(publication.titrePublication)}</h3>
                                                 <p className="mb-20">{stripHtmlTags(publication.description)}</p>
-                                                {/* Ajout des boutons Like et Dislike */}
                                                 <div className="like-dislike-buttons" style={{ marginBottom: '20px' }}>
-    <button 
-        onClick={handleLike}
-        className="theme-btn"
-        style={{ marginRight: '10px', backgroundColor: publication.likes && publication.likes.includes(userId) ? '#28a745' : '#0ea5e6' }}
-        disabled={publication.likes && publication.likes.includes(userId)}
-    >
-        <i className="far fa-thumbs-up"></i> Like ({publication.likeCount || 0})
-    </button>
-    <button 
-        onClick={handleDislike}
-        className="theme-btn"
-        style={{ backgroundColor: publication.dislikes && publication.dislikes.includes(userId) ? '#dc3545' : '#6c757d' }}
-        disabled={publication.dislikes && publication.dislikes.includes(userId)} // Fixed typo here
-    >
-        <i className="far fa-thumbs-down"></i> Dislike ({publication.dislikeCount || 0})
-    </button>
-</div>
+                                                    <button 
+                                                        onClick={handleLike}
+                                                        className="theme-btn"
+                                                        style={{ marginRight: '10px', backgroundColor: publication.likes && publication.likes.includes(userId) ? '#28a745' : '#0ea5e6' }}
+                                                        disabled={publication.likes && publication.likes.includes(userId)}
+                                                    >
+                                                        <i className="far fa-thumbs-up"></i> Like ({publication.likeCount || 0})
+                                                    </button>
+                                                    <button 
+                                                        onClick={handleDislike}
+                                                        className="theme-btn"
+                                                        style={{ backgroundColor: publication.dislikes && publication.dislikes.includes(userId) ? '#dc3545' : '#6c757d' }}
+                                                        disabled={publication.dislikes && publication.dislikes.includes(userId)}
+                                                    >
+                                                        <i className="far fa-thumbs-down"></i> Dislike ({publication.dislikeCount || 0})
+                                                    </button>
+                                                </div>
                                                 <div className="blog-details-tag pb-20">
                                                     <h5>Tags : </h5>
                                                     <ul>
@@ -459,7 +472,7 @@ function PublicationDetailPsy() {
                                                                     src={
                                                                         comment.auteur_id?.user_photo && comment.auteur_id.user_photo !== ''
                                                                             ? `${BASE_URL}${comment.auteur_id.user_photo}`
-                                                                            : 'assets/img/blog/com-1 f.jpg'
+                                                                            : 'assets/img/blog/com-1 f.jpg'
                                                                     }
                                                                     alt={comment.auteur_id?.username || 'User'}
                                                                     style={{ width: '50px', height: '50px', borderRadius: '50%' }}
@@ -468,13 +481,33 @@ function PublicationDetailPsy() {
                                                                     <h5>{comment.auteur_id?.username || 'Unknown'}</h5>
                                                                     <span><i className="far fa-clock"></i> {new Date(comment.dateCreation).toLocaleDateString()}</span>
                                                                     {editCommentId === comment._id ? (
-                                                                        <div>
+                                                                        <div style={{ position: 'relative' }}>
                                                                             <textarea
                                                                                 value={editCommentContent}
                                                                                 onChange={(e) => setEditCommentContent(e.target.value)}
                                                                                 className="form-control"
                                                                                 rows="3"
                                                                             />
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setShowEditEmojiPicker(!showEditEmojiPicker)}
+                                                                                style={{
+                                                                                    position: 'absolute',
+                                                                                    top: '10px',
+                                                                                    right: '10px',
+                                                                                    background: 'none',
+                                                                                    border: 'none',
+                                                                                    cursor: 'pointer',
+                                                                                    fontSize: '20px'
+                                                                                }}
+                                                                            >
+                                                                                😊
+                                                                            </button>
+                                                                            {showEditEmojiPicker && (
+                                                                                <div style={{ position: 'absolute', top: '-350px', right: '0', zIndex: 1000 }}>
+                                                                                    <EmojiPicker onEmojiClick={handleEditEmojiClick} />
+                                                                                </div>
+                                                                            )}
                                                                             <button
                                                                                 onClick={() => handleUpdateComment(comment._id)}
                                                                                 className="theme-btn"
@@ -520,7 +553,7 @@ function PublicationDetailPsy() {
                                                             <div className="row">
                                                                 <div className="col-md-12">
                                                                     <div className="form-group">
-                                                                        <div className="form-icon">
+                                                                        <div className="form-icon" style={{ position: 'relative' }}>
                                                                             <i className="far fa-pen"></i>
                                                                             <textarea
                                                                                 name="message"
@@ -532,6 +565,26 @@ function PublicationDetailPsy() {
                                                                                 placeholder="Your Comment*"
                                                                                 required
                                                                             />
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                                                                style={{
+                                                                                    position: 'absolute',
+                                                                                    top: '10px',
+                                                                                    right: '10px',
+                                                                                    background: 'none',
+                                                                                    border: 'none',
+                                                                                    cursor: 'pointer',
+                                                                                    fontSize: '20px'
+                                                                                }}
+                                                                            >
+                                                                                😊
+                                                                            </button>
+                                                                            {showEmojiPicker && (
+                                                                                <div style={{ position: 'absolute', top: '-350px', right: '0', zIndex: 1000 }}>
+                                                                                    <EmojiPicker onEmojiClick={handleEmojiClick} />
+                                                                                </div>
+                                                                            )}
                                                                         </div>
                                                                     </div>
                                                                     <button type="submit" className="theme-btn">

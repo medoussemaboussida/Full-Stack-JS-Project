@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
+import EmojiPicker from 'emoji-picker-react'; // Importer EmojiPicker
 import 'react-toastify/dist/ReactToastify.css';
 
 function AddPublication() {
@@ -12,6 +13,8 @@ function AddPublication() {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [previewImage, setPreviewImage] = useState(null);
+    const [showTitleEmojiPicker, setShowTitleEmojiPicker] = useState(false); // State pour le picker du titre
+    const [showDescEmojiPicker, setShowDescEmojiPicker] = useState(false); // State pour le picker de la description
     const navigate = useNavigate();
 
     let CKEditorComponent, ClassicEditor;
@@ -72,6 +75,24 @@ function AddPublication() {
             ...prev,
             tags: prev.tags.filter((_, i) => i !== index),
         }));
+    };
+
+    // Gérer l'ajout d'emojis pour le titre
+    const handleTitleEmojiClick = (emojiObject) => {
+        setFormData((prev) => ({
+            ...prev,
+            titrePublication: prev.titrePublication + emojiObject.emoji,
+        }));
+        setShowTitleEmojiPicker(false); // Cacher après sélection
+    };
+
+    // Gérer l'ajout d'emojis pour la description
+    const handleDescEmojiClick = (emojiObject) => {
+        setFormData((prev) => ({
+            ...prev,
+            description: prev.description + emojiObject.emoji,
+        }));
+        setShowDescEmojiPicker(false); // Cacher après sélection
     };
 
     const handleSubmit = async (e) => {
@@ -164,68 +185,158 @@ function AddPublication() {
                                         <h3 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '20px' }}>Publication Details</h3>
                                         {/* Title Field */}
                                         <h5>Title</h5>
-                                        <div style={{ marginBottom: '20px' }}>
+                                        <div style={{ marginBottom: '20px', position: 'relative' }}>
                                             {CKEditorComponent && ClassicEditor ? (
-                                                <CKEditorComponent
-                                                    editor={ClassicEditor}
-                                                    data={formData.titrePublication}
-                                                    onChange={handleEditorChange('titrePublication')}
-                                                    config={{
-                                                        placeholder: 'Enter publication title here...',
-                                                        toolbar: ['bold', 'italic', 'link', '|', 'undo', 'redo'],
-                                                        height: 100,
-                                                    }}
-                                                />
+                                                <>
+                                                    <CKEditorComponent
+                                                        editor={ClassicEditor}
+                                                        data={formData.titrePublication}
+                                                        onChange={handleEditorChange('titrePublication')}
+                                                        config={{
+                                                            placeholder: 'Enter publication title here...',
+                                                            toolbar: ['bold', 'italic', 'link', '|', 'undo', 'redo'],
+                                                            height: 100,
+                                                        }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowTitleEmojiPicker(!showTitleEmojiPicker)}
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: '10px',
+                                                            right: '10px',
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            fontSize: '20px',
+                                                            zIndex: 1000,
+                                                        }}
+                                                    >
+                                                        😊
+                                                    </button>
+                                                    {showTitleEmojiPicker && (
+                                                        <div style={{ position: 'absolute', top: '-350px', right: '0', zIndex: 1000 }}>
+                                                            <EmojiPicker onEmojiClick={handleTitleEmojiClick} />
+                                                        </div>
+                                                    )}
+                                                </>
                                             ) : (
-                                                <textarea
-                                                    name="titrePublication"
-                                                    value={formData.titrePublication}
-                                                    onChange={handleChange}
-                                                    placeholder="CKEditor failed to load. Use this textarea instead."
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '12px',
-                                                        borderRadius: '5px',
-                                                        border: '1px solid #ccc',
-                                                        fontSize: '16px',
-                                                        minHeight: '50px',
-                                                    }}
-                                                />
+                                                <>
+                                                    <textarea
+                                                        name="titrePublication"
+                                                        value={formData.titrePublication}
+                                                        onChange={handleChange}
+                                                        placeholder="CKEditor failed to load. Use this textarea instead."
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '12px',
+                                                            borderRadius: '5px',
+                                                            border: '1px solid #ccc',
+                                                            fontSize: '16px',
+                                                            minHeight: '50px',
+                                                        }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowTitleEmojiPicker(!showTitleEmojiPicker)}
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: '10px',
+                                                            right: '10px',
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            fontSize: '20px',
+                                                        }}
+                                                    >
+                                                        😊
+                                                    </button>
+                                                    {showTitleEmojiPicker && (
+                                                        <div style={{ position: 'absolute', top: '-350px', right: '0', zIndex: 1000 }}>
+                                                            <EmojiPicker onEmojiClick={handleTitleEmojiClick} />
+                                                        </div>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
 
                                         {/* Description Field */}
                                         <h5>Description</h5>
-                                        <div style={{ marginBottom: '20px' }}>
+                                        <div style={{ marginBottom: '20px', position: 'relative' }}>
                                             {CKEditorComponent && ClassicEditor ? (
-                                                <CKEditorComponent
-                                                    editor={ClassicEditor}
-                                                    data={formData.description}
-                                                    onChange={handleEditorChange('description')}
-                                                    config={{
-                                                        placeholder: 'Enter publication content here...',
-                                                        toolbar: [
-                                                            'heading', '|',
-                                                            'bold', 'italic', 'link', 'bulletedList', 'numberedList', '|',
-                                                            'undo', 'redo',
-                                                        ],
-                                                    }}
-                                                />
+                                                <>
+                                                    <CKEditorComponent
+                                                        editor={ClassicEditor}
+                                                        data={formData.description}
+                                                        onChange={handleEditorChange('description')}
+                                                        config={{
+                                                            placeholder: 'Enter publication content here...',
+                                                            toolbar: [
+                                                                'heading', '|',
+                                                                'bold', 'italic', 'link', 'bulletedList', 'numberedList', '|',
+                                                                'undo', 'redo',
+                                                            ],
+                                                        }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowDescEmojiPicker(!showDescEmojiPicker)}
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: '10px',
+                                                            right: '10px',
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            fontSize: '20px',
+                                                            zIndex: 1000,
+                                                        }}
+                                                    >
+                                                        😊
+                                                    </button>
+                                                    {showDescEmojiPicker && (
+                                                        <div style={{ position: 'absolute', top: '-350px', right: '0', zIndex: 1000 }}>
+                                                            <EmojiPicker onEmojiClick={handleDescEmojiClick} />
+                                                        </div>
+                                                    )}
+                                                </>
                                             ) : (
-                                                <textarea
-                                                    name="description"
-                                                    value={formData.description}
-                                                    onChange={handleChange}
-                                                    placeholder="CKEditor failed to load. Use this textarea instead."
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '12px',
-                                                        borderRadius: '5px',
-                                                        border: '1px solid #ccc',
-                                                        fontSize: '16px',
-                                                        minHeight: '150px',
-                                                    }}
-                                                />
+                                                <>
+                                                    <textarea
+                                                        name="description"
+                                                        value={formData.description}
+                                                        onChange={handleChange}
+                                                        placeholder="CKEditor failed to load. Use this textarea instead."
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '12px',
+                                                            borderRadius: '5px',
+                                                            border: '1px solid #ccc',
+                                                            fontSize: '16px',
+                                                            minHeight: '150px',
+                                                        }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowDescEmojiPicker(!showDescEmojiPicker)}
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: '10px',
+                                                            right: '10px',
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            fontSize: '20px',
+                                                        }}
+                                                    >
+                                                        😊
+                                                    </button>
+                                                    {showDescEmojiPicker && (
+                                                        <div style={{ position: 'absolute', top: '-350px', right: '0', zIndex: 1000 }}>
+                                                            <EmojiPicker onEmojiClick={handleDescEmojiClick} />
+                                                        </div>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
 
@@ -300,7 +411,7 @@ function AddPublication() {
                                                 style={{
                                                     display: 'inline-flex',
                                                     alignItems: 'center',
-                                                    background: '#28a745', // Nouvelle couleur : Vert
+                                                    background: '#28a745',
                                                     color: '#fff',
                                                     padding: '12px 24px',
                                                     borderRadius: '8px',
@@ -309,10 +420,10 @@ function AddPublication() {
                                                     cursor: 'pointer',
                                                     boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
                                                     transition: 'all 0.3s ease',
-                                                    gap: '8px', // Espacement entre l'icône et le texte
+                                                    gap: '8px',
                                                 }}
                                                 onMouseEnter={(e) => {
-                                                    e.target.style.background = '#218838'; // Couleur au survol
+                                                    e.target.style.background = '#218838';
                                                     e.target.style.transform = 'scale(1.05)';
                                                 }}
                                                 onMouseLeave={(e) => {
@@ -320,7 +431,7 @@ function AddPublication() {
                                                     e.target.style.transform = 'scale(1)';
                                                 }}
                                             >
-                                                <i className="fas fa-camera" /> {/* Icône FontAwesome */}
+                                                <i className="fas fa-camera" />
                                                 Add Photo
                                             </label>
                                         </div>
