@@ -414,7 +414,7 @@ function Activities() {
             onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
             onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
           >
-            My Favorite Activities
+            Activity Schedule
           </button>
         </div>
       )}
@@ -549,9 +549,7 @@ function Activities() {
                 onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
               >
                 <div style={{ padding: "10px", backgroundColor: "#f9f9f9" }}>
-                  <p style={{ color: "#00aaff", fontStyle: "italic", margin: 0 }}>
-                    //{activity.category || "Uncategorized"}
-                  </p>
+                 
                 </div>
                 <img
                   src={
@@ -565,6 +563,9 @@ function Activities() {
                 />
                 <div style={{ padding: "20px" }}>
                   <h4>{stripHtmlTags(activity.title)}</h4>
+                  <p style={{ color: "#00aaff", fontStyle: "italic", margin: 0 }}>
+                    ** {activity.category || "Uncategorized"} **
+                  </p>
                   <p>{stripHtmlTags(activity.description)}</p>
                 </div>
                 {userRole === "psychiatrist" ? (
@@ -824,9 +825,8 @@ function Activities() {
               textAlign: "center",
             }}
           >
-            <p style={{ color: "#00aaff", fontStyle: "italic", marginBottom: "10px" }}>
-              //{selectedActivity.category || "Uncategorized"}
-            </p>
+           <h3 style={{ fontSize: "20px", marginBottom: "10px" }}>{stripHtmlTags(selectedActivity.title)}</h3>
+
             <img
               src={
                 selectedActivity.imageUrl
@@ -842,7 +842,9 @@ function Activities() {
                 marginBottom: "15px",
               }}
             />
-            <h3 style={{ fontSize: "20px", marginBottom: "10px" }}>{stripHtmlTags(selectedActivity.title)}</h3>
+            <p style={{ color: "#00aaff", fontStyle: "italic", marginBottom: "10px" }}>
+              ** {selectedActivity.category || "Uncategorized"} **
+            </p>
             <p
               style={{
                 fontSize: "14px",

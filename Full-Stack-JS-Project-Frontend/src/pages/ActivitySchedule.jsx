@@ -525,7 +525,7 @@ function ActivitySchedule() {
             if (!showFavoriteList) fetchFavoriteActivities(userId);
           }}
           style={{
-            backgroundColor: "#0ea5e6",
+            backgroundColor: "#ff5a5f",
             color: "white",
             padding: "10px 20px",
             borderRadius: "5px",
@@ -534,10 +534,10 @@ function ActivitySchedule() {
             cursor: "pointer",
             transition: "background-color 0.3s ease",
           }}
-          onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
-          onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
+          onMouseEnter={(e) => (e.target.style.backgroundColor = "#de0b0b")}
+          onMouseLeave={(e) => (e.target.style.backgroundColor = "#ff5a5f")}
         >
-          My Favorite Activities
+          Open My Favorite Activities
         </button>
       </div>
 
@@ -602,9 +602,7 @@ function ActivitySchedule() {
                   onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
                 >
                   <div style={{ padding: "10px", backgroundColor: "#f9f9f9" }}>
-                    <p style={{ color: "#00aaff", fontStyle: "italic", margin: 0 }}>
-                      //{activity.category || "Uncategorized"}
-                    </p>
+                    
                   </div>
                   <img
                     src={
@@ -617,6 +615,12 @@ function ActivitySchedule() {
                     onClick={() => handleViewActivityModal(activity)}
                   />
                   <div style={{ padding: "20px" }}>
+
+                    <h4>{activity.title}</h4>
+                    <p style={{ color: "#00aaff", fontStyle: "italic", margin: 0 }}>
+                     ** {activity.category || "Uncategorized"} **
+                    </p>
+                    <p>{activity.description}</p>
                     <button
                       onClick={() => handleRemoveFavorite(activity._id)}
                       style={{
@@ -637,8 +641,6 @@ function ActivitySchedule() {
                     >
                       <FontAwesomeIcon icon={faTrash} />
                     </button>
-                    <h4>{activity.title}</h4>
-                    <p>{activity.description}</p>
                   </div>
                 </div>
               ))}
