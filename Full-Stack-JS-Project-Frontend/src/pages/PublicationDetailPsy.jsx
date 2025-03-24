@@ -25,6 +25,7 @@ function PublicationDetailPsy() {
     const [relatedPublications, setRelatedPublications] = useState([]);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showEditEmojiPicker, setShowEditEmojiPicker] = useState(false);
+    const [showShareOptions, setShowShareOptions] = useState(false);
 
     const BASE_URL = "http://localhost:5000";
 
@@ -366,6 +367,45 @@ function PublicationDetailPsy() {
         setShowEditEmojiPicker(false);
     };
 
+    // Fonction pour basculer l'affichage des options de partage
+    const toggleShareOptions = (e) => {
+        e.preventDefault();
+        setShowShareOptions(!showShareOptions);
+    };
+
+    // Fonctions pour partager sur les réseaux sociaux avec titre et description
+    const shareOnFacebook = () => {
+        if (!publication) return;
+        const url = `${window.location.origin}/PublicationDetailPsy/${id}`;
+        const quote = `${stripHtmlTags(publication.titrePublication)} - ${stripHtmlTags(publication.description)}`;
+        window.open(
+            `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(quote)}`,
+            '_blank'
+        );
+    };
+
+    const shareOnTwitter = () => {
+        if (!publication) return;
+        const url = `${window.location.origin}/PublicationDetailPsy/${id}`;
+        const text = `${stripHtmlTags(publication.titrePublication)} - ${stripHtmlTags(publication.description)}`;
+        // Twitter limite les tweets à 280 caractères, donc on tronque si nécessaire
+        const truncatedText = text.length > 280 - url.length - 1 ? text.substring(0, 280 - url.length - 3) + '...' : text;
+        window.open(
+            `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(truncatedText)}`,
+            '_blank'
+        );
+    };
+
+    const shareOnWhatsApp = () => {
+        if (!publication) return;
+        const url = `${window.location.origin}/PublicationDetailPsy/${id}`;
+        const text = `${stripHtmlTags(publication.titrePublication)} - ${stripHtmlTags(publication.description)} - ${url}`;
+        window.open(
+            `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`,
+            '_blank'
+        );
+    };
+
     useEffect(() => {
         const loadData = async () => {
             setIsLoading(true);
@@ -421,13 +461,34 @@ function PublicationDetailPsy() {
                                                             {new Date(publication.datePublication).toLocaleDateString()}
                                                         </li>
                                                         <li>
-                                                            <i className="far fa-eye"></i> {/* Icône pour les vues */}
+                                                            <i className="far fa-eye"></i>
                                                             {publication.viewCount || 0} vues
                                                         </li>
                                                     </ul>
                                                 </div>
                                                 <div className="blog-meta-right">
-                                                    <a href="#" className="share-link"><i className="far fa-share-alt"></i>Share</a>
+                                                    <a href="#" className="share-link" onClick={toggleShareOptions}>
+                                                        <i className="far fa-share-alt"></i> Share
+                                                    </a>
+                                                    {showShareOptions && (
+                                                        <div className="share-options" style={{
+                                                            position: 'absolute',
+                                                            background: '#fff',
+                                                            padding: '10px',
+                                                            borderRadius: '5px',
+                                                            boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                                                            zIndex: 1000,
+                                                            marginTop: '5px',
+                                                        }}>
+                                                         
+                                                            <a href="#" onClick={(e) => { e.preventDefault(); shareOnTwitter(); }} style={{ marginRight: '10px' }}>
+                                                                <i className="fab fa-x-twitter" style={{ color: '#1da1f2', fontSize: '20px' }}></i>
+                                                            </a>
+                                                            <a href="#" onClick={(e) => { e.preventDefault(); shareOnWhatsApp(); }}>
+                                                                <i className="fab fa-whatsapp" style={{ color: '#25d366', fontSize: '20px' }}></i>
+                                                            </a>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="blog-details">
