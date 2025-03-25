@@ -93,7 +93,7 @@ function Publication() {
             console.log('API Response:', data);
 
             if (response.ok) {
-                const filteredPublications = data.filter(post => post.status !== 'archived');
+                const filteredPublications = data.filter(post => post.status !== 'archived' && post.status !== 'later');
                 setPublications(filteredPublications);
                 console.log('Filtered Publications updated:', filteredPublications);
             } else {
@@ -1284,7 +1284,7 @@ function Publication() {
                                             {day && (
                                                 <>
                                                     <div style={{ fontWeight: 'bold', color: '#333', marginBottom: '5px' }}>{day}</div>
-                                                    <button onClick={() => handlePlanDay(dateStr)} style={{ backgroundColor: '#0ea5e6', color: 'white', padding: '5px 10px', borderRadius: '5px', border: 'none', cursor: 'pointer' }}>+</button>
+                                                    <button onClick={() => handlePlanDay(dateStr)} style={{ backgroundColor: '#0ea5e6', color: 'white', padding: '2px 7px', borderRadius: '5px', border: 'none', cursor: 'pointer' }}>+</button>
                                                     {notes[dateStr] && <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>{notes[dateStr].substring(0, 20)}...</p>}
                                                 </>
                                             )}
