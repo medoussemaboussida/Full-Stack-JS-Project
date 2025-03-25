@@ -1,6 +1,7 @@
 const User = require('../model/user');
 const Forum = require('../model/forum');
 const Report = require("../model/ForumReport");
+const ForumBan = require("../model/ForumBan");
 //add forum topic
 module.exports.addForum = async (req, res) => {
     try {
@@ -172,10 +173,157 @@ exports.getForumReports = async (req, res) => {
       }
   
       // Récupérer tous les rapports associés à ce forum
-      const reports = await Report.find({ forum_id: forumId }).populate("user_id", "username speciality level"); // Populate pour inclure le nom d'utilisateur
+      const reports = await Report.find({ forum_id: forumId }).populate("user_id", "username speciality level user_photo"); // Populate pour inclure le nom d'utilisateur
   
       res.status(200).json(reports);
     } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  };
+
+  //change status
+exports.changeForumStatus = async (req, res) => {
+    try {
+        const { forum_id } = req.params; 
+        const { status } = req.body; // Récupérer le nouveau statut ("actif" ou "inactif")
+
+        // Vérifier si le forum existe
+        const forum = await Forum.findById(forum_id);
+        if (!forum) {
+            return res.status(404).json({ message: "Forum not found!" });
+        }
+
+        if (!["actif", "inactif"].includes(status)) {
+            return res.status(400).json({ message: "Invalid status! Must be 'actif' or 'inactif'." });
+        }
+        forum.status = status;
+        const updatedForum = await forum.save();
+
+        // Répondre avec le forum mis à jour
+        res.status(200).json({ message: `Forum status updated to ${status}`, forum: updatedForum });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+//ban from forum 
+exports.banUser = async (req, res) => {
+    try {
+      const { user_id, duration, reason } = req.body;
+  
+      // Vérifier que tous les champs requis sont présents
+      if (!user_id || !duration || !reason) {
+        return res.status(400).json({
+          message: "All fields are required: user_id, duration, reason",
+        });
+      }
+  
+      // Vérifier si l'utilisateur existe
+      const user = await User.findById(user_id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+  
+      // Vérifier si l'utilisateur est déjà banni
+      const existingBan = await ForumBan.findOne({
+        user_id,
+        expiresAt: { $gt: new Date() },
+      });
+      
+      if (existingBan) {
+        return res.status(400).json({ message: "User is already banned" });
+      }
+  
+      // Créer un nouveau bannissement
+      const newBan = new ForumBan({
+        user_id,
+        duration,
+        reason,
+        bannedAt: new Date(),
+      });
+  
+      // Sauvegarder le bannissement
+      await newBan.save();
+  
+      res.status(201).json({
+        message: `User ${user.username} has been banned for ${duration} days`,
+        ban: newBan,
+      });
+    } catch (error) {
+      console.error("Error banning user:", error);
+      res.status(500).json({
+        message: "Server error while banning user",
+        error: error.message,
+      });
+    }
+  };
+  // Contrôleur pour afficher la liste des utilisateurs bannis
+  exports.getBannedUsers = async (req, res) => {
+    try {
+      // Récupérer les bannissements actifs (ceux qui ne sont pas encore expirés)
+      const bannedUsers = await ForumBan.find({ expiresAt: { $gt: new Date() } })
+        .populate("user_id", "username email") // Récupérer les informations de l'utilisateur (username et email)
+        .select("user_id duration reason bannedAt expiresAt");
+  
+      if (bannedUsers.length === 0) {
+        return res.status(200).json({ message: "No users are currently banned", bannedUsers: [] });
+      }
+  
+      res.status(200).json({
+        message: "List of banned users retrieved successfully",
+        bannedUsers,
+      });
+    } catch (error) {
+      console.error("Error retrieving banned users:", error);
+      res.status(500).json({ message: "Server error while retrieving banned users", error: error.message });
+    }
+  };
+  
+  exports.checkBan = async (req, res) => {
+    try {
+      const { userId } = req.params; // Extraire userId de req.params
+  
+      // Vérifier si l'utilisateur existe (comme dans addForum et banUser)
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+  
+      // Vérifier si l'utilisateur est banni
+      const ban = await ForumBan.findOne({ user_id: userId });
+  
+      if (!ban) {
+        return res.status(200).json({
+          success: true,
+          isBanned: false,
+          message: "User is not banned.",
+        });
+      }
+  
+      const currentDate = new Date();
+      const expiresAt = new Date(ban.expiresAt);
+  
+      if (expiresAt < currentDate) {
+        // Le ban est expiré, on peut le supprimer
+        await ForumBan.deleteOne({ _id: ban._id });
+        return res.status(200).json({
+          success: true,
+          isBanned: false,
+          message: "Ban has expired.",
+        });
+      }
+  
+      // L'utilisateur est banni et le ban est actif
+      return res.status(200).json({
+        success: true,
+        isBanned: true,
+        ban: {
+          user_id: ban.user_id,
+          reason: ban.reason,
+          expiresAt: ban.expiresAt,
+        },
+      });
+    } catch (err) {
+      console.error("Error checking ban status:", err); // Log cohérent avec les autres méthodes
       res.status(500).json({ message: err.message });
     }
   };
