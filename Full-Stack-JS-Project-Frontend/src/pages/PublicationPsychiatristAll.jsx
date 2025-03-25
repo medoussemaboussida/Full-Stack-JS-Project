@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { Bar, Pie } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
+
+// Enregistrer les composants nécessaires pour Chart.js
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
 // Importer CKEditor
 let CKEditorComponent, ClassicEditor;
@@ -38,13 +43,13 @@ function PublicationPsychiatristAll() {
     const [selectedDate, setSelectedDate] = useState('');
     const [sortOrder, setSortOrder] = useState('recent');
     const [filterStatus, setFilterStatus] = useState('all');
+    const [showStatsModal, setShowStatsModal] = useState(false);
+    const [statsData, setStatsData] = useState({ comments: [], likesDislikes: [] });
 
     const fetchMyPublications = async () => {
         try {
             const token = localStorage.getItem('jwt-token');
-            if (!token) {
-                throw new Error('No token found');
-            }
+            if (!token) throw new Error('No token found');
 
             console.log('Fetching my publications from API...');
             const response = await fetch(`http://localhost:5000/users/myPublications?sort=${sortOrder}`, {
@@ -70,8 +75,35 @@ function PublicationPsychiatristAll() {
         }
     };
 
+    const fetchStatsData = async () => {
+        try {
+            const token = localStorage.getItem('jwt-token');
+            const commentsPromises = publications.map(post =>
+                fetch(`http://localhost:5000/users/commentaires/${post._id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                }).then(res => res.json())
+            );
+            const commentsData = await Promise.all(commentsPromises);
+
+            const commentsStats = publications.map((post, index) => ({
+                title: stripHtmlTags(post.titrePublication),
+                commentCount: commentsData[index].length,
+            }));
+
+            const likesDislikesStats = publications.map(post => ({
+                title: stripHtmlTags(post.titrePublication),
+                likes: post.likeCount || 0,
+                dislikes: post.dislikeCount || 0,
+            }));
+
+            setStatsData({ comments: commentsStats, likesDislikes: likesDislikesStats });
+        } catch (error) {
+            console.error('Error fetching stats data:', error);
+            toast.error('Failed to load statistics');
+        }
+    };
+
     const handleEdit = (post) => {
-        console.log('post.tag:', post.tag, 'typeof:', typeof post.tag);
         let tags = [''];
         if (post.tag) {
             if (Array.isArray(post.tag)) {
@@ -168,9 +200,8 @@ function PublicationPsychiatristAll() {
             data.append('imagePublication', editFormData.imagePublication);
         }
         data.append('tag', editFormData.tags.filter(tag => tag.trim()).join(','));
-        // Ajout du statut explicite en fonction de publishNow
         data.append('status', editFormData.publishNow ? 'published' : 'later');
-        data.append('scheduledDate', editFormData.publishNow ? '' : editFormData.scheduledDate); // Vide si publié maintenant
+        data.append('scheduledDate', editFormData.publishNow ? '' : editFormData.scheduledDate);
 
         try {
             const response = await fetch(`http://localhost:5000/users/publication/update/${editFormData._id}`, {
@@ -186,12 +217,7 @@ function PublicationPsychiatristAll() {
 
             if (response.ok) {
                 setPublications(publications.map(post =>
-                    post._id === editFormData._id ? { 
-                        ...post, 
-                        ...result.publication, 
-                        status: editFormData.publishNow ? 'published' : 'later', // Mise à jour explicite du statut
-                        scheduledDate: editFormData.publishNow ? null : editFormData.scheduledDate // Mise à jour de scheduledDate
-                    } : post
+                    post._id === editFormData._id ? { ...post, ...result.publication } : post
                 ));
                 toast.success('Publication updated successfully', { autoClose: 3000 });
                 setShowEditModal(false);
@@ -343,21 +369,15 @@ function PublicationPsychiatristAll() {
         );
     };
 
-    const handleSearchChange = (e) => {
-        setSearchTerm(e.target.value);
+    const handleShowStats = () => {
+        fetchStatsData();
+        setShowStatsModal(true);
     };
 
-    const handleDateChange = (e) => {
-        setSelectedDate(e.target.value);
-    };
-
-    const handleSortChange = (e) => {
-        setSortOrder(e.target.value);
-    };
-
-    const handleFilterStatusChange = (e) => {
-        setFilterStatus(e.target.value);
-    };
+    const handleSearchChange = (e) => setSearchTerm(e.target.value);
+    const handleDateChange = (e) => setSelectedDate(e.target.value);
+    const handleSortChange = (e) => setSortOrder(e.target.value);
+    const handleFilterStatusChange = (e) => setFilterStatus(e.target.value);
 
     const filteredPublications = publications
         .filter(post => {
@@ -380,6 +400,36 @@ function PublicationPsychiatristAll() {
     useEffect(() => {
         fetchMyPublications();
     }, [sortOrder]);
+
+    // Données pour les graphiques
+    const commentsChartData = {
+        labels: statsData.comments.map(stat => stat.title),
+        datasets: [
+            {
+                label: 'Nombre de commentaires',
+                data: statsData.comments.map(stat => stat.commentCount),
+                backgroundColor: 'rgba(14, 165, 230, 0.6)',
+                borderColor: 'rgba(14, 165, 230, 1)',
+                borderWidth: 1,
+            },
+        ],
+    };
+
+    const likesDislikesChartData = {
+        labels: statsData.likesDislikes.map(stat => stat.title),
+        datasets: [
+            {
+                label: 'Likes',
+                data: statsData.likesDislikes.map(stat => stat.likes),
+                backgroundColor: 'rgba(40, 167, 69, 0.6)',
+            },
+            {
+                label: 'Dislikes',
+                data: statsData.likesDislikes.map(stat => stat.dislikes),
+                backgroundColor: 'rgba(220, 53, 69, 0.6)',
+            },
+        ],
+    };
 
     if (isLoading) {
         return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Loading...</div>;
@@ -520,6 +570,13 @@ function PublicationPsychiatristAll() {
                                 <option value="archived">Archived</option>
                                 <option value="later">Scheduled (Later)</option>
                             </select>
+                            <button
+                                onClick={handleShowStats}
+                                className="theme-btn"
+                                style={{ backgroundColor: '#ffc107', color: '#fff', padding: '15px 25px', borderRadius: '25px' }}
+                            >
+                                Statistical <i className="fas fa-chart-bar"></i>
+                            </button>
                         </div>
                         <div className="row g-4">
                             {filteredPublications.length > 0 ? (
@@ -1002,6 +1059,88 @@ function PublicationPsychiatristAll() {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {showStatsModal && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 1000,
+                    }}
+                >
+                    <div
+                        style={{
+                            backgroundColor: '#fff',
+                            padding: '30px',
+                            borderRadius: '10px',
+                            width: '900px',
+                            maxWidth: '90%',
+                            boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+                            maxHeight: '80vh',
+                            overflowY: 'auto',
+                        }}
+                    >
+                        <h3 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '20px' }}>Publication Statistics</h3>
+                        <div style={{ marginBottom: '30px' }}>
+                            <h4>Comments per Publication</h4>
+                            <Bar
+                                data={commentsChartData}
+                                options={{
+                                    responsive: true,
+                                    plugins: {
+                                        legend: { position: 'top' },
+                                        title: { display: true, text: 'Nombre de commentaires par publication' },
+                                    },
+                                    scales: {
+                                        y: { beginAtZero: true, title: { display: true, text: 'Nombre de commentaires' } },
+                                        x: { title: { display: true, text: 'Publications' } },
+                                    },
+                                }}
+                            />
+                        </div>
+                        <div>
+                            <h4>Likes and Dislikes per Publication</h4>
+                            <Bar
+                                data={likesDislikesChartData}
+                                options={{
+                                    responsive: true,
+                                    plugins: {
+                                        legend: { position: 'top' },
+                                        title: { display: true, text: 'Likes et Dislikes par publication' },
+                                    },
+                                    scales: {
+                                        y: { beginAtZero: true, title: { display: true, text: 'Nombre' } },
+                                        x: { title: { display: true, text: 'Publications' } },
+                                    },
+                                }}
+                            />
+                        </div>
+                        <button
+                            onClick={() => setShowStatsModal(false)}
+                            style={{
+                                background: '#f44336',
+                                color: '#fff',
+                                padding: '12px 24px',
+                                borderRadius: '5px',
+                                border: 'none',
+                                fontSize: '16px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                marginTop: '20px',
+                            }}
+                        >
+                            Close
+                        </button>
                     </div>
                 </div>
             )}
