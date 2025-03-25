@@ -725,7 +725,7 @@ module.exports.addCommentaire = async (req, res) => {
         const decoded = jwt.verify(token, 'randa');
         const userId = decoded.id;
 
-        const { contenu, publication_id } = req.body;
+        const { contenu, publication_id, isAnonymous } = req.body;
 
         if (!contenu || !publication_id) {
             return res.status(400).json({ message: 'Le contenu et l\'ID de la publication sont requis' });
@@ -735,17 +735,27 @@ module.exports.addCommentaire = async (req, res) => {
             contenu,
             publication_id,
             auteur_id: userId,
+            isAnonymous: isAnonymous || false,
         });
 
         const savedCommentaire = await commentaire.save();
-        
-        // Peupler les informations de l'auteur avec username et user_photo avant de renvoyer la réponse
         const populatedCommentaire = await Commentaire.findById(savedCommentaire._id)
             .populate('auteur_id', 'username user_photo');
 
+        const responseCommentaire = populatedCommentaire.isAnonymous
+            ? {
+                ...populatedCommentaire.toObject(),
+                auteur_id: {
+                    _id: populatedCommentaire.auteur_id._id, // Conserver l'_id
+                    username: 'Anonyme',
+                    user_photo: null
+                }
+            }
+            : populatedCommentaire;
+
         res.status(201).json({ 
             message: 'Commentaire ajouté avec succès', 
-            commentaire: populatedCommentaire 
+            commentaire: responseCommentaire 
         });
     } catch (error) {
         console.error('Erreur lors de l\'ajout du commentaire:', error);
@@ -753,15 +763,29 @@ module.exports.addCommentaire = async (req, res) => {
     }
 };
 
-// Récupérer les commentaires d'une publication
+// Récupérer les commentaires
 module.exports.getCommentairesByPublication = async (req, res) => {
     try {
         const { publicationId } = req.params;
         const commentaires = await Commentaire.find({ publication_id: publicationId })
-            .populate('auteur_id', 'username user_photo') // Ajouter 'user_photo' ici
+            .populate('auteur_id', 'username user_photo')
             .sort({ dateCreation: -1 });
 
-        res.status(200).json(commentaires);
+        const formattedCommentaires = commentaires.map(comment => {
+            if (comment.isAnonymous) {
+                return {
+                    ...comment.toObject(), // Convertir en objet JS
+                    auteur_id: {
+                        _id: comment.auteur_id._id, // Conserver l'_id
+                        username: 'Anonyme',
+                        user_photo: null
+                    }
+                };
+            }
+            return comment;
+        });
+
+        res.status(200).json(formattedCommentaires);
     } catch (error) {
         console.error('Erreur lors de la récupération des commentaires:', error);
         res.status(500).json({ message: 'Erreur serveur', error: error.message });

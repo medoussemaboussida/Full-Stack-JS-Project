@@ -26,8 +26,10 @@ function PublicationDetailPsy() {
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showEditEmojiPicker, setShowEditEmojiPicker] = useState(false);
     const [showShareOptions, setShowShareOptions] = useState(false);
+    const [isAnonymous, setIsAnonymous] = useState(false); // Nouvel état pour le choix anonyme
 
     const BASE_URL = "http://localhost:5000";
+    const ANONYMOUS_PHOTO = '/assets/img/anonymous_member.png'; // Image par défaut pour les commentaires anonymes
 
     // Initialiser le filtre bad-words
     const filter = new Filter();
@@ -158,7 +160,7 @@ function PublicationDetailPsy() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                 },
-                body: JSON.stringify({ contenu: newComment, publication_id: id }),
+                body: JSON.stringify({ contenu: newComment, publication_id: id, isAnonymous }), // Ajout de isAnonymous
             });
 
             const result = await response.json();
@@ -167,6 +169,7 @@ function PublicationDetailPsy() {
                 setCommentaires([result.commentaire, ...commentaires]);
                 setNewComment('');
                 setShowEmojiPicker(false);
+                setIsAnonymous(false); // Réinitialiser après soumission
                 toast.success('Commentaire ajouté avec succès');
             } else {
                 toast.error(`Erreur: ${result.message}`);
@@ -379,7 +382,7 @@ function PublicationDetailPsy() {
         const url = `${window.location.origin}/PublicationDetailPsy/${id}`;
         const quote = `${stripHtmlTags(publication.titrePublication)} - ${stripHtmlTags(publication.description)}`;
         window.open(
-            `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(quote)}`,
+            `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}"e=${encodeURIComponent(quote)}`,
             '_blank'
         );
     };
@@ -558,15 +561,17 @@ function PublicationDetailPsy() {
                                                             <div key={comment._id} className="blog-comment-item">
                                                                 <img
                                                                     src={
-                                                                        comment.auteur_id?.user_photo && comment.auteur_id.user_photo !== ''
-                                                                            ? `${BASE_URL}${comment.auteur_id.user_photo}`
-                                                                            : 'assets/img/blog/com-1 f.jpg'
+                                                                        comment.isAnonymous 
+                                                                            ? ANONYMOUS_PHOTO // Image par défaut pour anonyme
+                                                                            : (comment.auteur_id?.user_photo && comment.auteur_id.user_photo !== ''
+                                                                                ? `${BASE_URL}${comment.auteur_id.user_photo}`
+                                                                                : 'assets/img/blog/com-1 f.jpg')
                                                                     }
-                                                                    alt={comment.auteur_id?.username || 'User'}
+                                                                    alt={comment.isAnonymous ? 'Anonymous' : (comment.auteur_id?.username || 'User')}
                                                                     style={{ width: '50px', height: '50px', borderRadius: '50%' }}
                                                                 />
                                                                 <div className="blog-comment-content">
-                                                                    <h5>{comment.auteur_id?.username || 'Unknown'}</h5>
+                                                                    <h5>{comment.isAnonymous ? 'Anonymous' : (comment.auteur_id?.username || 'Unknown')}</h5>
                                                                     <span><i className="far fa-clock"></i> {new Date(comment.dateCreation).toLocaleDateString()}</span>
                                                                     {editCommentId === comment._id ? (
                                                                         <div style={{ position: 'relative' }}>
@@ -616,7 +621,8 @@ function PublicationDetailPsy() {
                                                                     )}
                                                                     <div style={{ display: 'flex', gap: '10px' }}>
                                                                         <a href="#" onClick={(e) => e.preventDefault()}><i className="far fa-reply"></i> Reply</a>
-                                                                        {userId && comment.auteur_id?._id.toString() === userId && (
+                                                                        
+                                                                        {userId && comment.auteur_id && comment.auteur_id._id && comment.auteur_id._id.toString() === userId && ( // Désactiver édition/suppression pour anonyme
                                                                             <>
                                                                                 <a href="#" onClick={(e) => handleEditComment(e, comment)}>
                                                                                     <i className="far fa-edit" title="Modifier"></i>
@@ -634,7 +640,7 @@ function PublicationDetailPsy() {
                                                         <p>No comments yet.</p>
                                                     )}
                                                 </div>
-                                                {userRole === 'student' && (
+                                                { (
                                                     <div className="blog-comment-form">
                                                         <h3>Leave A Comment</h3>
                                                         <form onSubmit={handleCommentSubmit}>
@@ -675,6 +681,18 @@ function PublicationDetailPsy() {
                                                                             )}
                                                                         </div>
                                                                     </div>
+                                                                    {userId && ( // Afficher la case à cocher uniquement si connecté
+                                                                        <div className="form-group" style={{ marginBottom: '15px' }}>
+                                                                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={isAnonymous}
+                                                                                    onChange={(e) => setIsAnonymous(e.target.checked)}
+                                                                                />
+                                                                                Post as anonymous
+                                                                            </label>
+                                                                        </div>
+                                                                    )}
                                                                     <button type="submit" className="theme-btn">
                                                                         Post Comment <i className="far fa-paper-plane"></i>
                                                                     </button>
