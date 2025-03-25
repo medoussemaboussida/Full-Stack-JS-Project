@@ -467,14 +467,15 @@ function ActivitySchedule() {
         const decoded = jwtDecode(token);
         if (decoded.id) {
           setUserId(decoded.id);
-          fetchFavoriteActivities(decoded.id);
           fetchActivities();
+          fetchFavoriteActivities(decoded.id);
           fetchScheduledActivities(decoded.id);
           fetchNotes();
           fetchMoods().then((moodsData) => {
             setMoods(moodsData);
           });
         }
+
       } catch (error) {
         console.error("Invalid token:", error);
         toast.error("Invalid session, please log in again.");
@@ -616,7 +617,7 @@ function ActivitySchedule() {
             if (!showFavoriteList) fetchFavoriteActivities(userId);
           }}
           style={{
-            backgroundColor: "#ff5a5f",
+            backgroundColor: "#e68600",
             color: "white",
             padding: "10px 20px",
             borderRadius: "5px",
