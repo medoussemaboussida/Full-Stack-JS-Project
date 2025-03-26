@@ -4,7 +4,54 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import EmojiPicker from 'emoji-picker-react';
 import { jsPDF } from 'jspdf';
 import { jwtDecode } from 'jwt-decode';
-import VideoChat from './VideoChat'; // Import the Jitsi Meet-based VideoChat component
+import VideoChat from './VideoChat';
+
+// Crypto utilities
+const importKeyFromRoomCode = async (roomCode) => {
+  const encoder = new TextEncoder();
+  const keyMaterial = encoder.encode(roomCode);
+  // Hash the roomCode to ensure a 32-byte key (SHA-256 produces 32 bytes)
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', keyMaterial);
+  return window.crypto.subtle.importKey(
+    'raw',
+    hashBuffer,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt', 'decrypt']
+  );
+};
+
+const encryptMessage = async (key, message) => {
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const encodedMessage = new TextEncoder().encode(message);
+  const encryptedMessage = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encodedMessage
+  );
+  return {
+    encryptedMessage: arrayBufferToBase64(encryptedMessage),
+    iv: arrayBufferToBase64(iv),
+  };
+};
+
+const decryptMessage = async (key, { encryptedMessage, iv }) => {
+  const decryptedMessage = await window.crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: base64ToArrayBuffer(iv) },
+    key,
+    base64ToArrayBuffer(encryptedMessage)
+  );
+  return new TextDecoder().decode(decryptedMessage);
+};
+
+const arrayBufferToBase64 = (buffer) => btoa(String.fromCharCode(...new Uint8Array(buffer)));
+const base64ToArrayBuffer = (base64) => {
+  const binary = atob(base64);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+};
 
 const Chat = () => {
   const [messages, setMessages] = useState([]);
@@ -17,6 +64,10 @@ const Chat = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [showVideoCall, setShowVideoCall] = useState(false);
+  const [sentMessages, setSentMessages] = useState(() => {
+    const stored = localStorage.getItem('sentMessages');
+    return stored ? JSON.parse(stored) : {};
+  });
 
   useEffect(() => {
     const storedToken = localStorage.getItem('jwt-token');
@@ -26,6 +77,7 @@ const Chat = () => {
         const decoded = jwtDecode(storedToken);
         setUserId(decoded.id);
         setUserRole(decoded.role);
+        console.log('Current userId:', decoded.id);
       } catch (err) {
         console.error('Error decoding token:', err);
         setError('Invalid token format');
@@ -35,34 +87,116 @@ const Chat = () => {
     }
   }, []);
 
-  const fetchMessages = async () => {
-    if (!joinedRoom || !token) return;
+  useEffect(() => {
+    localStorage.setItem('sentMessages', JSON.stringify(sentMessages));
+  }, [sentMessages]);
+
+  useEffect(() => {
+    if (joinedRoom && token) {
+      const initializeRoom = async () => {
+        try {
+          const key = await importKeyFromRoomCode(joinedRoom);
+          await fetchMessages(key);
+        } catch (err) {
+          console.error('Error importing room key:', err);
+          setError('Failed to initialize encryption');
+        }
+      };
+      initializeRoom();
+    }
+  }, [joinedRoom, token]);
+
+  useEffect(() => {
+    if (joinedRoom && token) {
+      const fetchWithKey = async () => {
+        const key = await importKeyFromRoomCode(joinedRoom);
+        const interval = setInterval(() => fetchMessages(key), 5000);
+        return () => clearInterval(interval);
+      };
+      fetchWithKey();
+    }
+  }, [joinedRoom, token]);
+
+  const fetchMessages = async (key) => {
+    if (!joinedRoom || !token || !key) {
+      console.log('Cannot fetch messages: Missing required fields', { joinedRoom, token, key: !!key });
+      return;
+    }
     try {
       const response = await axios.get(`http://localhost:5000/users/chat/${joinedRoom}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setMessages(response.data);
+      console.log('Fetched messages:', response.data);
+      const encryptedMessages = response.data || [];
+      const decryptedMessages = await Promise.all(
+        encryptedMessages.map(async (msg) => {
+          try {
+            const ivBuffer = base64ToArrayBuffer(msg.iv);
+            if (ivBuffer.byteLength !== 12) throw new Error('Invalid IV length');
+            const decrypted = await decryptMessage(key, {
+              encryptedMessage: msg.encryptedMessage,
+              iv: msg.iv,
+            });
+            return { ...msg, message: decrypted };
+          } catch (decryptErr) {
+            console.error('Decryption error for message:', msg._id, decryptErr);
+            if (msg.sender._id === userId) {
+              const roomMessages = sentMessages[joinedRoom] || {};
+              console.log(`Message ${msg._id} from current user, looking up in sentMessages:`, roomMessages);
+              const messageContent = roomMessages[msg._id] || '[Your message]';
+              return { ...msg, message: messageContent };
+            }
+            return { ...msg, message: '[Decryption failed]' };
+          }
+        })
+      );
+      setMessages(decryptedMessages);
       setError(null);
     } catch (err) {
-      console.error('Error fetching messages:', err.response?.data || err.message);
-      setError('Failed to load messages: ' + (err.response?.data?.message || err.message));
+      console.error('Error fetching messages:', err);
+      setError('Failed to load messages: ' + (err.response?.data?.message || err.message || 'Network error'));
     }
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !joinedRoom || !token || !userId) return;
+    if (!newMessage.trim() || !joinedRoom || !token || !userId) {
+      console.log('Cannot send message: Missing required fields', {
+        newMessage: newMessage.trim(),
+        joinedRoom,
+        token,
+        userId,
+      });
+      return;
+    }
     try {
-      await axios.post(
+      const key = await importKeyFromRoomCode(joinedRoom);
+      const { encryptedMessage, iv } = await encryptMessage(key, newMessage);
+      const payload = { roomCode: joinedRoom, encryptedMessage, iv };
+      console.log('Sending message with payload:', payload);
+      const response = await axios.post(
         'http://localhost:5000/users/chat',
-        { roomCode: joinedRoom, userId, message: newMessage },
+        payload,
         { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
       );
+      console.log('Message sent successfully:', response.data);
+      const messageId = response.data.data._id;
+      setSentMessages((prev) => {
+        const updated = {
+          ...prev,
+          [joinedRoom]: {
+            ...(prev[joinedRoom] || {}),
+            [messageId]: newMessage,
+          },
+        };
+        console.log('Updated sentMessages:', updated);
+        return updated;
+      });
       setNewMessage('');
-      fetchMessages();
       setShowEmojiPicker(false);
+      setTimeout(() => fetchMessages(key), 500);
     } catch (err) {
       console.error('Error sending message:', err.response?.data || err.message);
-      setError('Failed to send message: ' + (err.response?.data?.message || err.message));
+      setError('Failed to send message: ' + (err.response?.data?.message || err.message || 'Network error'));
     }
   };
 
@@ -75,18 +209,11 @@ const Chat = () => {
       setError('Please log in first');
       return;
     }
-    setJoinedRoom(roomCode);
+    const normalizedRoomCode = roomCode.trim().toLowerCase();
+    setJoinedRoom(normalizedRoomCode);
     setMessages([]);
     setError(null);
   };
-
-  useEffect(() => {
-    if (joinedRoom) {
-      fetchMessages();
-      const interval = setInterval(fetchMessages, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [joinedRoom]);
 
   const handleMessageKeyPress = (e) => {
     if (e.key === 'Enter') sendMessage();
@@ -102,23 +229,18 @@ const Chat = () => {
 
   const summarizeStudentMessages = (messages, userId) => {
     if (!messages || messages.length === 0) return 'No messages from the student to summarize.';
-
     const studentMessages = messages
       .filter((msg) => msg.sender._id === userId)
       .map((msg) => `${msg.sender.username || 'Student'}: ${msg.message}`)
       .join('\n');
-
     if (!studentMessages) return 'No messages from the student found.';
-
     const stopWords = new Set([
       'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from',
       'has', 'he', 'in', 'is', 'it', 'its', 'of', 'on', 'that', 'the',
       'to', 'was', 'were', 'will', 'with', 'i', 'you', 'we', 'they',
     ]);
-
     const sentences = studentMessages.split('\n').filter((s) => s.trim() !== '');
     if (sentences.length === 0) return 'No messages from the student to summarize.';
-
     const wordFreq = {};
     const words = studentMessages.toLowerCase().split(/\s+/);
     words.forEach((word) => {
@@ -126,23 +248,18 @@ const Chat = () => {
         wordFreq[word] = (wordFreq[word] || 0) + 1;
       }
     });
-
     const sentenceScores = sentences.map((sentence) => {
       const sentenceWords = sentence.toLowerCase().split(/\s+/);
       let score = 0;
       sentenceWords.forEach((word) => {
-        if (wordFreq[word]) {
-          score += wordFreq[word];
-        }
+        if (wordFreq[word]) score += wordFreq[word];
       });
       return { sentence, score };
     });
-
     const sortedSentences = sentenceScores.sort((a, b) => b.score - a.score);
     const topSentences = sortedSentences
       .slice(0, Math.min(2, sortedSentences.length))
       .map((item) => item.sentence);
-
     return topSentences.join('\n');
   };
 
@@ -155,15 +272,12 @@ const Chat = () => {
   const exportToPDF = async () => {
     const doc = new jsPDF();
     let yOffset = 10;
-
     doc.setFontSize(16);
     doc.text(`Chat Room: ${joinedRoom}`, 10, yOffset);
     yOffset += 10;
-
     doc.setFontSize(12);
     doc.text('Chat Messages:', 10, yOffset);
     yOffset += 10;
-
     messages.forEach((msg) => {
       const sender = msg.sender.username || 'Unknown';
       const time = new Date(msg.createdAt).toLocaleTimeString();
@@ -178,7 +292,6 @@ const Chat = () => {
         yOffset += 7;
       });
     });
-
     yOffset += 10;
     if (yOffset > 280) {
       doc.addPage();
@@ -186,11 +299,9 @@ const Chat = () => {
     }
     doc.text('--------------------------------------------------', 10, yOffset);
     yOffset += 10;
-
     doc.setFontSize(12);
     doc.text("Summary of the Student's Messages:", 10, yOffset);
     yOffset += 10;
-
     const summary = generateStudentSummary(messages, userId);
     const splitSummary = doc.splitTextToSize(summary, 180);
     splitSummary.forEach((line) => {
@@ -201,7 +312,6 @@ const Chat = () => {
       doc.text(line, 10, yOffset);
       yOffset += 7;
     });
-
     doc.save(`chat_room_${joinedRoom}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
@@ -248,12 +358,10 @@ const Chat = () => {
           #chat2 .form-control {
             border-color: transparent;
           }
-
           #chat2 .form-control:focus {
             border-color: transparent;
             box-shadow: inset 0px 0px 0px 1px transparent;
           }
-
           .divider:after,
           .divider:before {
             content: "";
@@ -261,7 +369,6 @@ const Chat = () => {
             height: 1px;
             background: #eee;
           }
-
           .join-container {
             text-align: center;
             padding: 40px;
@@ -277,7 +384,6 @@ const Chat = () => {
             position: relative;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
           }
-
           .join-container::before {
             content: '';
             position: absolute;
@@ -289,7 +395,6 @@ const Chat = () => {
             border-radius: 10px;
             z-index: 1;
           }
-
           .join-container h5 {
             color: #fff;
             font-size: 1.8rem;
@@ -297,7 +402,6 @@ const Chat = () => {
             z-index: 2;
             text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
           }
-
           .join-container input[type="text"] {
             width: 70%;
             max-width: 350px;
@@ -310,13 +414,11 @@ const Chat = () => {
             z-index: 2;
             transition: background-color 0.3s ease;
           }
-
           .join-container input[type="text"]:focus {
             background-color: #fff;
             outline: none;
             box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
           }
-
           .join-container button {
             padding: 12px 25px;
             background-color: #007bff;
@@ -329,18 +431,15 @@ const Chat = () => {
             z-index: 2;
             transition: background-color 0.3s ease, transform 0.2s ease;
           }
-
           .join-container button:hover {
             background-color: #0056b3;
             transform: translateY(-2px);
           }
-
           .join-container button:disabled {
             background-color: #6c757d;
             cursor: not-allowed;
             transform: none;
           }
-
           .error {
             color: #ff6b6b;
             font-size: 0.9rem;
@@ -350,13 +449,11 @@ const Chat = () => {
             padding: 5px 10px;
             border-radius: 5px;
           }
-
           .username {
             font-size: 0.9rem;
             font-weight: bold;
             margin-bottom: 5px;
           }
-
           .emoji-button {
             background: none;
             border: none;
@@ -366,11 +463,9 @@ const Chat = () => {
             color: #666;
             transition: color 0.3s ease;
           }
-
           .emoji-button:hover {
             color: #007bff;
           }
-
           .video-button {
             background: none;
             border: none;
@@ -380,18 +475,15 @@ const Chat = () => {
             color: #666;
             transition: color 0.3s ease;
           }
-
           .video-button:hover {
             color: #007bff;
           }
-
           .emoji-picker-container {
             position: absolute;
             bottom: 60px;
             right: 20px;
             z-index: 10;
           }
-
           .export-pdf-btn {
             background-color: #28a745;
             color: white;
@@ -402,11 +494,9 @@ const Chat = () => {
             cursor: pointer;
             transition: background-color 0.3s ease;
           }
-
           .export-pdf-btn:hover {
             background-color: #218838;
           }
-
           .video-call-modal {
             position: fixed;
             top: 0;
@@ -419,7 +509,6 @@ const Chat = () => {
             align-items: center;
             z-index: 1000;
           }
-
           .video-call-content {
             background: white;
             width: 80%;
@@ -431,7 +520,6 @@ const Chat = () => {
             padding: 20px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
           }
-
           .close-video-call {
             position: absolute;
             top: 10px;
@@ -444,7 +532,6 @@ const Chat = () => {
             cursor: pointer;
             transition: background-color 0.3s ease;
           }
-
           .close-video-call:hover {
             background: #e55a5a;
           }
@@ -478,7 +565,7 @@ const Chat = () => {
                 ) : (
                   <>
                     <div className="card-header d-flex justify-content-between align-items-center p-3">
-                      <h5 className="mb-0">Chat Room: {joinedRoom}</h5>
+                      <h5 className="mb-0">Chat Room</h5>
                       <div>
                         {userRole === 'psychiatrist' && (
                           <button onClick={exportToPDF} className="export-pdf-btn me-2">
@@ -628,7 +715,10 @@ const Chat = () => {
                       <button onClick={sendMessage} className="btn btn-link text-muted">
                         <i className="fas fa-paper-plane"></i>
                       </button>
-                      <button onClick={fetchMessages} className="btn btn-link text-muted">
+                      <button onClick={async () => {
+                        const key = await importKeyFromRoomCode(joinedRoom);
+                        fetchMessages(key);
+                      }} className="btn btn-link text-muted">
                         <i className="fas fa-sync-alt"></i>
                       </button>
                       <button onClick={joinVideoChat} className="video-button">
@@ -647,8 +737,6 @@ const Chat = () => {
           </div>
         </div>
       </section>
-
-      {/* Video Call Modal */}
       {showVideoCall && (
         <div className="video-call-modal">
           <div className="video-call-content">

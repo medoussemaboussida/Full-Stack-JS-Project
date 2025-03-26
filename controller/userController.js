@@ -8,6 +8,8 @@ const path = require('path');
 const Publication = require('../model/publication'); // Assurez-vous que le chemin est correct
 const Appointment = require("../model/appointment");
 const Chat = require("../model/chat");
+const Room = require("../model/Room");
+
 const { v4: uuidv4 } = require('uuid');
 
 
@@ -1562,6 +1564,7 @@ module.exports.getAppointmentHistory = async (req, res) => {
 
 
 
+
 module.exports.updateAppointmentStatus = async (req, res) => {
     try {
         const userId = req.userId; // ID de l'utilisateur connecté (from verifyToken middleware)
@@ -1604,8 +1607,8 @@ module.exports.updateAppointmentStatus = async (req, res) => {
         appointment.status = status;
         await appointment.save();
 
-        // Générer un code unique pour l'accès au chat
-        const chatCode = Math.floor(100000 + Math.random() * 900000); // Code à 6 chiffres
+        // Générer un code unique de 32 bytes (256 bits) pour l'accès au chat
+        const chatCode = crypto.randomBytes(32).toString('hex'); // 32 bytes -> 64 caractères hexadécimaux
 
         // Envoyer un email si le rendez-vous est confirmé
         if (status === 'confirmed' && appointment.student && appointment.psychiatrist) {
@@ -1643,13 +1646,12 @@ module.exports.updateAppointmentStatus = async (req, res) => {
             }
         }
 
-        res.status(200).json({ message: "Statut du rendez-vous mis à jour avec succès", appointment });
+        res.status(200).json({ message: "Statut du rendez-vous mis à jour avec succès", appointment, chatCode });
     } catch (error) {
         console.error('Erreur dans updateAppointmentStatus:', error);
         res.status(500).json({ message: "Erreur serveur", error: error.message });
     }
 };
-
 
 module.exports.deleteAppointment = async (req, res) => {
     try {
@@ -1704,45 +1706,86 @@ module.exports.getAllAppointments = async (req, res) => {
 };
 
 
-module.exports.Chat = async (req, res) => {
+// Send a message
+// Send a message
+module.exports.sendMessage = async (req, res) => {
     try {
-      const { roomCode, message } = req.body;
-      const userId = req.userId;
-      if (!roomCode || !userId || !message) {
-        return res.status(400).json({ message: 'roomCode, userId, and message are required' });
+      const { roomCode, encryptedMessage, iv } = req.body;
+      console.log('Received payload:', { roomCode, encryptedMessage, iv });
+      console.log('User ID from token:', req.userId);
+  
+      if (!roomCode || !encryptedMessage || !iv) {
+        return res.status(400).json({ message: 'roomCode, encryptedMessage, and iv are required' });
       }
   
-      const chatMessage = new Chat({
-        chatId: uuidv4(), // Generate unique chatId
-        roomCode,
-        sender: userId,
-        message,
-      });
-      await chatMessage.save();
+      if (!req.userId) {
+        return res.status(401).json({ message: 'User ID not found in token' });
+      }
   
-      res.status(201).json({ message: 'Message added successfully', data: chatMessage });
+      const chat = new Chat({
+        roomCode,
+        sender: req.userId, // Use req.userId instead of req.user._id
+        encryptedMessage,
+        iv,
+      });
+  
+      await chat.save();
+      const populatedChat = await Chat.findById(chat._id).populate('sender', 'username user_photo');
+      console.log('Saved message:', populatedChat);
+      res.status(201).json({ message: 'Message sent successfully', data: populatedChat });
     } catch (err) {
-      console.error('Error adding message:', err);
-      res.status(500).json({ message: 'Failed to add message', error: err.message });
+      console.error('Error sending message:', err);
+      res.status(500).json({ message: 'Failed to send message', error: err.message });
     }
   };
+  
+  // Fetch messages for a room
+  module.exports.RoomChat = async (req, res) => {
+    try {
+      const { roomCode } = req.params;
+      if (!roomCode) {
+        return res.status(400).json({ message: 'roomCode is required' });
+      }
+  
+      const messages = await Chat.find({ roomCode })
+        .populate('sender', 'username user_photo')
+        .sort({ createdAt: 1 });
+      console.log('Returning messages for roomCode:', roomCode, 'Messages:', messages);
+      res.status(200).json(messages);
+    } catch (err) {
+      console.error('Error retrieving messages:', err);
+      res.status(500).json({ message: 'Failed to retrieve messages', error: err.message });
+    }
+  };
+  
+  // Deprecated endpoints (no longer needed since we removed public key encryption)
+  module.exports.sharePublicKey = async (req, res) => {
+    res.status(410).json({ message: 'Endpoint deprecated: Encryption simplified' });
+  };
+  
+  module.exports.getPublicKeys = async (req, res) => {
+    res.status(410).json({ message: 'Endpoint deprecated: Encryption simplified' });
+  };
+  
 
   
-module.exports.RoomChat = async (req, res) => {
+
+
+  // Fetch room messages
+  module.exports.RoomChat = async (req, res) => {
     try {
-        const { roomCode } = req.params;
-        const messages = await Chat.find({ roomCode })
-          .populate('sender', 'username user_photo') // Optional: Populate sender's username
-          .sort({ createdAt: 1 }); // Sort by creation time
-    
-        res.status(200).json(messages);
-      } catch (err) {
-        console.error('Error retrieving messages:', err);
-        res.status(500).json({ message: 'Failed to retrieve messages', error: err.message });
-      }
-    };
-
-
+      const { roomCode } = req.params;
+      const messages = await Chat.find({ roomCode })
+        .populate('sender', 'username user_photo')
+        .sort({ createdAt: 1 });
+  
+      res.status(200).json(messages);
+    } catch (err) {
+      console.error('Error retrieving messages:', err);
+      res.status(500).json({ message: 'Failed to retrieve messages', error: err.message });
+    }
+  };
+  
 
     module.exports.photo = async (req, res) => {
  
