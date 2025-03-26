@@ -129,9 +129,10 @@ const Navbar = () => {
                                         </a>
                                         <ul className="dropdown-menu fade-down">
                                             <li><a className="dropdown-item" href="/Activities">Activities</a></li>
-                                            <li><a className="dropdown-item" href="/StudentDashboard">Student Dashboard</a></li>
-                                            <li><a className="dropdown-item" href="/SleepCalculator">Sleep Calculator</a></li>
+                                            <li><a className="dropdown-item" href="/activity-schedule">Activity Schedule</a></li>
                                             <li><a className="dropdown-item" href="/Exercices">Exercices</a></li>
+                                            <li><a className="dropdown-item" href="/SleepCalculator">Sleep Calculator</a></li>
+                                            <li><a className="dropdown-item" href="/StudentDashboard">Student Dashboard</a></li>
 
                                         </ul>
                                     </li>
