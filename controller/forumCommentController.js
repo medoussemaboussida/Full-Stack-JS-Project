@@ -146,7 +146,7 @@ exports.getCommentReports = async (req, res) => {
       }
   
       // Récupérer tous les signalements associés à ce commentaire
-      const reports = await Report.find({ comment_id: commentId }).populate("user_id", "username speciality level");
+      const reports = await Report.find({ comment_id: commentId }).populate("user_id", "username speciality level user_photo");
   
       res.status(200).json(reports);
     } catch (err) {

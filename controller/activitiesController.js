@@ -4,6 +4,7 @@ const multer = require("multer");
 const path = require("path");
 const Schedule = require("../model/Schedule");
 const Mood = require("../model/Mood");
+const Note = require("../model/Note"); // New model for notes
 
 // ✅ Récupérer les activités favorites d'un utilisateur
 module.exports.getFavoriteActivities = async (req, res) => {
@@ -519,3 +520,42 @@ exports.togglePinActivity = async (req, res) => {
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
+// ✅ Save note (New)
+module.exports.saveNote = async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { date, note } = req.body;
+  
+      if (!date || !note) {
+        return res.status(400).json({ message: "Date or note missing" });
+      }
+  
+      const existingNote = await Note.findOneAndUpdate(
+        { userId, date },
+        { note },
+        { upsert: true, new: true }
+      );
+  
+      res.status(200).json({ message: "Note saved successfully", note: existingNote });
+    } catch (error) {
+      res.status(500).json({ message: "Erreur serveur", error });
+    }
+  };
+  
+  // ✅ Get notes (New)
+  module.exports.getNotes = async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const notes = await Note.find({ userId });
+  
+      // Transform into an object with date as key
+      const notesObj = notes.reduce((acc, note) => {
+        acc[note.date] = note.note;
+        return acc;
+      }, {});
+  
+      res.status(200).json({ notes: notesObj });
+    } catch (error) {
+      res.status(500).json({ message: "Erreur serveur", error });
+    }
+  };

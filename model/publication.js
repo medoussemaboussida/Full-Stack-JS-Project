@@ -29,7 +29,7 @@ const publicationSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['draft', 'published', 'archived'], // Statuts possibles
+        enum: ['draft', 'published', 'archived','later'], // Statuts possibles
         default: 'draft', // Par défaut, brouillon
         required: [true, 'Le statut de la publication est obligatoire'],
     },

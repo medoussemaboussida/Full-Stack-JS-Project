@@ -9,4 +9,8 @@ router.put('/updateForum/:forum_id',upload.single("forum_photo"),forumController
 router.delete('/deleteForum/:forum_id',forumController.deleteForum);
 router.post("/reportForum", forumController.addReportForum);
 router.get("/getForumReports/:forumId", forumController.getForumReports);
+router.put('/changeStatus/:forum_id', forumController.changeForumStatus);
+router.post("/ban", forumController.banUser); 
+router.get("/banned-users", forumController.getBannedUsers); 
+router.get("/checkBan/:userId", forumController.checkBan);
 module.exports = router;

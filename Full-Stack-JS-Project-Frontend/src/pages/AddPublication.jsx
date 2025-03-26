@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
-import EmojiPicker from 'emoji-picker-react'; // Importer EmojiPicker
+import EmojiPicker from 'emoji-picker-react';
 import 'react-toastify/dist/ReactToastify.css';
 
 function AddPublication() {
@@ -9,12 +9,14 @@ function AddPublication() {
         titrePublication: '',
         description: '',
         imagePublication: null,
-        tags: [''], // Initialize with one empty tag input
+        tags: [''],
+        scheduledDate: '',
+        publishNow: true,
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [previewImage, setPreviewImage] = useState(null);
-    const [showTitleEmojiPicker, setShowTitleEmojiPicker] = useState(false); // State pour le picker du titre
-    const [showDescEmojiPicker, setShowDescEmojiPicker] = useState(false); // State pour le picker de la description
+    const [showTitleEmojiPicker, setShowTitleEmojiPicker] = useState(false);
+    const [showDescEmojiPicker, setShowDescEmojiPicker] = useState(false);
     const navigate = useNavigate();
 
     let CKEditorComponent, ClassicEditor;
@@ -28,13 +30,12 @@ function AddPublication() {
 
     const calculateProgress = () => {
         let filledFields = 0;
-        const totalFields = 4; // Increased to 4 to account for tags
-
+        const totalFields = 5;
         if (formData.titrePublication.trim()) filledFields += 1;
         if (formData.description.trim()) filledFields += 1;
         if (formData.imagePublication) filledFields += 1;
         if (formData.tags.some(tag => tag.trim())) filledFields += 1;
-
+        if (formData.publishNow || formData.scheduledDate) filledFields += 1;
         return Math.round((filledFields / totalFields) * 100);
     };
 
@@ -56,6 +57,10 @@ function AddPublication() {
             const newTags = [...formData.tags];
             newTags[index] = value;
             setFormData((prev) => ({ ...prev, tags: newTags }));
+        } else if (name === 'publishNow') {
+            setFormData((prev) => ({ ...prev, publishNow: value === 'true', scheduledDate: value === 'true' ? '' : prev.scheduledDate }));
+        } else if (name === 'scheduledDate') {
+            setFormData((prev) => ({ ...prev, scheduledDate: value }));
         } else {
             setFormData((prev) => ({ ...prev, [name]: value }));
         }
@@ -77,22 +82,20 @@ function AddPublication() {
         }));
     };
 
-    // Gérer l'ajout d'emojis pour le titre
     const handleTitleEmojiClick = (emojiObject) => {
         setFormData((prev) => ({
             ...prev,
             titrePublication: prev.titrePublication + emojiObject.emoji,
         }));
-        setShowTitleEmojiPicker(false); // Cacher après sélection
+        setShowTitleEmojiPicker(false);
     };
 
-    // Gérer l'ajout d'emojis pour la description
     const handleDescEmojiClick = (emojiObject) => {
         setFormData((prev) => ({
             ...prev,
             description: prev.description + emojiObject.emoji,
         }));
-        setShowDescEmojiPicker(false); // Cacher après sélection
+        setShowDescEmojiPicker(false);
     };
 
     const handleSubmit = async (e) => {
@@ -112,7 +115,8 @@ function AddPublication() {
         if (formData.imagePublication) {
             data.append('imagePublication', formData.imagePublication);
         }
-        data.append('tag', formData.tags.filter(tag => tag.trim()).join(',')); // Join non-empty tags with commas
+        data.append('tag', formData.tags.filter(tag => tag.trim()).join(','));
+        data.append('scheduledDate', formData.publishNow ? 'now' : formData.scheduledDate);
 
         console.log('Données envoyées:', Object.fromEntries(data));
 
@@ -129,7 +133,7 @@ function AddPublication() {
             console.log('Réponse du backend:', result);
             if (response.ok) {
                 toast.success('Publication ajoutée avec succès !');
-                setFormData({ titrePublication: '', description: '', imagePublication: null, tags: [''] });
+                setFormData({ titrePublication: '', description: '', imagePublication: null, tags: [''], scheduledDate: '', publishNow: true });
                 setPreviewImage(null);
                 setTimeout(() => navigate('/Publication'), 2000);
             } else {
@@ -396,6 +400,129 @@ function AddPublication() {
                                             </div>
                                         ))}
 
+                                        {/* Scheduling Field */}
+                                        <h5 style={{ marginBottom: '15px', fontSize: '18px', fontWeight: '600', color: '#333' }}>
+                                            Publication Schedule
+                                        </h5>
+                                        <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                            <div style={{ display: 'flex', gap: '25px', alignItems: 'center' }}>
+                                                <label
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        cursor: 'pointer',
+                                                        fontSize: '16px',
+                                                        color: '#555',
+                                                        padding: '8px 12px',
+                                                        borderRadius: '8px',
+                                                        transition: 'background-color 0.3s ease, color 0.3s ease',
+                                                    }}
+                                                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f0f7ff')}
+                                                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="publishNow"
+                                                        value="true"
+                                                        checked={formData.publishNow}
+                                                        onChange={handleChange}
+                                                        style={{
+                                                            appearance: 'none',
+                                                            width: '18px',
+                                                            height: '18px',
+                                                            border: '2px solid #0ea5e6',
+                                                            borderRadius: '50%',
+                                                            backgroundColor: formData.publishNow ? '#0ea5e6' : '#fff',
+                                                            cursor: 'pointer',
+                                                            position: 'relative',
+                                                            transition: 'background-color 0.2s ease',
+                                                        }}
+                                                    />
+                                                    Publish Now
+                                                </label>
+                                                <label
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        cursor: 'pointer',
+                                                        fontSize: '16px',
+                                                        color: '#555',
+                                                        padding: '8px 12px',
+                                                        borderRadius: '8px',
+                                                        transition: 'background-color 0.3s ease, color 0.3s ease',
+                                                    }}
+                                                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f0f7ff')}
+                                                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="publishNow"
+                                                        value="false"
+                                                        checked={!formData.publishNow}
+                                                        onChange={handleChange}
+                                                        style={{
+                                                            appearance: 'none',
+                                                            width: '18px',
+                                                            height: '18px',
+                                                            border: '2px solid #0ea5e6',
+                                                            borderRadius: '50%',
+                                                            backgroundColor: !formData.publishNow ? '#0ea5e6' : '#fff',
+                                                            cursor: 'pointer',
+                                                            position: 'relative',
+                                                            transition: 'background-color 0.2s ease',
+                                                        }}
+                                                    />
+                                                    Schedule for Later <span style={{ fontSize: '12px', color: '#888' }}>(will be archived until scheduled date)</span>
+                                                </label>
+                                            </div>
+                                            {!formData.publishNow && (
+                                                <div style={{ position: 'relative', maxWidth: '300px' }}>
+                                                    <input
+                                                        type="datetime-local"
+                                                        name="scheduledDate"
+                                                        value={formData.scheduledDate}
+                                                        onChange={handleChange}
+                                                        min={new Date().toISOString().slice(0, 16)}
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '12px 40px 12px 12px',
+                                                            borderRadius: '8px',
+                                                            border: '1px solid #ddd',
+                                                            fontSize: '16px',
+                                                            color: '#333',
+                                                            backgroundColor: '#fff',
+                                                            boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
+                                                            outline: 'none',
+                                                            transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+                                                        }}
+                                                        onFocus={(e) => {
+                                                            e.target.style.borderColor = '#0ea5e6';
+                                                            e.target.style.boxShadow = '0 0 8px rgba(14, 165, 230, 0.3)';
+                                                        }}
+                                                        onBlur={(e) => {
+                                                            e.target.style.borderColor = '#ddd';
+                                                            e.target.style.boxShadow = '0 2px 5px rgba(0,0,0,0.05)';
+                                                        }}
+                                                    />
+                                                    <span
+                                                        style={{
+                                                            position: 'absolute',
+                                                            right: '12px',
+                                                            top: '50%',
+                                                            transform: 'translateY(-50%)',
+                                                            color: '#888',
+                                                            fontSize: '18px',
+                                                            pointerEvents: 'none',
+                                                        }}
+                                                    >
+                                                        📅
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+
                                         {/* Image Upload */}
                                         <div style={{ marginBottom: '20px' }}>
                                             <input
@@ -490,6 +617,9 @@ function AddPublication() {
                                     </div>
                                     <div style={{ marginTop: '10px' }}>
                                         <strong>Tags:</strong> {formData.tags.filter(tag => tag.trim()).join(', ') || 'No tags yet'}
+                                    </div>
+                                    <div style={{ marginTop: '10px' }}>
+                                        <strong>Scheduled:</strong> {formData.publishNow ? 'Now' : (formData.scheduledDate ? new Date(formData.scheduledDate).toLocaleString() : 'Not set')}
                                     </div>
                                     <div style={{ marginBottom: '20px' }}>
                                         <div style={{ background: '#e0e0e0', height: '10px', borderRadius: '5px', position: 'relative' }}>

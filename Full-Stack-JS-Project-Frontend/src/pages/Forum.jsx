@@ -8,7 +8,7 @@ import {
   faPaperPlane,
   faEye,
   faFlag,
-  faSmile, // Icône pour ouvrir le sélecteur d'emojis
+  faSmile,
 } from "@fortawesome/free-regular-svg-icons";
 import {
   faSearch,
@@ -16,7 +16,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
-import EmojiPicker from "emoji-picker-react"; // Importer le composant EmojiPicker
+import EmojiPicker from "emoji-picker-react";
 
 // Fonction pour couper la description à 3 lignes
 const truncateDescription = (text, isExpanded) => {
@@ -31,6 +31,7 @@ function Forum() {
   const [token, setToken] = useState(null);
   const [userId, setUserId] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const [isBanned, setIsBanned] = useState(false); // État pour vérifier si l'utilisateur est banni
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [forumToDelete, setForumToDelete] = useState(null);
@@ -61,7 +62,7 @@ function Forum() {
   const [commentToReport, setCommentToReport] = useState(null);
   const [commentReportReason, setCommentReportReason] = useState("");
   const [pinnedTopics, setPinnedTopics] = useState(new Set());
-  const [showEmojiPicker, setShowEmojiPicker] = useState({}); // État pour gérer l'affichage du sélecteur d'emojis par forum
+  const [showEmojiPicker, setShowEmojiPicker] = useState({});
   const navigate = useNavigate();
 
   // Fonction pour basculer l'état d'expansion
@@ -82,6 +83,10 @@ function Forum() {
 
   // Fonction pour basculer l'affichage du sélecteur d'emojis
   const toggleEmojiPicker = (forumId) => {
+    if (isBanned) {
+      toast.error("You are banned and cannot perform this action!");
+      return;
+    }
     setShowEmojiPicker((prev) => ({
       ...prev,
       [forumId]: !prev[forumId],
@@ -96,7 +101,7 @@ function Forum() {
     }));
     setShowEmojiPicker((prev) => ({
       ...prev,
-      [forumId]: false, // Ferme le sélecteur après sélection
+      [forumId]: false,
     }));
   };
 
@@ -143,7 +148,7 @@ function Forum() {
     "pressure",
   ];
 
-  // Charger le token, l'ID utilisateur, le rôle et les topics épinglés au montage
+  // Charger le token, l'ID utilisateur, le rôle, les topics épinglés et vérifier si l'utilisateur est banni
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
     if (token) {
@@ -158,6 +163,7 @@ function Forum() {
           setUserId(null);
           setUserRole(null);
           setPinnedTopics(new Set());
+          setIsBanned(false);
           return;
         }
 
@@ -165,6 +171,37 @@ function Forum() {
         setUserId(decoded.id);
         setUserRole(decoded.role);
         console.log("User role:", decoded.role);
+
+        // Vérifier si l'utilisateur est banni
+        const checkBanStatus = async () => {
+          try {
+            const response = await fetch(
+              `http://localhost:5000/forum/checkBan/${decoded.id}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            const data = await response.json();
+            if (response.ok && data.isBanned) {
+              const currentDate = new Date();
+              const expiresAt = new Date(data.ban.expiresAt);
+              if (expiresAt > currentDate) {
+                setIsBanned(true); // L'utilisateur est banni et le ban est actif
+              } else {
+                setIsBanned(false); // Le ban est expiré
+              }
+            } else {
+              setIsBanned(false); // Pas de ban ou erreur
+            }
+          } catch (error) {
+            console.error("Erreur lors de la vérification du ban:", error);
+            setIsBanned(false);
+          }
+        };
+
+        checkBanStatus();
 
         const storedPinnedTopics = localStorage.getItem(`pinnedTopics_${decoded.id}`);
         if (storedPinnedTopics) {
@@ -179,6 +216,7 @@ function Forum() {
         setUserId(null);
         setUserRole(null);
         setPinnedTopics(new Set());
+        setIsBanned(false);
       }
     } else {
       console.log("Aucun token trouvé.");
@@ -186,6 +224,7 @@ function Forum() {
       setUserId(null);
       setUserRole(null);
       setPinnedTopics(new Set());
+      setIsBanned(false);
     }
   }, [token]);
 
@@ -232,6 +271,11 @@ function Forum() {
       return;
     }
 
+    if (isBanned) {
+      toast.error("You are banned and cannot add comments!");
+      return;
+    }
+
     try {
       const response = await fetch(
         `http://localhost:5000/forumComment/addComment/${userId}/${forumId}`,
@@ -265,6 +309,11 @@ function Forum() {
 
   // Suppression d'un commentaire
   const handleDeleteComment = (commentId) => {
+    if (isBanned) {
+      toast.error("You are banned and cannot delete comments!");
+      return;
+    }
+
     fetch(`http://localhost:5000/forumComment/deleteComment/${commentId}`, {
       method: "DELETE",
       headers: {
@@ -287,6 +336,11 @@ function Forum() {
 
   // Afficher les commentaires
   const handleViewComments = async (forumId) => {
+    if (isBanned) {
+      toast.error("You are banned and cannot view comments!");
+      return;
+    }
+
     try {
       const response = await fetch(
         `http://localhost:5000/forumComment/getComment/${forumId}`
@@ -310,6 +364,11 @@ function Forum() {
 
   // Supprimer un forum
   const handleDelete = (forumId) => {
+    if (isBanned) {
+      toast.error("You are banned and cannot delete topics!");
+      return;
+    }
+
     fetch(`http://localhost:5000/forum/deleteForum/${forumId}`, {
       method: "DELETE",
       headers: {
@@ -332,6 +391,11 @@ function Forum() {
 
   // Mettre à jour un forum
   const handleUpdate = (forumId) => {
+    if (isBanned) {
+      toast.error("You are banned and cannot update topics!");
+      return;
+    }
+
     const formData = new FormData();
     formData.append("title", updatedTitle);
     formData.append("description", updatedDescription);
@@ -378,6 +442,11 @@ function Forum() {
 
   // Mettre à jour un commentaire
   const handleUpdateComment = async (commentId) => {
+    if (isBanned) {
+      toast.error("You are banned and cannot update comments!");
+      return;
+    }
+
     try {
       const response = await fetch(
         `http://localhost:5000/forumComment/updateComment/${commentId}`,
@@ -415,6 +484,11 @@ function Forum() {
 
   // Signaler un forum
   const handleReportForum = async () => {
+    if (isBanned) {
+      toast.error("You are banned and cannot report forums!");
+      return;
+    }
+
     if (!reportReason) {
       toast.error("Please select a reason for reporting!");
       return;
@@ -449,6 +523,11 @@ function Forum() {
 
   // Signaler un commentaire
   const handleReportComment = async () => {
+    if (isBanned) {
+      toast.error("You are banned and cannot report comments!");
+      return;
+    }
+
     if (!commentReportReason) {
       toast.error("Please select a reason for reporting!");
       return;
@@ -487,6 +566,11 @@ function Forum() {
   // Fonction pour basculer l'état "pinned/unpinned" avec useCallback
   const togglePin = useCallback(
     (forumId) => {
+      if (isBanned) {
+        toast.error("You are banned and cannot pin topics!");
+        return;
+      }
+
       setPinnedTopics((prevPinnedTopics) => {
         const newPinnedTopics = new Set(prevPinnedTopics);
         const isPinned = newPinnedTopics.has(forumId);
@@ -504,7 +588,7 @@ function Forum() {
         return newPinnedTopics;
       });
     },
-    []
+    [isBanned]
   );
 
   return (
@@ -602,17 +686,25 @@ function Forum() {
                 {/* Liste déroulante à gauche */}
                 <select
                   value={sortOption}
-                  onChange={(e) => setSortOption(e.target.value)}
+                  onChange={(e) => {
+                    if (isBanned) {
+                      toast.error("You are banned and cannot sort topics!");
+                      return;
+                    }
+                    setSortOption(e.target.value);
+                  }}
                   style={{
                     padding: "10px",
                     borderRadius: "50px",
                     border: "1px solid #007bff",
                     outline: "none",
-                    cursor: "pointer",
+                    cursor: isBanned ? "not-allowed" : "pointer",
                     fontSize: "14px",
                     marginRight: "10px",
                     width: "200px",
+                    opacity: isBanned ? 0.5 : 1,
                   }}
+                  disabled={isBanned}
                 >
                   <option value="newest">Newest Topics</option>
                   <option value="oldest">Oldest Topics</option>
@@ -625,8 +717,17 @@ function Forum() {
                   style={{
                     borderRadius: "50px",
                     marginRight: "10px",
+                    opacity: isBanned ? 0.5 : 1,
+                    cursor: isBanned ? "not-allowed" : "pointer",
                   }}
-                  onClick={() => navigate("/addforum")}
+                  onClick={() => {
+                    if (isBanned) {
+                      toast.error("You are banned and cannot add new topics!");
+                      return;
+                    }
+                    navigate("/addforum");
+                  }}
+                  disabled={isBanned}
                 >
                   New Topic
                 </button>
@@ -638,8 +739,17 @@ function Forum() {
                     style={{
                       borderRadius: "50px",
                       backgroundColor: "#ff4d4f",
+                      opacity: isBanned ? 0.5 : 1,
+                      cursor: isBanned ? "not-allowed" : "pointer",
                     }}
-                    onClick={() => navigate("/moderateForum")}
+                    onClick={() => {
+                      if (isBanned) {
+                        toast.error("You are banned and cannot moderate forums!");
+                        return;
+                      }
+                      navigate("/moderateForum");
+                    }}
+                    disabled={isBanned}
                   >
                     Moderate
                   </button>
@@ -660,6 +770,10 @@ function Forum() {
                   <div
                     key={forum._id}
                     className="forum-item p-4 border rounded mb-4"
+                    style={{
+                      opacity: forum.status === "inactif" ? 0.5 : 1, // Réduire l'opacité si inactif
+                      filter: forum.status === "inactif" ? "grayscale(50%)" : "none", // Appliquer un effet gris
+                    }}
                   >
                     <div className="d-flex justify-content-between align-items-center mb-2">
                       <div className="d-flex align-items-center">
@@ -725,12 +839,17 @@ function Forum() {
                               <span
                                 className="icon"
                                 style={{
-                                  cursor: "pointer",
+                                  cursor: isBanned ? "not-allowed" : "pointer",
                                   fontSize: "20px",
                                   color: "#007bff",
                                   marginRight: "15px",
+                                  opacity: isBanned ? 0.5 : 1,
                                 }}
                                 onClick={() => {
+                                  if (isBanned) {
+                                    toast.error("You are banned and cannot edit topics!");
+                                    return;
+                                  }
                                   setForumToUpdate(forum);
                                   setUpdatedTitle(forum.title);
                                   setUpdatedDescription(forum.description);
@@ -748,12 +867,17 @@ function Forum() {
                               <span
                                 className="icon"
                                 style={{
-                                  cursor: "pointer",
+                                  cursor: isBanned ? "not-allowed" : "pointer",
                                   fontSize: "20px",
                                   color: "red",
                                   marginRight: "15px",
+                                  opacity: isBanned ? 0.5 : 1,
                                 }}
                                 onClick={() => {
+                                  if (isBanned) {
+                                    toast.error("You are banned and cannot delete topics!");
+                                    return;
+                                  }
                                   setForumToDelete(forum._id);
                                   setShowDeleteModal(true);
                                 }}
@@ -762,16 +886,21 @@ function Forum() {
                               </span>
                             </>
                           )}
-                        {userId && (
+                        {userId && forum.status === "actif" && (
                           <span
                             className="icon"
                             style={{
-                              cursor: "pointer",
+                              cursor: isBanned ? "not-allowed" : "pointer",
                               fontSize: "20px",
                               color: "orange",
                               marginRight: "15px",
+                              opacity: isBanned ? 0.5 : 1,
                             }}
                             onClick={() => {
+                              if (isBanned) {
+                                toast.error("You are banned and cannot report forums!");
+                                return;
+                              }
                               setForumToReport(forum._id);
                               setShowReportForumModal(true);
                             }}
@@ -779,15 +908,16 @@ function Forum() {
                             <FontAwesomeIcon icon={faFlag} />
                           </span>
                         )}
-                        {userId && (
+                        {userId && forum.status === "actif" && (
                           <span
                             className="icon"
                             style={{
-                              cursor: "pointer",
+                              cursor: isBanned ? "not-allowed" : "pointer",
                               fontSize: "20px",
                               color: pinnedTopics.has(forum._id) ? "#007bff" : "gray",
                               transform: pinnedTopics.has(forum._id) ? "rotate(-45deg)" : "none",
                               transition: "transform 0.3s ease",
+                              opacity: isBanned ? 0.5 : 1,
                             }}
                             onClick={() => togglePin(forum._id)}
                           >
@@ -848,134 +978,165 @@ function Forum() {
                         }}
                       />
                     )}
-                    <div className="d-flex align-items-center mt-2 position-relative">
-                      <input
-                        type="text"
-                        placeholder="Type your comment..."
-                        className="form-control rounded-pill me-2"
-                        style={{
-                          border: "1px solid #007bff",
-                          paddingLeft: "10px",
-                          fontSize: "14px",
-                          maxWidth: "90%",
-                          paddingRight: "40px", // Espace pour l'icône emoji
-                        }}
-                        value={comment[forum._id] || ""}
-                        onChange={(e) =>
-                          setComment((prev) => ({
-                            ...prev,
-                            [forum._id]: e.target.value,
-                          }))
-                        }
-                      />
-                      {/* Icône pour ouvrir le sélecteur d'emojis */}
-                      <FontAwesomeIcon
-                        icon={faSmile}
-                        style={{
-                          position: "absolute",
-                          right: "100px", // Ajuster selon l'espace nécessaire
-                          top: "50%",
-                          transform: "translateY(-50%)",
-                          fontSize: "18px",
-                          color: "#007bff",
-                          cursor: "pointer",
-                        }}
-                        onClick={() => toggleEmojiPicker(forum._id)}
-                      />
-                      {/* Sélecteur d'emojis */}
-                      {showEmojiPicker[forum._id] && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            zIndex: 1000,
-                            bottom: "50px", // Positionner au-dessus de l'input
-                            right: "0",
-                          }}
-                        >
-                          <EmojiPicker
-                            onEmojiClick={(emojiObject) => onEmojiClick(forum._id, emojiObject)}
-                            width={300}
-                            height={400}
-                          />
-                        </div>
-                      )}
-                      <button
-                        onClick={() =>
-                          handleAddComment(
-                            forum._id,
-                            comment[forum._id] || "",
-                            anonymous
-                          )
-                        }
-                        className="btn btn-primary d-flex align-items-center justify-content-center"
-                        style={{
-                          width: "40px",
-                          height: "40px",
-                          borderRadius: "50%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          padding: "5px",
-                        }}
-                      >
-                        <FontAwesomeIcon icon={faPaperPlane} style={{ fontSize: "14px" }} />
-                      </button>
-                      <button
-                        onClick={() => handleViewComments(forum._id)}
-                        className="btn btn-secondary d-flex align-items-center justify-content-center ms-2"
-                        style={{
-                          width: "40px",
-                          height: "40px",
-                          borderRadius: "50%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          padding: "5px",
-                        }}
-                      >
-                        <FontAwesomeIcon icon={faEye} style={{ fontSize: "14px" }} />
-                      </button>
-                    </div>
-                    <div className="mt-2 d-flex align-items-center">
-                      <div
-                        style={{
-                          width: "20px",
-                          height: "20px",
-                          borderRadius: "50%",
-                          border: "1px solid black",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          cursor: "pointer",
-                          marginRight: "10px",
-                          transition: "background-color 0.3s ease",
-                          backgroundColor: anonymous ? "rgba(0, 128, 0, 0.2)" : "white",
-                        }}
-                        onClick={() => setAnonymous(!anonymous)}
-                      >
-                        <div
-                          style={{
-                            width: anonymous ? "10px" : "0px",
-                            height: anonymous ? "10px" : "0px",
-                            backgroundColor: "green",
-                            borderRadius: "50%",
-                            transition: "all 0.3s ease",
-                            opacity: anonymous ? 1 : 0,
-                          }}
-                        />
+                    {forum.status === "inactif" ? (
+                      <div className="mt-3 text-muted" style={{ fontSize: "14px", color: "red" }}>
+                        <p style={{ margin: 0, fontStyle: "italic" }}>
+                          This topic is inactive for now.
+                        </p>
                       </div>
-                      <label
-                        htmlFor="anonymousComment"
-                        style={{
-                          fontSize: "14px",
-                          color: "black",
-                          cursor: "pointer",
-                        }}
-                        onClick={() => setAnonymous(!anonymous)}
-                      >
-                        Anonymous comment ?
-                      </label>
-                    </div>
+                    ) : (
+                      <>
+                        <div className="d-flex align-items-center mt-2 position-relative">
+                          <input
+                            type="text"
+                            placeholder="Type your comment..."
+                            className="form-control rounded-pill me-2"
+                            style={{
+                              border: "1px solid #007bff",
+                              paddingLeft: "10px",
+                              fontSize: "14px",
+                              maxWidth: "90%",
+                              paddingRight: "40px",
+                              opacity: isBanned ? 0.5 : 1,
+                            }}
+                            value={comment[forum._id] || ""}
+                            onChange={(e) =>
+                              setComment((prev) => ({
+                                ...prev,
+                                [forum._id]: e.target.value,
+                              }))
+                            }
+                            disabled={isBanned}
+                          />
+                          <FontAwesomeIcon
+                            icon={faSmile}
+                            style={{
+                              position: "absolute",
+                              right: "100px",
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              fontSize: "18px",
+                              color: "#007bff",
+                              cursor: isBanned ? "not-allowed" : "pointer",
+                              opacity: isBanned ? 0.5 : 1,
+                            }}
+                            onClick={() => toggleEmojiPicker(forum._id)}
+                          />
+                          {showEmojiPicker[forum._id] && !isBanned && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                zIndex: 1000,
+                                bottom: "50px",
+                                right: "0",
+                              }}
+                            >
+                              <EmojiPicker
+                                onEmojiClick={(emojiObject) => onEmojiClick(forum._id, emojiObject)}
+                                width={300}
+                                height={400}
+                              />
+                            </div>
+                          )}
+                          <button
+                            onClick={() =>
+                              handleAddComment(
+                                forum._id,
+                                comment[forum._id] || "",
+                                anonymous
+                              )
+                            }
+                            className="btn btn-primary d-flex align-items-center justify-content-center"
+                            style={{
+                              width: "40px",
+                              height: "40px",
+                              borderRadius: "50%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              padding: "5px",
+                              opacity: isBanned ? 0.5 : 1,
+                              cursor: isBanned ? "not-allowed" : "pointer",
+                            }}
+                            disabled={isBanned}
+                          >
+                            <FontAwesomeIcon icon={faPaperPlane} style={{ fontSize: "14px" }} />
+                          </button>
+                          <button
+                            onClick={() => handleViewComments(forum._id)}
+                            className="btn btn-secondary d-flex align-items-center justify-content-center ms-2"
+                            style={{
+                              width: "40px",
+                              height: "40px",
+                              borderRadius: "50%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              padding: "5px",
+                              opacity: isBanned ? 0.5 : 1,
+                              cursor: isBanned ? "not-allowed" : "pointer",
+                            }}
+                            disabled={isBanned}
+                          >
+                            <FontAwesomeIcon icon={faEye} style={{ fontSize: "14px" }} />
+                          </button>
+                        </div>
+                        <div className="mt-2 d-flex align-items-center">
+                          <div
+                            style={{
+                              width: "20px",
+                              height: "20px",
+                              borderRadius: "50%",
+                              border: "1px solid black",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: isBanned ? "not-allowed" : "pointer",
+                              marginRight: "10px",
+                              transition: "background-color 0.3s ease",
+                              backgroundColor: anonymous ? "rgba(0, 128, 0, 0.2)" : "white",
+                              opacity: isBanned ? 0.5 : 1,
+                            }}
+                            onClick={() => {
+                              if (isBanned) {
+                                toast.error("You are banned and cannot perform this action!");
+                                return;
+                              }
+                              setAnonymous(!anonymous);
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: anonymous ? "10px" : "0px",
+                                height: anonymous ? "10px" : "0px",
+                                backgroundColor: "green",
+                                borderRadius: "50%",
+                                transition: "all 0.3s ease",
+                                opacity: anonymous ? 1 : 0,
+                              }}
+                            />
+                          </div>
+                          <label
+                            htmlFor="anonymousComment"
+                            style={{
+                              fontSize: "14px",
+                              color: "black",
+                              cursor: isBanned ? "not-allowed" : "pointer",
+                              opacity: isBanned ? 0.5 : 1,
+                            }}
+                            onClick={() => {
+                              if (isBanned) {
+                                toast.error("You are banned and cannot perform this action!");
+                                return;
+                              }
+                              setAnonymous(!anonymous);
+                            }}
+                          >
+                            Anonymous comment ?
+                          </label>
+                        </div>
+                      </>
+                    )}
                     <div className="mt-3 text-muted" style={{ fontSize: "14px" }}>
                       <p style={{ margin: 0 }}>
                         Posted at :{" "}
@@ -1271,7 +1432,7 @@ function Forum() {
                         flex: 1,
                       }}
                     >
-                      <div style={{ flexShrink: 0 }}>
+                      <div style={{ flexShrink: "0" }}>
                         <img
                           src={
                             comment.anonymous
@@ -1328,8 +1489,17 @@ function Forum() {
                       {userId === comment.user_id._id && (
                         <span
                           className="icon"
-                          style={{ cursor: "pointer", fontSize: "18px", color: "#007bff" }}
+                          style={{
+                            cursor: isBanned ? "not-allowed" : "pointer",
+                            fontSize: "18px",
+                            color: "#007bff",
+                            opacity: isBanned ? 0.5 : 1,
+                          }}
                           onClick={() => {
+                            if (isBanned) {
+                              toast.error("You are banned and cannot edit comments!");
+                              return;
+                            }
                             setCommentToUpdate(comment);
                             setUpdatedCommentContent(comment.content);
                             setShowUpdateCommentModal(true);
@@ -1341,8 +1511,17 @@ function Forum() {
                       {userId === comment.user_id._id && (
                         <span
                           className="icon"
-                          style={{ cursor: "pointer", fontSize: "18px", color: "red" }}
+                          style={{
+                            cursor: isBanned ? "not-allowed" : "pointer",
+                            fontSize: "18px",
+                            color: "red",
+                            opacity: isBanned ? 0.5 : 1,
+                          }}
                           onClick={() => {
+                            if (isBanned) {
+                              toast.error("You are banned and cannot delete comments!");
+                              return;
+                            }
                             setCommentToDelete(comment._id);
                             setShowDeleteCommentModal(true);
                           }}
@@ -1353,8 +1532,17 @@ function Forum() {
                       {userId && (
                         <span
                           className="icon"
-                          style={{ cursor: "pointer", fontSize: "18px", color: "orange" }}
+                          style={{
+                            cursor: isBanned ? "not-allowed" : "pointer",
+                            fontSize: "18px",
+                            color: "orange",
+                            opacity: isBanned ? 0.5 : 1,
+                          }}
                           onClick={() => {
+                            if (isBanned) {
+                              toast.error("You are banned and cannot report comments!");
+                              return;
+                            }
                             setCommentToReport(comment._id);
                             setShowReportCommentModal(true);
                           }}

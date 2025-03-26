@@ -10,6 +10,8 @@ const Appointment = require("../model/appointment");
 const Chat = require("../model/chat");
 const Room = require("../model/Room");
 
+const cron = require('node-cron'); // Ajoutez cette dépendance pour les tâches planifiées
+
 const { v4: uuidv4 } = require('uuid');
 
 
@@ -341,35 +343,108 @@ module.exports.updateReceiveEmails = async (req, res) => {
     }
 };
 
+
+
 module.exports.addPublication = (req, res) => {
     upload1(req, res, async (err) => {
         if (err) return res.status(400).json({ message: err });
+
         try {
-            const { titrePublication, description } = req.body;
-            if (!titrePublication || !description) return res.status(400).json({ message: 'The title and description are required' });
+            const { titrePublication, description, tag, scheduledDate } = req.body;
+
+            if (!titrePublication || !description) {
+                return res.status(400).json({ message: 'The title and description are required' });
+            }
+
+            // Déterminer le statut et la date de publication
+            let status = 'draft';
+            let datePublication = new Date();
+
+            if (scheduledDate && scheduledDate !== 'now') {
+                const scheduledTime = new Date(scheduledDate);
+                if (scheduledTime > new Date()) {
+                    status = 'later'; // Si la date est future, statut = archived
+                    datePublication = scheduledTime; // La date de publication est la date planifiée
+                } else {
+                    status = 'published'; // Si la date est passée ou actuelle, publier immédiatement
+                }
+            } else {
+                status = 'published'; // Si "now" ou pas de scheduledDate, publier immédiatement
+            }
+
             const publication = new Publication({
                 titrePublication,
                 description,
                 imagePublication: req.file ? `/uploads/publications/${req.file.filename}` : null,
                 author_id: req.userId,
-                status: 'draft',
-                datePublication: new Date(),
-                tag: req.body.tag ? req.body.tag.split(',') : []
+                status,
+                datePublication,
+                tag: tag ? tag.split(',') : [],
             });
+
             const savedPublication = await publication.save();
-            const students = await User.find({ role: 'student', receiveEmails: true }); // Filtrer les étudiants qui veulent recevoir des emails
-            if (students.length === 0) {
-                console.log('Aucun étudiant trouvé pour recevoir l’email.');
-            } else {
-                const publicationLink = `http://localhost:3000/PublicationDetailPsy/${savedPublication._id}`;
+
+            // Si la publication est publiée immédiatement, envoyer les emails
+            if (status === 'published') {
+                const students = await User.find({ role: 'student', receiveEmails: true });
+                if (students.length > 0) {
+                    const publicationLink = `http://localhost:3000/PublicationDetailPsy/${savedPublication._id}`;
+                    const subject = 'New Publication Added on EspritCare';
+                    const htmlContent = `
+                        <h2>New Publication Available!</h2>
+                        <p>Hello</p>
+                        <p>A new publication has been added by a psychiatrist on EspritCare:</p>
+                        <ul>
+                            <li><strong>Title :</strong> ${titrePublication}</li>
+                            <li><strong>Description :</strong> ${description}</li>
+                        </ul>
+                        <p>Click on the link below to view it:</p>
+                        <a href="${publicationLink}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #0ea5e6; color: #fff; text-decoration: none; border-radius: 5px;">
+                            View Publication
+                        </a>
+                        <p>Stay connected for more updates!</p>
+                    `;
+                    const emailPromises = students.map(student =>
+                        sendEmail(student.email, subject, htmlContent)
+                            .catch(err => console.error(`Erreur lors de l’envoi à ${student.email} :`, err))
+                    );
+                    await Promise.all(emailPromises);
+                    console.log(`Emails envoyés à ${students.length} étudiants.`);
+                }
+            }
+
+            res.status(201).json({ message: 'Publication added successfully', publication: savedPublication });
+        } catch (error) {
+            res.status(500).json({ message: 'Erreur lors de l’ajout de la publication', error: error.message });
+        }
+    });
+};
+
+// Tâche cron pour vérifier et publier les publications archivées
+cron.schedule('* * * * *', async () => { // Exécute toutes les minutes (ajustez selon vos besoins)
+    try {
+        const now = new Date();
+        const archivedPublications = await Publication.find({
+            status: 'later',
+            datePublication: { $lte: now }, // Publications dont la date est atteinte ou dépassée
+        });
+
+        for (const publication of archivedPublications) {
+            publication.status = 'published';
+            await publication.save();
+
+            // Envoyer des emails aux étudiants une fois publiée
+            const students = await User.find({ role: 'student', receiveEmails: true });
+            if (students.length > 0) {
+                const publicationLink = `http://localhost:3000/PublicationDetailPsy/${publication._id}`;
                 const subject = 'New Publication Added on EspritCare';
                 const htmlContent = `
                     <h2>New Publication Available!</h2>
                     <p>Hello</p>
                     <p>A new publication has been added by a psychiatrist on EspritCare:</p>
                     <ul>
-                        <li><strong>Title :</strong> ${titrePublication}</li>
-                        <li><strong>Description :</strong> ${description}</li>
+                        <li><strong>Title :</strong> ${publication.titrePublication}</li>
+                        <li><strong>Description :</strong> ${publication.description}</li>
                     </ul>
                     <p>Click on the link below to view it:</p>
                     <a href="${publicationLink}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #0ea5e6; color: #fff; text-decoration: none; border-radius: 5px;">
@@ -382,14 +457,13 @@ module.exports.addPublication = (req, res) => {
                         .catch(err => console.error(`Erreur lors de l’envoi à ${student.email} :`, err))
                 );
                 await Promise.all(emailPromises);
-                console.log(`Emails envoyés à ${students.length} étudiants.`);
+                console.log(`Publication ${publication._id} publiée et emails envoyés à ${students.length} étudiants.`);
             }
-            res.status(201).json({ message: 'Publication added successfully', publication: savedPublication });
-        } catch (error) {
-            res.status(500).json({ message: 'Erreur lors de l’ajout de la publication', error: error.message });
         }
-    });
-};
+    } catch (error) {
+        console.error('Erreur dans la tâche cron de publication:', error);
+    }
+});
 
 
 // Exportation du middleware verifyToken
@@ -625,6 +699,17 @@ module.exports.updatePublication = (req, res) => {
             if (req.file) publication.imagePublication = `/uploads/publications/${req.file.filename}`;
             if (req.body.tag) publication.tag = req.body.tag.split(',').map(tag => tag.trim()).filter(tag => tag);
 
+            // Gestion du statut et de la date programmée
+            if (req.body.status) {
+                publication.status = req.body.status;
+                if (req.body.status === 'published') {
+                    publication.scheduledDate = null; // Réinitialiser la date programmée
+                    publication.datePublication = new Date(); // Mettre à jour la date de publication à maintenant
+                } else if (req.body.status === 'later' && req.body.scheduledDate) {
+                    publication.scheduledDate = new Date(req.body.scheduledDate); // Définir la date programmée
+                }
+            }
+
             const updatedPublication = await publication.save();
             res.status(200).json({ message: 'Publication updated successfully', publication: updatedPublication });
         } catch (error) {
@@ -642,7 +727,7 @@ module.exports.addCommentaire = async (req, res) => {
         const decoded = jwt.verify(token, 'randa');
         const userId = decoded.id;
 
-        const { contenu, publication_id } = req.body;
+        const { contenu, publication_id, isAnonymous } = req.body;
 
         if (!contenu || !publication_id) {
             return res.status(400).json({ message: 'Le contenu et l\'ID de la publication sont requis' });
@@ -652,17 +737,27 @@ module.exports.addCommentaire = async (req, res) => {
             contenu,
             publication_id,
             auteur_id: userId,
+            isAnonymous: isAnonymous || false,
         });
 
         const savedCommentaire = await commentaire.save();
-        
-        // Peupler les informations de l'auteur avec username et user_photo avant de renvoyer la réponse
         const populatedCommentaire = await Commentaire.findById(savedCommentaire._id)
             .populate('auteur_id', 'username user_photo');
 
+        const responseCommentaire = populatedCommentaire.isAnonymous
+            ? {
+                ...populatedCommentaire.toObject(),
+                auteur_id: {
+                    _id: populatedCommentaire.auteur_id._id, // Conserver l'_id
+                    username: 'Anonyme',
+                    user_photo: null
+                }
+            }
+            : populatedCommentaire;
+
         res.status(201).json({ 
             message: 'Commentaire ajouté avec succès', 
-            commentaire: populatedCommentaire 
+            commentaire: responseCommentaire 
         });
     } catch (error) {
         console.error('Erreur lors de l\'ajout du commentaire:', error);
@@ -670,15 +765,29 @@ module.exports.addCommentaire = async (req, res) => {
     }
 };
 
-// Récupérer les commentaires d'une publication
+// Récupérer les commentaires
 module.exports.getCommentairesByPublication = async (req, res) => {
     try {
         const { publicationId } = req.params;
         const commentaires = await Commentaire.find({ publication_id: publicationId })
-            .populate('auteur_id', 'username user_photo') // Ajouter 'user_photo' ici
+            .populate('auteur_id', 'username user_photo')
             .sort({ dateCreation: -1 });
 
-        res.status(200).json(commentaires);
+        const formattedCommentaires = commentaires.map(comment => {
+            if (comment.isAnonymous) {
+                return {
+                    ...comment.toObject(), // Convertir en objet JS
+                    auteur_id: {
+                        _id: comment.auteur_id._id, // Conserver l'_id
+                        username: 'Anonyme',
+                        user_photo: null
+                    }
+                };
+            }
+            return comment;
+        });
+
+        res.status(200).json(formattedCommentaires);
     } catch (error) {
         console.error('Erreur lors de la récupération des commentaires:', error);
         res.status(500).json({ message: 'Erreur serveur', error: error.message });

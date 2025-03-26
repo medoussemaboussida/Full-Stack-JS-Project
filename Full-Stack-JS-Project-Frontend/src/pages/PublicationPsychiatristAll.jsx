@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { Bar, Pie } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
+
+// Enregistrer les composants nécessaires pour Chart.js
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
 // Importer CKEditor
 let CKEditorComponent, ClassicEditor;
@@ -29,20 +34,22 @@ function PublicationPsychiatristAll() {
         description: '',
         imagePublication: null,
         tags: [''],
+        scheduledDate: '',
+        publishNow: true,
     });
     const [previewImage, setPreviewImage] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedDate, setSelectedDate] = useState('');
     const [sortOrder, setSortOrder] = useState('recent');
-    const [filterStatus, setFilterStatus] = useState('all'); // Nouvel état pour filtrer par statut
+    const [filterStatus, setFilterStatus] = useState('all');
+    const [showStatsModal, setShowStatsModal] = useState(false);
+    const [statsData, setStatsData] = useState({ comments: [], likesDislikes: [] });
 
     const fetchMyPublications = async () => {
         try {
             const token = localStorage.getItem('jwt-token');
-            if (!token) {
-                throw new Error('No token found');
-            }
+            if (!token) throw new Error('No token found');
 
             console.log('Fetching my publications from API...');
             const response = await fetch(`http://localhost:5000/users/myPublications?sort=${sortOrder}`, {
@@ -68,8 +75,35 @@ function PublicationPsychiatristAll() {
         }
     };
 
+    const fetchStatsData = async () => {
+        try {
+            const token = localStorage.getItem('jwt-token');
+            const commentsPromises = publications.map(post =>
+                fetch(`http://localhost:5000/users/commentaires/${post._id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                }).then(res => res.json())
+            );
+            const commentsData = await Promise.all(commentsPromises);
+
+            const commentsStats = publications.map((post, index) => ({
+                title: stripHtmlTags(post.titrePublication),
+                commentCount: commentsData[index].length,
+            }));
+
+            const likesDislikesStats = publications.map(post => ({
+                title: stripHtmlTags(post.titrePublication),
+                likes: post.likeCount || 0,
+                dislikes: post.dislikeCount || 0,
+            }));
+
+            setStatsData({ comments: commentsStats, likesDislikes: likesDislikesStats });
+        } catch (error) {
+            console.error('Error fetching stats data:', error);
+            toast.error('Failed to load statistics');
+        }
+    };
+
     const handleEdit = (post) => {
-        console.log('post.tag:', post.tag, 'typeof:', typeof post.tag);
         let tags = [''];
         if (post.tag) {
             if (Array.isArray(post.tag)) {
@@ -85,6 +119,8 @@ function PublicationPsychiatristAll() {
             description: stripHtmlTags(post.description),
             imagePublication: null,
             tags: tags,
+            scheduledDate: post.scheduledDate || '',
+            publishNow: !post.scheduledDate,
         });
         setPreviewImage(post.imagePublication ? `http://localhost:5000${post.imagePublication}` : 'assets/img/donation/01.jpg');
         setShowEditModal(true);
@@ -92,12 +128,13 @@ function PublicationPsychiatristAll() {
 
     const calculateProgress = () => {
         let filledFields = 0;
-        const totalFields = 4;
+        const totalFields = 5;
 
         if (editFormData.titrePublication.trim()) filledFields += 1;
         if (editFormData.description.trim()) filledFields += 1;
         if (editFormData.imagePublication || previewImage) filledFields += 1;
         if (editFormData.tags.some(tag => tag.trim())) filledFields += 1;
+        if (editFormData.publishNow || editFormData.scheduledDate) filledFields += 1;
 
         return Math.round((filledFields / totalFields) * 100);
     };
@@ -120,6 +157,10 @@ function PublicationPsychiatristAll() {
             const newTags = [...editFormData.tags];
             newTags[index] = value;
             setEditFormData((prev) => ({ ...prev, tags: newTags }));
+        } else if (name === 'publishNow') {
+            setEditFormData((prev) => ({ ...prev, publishNow: value === 'true', scheduledDate: value === 'true' ? '' : prev.scheduledDate }));
+        } else if (name === 'scheduledDate') {
+            setEditFormData((prev) => ({ ...prev, scheduledDate: value }));
         } else {
             setEditFormData((prev) => ({ ...prev, [name]: value }));
         }
@@ -159,6 +200,8 @@ function PublicationPsychiatristAll() {
             data.append('imagePublication', editFormData.imagePublication);
         }
         data.append('tag', editFormData.tags.filter(tag => tag.trim()).join(','));
+        data.append('status', editFormData.publishNow ? 'published' : 'later');
+        data.append('scheduledDate', editFormData.publishNow ? '' : editFormData.scheduledDate);
 
         try {
             const response = await fetch(`http://localhost:5000/users/publication/update/${editFormData._id}`, {
@@ -326,21 +369,15 @@ function PublicationPsychiatristAll() {
         );
     };
 
-    const handleSearchChange = (e) => {
-        setSearchTerm(e.target.value);
+    const handleShowStats = () => {
+        fetchStatsData();
+        setShowStatsModal(true);
     };
 
-    const handleDateChange = (e) => {
-        setSelectedDate(e.target.value);
-    };
-
-    const handleSortChange = (e) => {
-        setSortOrder(e.target.value);
-    };
-
-    const handleFilterStatusChange = (e) => {
-        setFilterStatus(e.target.value);
-    };
+    const handleSearchChange = (e) => setSearchTerm(e.target.value);
+    const handleDateChange = (e) => setSelectedDate(e.target.value);
+    const handleSortChange = (e) => setSortOrder(e.target.value);
+    const handleFilterStatusChange = (e) => setFilterStatus(e.target.value);
 
     const filteredPublications = publications
         .filter(post => {
@@ -363,6 +400,36 @@ function PublicationPsychiatristAll() {
     useEffect(() => {
         fetchMyPublications();
     }, [sortOrder]);
+
+    // Données pour les graphiques
+    const commentsChartData = {
+        labels: statsData.comments.map(stat => stat.title),
+        datasets: [
+            {
+                label: 'Nombre de commentaires',
+                data: statsData.comments.map(stat => stat.commentCount),
+                backgroundColor: 'rgba(14, 165, 230, 0.6)',
+                borderColor: 'rgba(14, 165, 230, 1)',
+                borderWidth: 1,
+            },
+        ],
+    };
+
+    const likesDislikesChartData = {
+        labels: statsData.likesDislikes.map(stat => stat.title),
+        datasets: [
+            {
+                label: 'Likes',
+                data: statsData.likesDislikes.map(stat => stat.likes),
+                backgroundColor: 'rgba(40, 167, 69, 0.6)',
+            },
+            {
+                label: 'Dislikes',
+                data: statsData.likesDislikes.map(stat => stat.dislikes),
+                backgroundColor: 'rgba(220, 53, 69, 0.6)',
+            },
+        ],
+    };
 
     if (isLoading) {
         return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Loading...</div>;
@@ -473,7 +540,6 @@ function PublicationPsychiatristAll() {
                                 <option value="recent">Most Recent</option>
                                 <option value="oldest">Oldest First</option>
                             </select>
-                            {/* Nouvelle liste déroulante pour filtrer par statut */}
                             <select
                                 value={filterStatus}
                                 onChange={handleFilterStatusChange}
@@ -500,14 +566,23 @@ function PublicationPsychiatristAll() {
                                 }}
                             >
                                 <option value="all">All Publications</option>
-                                <option value="archived">Archived Publications</option>
+                                <option value="published">Published</option>
+                                <option value="archived">Archived</option>
+                                <option value="later">Scheduled (Later)</option>
                             </select>
+                            <button
+                                onClick={handleShowStats}
+                                className="theme-btn"
+                                style={{ backgroundColor: '#ffc107', color: '#fff', padding: '15px 25px', borderRadius: '25px' }}
+                            >
+                                Statistical <i className="fas fa-chart-bar"></i>
+                            </button>
                         </div>
                         <div className="row g-4">
                             {filteredPublications.length > 0 ? (
                                 filteredPublications.map((post, index) => (
                                     <div className="col-lg-4" key={index}>
-                                        <div className="donation-item" style={{ opacity: post.status === 'archived' ? 0.6 : 1 }}>
+                                        <div className="donation-item" style={{ opacity: (post.status === 'archived' || post.status === 'later') ? 0.6 : 1 }}>
                                             <div className="donation-img">
                                                 <img
                                                     src={post.imagePublication ? `http://localhost:5000${post.imagePublication}` : 'assets/img/donation/01.jpg'}
@@ -525,8 +600,10 @@ function PublicationPsychiatristAll() {
                                                     <Link to={`/PublicationDetailPsy/${post._id}`}>
                                                         {stripHtmlTags(post.titrePublication)}
                                                     </Link>
-                                                    {post.status === 'archived' && (
-                                                        <span style={{ color: '#6c757d', fontSize: '14px', marginLeft: '10px' }}>(Archived)</span>
+                                                    {(post.status === 'archived' || post.status === 'later') && (
+                                                        <span style={{ color: '#6c757d', fontSize: '14px', marginLeft: '10px' }}>
+                                                            {post.status === 'archived' ? '(Archived)' : '(Scheduled)'}
+                                                        </span>
                                                     )}
                                                 </h4>
                                                 <p className="donation-text">
@@ -560,7 +637,7 @@ function PublicationPsychiatristAll() {
                                                         >
                                                             Restore <i className="fas fa-undo"></i>
                                                         </button>
-                                                    ) : (
+                                                    ) : post.status !== 'later' && (
                                                         <button
                                                             onClick={() => handleArchive(post._id)}
                                                             className="theme-btn"
@@ -736,6 +813,132 @@ function PublicationPsychiatristAll() {
                                         </div>
                                     ))}
 
+                                    {publications.find(post => post._id === editFormData._id)?.status === 'later' && (
+                                        <>
+                                            <h5 style={{ marginBottom: '15px', fontSize: '18px', fontWeight: '600', color: '#333' }}>
+                                                Publication Schedule
+                                            </h5>
+                                            <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                                <div style={{ display: 'flex', gap: '25px', alignItems: 'center' }}>
+                                                    <label
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '8px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '16px',
+                                                            color: '#555',
+                                                            padding: '8px 12px',
+                                                            borderRadius: '8px',
+                                                            transition: 'background-color 0.3s ease, color 0.3s ease',
+                                                        }}
+                                                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f0f7ff')}
+                                                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                                                    >
+                                                        <input
+                                                            type="radio"
+                                                            name="publishNow"
+                                                            value="true"
+                                                            checked={editFormData.publishNow}
+                                                            onChange={handleChange}
+                                                            style={{
+                                                                appearance: 'none',
+                                                                width: '18px',
+                                                                height: '18px',
+                                                                border: '2px solid #0ea5e6',
+                                                                borderRadius: '50%',
+                                                                backgroundColor: editFormData.publishNow ? '#0ea5e6' : '#fff',
+                                                                cursor: 'pointer',
+                                                                position: 'relative',
+                                                                transition: 'background-color 0.2s ease',
+                                                            }}
+                                                        />
+                                                        Publish Now
+                                                    </label>
+                                                    <label
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '8px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '16px',
+                                                            color: '#555',
+                                                            padding: '8px 12px',
+                                                            borderRadius: '8px',
+                                                            transition: 'background-color 0.3s ease, color 0.3s ease',
+                                                        }}
+                                                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f0f7ff')}
+                                                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                                                    >
+                                                        <input
+                                                            type="radio"
+                                                            name="publishNow"
+                                                            value="false"
+                                                            checked={!editFormData.publishNow}
+                                                            onChange={handleChange}
+                                                            style={{
+                                                                appearance: 'none',
+                                                                width: '18px',
+                                                                height: '18px',
+                                                                border: '2px solid #0ea5e6',
+                                                                borderRadius: '50%',
+                                                                backgroundColor: !editFormData.publishNow ? '#0ea5e6' : '#fff',
+                                                                cursor: 'pointer',
+                                                                position: 'relative',
+                                                                transition: 'background-color 0.2s ease',
+                                                            }}
+                                                        />
+                                                        Schedule for Later <span style={{ fontSize: '12px', color: '#888' }}>(will be archived until scheduled date)</span>
+                                                    </label>
+                                                </div>
+                                                {!editFormData.publishNow && (
+                                                    <div style={{ position: 'relative', maxWidth: '300px' }}>
+                                                        <input
+                                                            type="datetime-local"
+                                                            name="scheduledDate"
+                                                            value={editFormData.scheduledDate}
+                                                            onChange={handleChange}
+                                                            min={new Date().toISOString().slice(0, 16)}
+                                                            style={{
+                                                                width: '100%',
+                                                                padding: '12px 40px 12px 12px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid #ddd',
+                                                                fontSize: '16px',
+                                                                color: '#333',
+                                                                backgroundColor: '#fff',
+                                                                boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
+                                                                outline: 'none',
+                                                                transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+                                                            }}
+                                                            onFocus={(e) => {
+                                                                e.target.style.borderColor = '#0ea5e6';
+                                                                e.target.style.boxShadow = '0 0 8px rgba(14, 165, 230, 0.3)';
+                                                            }}
+                                                            onBlur={(e) => {
+                                                                e.target.style.borderColor = '#ddd';
+                                                                e.target.style.boxShadow = '0 2px 5px rgba(0,0,0,0.05)';
+                                                            }}
+                                                        />
+                                                        <span
+                                                            style={{
+                                                                position: 'absolute',
+                                                                right: '12px',
+                                                                top: '50%',
+                                                                transform: 'translateY(-50%)',
+                                                                color: '#888',
+                                                                fontSize: '18px',
+                                                                pointerEvents: 'none',
+                                                            }}
+                                                        >
+                                                            📅
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
+
                                     <div style={{ marginBottom: '20px' }}>
                                         <input
                                             type="file"
@@ -834,6 +1037,11 @@ function PublicationPsychiatristAll() {
                                 <div style={{ marginTop: '10px' }}>
                                     <strong>Tags:</strong> {editFormData.tags.filter(tag => tag.trim()).join(', ') || 'No tags yet'}
                                 </div>
+                                {publications.find(post => post._id === editFormData._id)?.status === 'later' && (
+                                    <div style={{ marginTop: '10px' }}>
+                                        <strong>Scheduled:</strong> {editFormData.publishNow ? 'Now' : (editFormData.scheduledDate ? new Date(editFormData.scheduledDate).toLocaleString() : 'Not set')}
+                                    </div>
+                                )}
                                 <div style={{ marginTop: '20px' }}>
                                     <div style={{ background: '#e0e0e0', height: '10px', borderRadius: '5px', position: 'relative' }}>
                                         <div
@@ -851,6 +1059,88 @@ function PublicationPsychiatristAll() {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {showStatsModal && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 1000,
+                    }}
+                >
+                    <div
+                        style={{
+                            backgroundColor: '#fff',
+                            padding: '30px',
+                            borderRadius: '10px',
+                            width: '900px',
+                            maxWidth: '90%',
+                            boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+                            maxHeight: '80vh',
+                            overflowY: 'auto',
+                        }}
+                    >
+                        <h3 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '20px' }}>Publication Statistics</h3>
+                        <div style={{ marginBottom: '30px' }}>
+                            <h4>Comments per Publication</h4>
+                            <Bar
+                                data={commentsChartData}
+                                options={{
+                                    responsive: true,
+                                    plugins: {
+                                        legend: { position: 'top' },
+                                        title: { display: true, text: 'Nombre de commentaires par publication' },
+                                    },
+                                    scales: {
+                                        y: { beginAtZero: true, title: { display: true, text: 'Nombre de commentaires' } },
+                                        x: { title: { display: true, text: 'Publications' } },
+                                    },
+                                }}
+                            />
+                        </div>
+                        <div>
+                            <h4>Likes and Dislikes per Publication</h4>
+                            <Bar
+                                data={likesDislikesChartData}
+                                options={{
+                                    responsive: true,
+                                    plugins: {
+                                        legend: { position: 'top' },
+                                        title: { display: true, text: 'Likes et Dislikes par publication' },
+                                    },
+                                    scales: {
+                                        y: { beginAtZero: true, title: { display: true, text: 'Nombre' } },
+                                        x: { title: { display: true, text: 'Publications' } },
+                                    },
+                                }}
+                            />
+                        </div>
+                        <button
+                            onClick={() => setShowStatsModal(false)}
+                            style={{
+                                background: '#f44336',
+                                color: '#fff',
+                                padding: '12px 24px',
+                                borderRadius: '5px',
+                                border: 'none',
+                                fontSize: '16px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                marginTop: '20px',
+                            }}
+                        >
+                            Close
+                        </button>
                     </div>
                 </div>
             )}

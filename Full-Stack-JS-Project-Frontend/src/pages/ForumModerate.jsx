@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTrashAlt, faEye } from "@fortawesome/free-regular-svg-icons";
+import { faTrashAlt, faToggleOn, faToggleOff, faFlag, faBan } from "@fortawesome/free-solid-svg-icons";
 import { faSearch, faHeart } from "@fortawesome/free-solid-svg-icons";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
@@ -13,6 +13,12 @@ const truncateDescription = (text, isExpanded) => {
     return `${text.substring(0, 150)}...`;
   }
   return text;
+};
+
+// Fonction pour générer l'URL du QR code avec les informations de ban
+const generateQRCodeUrl = (user) => {
+  const qrData = `Username: ${user.user_id.username}\nLevel and Speciality: ${user.user_id.level || 'N/A'} ${user.user_id.speciality || 'N/A'}\nReason of ban: ${user.reason}\nBan expires: ${new Date(user.expiresAt).toLocaleString("fr-FR")}`;  const encodedData = encodeURIComponent(qrData);
+  return `https://api.qrserver.com/v1/create-qr-code/?data=${encodedData}&size=120x120`; 
 };
 
 function ForumModerate() {
@@ -32,8 +38,18 @@ function ForumModerate() {
   const [sortOption, setSortOption] = useState("newest");
   const [favoriteTopics, setFavoriteTopics] = useState(new Set());
   const [expanded, setExpanded] = useState({});
-  const [showPertinentOnly, setShowPertinentOnly] = useState(false); // État pour afficher uniquement les topics pertinents
-  const [commentsCountMap, setCommentsCountMap] = useState({}); // Stocker le nombre de commentaires par topic
+  const [showPertinentOnly, setShowPertinentOnly] = useState(false);
+  const [commentsCountMap, setCommentsCountMap] = useState({});
+  const [showReportsModal, setShowReportsModal] = useState(false);
+  const [reports, setReports] = useState([]);
+  const [showCommentReportsModal, setShowCommentReportsModal] = useState(false);
+  const [commentReports, setCommentReports] = useState([]);
+  const [showBanModal, setShowBanModal] = useState(false);
+  const [userToBan, setUserToBan] = useState(null);
+  const [banDuration, setBanDuration] = useState("");
+  const [banReason, setBanReason] = useState("");
+  const [showBannedListModal, setShowBannedListModal] = useState(false);
+  const [bannedUsers, setBannedUsers] = useState([]);
   const navigate = useNavigate();
 
   const toggleDescription = (forumId) => {
@@ -58,7 +74,7 @@ function ForumModerate() {
       );
       const data = await response.json();
       if (response.ok) {
-        return data.length; // Retourner le nombre de commentaires
+        return data.length;
       } else {
         console.error(
           "Erreur lors de la récupération des commentaires:",
@@ -72,16 +88,40 @@ function ForumModerate() {
     }
   };
 
+  // Fonction pour récupérer la liste des utilisateurs bannis
+  const fetchBannedUsers = async () => {
+    try {
+      console.log("Token used for fetchBannedUsers:", token);
+      const response = await fetch("http://localhost:5000/forum/banned-users", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      console.log("Response from API:", data);
+
+      if (response.ok) {
+        console.log("Setting bannedUsers to:", data.bannedUsers);
+        setBannedUsers(data.bannedUsers); // Extraire la propriété bannedUsers
+        setShowBannedListModal(true);
+      } else {
+        console.error("Erreur lors de la récupération des utilisateurs bannis:", data.message || data);
+        toast.error("Failed to fetch banned users!");
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'appel API:", error);
+      toast.error("Error fetching banned users!");
+    }
+  };
+
   // Charger les topics et le nombre de commentaires
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Récupérer les topics
         const forumsResponse = await fetch("http://localhost:5000/forum/getForum");
         const forumsData = await forumsResponse.json();
         setForums(forumsData);
 
-        // Récupérer le nombre de commentaires pour chaque topic
         const commentsCount = {};
         for (const forum of forumsData) {
           const count = await fetchCommentsCount(forum._id);
@@ -139,7 +179,7 @@ function ForumModerate() {
       setUserId(null);
       setIsLoading(false);
     }
-  }, [token]);
+  }, []); // Retirer [token] pour éviter des exécutions multiples
 
   useEffect(() => {
     if (userId) {
@@ -160,12 +200,11 @@ function ForumModerate() {
     }
   }, [favoriteTopics, userId]);
 
-  // Fonction pour filtrer les topics pertinents
   const filterPertinentForums = (forums) => {
     return forums.filter((forum) => {
       const commentsCount = commentsCountMap[forum._id] || 0;
-      const favoritesCount = favoriteTopics.has(forum._id) ? 1 : 0; // Simuler le nombre de favoris (1 si l'utilisateur actuel l'a mis en favori)
-      const isPertinent = commentsCount > 5 || favoritesCount > 3; // Critères de pertinence
+      const favoritesCount = favoriteTopics.has(forum._id) ? 1 : 0;
+      const isPertinent = commentsCount > 5 || favoritesCount > 3;
       return showPertinentOnly ? isPertinent : true;
     });
   };
@@ -199,6 +238,35 @@ function ForumModerate() {
         }
       })
   );
+
+  const handleChangeStatus = async (forumId, newStatus) => {
+    try {
+      const response = await fetch(`http://localhost:5000/forum/changeStatus/${forumId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setForums((prevForums) =>
+          prevForums.map((forum) =>
+            forum._id === forumId ? { ...forum, status: newStatus } : forum
+          )
+        );
+        toast.success(`Topic ${newStatus === "actif" ? "activated" : "deactivated"} successfully!`);
+      } else {
+        console.error("Erreur lors du changement de statut:", data.message);
+        toast.error("Failed to change topic status!");
+      }
+    } catch (error) {
+      console.error("Erreur réseau:", error);
+      toast.error("Network error while changing topic status!");
+    }
+  };
 
   const handleDeleteComment = (commentId) => {
     fetch(`http://localhost:5000/forumComment/deleteComment/${commentId}`, {
@@ -262,6 +330,107 @@ function ForumModerate() {
         console.error("Erreur lors de la suppression du forum:", error);
         toast.error("Failed to delete the topic!");
       });
+  };
+
+  const handleViewReports = async (forumId) => {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/forum/getForumReports/${forumId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const data = await response.json();
+
+      if (response.ok) {
+        setReports(data);
+        setShowReportsModal(true);
+      } else {
+        console.error(
+          "Erreur lors de la récupération des signalements:",
+          data.message || data
+        );
+        toast.error("Failed to fetch reports for this topic!");
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'appel API:", error);
+      toast.error("Error fetching reports!");
+    }
+  };
+
+  const handleViewCommentReports = async (commentId) => {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/forumComment/getCommentReports/${commentId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const data = await response.json();
+
+      if (response.ok) {
+        setCommentReports(data);
+        setShowCommentReportsModal(true);
+      } else {
+        console.error(
+          "Erreur lors de la récupération des signalements de commentaire:",
+          data.message || data
+        );
+        toast.error("Failed to fetch reports for this comment!");
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'appel API:", error);
+      toast.error("Error fetching comment reports!");
+    }
+  };
+
+  const handleOpenBanModal = (userId) => {
+    setUserToBan(userId);
+    setBanDuration("");
+    setBanReason("");
+    setShowBanModal(true);
+  };
+
+  const handleBanUser = async () => {
+    if (!banDuration || isNaN(banDuration) || banDuration <= 0) {
+      toast.error("Please enter a valid duration in days.");
+      return;
+    }
+
+    if (!["inappropriate_content", "spam", "harassment", "offensive_language", "misinformation", "other"].includes(banReason)) {
+      toast.error("Please select a valid reason.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5000/forum/ban`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          user_id: userToBan,
+          reason: banReason,
+          duration: parseInt(banDuration),
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        toast.success(data.message || "User banned successfully!");
+        setShowBanModal(false);
+      } else {
+        toast.error(data.message || "Failed to ban user.");
+      }
+    } catch (error) {
+      console.error("Error banning user:", error);
+      toast.error("Error banning user: " + error.message);
+    }
   };
 
   const toggleFavorite = useCallback(
@@ -351,6 +520,9 @@ function ForumModerate() {
               <li>
                 <a href="/Home">Home</a>
               </li>
+              <li>
+                <a href="/forum">Forum</a>
+              </li>
               <li className="active">Moderate Forum</li>
             </ul>
           </div>
@@ -417,7 +589,7 @@ function ForumModerate() {
               <div className="d-flex align-items-center">
                 <button
                   onClick={() => setShowPertinentOnly(!showPertinentOnly)}
-                   className="theme-btn"
+                  className="theme-btn"
                   style={{
                     padding: "10px 20px",
                     backgroundColor: showPertinentOnly ? "#0056b3" : "#007bff",
@@ -431,6 +603,42 @@ function ForumModerate() {
                   }}
                 >
                   {showPertinentOnly ? "Show All Topics" : "Show Pertinent Topics"}
+                </button>
+                <button
+                  onClick={fetchBannedUsers}
+                  className="banned-list-btn"
+                  style={{
+                    padding: "10px 20px",
+                    backgroundColor: "#ff9800",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "50px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                    boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
+                    outline: "none",
+                    marginRight: "10px",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = "#e68900";
+                    e.target.style.transform = "scale(1.05)";
+                    e.target.style.boxShadow = "0 4px 10px rgba(0, 0, 0, 0.3)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = "#ff9800";
+                    e.target.style.transform = "scale(1)";
+                    e.target.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.2)";
+                  }}
+                  onMouseDown={(e) => {
+                    e.target.style.transform = "scale(0.95)";
+                  }}
+                  onMouseUp={(e) => {
+                    e.target.style.transform = "scale(1.05)";
+                  }}
+                >
+                  Banned List
                 </button>
                 <select
                   value={sortOption}
@@ -466,6 +674,9 @@ function ForumModerate() {
                   <div
                     key={forum._id}
                     className="forum-item p-4 border rounded mb-4"
+                    style={{
+                      opacity: forum.status === "inactif" ? 0.5 : 1,
+                    }}
                   >
                     <div className="d-flex justify-content-between align-items-center mb-2">
                       <div className="d-flex align-items-center">
@@ -521,6 +732,26 @@ function ForumModerate() {
                           style={{
                             cursor: "pointer",
                             fontSize: "20px",
+                            color: forum.status === "actif" ? "orange" : "green",
+                            marginRight: "15px",
+                          }}
+                          onClick={() =>
+                            handleChangeStatus(
+                              forum._id,
+                              forum.status === "actif" ? "inactif" : "actif"
+                            )
+                          }
+                          title={forum.status === "actif" ? "Désactiver" : "Activer"}
+                        >
+                          <FontAwesomeIcon
+                            icon={forum.status === "actif" ? faToggleOff : faToggleOn}
+                          />
+                        </span>
+                        <span
+                          className="icon"
+                          style={{
+                            cursor: "pointer",
+                            fontSize: "20px",
                             color: "red",
                             marginRight: "15px",
                           }}
@@ -537,11 +768,83 @@ function ForumModerate() {
                             cursor: "pointer",
                             fontSize: "20px",
                             color: favoriteTopics.has(forum._id) ? "red" : "gray",
+                            marginRight: "15px",
                           }}
                           onClick={() => toggleFavorite(forum._id)}
                         >
                           <FontAwesomeIcon icon={faHeart} />
                         </span>
+                        <button
+                          onClick={() => handleViewReports(forum._id)}
+                          className="view-reports-btn"
+                          style={{
+                            padding: "8px 16px",
+                            backgroundColor: "#ff9800",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "20px",
+                            fontSize: "14px",
+                            fontWeight: "500",
+                            cursor: "pointer",
+                            transition: "all 0.3s ease",
+                            boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
+                            outline: "none",
+                            marginRight: "15px",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = "#e68900";
+                            e.target.style.transform = "scale(1.05)";
+                            e.target.style.boxShadow = "0 4px 10px rgba(0, 0, 0, 0.3)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = "#ff9800";
+                            e.target.style.transform = "scale(1)";
+                            e.target.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.2)";
+                          }}
+                          onMouseDown={(e) => {
+                            e.target.style.transform = "scale(0.95)";
+                          }}
+                          onMouseUp={(e) => {
+                            e.target.style.transform = "scale(1.05)";
+                          }}
+                        >
+                          View Reports
+                        </button>
+                        <button
+                          onClick={() => handleOpenBanModal(forum.user_id._id)}
+                          className="ban-btn"
+                          style={{
+                            padding: "8px 16px",
+                            backgroundColor: "#dc3545",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "20px",
+                            fontSize: "14px",
+                            fontWeight: "500",
+                            cursor: "pointer",
+                            transition: "all 0.3s ease",
+                            boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
+                            outline: "none",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = "#c82333";
+                            e.target.style.transform = "scale(1.05)";
+                            e.target.style.boxShadow = "0 4px 10px rgba(0, 0, 0, 0.3)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = "#dc3545";
+                            e.target.style.transform = "scale(1)";
+                            e.target.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.2)";
+                          }}
+                          onMouseDown={(e) => {
+                            e.target.style.transform = "scale(0.95)";
+                          }}
+                          onMouseUp={(e) => {
+                            e.target.style.transform = "scale(1.05)";
+                          }}
+                        >
+                          Ban User
+                        </button>
                       </div>
                     </div>
                     <h3
@@ -599,18 +902,38 @@ function ForumModerate() {
                     <div className="d-flex align-items-center mt-2">
                       <button
                         onClick={() => handleViewComments(forum._id)}
-                        className="btn btn-secondary d-flex align-items-center justify-content-center ms-2"
+                        className="view-comments-btn"
                         style={{
-                          width: "40px",
-                          height: "40px",
-                          borderRadius: "50%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          padding: "5px",
+                          padding: "8px 16px",
+                          backgroundColor: "#28a745",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "20px",
+                          fontSize: "14px",
+                          fontWeight: "500",
+                          cursor: "pointer",
+                          transition: "all 0.3s ease",
+                          boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
+                          outline: "none",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = "#218838";
+                          e.target.style.transform = "scale(1.05)";
+                          e.target.style.boxShadow = "0 4px 10px rgba(0, 0, 0, 0.3)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = "#28a745";
+                          e.target.style.transform = "scale(1)";
+                          e.target.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.2)";
+                        }}
+                        onMouseDown={(e) => {
+                          e.target.style.transform = "scale(0.95)";
+                        }}
+                        onMouseUp={(e) => {
+                          e.target.style.transform = "scale(1.05)";
                         }}
                       >
-                        <FontAwesomeIcon icon={faEye} style={{ fontSize: "14px" }} />
+                        View Comments
                       </button>
                     </div>
                     <div className="mt-3 text-muted" style={{ fontSize: "14px" }}>
@@ -624,6 +947,9 @@ function ForumModerate() {
                           minute: "2-digit",
                         })}
                       </p>
+                      <p style={{ margin: 0 }}>
+                        Status: <span style={{ color: forum.status === "actif" ? "green" : "red" }}>{forum.status}</span>
+                      </p>
                     </div>
                   </div>
                 ))
@@ -635,7 +961,8 @@ function ForumModerate() {
         </div>
       </main>
 
-      {showDeleteModal && (
+      {/* Modal pour les signalements sur un topic */}
+      {showReportsModal && (
         <div
           style={{
             position: "fixed",
@@ -655,20 +982,104 @@ function ForumModerate() {
               backgroundColor: "white",
               padding: "20px",
               borderRadius: "8px",
-              width: "400px",
+              width: "900px",
               maxWidth: "100%",
               boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
             }}
           >
             <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
-              Confirm Deletion
+              Reports for this Topic
             </h3>
-            <p style={{ marginBottom: "20px", textAlign: "center" }}>
-              Are you sure you want to delete this topic? This action cannot be undone.
-            </p>
-            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+            <div
+              style={{
+                maxHeight: reports.length > 3 ? "300px" : "auto",
+                overflowY: reports.length > 3 ? "auto" : "visible",
+                marginBottom: "20px",
+              }}
+            >
+              {reports.length > 0 ? (
+                reports.map((report, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      marginBottom: "10px",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                      padding: "10px",
+                      borderBottom: "1px solid #ddd",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "10px",
+                        flex: 1,
+                      }}
+                    >
+                      <div style={{ flexShrink: 0 }}>
+                        <img
+                          src={`http://localhost:5000${report.user_id.user_photo}`}
+                          alt="User Avatar"
+                          style={{
+                            width: "40px",
+                            height: "40px",
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ margin: 0, fontWeight: "bold" }}>
+                          {report.user_id.username}
+                          <span
+                            className="badge"
+                            style={{
+                              backgroundColor: "transparent",
+                              border: "1px solid #00BFFF",
+                              color: "#00BFFF",
+                              padding: "2px 8px",
+                              borderRadius: "20px",
+                              boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
+                              fontSize: "0.875rem",
+                            }}
+                          >
+                            {report.user_id.level} {report.user_id.speciality}
+                          </span>
+                        </p>
+                        <p
+                          style={{
+                            margin: 0,
+                            wordBreak: "break-word",
+                            overflowWrap: "break-word",
+                            whiteSpace: "normal",
+                            color: "#333",
+                          }}
+                        >
+                          Reason: {report.reason}
+                        </p>
+                        <p style={{ margin: 0, fontSize: "12px", color: "#666" }}>
+                          Reported at: {new Date(report.createdAt).toLocaleString("fr-FR")}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p style={{ textAlign: "center" }}>There are no reports for this topic!</p>
+              )}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: "10px",
+                marginTop: "20px",
+              }}
+            >
               <button
-                onClick={() => setShowDeleteModal(false)}
+                onClick={() => setShowReportsModal(false)}
                 style={{
                   backgroundColor: "#f44336",
                   color: "white",
@@ -678,26 +1089,14 @@ function ForumModerate() {
                   cursor: "pointer",
                 }}
               >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleDelete(forumToDelete)}
-                style={{
-                  backgroundColor: "#4CAF50",
-                  color: "white",
-                  padding: "10px 20px",
-                  borderRadius: "5px",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                Delete
+                Close
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Modal pour les commentaires */}
       {showCommentModal && (
         <div
           style={{
@@ -786,7 +1185,7 @@ function ForumModerate() {
                         </p>
                         <p
                           style={{
-                            margin: 0,
+                            margin: "5px 0 0 0",
                             wordBreak: "break-word",
                             overflowWrap: "break-word",
                             whiteSpace: "normal",
@@ -800,13 +1199,30 @@ function ForumModerate() {
                     <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
                       <span
                         className="icon"
+                        style={{ cursor: "pointer", fontSize: "18px", color: "orange" }}
+                        onClick={() => handleViewCommentReports(comment._id)}
+                        title="View Reports"
+                      >
+                        <FontAwesomeIcon icon={faFlag} />
+                      </span>
+                      <span
+                        className="icon"
                         style={{ cursor: "pointer", fontSize: "18px", color: "red" }}
                         onClick={() => {
                           setCommentToDelete(comment._id);
                           setShowDeleteCommentModal(true);
                         }}
+                        title="Delete Comment"
                       >
                         <FontAwesomeIcon icon={faTrashAlt} />
+                      </span>
+                      <span
+                        className="icon"
+                        style={{ cursor: "pointer", fontSize: "18px", color: "purple" }}
+                        onClick={() => handleOpenBanModal(comment.user_id._id)}
+                        title="Ban User"
+                      >
+                        <FontAwesomeIcon icon={faBan} />
                       </span>
                     </div>
                   </div>
@@ -835,6 +1251,425 @@ function ForumModerate() {
                 }}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal pour les signalements sur un commentaire */}
+      {showCommentReportsModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "900px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+              Reports for this Comment
+            </h3>
+            <div
+              style={{
+                maxHeight: commentReports.length > 3 ? "300px" : "auto",
+                overflowY: commentReports.length > 3 ? "auto" : "visible",
+                marginBottom: "20px",
+              }}
+            >
+              {commentReports.length > 0 ? (
+                commentReports.map((report, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      marginBottom: "10px",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                      padding: "10px",
+                      borderBottom: "1px solid #ddd",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "10px",
+                        flex: 1,
+                      }}
+                    >
+                      <div style={{ flexShrink: 0 }}>
+                        <img
+                          src={`http://localhost:5000${report.user_id.user_photo}`}
+                          alt="User Avatar"
+                          style={{
+                            width: "40px",
+                            height: "40px",
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ margin: 0, fontWeight: "bold" }}>
+                          {report.user_id.username}
+                          <span
+                            className="badge"
+                            style={{
+                              backgroundColor: "transparent",
+                              border: "1px solid #00BFFF",
+                              color: "#00BFFF",
+                              padding: "2px 8px",
+                              borderRadius: "20px",
+                              boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
+                              fontSize: "0.875rem",
+                            }}
+                          >
+                            {report.user_id.level} {report.user_id.speciality}
+                          </span>
+                        </p>
+                        <p
+                          style={{
+                            margin: 0,
+                            wordBreak: "break-word",
+                            overflowWrap: "break-word",
+                            whiteSpace: "normal",
+                            color: "#333",
+                          }}
+                        >
+                          Reason: {report.reason}
+                        </p>
+                        <p style={{ margin: 0, fontSize: "12px", color: "#666" }}>
+                          Reported at: {new Date(report.createdAt).toLocaleString("fr-FR")}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p style={{ textAlign: "center" }}>There are no reports for this comment!</p>
+              )}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: "10px",
+                marginTop: "20px",
+              }}
+            >
+              <button
+                onClick={() => setShowCommentReportsModal(false)}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal pour bannir un utilisateur */}
+      {showBanModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "400px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+              Ban User
+            </h3>
+            <div style={{ marginBottom: "20px" }}>
+              <label
+                htmlFor="banDuration"
+                style={{ display: "block", marginBottom: "5px" }}
+              >
+                Duration (in days):
+              </label>
+              <input
+                type="number"
+                id="banDuration"
+                value={banDuration}
+                onChange={(e) => setBanDuration(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px",
+                  borderRadius: "5px",
+                  border: "1px solid #ddd",
+                  outline: "none",
+                }}
+                placeholder="Enter duration in days"
+              />
+            </div>
+            <div style={{ marginBottom: "20px" }}>
+              <label
+                htmlFor="banReason"
+                style={{ display: "block", marginBottom: "5px" }}
+              >
+                Reason:
+              </label>
+              <select
+                id="banReason"
+                value={banReason}
+                onChange={(e) => setBanReason(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px",
+                  borderRadius: "5px",
+                  border: "1px solid #ddd",
+                  outline: "none",
+                }}
+              >
+                <option value="">Select a reason</option>
+                <option value="inappropriate_content">Inappropriate Content</option>
+                <option value="spam">Spam</option>
+                <option value="harassment">Harassment</option>
+                <option value="offensive_language">Offensive Language</option>
+                <option value="misinformation">Misinformation</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+              <button
+                onClick={() => setShowBanModal(false)}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBanUser}
+                style={{
+                  backgroundColor: "#4CAF50",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Ban
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal pour la liste des utilisateurs bannis */}
+      {showBannedListModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "600px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+              Banned Users List
+            </h3>
+            <div
+              style={{
+                maxHeight: bannedUsers.length > 3 ? "300px" : "auto",
+                overflowY: bannedUsers.length > 3 ? "auto" : "visible",
+                marginBottom: "20px",
+              }}
+            >
+              {bannedUsers.length > 0 ? (
+                bannedUsers.map((user, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      marginBottom: "10px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px",
+                      borderBottom: "1px solid #ddd",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", flex: 1 }}>
+                      <div style={{ flexShrink: 0, marginRight: "15px" }}>
+                        <img
+                          src={`http://localhost:5000${user.user_id.user_photo}`}
+                          alt="User Avatar"
+                          style={{
+                            width: "40px",
+                            height: "40px",
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ margin: 0, fontWeight: "bold" }}>
+                          {user.user_id.username}
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{ flexShrink: 0 }}>
+                      <img
+                        src={generateQRCodeUrl(user)}
+                        alt="QR Code for ban info"
+                        style={{
+                          width: "90px",
+                          height: "90px",
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p style={{ textAlign: "center" }}>No banned users found!</p>
+              )}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: "10px",
+                marginTop: "20px",
+              }}
+            >
+              <button
+                onClick={() => setShowBannedListModal(false)}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "400px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+              Confirm Deletion
+            </h3>
+            <p style={{ marginBottom: "20px", textAlign: "center" }}>
+              Are you sure you want to delete this topic? This action cannot be undone.
+            </p>
+            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(forumToDelete)}
+                style={{
+                  backgroundColor: "#4CAF50",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Delete
               </button>
             </div>
           </div>
