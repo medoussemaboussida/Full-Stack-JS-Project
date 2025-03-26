@@ -256,12 +256,11 @@ exports.banUser = async (req, res) => {
       });
     }
   };
-  // Contrôleur pour afficher la liste des utilisateurs bannis
   exports.getBannedUsers = async (req, res) => {
     try {
       // Récupérer les bannissements actifs (ceux qui ne sont pas encore expirés)
       const bannedUsers = await ForumBan.find({ expiresAt: { $gt: new Date() } })
-        .populate("user_id", "username email") // Récupérer les informations de l'utilisateur (username et email)
+        .populate("user_id", "username email user_photo level speciality")
         .select("user_id duration reason bannedAt expiresAt");
   
       if (bannedUsers.length === 0) {
@@ -324,6 +323,63 @@ exports.banUser = async (req, res) => {
       });
     } catch (err) {
       console.error("Error checking ban status:", err); // Log cohérent avec les autres méthodes
+      res.status(500).json({ message: err.message });
+    }
+  };
+  exports.getBannedUser = async (req, res) => {
+    try {
+      const { id } = req.params; // Extraire l'ID de req.params
+  
+      // Vérifier si l'ID est valide (format MongoDB ObjectId)
+      if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+  
+      // Vérifier si l'utilisateur existe
+      const user = await User.findById(id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+  
+      // Rechercher l'entrée de bannissement dans ForumBan
+      const ban = await ForumBan.findOne({ user_id: id });
+  
+      if (!ban) {
+        return res.status(404).json({
+          success: false,
+          message: "No ban record found for this user.",
+        });
+      }
+  
+      const currentDate = new Date();
+      const expiresAt = new Date(ban.expiresAt);
+  
+      if (expiresAt < currentDate) {
+        // Le ban est expiré, on le supprime
+        await ForumBan.deleteOne({ _id: ban._id });
+        return res.status(200).json({
+          success: true,
+          isBanned: false,
+          message: "Ban has expired and has been removed.",
+        });
+      }
+  
+      // Le ban est actif, retourner les informations
+      return res.status(200).json({
+        success: true,
+        isBanned: true,
+        ban: {
+          user_id: ban.user_id,
+          username: user.username, // Ajout des informations de l'utilisateur
+          user_photo: user.user_photo,
+          level: user.level || "N/A",
+          speciality: user.speciality || "N/A",
+          reason: ban.reason,
+          expiresAt: ban.expiresAt,
+        },
+      });
+    } catch (err) {
+      console.error("Error fetching banned user:", err); // Log cohérent avec les autres méthodes
       res.status(500).json({ message: err.message });
     }
   };

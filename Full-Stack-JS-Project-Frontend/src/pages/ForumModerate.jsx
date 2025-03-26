@@ -15,6 +15,12 @@ const truncateDescription = (text, isExpanded) => {
   return text;
 };
 
+// Fonction pour générer l'URL du QR code avec les informations de ban
+const generateQRCodeUrl = (user) => {
+  const qrData = `Username: ${user.user_id.username}\nLevel and Speciality: ${user.user_id.level || 'N/A'} ${user.user_id.speciality || 'N/A'}\nReason of ban: ${user.reason}\nBan expires: ${new Date(user.expiresAt).toLocaleString("fr-FR")}`;  const encodedData = encodeURIComponent(qrData);
+  return `https://api.qrserver.com/v1/create-qr-code/?data=${encodedData}&size=120x120`; 
+};
+
 function ForumModerate() {
   const [forums, setForums] = useState([]);
   const [token, setToken] = useState(null);
@@ -42,6 +48,8 @@ function ForumModerate() {
   const [userToBan, setUserToBan] = useState(null);
   const [banDuration, setBanDuration] = useState("");
   const [banReason, setBanReason] = useState("");
+  const [showBannedListModal, setShowBannedListModal] = useState(false);
+  const [bannedUsers, setBannedUsers] = useState([]);
   const navigate = useNavigate();
 
   const toggleDescription = (forumId) => {
@@ -80,16 +88,40 @@ function ForumModerate() {
     }
   };
 
+  // Fonction pour récupérer la liste des utilisateurs bannis
+  const fetchBannedUsers = async () => {
+    try {
+      console.log("Token used for fetchBannedUsers:", token);
+      const response = await fetch("http://localhost:5000/forum/banned-users", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      console.log("Response from API:", data);
+
+      if (response.ok) {
+        console.log("Setting bannedUsers to:", data.bannedUsers);
+        setBannedUsers(data.bannedUsers); // Extraire la propriété bannedUsers
+        setShowBannedListModal(true);
+      } else {
+        console.error("Erreur lors de la récupération des utilisateurs bannis:", data.message || data);
+        toast.error("Failed to fetch banned users!");
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'appel API:", error);
+      toast.error("Error fetching banned users!");
+    }
+  };
+
   // Charger les topics et le nombre de commentaires
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Récupérer les topics
         const forumsResponse = await fetch("http://localhost:5000/forum/getForum");
         const forumsData = await forumsResponse.json();
         setForums(forumsData);
 
-        // Récupérer le nombre de commentaires pour chaque topic
         const commentsCount = {};
         for (const forum of forumsData) {
           const count = await fetchCommentsCount(forum._id);
@@ -147,7 +179,7 @@ function ForumModerate() {
       setUserId(null);
       setIsLoading(false);
     }
-  }, [token]);
+  }, []); // Retirer [token] pour éviter des exécutions multiples
 
   useEffect(() => {
     if (userId) {
@@ -168,7 +200,6 @@ function ForumModerate() {
     }
   }, [favoriteTopics, userId]);
 
-  // Fonction pour filtrer les topics pertinents
   const filterPertinentForums = (forums) => {
     return forums.filter((forum) => {
       const commentsCount = commentsCountMap[forum._id] || 0;
@@ -208,7 +239,6 @@ function ForumModerate() {
       })
   );
 
-  // Fonction pour changer le statut d'un topic
   const handleChangeStatus = async (forumId, newStatus) => {
     try {
       const response = await fetch(`http://localhost:5000/forum/changeStatus/${forumId}`, {
@@ -222,7 +252,6 @@ function ForumModerate() {
 
       const data = await response.json();
       if (response.ok) {
-        // Mettre à jour l'état local des forums
         setForums((prevForums) =>
           prevForums.map((forum) =>
             forum._id === forumId ? { ...forum, status: newStatus } : forum
@@ -367,13 +396,11 @@ function ForumModerate() {
   };
 
   const handleBanUser = async () => {
-    // Vérifier que la durée est valide
     if (!banDuration || isNaN(banDuration) || banDuration <= 0) {
       toast.error("Please enter a valid duration in days.");
       return;
     }
 
-    // Vérifier que la raison est valide
     if (!["inappropriate_content", "spam", "harassment", "offensive_language", "misinformation", "other"].includes(banReason)) {
       toast.error("Please select a valid reason.");
       return;
@@ -577,6 +604,42 @@ function ForumModerate() {
                 >
                   {showPertinentOnly ? "Show All Topics" : "Show Pertinent Topics"}
                 </button>
+                <button
+                  onClick={fetchBannedUsers}
+                  className="banned-list-btn"
+                  style={{
+                    padding: "10px 20px",
+                    backgroundColor: "#ff9800",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "50px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                    boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
+                    outline: "none",
+                    marginRight: "10px",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = "#e68900";
+                    e.target.style.transform = "scale(1.05)";
+                    e.target.style.boxShadow = "0 4px 10px rgba(0, 0, 0, 0.3)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = "#ff9800";
+                    e.target.style.transform = "scale(1)";
+                    e.target.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.2)";
+                  }}
+                  onMouseDown={(e) => {
+                    e.target.style.transform = "scale(0.95)";
+                  }}
+                  onMouseUp={(e) => {
+                    e.target.style.transform = "scale(1.05)";
+                  }}
+                >
+                  Banned List
+                </button>
                 <select
                   value={sortOption}
                   onChange={(e) => setSortOption(e.target.value)}
@@ -617,7 +680,6 @@ function ForumModerate() {
                   >
                     <div className="d-flex justify-content-between align-items-center mb-2">
                       <div className="d-flex align-items-center">
-                        {/* Toujours afficher la photo et le nom réel de l'utilisateur, même si le topic est anonyme */}
                         <img
                           src={`http://localhost:5000${forum.user_id.user_photo}`}
                           alt="User"
@@ -1092,7 +1154,6 @@ function ForumModerate() {
                       }}
                     >
                       <div style={{ flexShrink: 0 }}>
-                        {/* Toujours afficher la photo réelle de l'utilisateur, même si le commentaire est anonyme */}
                         <img
                           src={`http://localhost:5000${comment.user_id.user_photo}`}
                           alt="User Avatar"
@@ -1105,7 +1166,6 @@ function ForumModerate() {
                         />
                       </div>
                       <div style={{ flex: 1 }}>
-                        {/* Toujours afficher le nom réel de l'utilisateur, même si le commentaire est anonyme */}
                         <p style={{ margin: 0, fontWeight: "bold" }}>
                           {comment.user_id.username}
                           <span
@@ -1437,6 +1497,116 @@ function ForumModerate() {
                 }}
               >
                 Ban
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal pour la liste des utilisateurs bannis */}
+      {showBannedListModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "600px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+              Banned Users List
+            </h3>
+            <div
+              style={{
+                maxHeight: bannedUsers.length > 3 ? "300px" : "auto",
+                overflowY: bannedUsers.length > 3 ? "auto" : "visible",
+                marginBottom: "20px",
+              }}
+            >
+              {bannedUsers.length > 0 ? (
+                bannedUsers.map((user, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      marginBottom: "10px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px",
+                      borderBottom: "1px solid #ddd",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", flex: 1 }}>
+                      <div style={{ flexShrink: 0, marginRight: "15px" }}>
+                        <img
+                          src={`http://localhost:5000${user.user_id.user_photo}`}
+                          alt="User Avatar"
+                          style={{
+                            width: "40px",
+                            height: "40px",
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ margin: 0, fontWeight: "bold" }}>
+                          {user.user_id.username}
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{ flexShrink: 0 }}>
+                      <img
+                        src={generateQRCodeUrl(user)}
+                        alt="QR Code for ban info"
+                        style={{
+                          width: "90px",
+                          height: "90px",
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p style={{ textAlign: "center" }}>No banned users found!</p>
+              )}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: "10px",
+                marginTop: "20px",
+              }}
+            >
+              <button
+                onClick={() => setShowBannedListModal(false)}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Close
               </button>
             </div>
           </div>
