@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { Bar, Pie } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 
 // Enregistrer les composants nécessaires pour Chart.js
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 // Importer CKEditor
 let CKEditorComponent, ClassicEditor;
@@ -44,7 +44,7 @@ function PublicationPsychiatristAll() {
     const [sortOrder, setSortOrder] = useState('recent');
     const [filterStatus, setFilterStatus] = useState('all');
     const [showStatsModal, setShowStatsModal] = useState(false);
-    const [statsData, setStatsData] = useState({ comments: [], likesDislikes: [] });
+    const [statsData, setStatsData] = useState({ comments: [], likesDislikes: [], views: [] });
 
     const fetchMyPublications = async () => {
         try {
@@ -96,7 +96,12 @@ function PublicationPsychiatristAll() {
                 dislikes: post.dislikeCount || 0,
             }));
 
-            setStatsData({ comments: commentsStats, likesDislikes: likesDislikesStats });
+            const viewsStats = publications.map(post => ({
+                title: stripHtmlTags(post.titrePublication),
+                views: post.viewCount || 0,
+            }));
+
+            setStatsData({ comments: commentsStats, likesDislikes: likesDislikesStats, views: viewsStats });
         } catch (error) {
             console.error('Error fetching stats data:', error);
             toast.error('Failed to load statistics');
@@ -427,6 +432,19 @@ function PublicationPsychiatristAll() {
                 label: 'Dislikes',
                 data: statsData.likesDislikes.map(stat => stat.dislikes),
                 backgroundColor: 'rgba(220, 53, 69, 0.6)',
+            },
+        ],
+    };
+
+    const viewsChartData = {
+        labels: statsData.views.map(stat => stat.title),
+        datasets: [
+            {
+                label: 'Nombre de vues',
+                data: statsData.views.map(stat => stat.views),
+                backgroundColor: 'rgba(255, 193, 7, 0.6)',
+                borderColor: 'rgba(255, 193, 7, 1)',
+                borderWidth: 1,
             },
         ],
     };
@@ -1108,7 +1126,7 @@ function PublicationPsychiatristAll() {
                                 }}
                             />
                         </div>
-                        <div>
+                        <div style={{ marginBottom: '30px' }}>
                             <h4>Likes and Dislikes per Publication</h4>
                             <Bar
                                 data={likesDislikesChartData}
@@ -1120,6 +1138,23 @@ function PublicationPsychiatristAll() {
                                     },
                                     scales: {
                                         y: { beginAtZero: true, title: { display: true, text: 'Nombre' } },
+                                        x: { title: { display: true, text: 'Publications' } },
+                                    },
+                                }}
+                            />
+                        </div>
+                        <div style={{ marginBottom: '30px' }}>
+                            <h4>Views per Publication</h4>
+                            <Bar
+                                data={viewsChartData}
+                                options={{
+                                    responsive: true,
+                                    plugins: {
+                                        legend: { position: 'top' },
+                                        title: { display: true, text: 'Nombre de vues par publication' },
+                                    },
+                                    scales: {
+                                        y: { beginAtZero: true, title: { display: true, text: 'Nombre de vues' } },
                                         x: { title: { display: true, text: 'Publications' } },
                                     },
                                 }}
