@@ -1,13 +1,10 @@
-// models/Schedule.js
-const mongoose = require("mongoose");
-
+const mongoose = require('mongoose');
 const scheduleSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  date: { type: String, required: true }, // Format: YYYY-MM-DD
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  date: { type: String, required: true },
   activities: [{
-    activityId: { type: String, required: true }, // Ou ObjectId si vous référencez Activity
+    activityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Activity' },
     completed: { type: Boolean, default: false },
   }],
 });
-
-module.exports = mongoose.model("Schedule", scheduleSchema);
+module.exports = mongoose.model('Schedule', scheduleSchema);
