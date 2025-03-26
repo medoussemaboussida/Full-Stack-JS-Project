@@ -10,7 +10,6 @@ import VideoChat from './VideoChat';
 const importKeyFromRoomCode = async (roomCode) => {
   const encoder = new TextEncoder();
   const keyMaterial = encoder.encode(roomCode);
-  // Hash the roomCode to ensure a 32-byte key (SHA-256 produces 32 bytes)
   const hashBuffer = await window.crypto.subtle.digest('SHA-256', keyMaterial);
   return window.crypto.subtle.importKey(
     'raw',
@@ -484,18 +483,25 @@ const Chat = () => {
             right: 20px;
             z-index: 10;
           }
-          .export-pdf-btn {
-            background-color: #28a745;
-            color: white;
+          .export-pdf-icon, .leave-room-icon {
+            background: none;
             border: none;
-            padding: 8px 15px;
-            border-radius: 5px;
-            font-size: 0.9rem;
+            font-size: 1.2rem;
             cursor: pointer;
-            transition: background-color 0.3s ease;
+            padding: 0 10px;
+            color: #666;
+            transition: color 0.3s ease;
           }
-          .export-pdf-btn:hover {
-            background-color: #218838;
+          .export-pdf-icon:hover {
+            color: #28a745;
+          }
+          .leave-room-icon:hover {
+            color: #dc3545;
+          }
+          .encryption-text {
+            color: #a2aab7;
+            font-size: 0.9rem;
+            margin: 0;
           }
           .video-call-modal {
             position: fixed;
@@ -565,19 +571,26 @@ const Chat = () => {
                 ) : (
                   <>
                     <div className="card-header d-flex justify-content-between align-items-center p-3">
-                      <h5 className="mb-0">Chat Room</h5>
+                      <div className="d-flex align-items-center">
+                        <h5 className="mb-0 me-2">Chat Room</h5>
+                        <p className="encryption-text mb-0">This chat is end-to-end encrypted</p>
+                      </div>
                       <div>
                         {userRole === 'psychiatrist' && (
-                          <button onClick={exportToPDF} className="export-pdf-btn me-2">
-                            Export to PDF
+                          <button
+                            onClick={exportToPDF}
+                            className="export-pdf-icon me-2"
+                            title="Export to PDF"
+                          >
+                            <i className="fas fa-file-pdf"></i>
                           </button>
                         )}
                         <button
-                          type="button"
-                          className="btn btn-primary btn-sm"
                           onClick={() => setJoinedRoom(null)}
+                          className="leave-room-icon"
+                          title="Leave Room"
                         >
-                          Leave Room
+                          <i className="fas fa-sign-out-alt"></i>
                         </button>
                       </div>
                     </div>
