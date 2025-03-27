@@ -6,6 +6,7 @@ const sendEmail = require('../utils/emailSender');
 const multer = require('multer');
 const path = require('path');
 const Publication = require('../model/publication'); // Assurez-vous que le chemin est correct
+const ReportPublication = require('../model/ReportPublication');
 const Appointment = require("../model/appointment");
 const Chat = require("../model/chat");
 const { v4: uuidv4 } = require('uuid');
@@ -1044,6 +1045,124 @@ module.exports.searchPublications = async (req, res) => {
         res.status(500).json({ message: 'Erreur serveur', error: error.message });
     }
 };
+
+
+
+// Ajouter un signalement
+module.exports.addReport = async (req, res) => {
+    try {
+        const { id } = req.params; // ID de la publication à signaler
+        const { reason, customReason } = req.body;
+        const userId = req.userId; // Récupéré via verifyToken
+
+        const publication = await Publication.findById(id);
+        if (!publication) {
+            return res.status(404).json({ message: 'Publication non trouvée' });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'Utilisateur non trouvé' });
+        }
+
+        const existingReport = await ReportPublication.findOne({ publicationId: id, userId });
+        if (existingReport) {
+            return res.status(400).json({ message: 'Vous avez déjà signalé cette publication' });
+        }
+
+        const report = new ReportPublication({
+            publicationId: id,
+            userId,
+            reason,
+            customReason: reason === 'other' ? customReason : undefined,
+        });
+
+        const savedReport = await report.save();
+
+        res.status(201).json({
+            message: 'Signalement ajouté avec succès',
+            report: savedReport,
+        });
+    } catch (error) {
+        console.error('Erreur lors de l’ajout du signalement:', error);
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: 'Erreur de validation', error: error.message });
+        }
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Récupérer tous les signalements (pour admin ou psy, par exemple)
+module.exports.getAllReports = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const userRole = req.userRole;
+
+        if (userRole !== 'admin' && userRole !== 'psychiatrist') {
+            return res.status(403).json({ message: 'Accès non autorisé' });
+        }
+
+        const reports = await ReportPublication.find()
+            .populate('publicationId', 'titrePublication description')
+            .populate('userId', 'username email')
+            .sort({ dateReported: -1 });
+
+        res.status(200).json(reports);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des signalements:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Récupérer les signalements d'une publication spécifique
+module.exports.getReportsByPublication = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId;
+        const userRole = req.userRole;
+
+        const publication = await Publication.findById(id);
+        if (!publication) {
+            return res.status(404).json({ message: 'Publication non trouvée' });
+        }
+
+        if (userRole !== 'admin' && userRole !== 'psychiatrist' && publication.author_id.toString() !== userId) {
+            return res.status(403).json({ message: 'Accès non autorisé' });
+        }
+
+        const reports = await ReportPublication.find({ publicationId: id })
+            .populate('userId', 'username email')
+            .sort({ dateReported: -1 });
+
+        res.status(200).json(reports);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des signalements:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Supprimer un signalement (pour admin ou psy)
+module.exports.deleteReport = async (req, res) => {
+    try {
+        const { reportId } = req.params;
+        const userRole = req.userRole;
+
+        if (userRole !== 'admin' && userRole !== 'psychiatrist') {
+            return res.status(403).json({ message: 'Accès non autorisé' });
+        }
+
+        const report = await ReportPublication.findByIdAndDelete(reportId);
+        if (!report) {
+            return res.status(404).json({ message: 'Signalement non trouvé' });
+        }
+
+        res.status(200).json({ message: 'Signalement supprimé avec succès' });
+    } catch (error) {
+        console.error('Erreur lors de la suppression du signalement:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
 
 //supprimer student
 module.exports.deleteStudentById = async (req, res) => {

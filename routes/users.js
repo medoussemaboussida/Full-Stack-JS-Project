@@ -39,6 +39,10 @@ router.get('/searchPublications', userController.searchPublications);
 router.post('/publication/pin/:publicationId', userController.verifyToken, userController.togglePinPublication); // Nouvelle route pour épingler/désépingler
 router.get('/pinnedPublications', userController.verifyToken, userController.getPinnedPublications); // Nouvelle route pour récupérer les épinglés
 router.put('/update-receive-emails/:id', userController.verifyToken, userController.updateReceiveEmails); // Nouvelle route
+router.post('/publication/report/:id', userController.verifyToken, userController.addReport);
+router.get('/reports', userController.verifyToken, userController.getAllReports);
+router.get('/publication/reports/:id', userController.verifyToken, userController.getReportsByPublication);
+
 
 
 
