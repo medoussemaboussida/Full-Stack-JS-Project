@@ -200,7 +200,7 @@ function AddPublication() {
             const result = await response.json();
             console.log('Réponse du backend:', result);
             if (response.ok) {
-                toast.success('Publication ajoutée avec succès !');
+                toast.success('Publication added successfully !');
                 setFormData({ titrePublication: '', description: '', imagePublication: null, tags: [''], scheduledDate: '', publishNow: true });
                 setPreviewImage(null);
                 setTimeout(() => navigate('/Publication'), 2000);
