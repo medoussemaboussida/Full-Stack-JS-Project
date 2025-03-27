@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Box, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Select, MenuItem, InputLabel, FormControl, Alert, IconButton, InputBase,
-  Divider, Chip, Avatar, Badge, Tooltip
+  Divider, Chip, Avatar, Badge, Tooltip, List, ListItem, ListItemText
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import EditIcon from "@mui/icons-material/Edit";
@@ -11,12 +11,14 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import CommentIcon from "@mui/icons-material/Comment";
 import ReportIcon from "@mui/icons-material/Report";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import NotificationsOutlinedIcon from "@mui/icons-material/NotificationsOutlined";
 import Header from "../../components/Header";
 import SearchIcon from "@mui/icons-material/Search";
 import { useTheme } from "@mui/material";
 import { tokens } from "../../theme";
 import Snackbar from '@mui/material/Snackbar';
 import html2pdf from "html2pdf.js";
+import { useNotification } from "../publication/NotificationContext"; // Importer le contexte
 
 // Fonction pour supprimer les balises HTML
 const stripHtmlTags = (str) => {
@@ -25,6 +27,7 @@ const stripHtmlTags = (str) => {
 };
 
 const Publication = () => {
+  const { reportedPublications, addReportedPublication, removeReportedPublication } = useNotification(); // Utiliser le contexte
   const [publications, setPublications] = useState([]);
   const [filteredPublications, setFilteredPublications] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -36,11 +39,13 @@ const Publication = () => {
   const [openProfileModal, setOpenProfileModal] = useState(false);
   const [openCommentsModal, setOpenCommentsModal] = useState(false);
   const [openReportsModal, setOpenReportsModal] = useState(false);
+  const [openNotificationsModal, setOpenNotificationsModal] = useState(false); // État pour le modal des notifications
   const [comments, setComments] = useState([]);
   const [reports, setReports] = useState([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [authorFilter, setAuthorFilter] = useState("all");
   const [authors, setAuthors] = useState([]);
+  const [reportedPublicationsLocal, setReportedPublicationsLocal] = useState(new Set()); // Suivi des publications déjà signalées pour l'alerte
   const navigate = useNavigate();
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
@@ -60,21 +65,24 @@ const Publication = () => {
       if (!res.ok) throw new Error("Failed to fetch publications");
       const data = await res.json();
 
-      console.log("📋 Données brutes des publications:", data); // Log pour déboguer
+      console.log("📋 Données brutes des publications:", data);
 
       if (Array.isArray(data)) {
         const pubs = await Promise.all(
           data.map(async (pub) => {
-            // Vérifier si le champ reports existe
             if (pub.reports && Array.isArray(pub.reports)) {
               console.log(`✅ Publication ${pub._id} a ${pub.reports.length} signalements`);
-              return {
+              const newPub = {
                 id: pub._id,
                 ...pub,
                 reportCount: pub.reports.length,
               };
+              // Ajouter la publication aux notifications si elle a des signalements
+              if (newPub.reportCount > 0) {
+                addReportedPublication(newPub); // Le contexte vérifiera si elle a déjà été vue
+              }
+              return newPub;
             } else {
-              // Si reports n'est pas inclus, faire une requête séparée pour récupérer les signalements
               console.log(`⚠️ Publication ${pub._id} n'a pas de champ reports, récupération séparée...`);
               try {
                 const reportRes = await fetch(`http://localhost:5000/users/publication/reports/${pub._id}`, {
@@ -83,11 +91,20 @@ const Publication = () => {
                 if (!reportRes.ok) throw new Error(`Failed to fetch reports for publication ${pub._id}`);
                 const reportData = await reportRes.json();
                 console.log(`📊 Signalements pour ${pub._id}:`, reportData);
-                return {
+
+                const reportCount = Array.isArray(reportData) ? reportData.length : 0;
+                const newPub = {
                   id: pub._id,
                   ...pub,
-                  reportCount: Array.isArray(reportData) ? reportData.length : 0,
+                  reportCount,
                 };
+
+                // Ajouter la publication aux notifications si elle a des signalements
+                if (reportCount > 0) {
+                  addReportedPublication(newPub); // Le contexte vérifiera si elle a déjà été vue
+                }
+
+                return newPub;
               } catch (err) {
                 console.error(`❌ Erreur lors de la récupération des signalements pour ${pub._id}:`, err);
                 return {
@@ -100,7 +117,19 @@ const Publication = () => {
           })
         );
 
-        console.log("📋 Publications avec reportCount:", pubs); // Log final pour vérifier
+        console.log("📋 Publications avec reportCount:", pubs);
+
+        // Vérifier les publications avec 2 signalements ou plus pour l'alerte
+        pubs.forEach((pub) => {
+          if (pub.reportCount >= 2 && !reportedPublicationsLocal.has(pub.id)) {
+            setNotification({
+              open: true,
+              message: `⚠️ Publication "${stripHtmlTags(pub.titrePublication)}" a atteint ${pub.reportCount} signalements !`,
+              severity: "warning",
+            });
+            setReportedPublicationsLocal((prev) => new Set(prev).add(pub.id));
+          }
+        });
 
         setPublications(pubs);
         const uniqueAuthors = [...new Set(pubs.map(pub => pub.author_id?.username).filter(Boolean))];
@@ -267,6 +296,25 @@ const Publication = () => {
         console.error("❌ Error retrieving reports:", err);
         setNotification({ open: true, message: "Failed to load reports!", severity: "error" });
       });
+  };
+
+  const handleOpenNotifications = () => {
+    setOpenNotificationsModal(true);
+  };
+
+  const handleCloseNotifications = () => {
+    setOpenNotificationsModal(false);
+  };
+
+  const handleViewReportedPublication = (publication) => {
+    // Supprimer la publication de la liste des notifications
+    removeReportedPublication(publication.id);
+
+    // Fermer le modal des notifications
+    handleCloseNotifications();
+
+    // Afficher les détails de la publication
+    handleViewProfile(publication.id);
   };
 
   const generatePDF = () => {
@@ -489,7 +537,7 @@ const Publication = () => {
         <Snackbar
           anchorOrigin={{ vertical: "top", horizontal: "center" }}
           open={notification.open}
-          autoHideDuration={3000}
+          autoHideDuration={10000}
           onClose={() => setNotification({ ...notification, open: false })}
         >
           <Alert
@@ -587,6 +635,26 @@ const Publication = () => {
             ))}
           </Select>
         </FormControl>
+        <IconButton onClick={handleOpenNotifications}>
+          <Badge
+            badgeContent={reportedPublications.length}
+            color="error"
+            sx={{
+              "& .MuiBadge-badge": {
+                backgroundColor: reportedPublications.length > 0 ? "#ff1744" : "#bdbdbd",
+                color: "#fff",
+                fontSize: "0.7rem",
+                height: "18px",
+                minWidth: "18px",
+                borderRadius: "50%",
+                border: "2px solid #fff",
+                boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
+              },
+            }}
+          >
+            <NotificationsOutlinedIcon />
+          </Badge>
+        </IconButton>
         <Button
           variant="contained"
           startIcon={<PictureAsPdfIcon />}
@@ -1004,6 +1072,99 @@ const Publication = () => {
             }}
           >
             Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal pour les Notifications */}
+      <Dialog
+        open={openNotificationsModal}
+        onClose={handleCloseNotifications}
+        maxWidth="sm"
+        fullWidth
+        sx={{
+          "& .MuiDialog-paper": {
+            borderRadius: "12px",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+            backgroundColor: colors.primary[400],
+            overflow: "hidden",
+            transition: "all 0.3s ease-in-out",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontSize: "1.5rem",
+            fontWeight: "600",
+            textAlign: "center",
+            backgroundColor: colors.blueAccent[700],
+            color: "#fff",
+            padding: "16px 24px",
+            borderBottom: `1px solid ${colors.grey[700]}`,
+          }}
+        >
+          Notifications de Signalements
+        </DialogTitle>
+        <DialogContent
+          sx={{
+            padding: "24px",
+            backgroundColor: colors.primary[500],
+            color: colors.grey[100],
+            maxHeight: "50vh",
+            overflowY: "auto",
+          }}
+        >
+          {reportedPublications.length > 0 ? (
+            <List>
+              {reportedPublications.map((pub) => (
+                <ListItem
+                  key={pub.id}
+                  button
+                  onClick={() => handleViewReportedPublication(pub)}
+                  sx={{
+                    backgroundColor: colors.primary[600],
+                    borderRadius: "8px",
+                    mb: "8px",
+                    "&:hover": {
+                      backgroundColor: colors.primary[700],
+                    },
+                  }}
+                >
+                  <ListItemText
+                    primary={stripHtmlTags(pub.titrePublication)}
+                    secondary={`Signalée ${pub.reportCount} fois`}
+                    primaryTypographyProps={{ color: colors.grey[100], fontWeight: "bold" }}
+                    secondaryTypographyProps={{ color: colors.grey[300] }}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          ) : (
+            <Typography sx={{ textAlign: "center", color: colors.grey[300], fontSize: "1.2rem" }}>
+              Aucune publication signalée pour le moment.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions
+          sx={{
+            padding: "16px 24px",
+            backgroundColor: colors.primary[400],
+            borderTop: `1px solid ${colors.grey[700]}`,
+          }}
+        >
+          <Button
+            onClick={handleCloseNotifications}
+            variant="outlined"
+            sx={{
+              fontSize: "1.1rem",
+              color: colors.grey[100],
+              borderColor: colors.grey[600],
+              padding: "8px 16px",
+              borderRadius: "8px",
+              "&:hover": { backgroundColor: colors.grey[800], borderColor: colors.grey[500] },
+            }}
+          >
+            Fermer
           </Button>
         </DialogActions>
       </Dialog>
