@@ -65,6 +65,7 @@ function ActivitySchedule() {
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [currentNoteDate, setCurrentNoteDate] = useState(null);
   const [currentNote, setCurrentNote] = useState("");
+  const [isLoadingNotes, setIsLoadingNotes] = useState(true); // New state for notes loading
   const dates = generateDatesForMonth(currentDate);
   const navigate = useNavigate();
 
@@ -178,6 +179,7 @@ function ActivitySchedule() {
         return;
       }
 
+      setIsLoadingNotes(true);
       const response = await fetch(`http://localhost:5000/users/notes/${userId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -185,18 +187,33 @@ function ActivitySchedule() {
       });
 
       const data = await response.json();
-      console.log("Fetched notes:", data); // Debug log to check the response
+      console.log("Fetched notes from API:", JSON.stringify(data, null, 2));
       if (response.ok) {
-        setNotes(data.notes || {});
+        if (data.notes && typeof data.notes === "object") {
+          setNotes(data.notes);
+          console.log("Notes set to state:", JSON.stringify(data.notes, null, 2));
+        } else {
+          console.warn("Notes data is not in the expected format:", data.notes);
+          setNotes({});
+        }
       } else {
         toast.error(`Failed to fetch notes: ${data.message}`);
       }
     } catch (error) {
       console.error("Error fetching notes:", error);
       toast.error("An error occurred while fetching notes.");
+    } finally {
+      setIsLoadingNotes(false);
     }
   };
 
+
+  console.log("Current notes state:", JSON.stringify(notes, null, 2));
+  // OR add this in the JSX for visual debugging:
+  <div style={{ margin: "20px", padding: "10px", backgroundColor: "#f0f0f0" }}>
+    <h4>Debug Notes State:</h4>
+    <pre>{JSON.stringify(notes, null, 2)}</pre>
+  </div>
   // Save scheduled activities (Corrected version)
   const saveScheduledActivities = async (date, activities) => {
     try {
@@ -467,26 +484,33 @@ function ActivitySchedule() {
         const decoded = jwtDecode(token);
         if (decoded.id) {
           setUserId(decoded.id);
-          fetchActivities();
-          fetchFavoriteActivities(decoded.id);
-          fetchScheduledActivities(decoded.id);
-          fetchNotes();
-          fetchMoods().then((moodsData) => {
-            setMoods(moodsData);
-          });
+          setIsLoading(true);
+          Promise.all([
+            fetchActivities(),
+            fetchFavoriteActivities(decoded.id),
+            fetchScheduledActivities(decoded.id),
+            fetchNotes(),
+            fetchMoods().then((moodsData) => setMoods(moodsData)),
+          ]).finally(() => setIsLoading(false));
         }
-
       } catch (error) {
         console.error("Invalid token:", error);
         toast.error("Invalid session, please log in again.");
         navigate("/login");
+        setIsLoading(false);
+        setIsLoadingNotes(false);
       }
     } else {
       toast.error("You must be logged in to access this page.");
       navigate("/login");
+      setIsLoading(false);
+      setIsLoadingNotes(false);
     }
-    setIsLoading(false);
-  }, [navigate]);
+  }, [navigate, userId]);
+
+  if (isLoading || isLoadingNotes) {
+    return <div style={{ textAlign: "center", padding: "20px", fontSize: "18px" }}>Loading...</div>;
+  }
 
   // Open modal to schedule activities for a specific date
   const handleScheduleActivity = (date) => {
@@ -1344,10 +1368,11 @@ function ActivitySchedule() {
                           </ul>
                         )}
                         {notes[dateStr] && (
-                          <div style={{ fontSize: "10px", color: "#666", marginTop: "5px" }}>
-                            <FontAwesomeIcon icon={faStickyNote} /> Note added
-                          </div>
-                        )}
+                            <div style={{ fontSize: "10px", color: "#666", marginTop: "5px" }}>
+                              <FontAwesomeIcon icon={faStickyNote} />{" "}
+                              <span title={notes[dateStr]}>{notes[dateStr].length > 20 ? `${notes[dateStr].slice(0, 20)}...` : notes[dateStr]}</span>
+                            </div>
+                          )}
                       </>
                     )}
                   </div>

@@ -12,6 +12,8 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const GithubStrategy = require("passport-github2").Strategy;
 const createError = require('http-errors');
 const userModel = require('./model/user');
+const Schedule = require('./model/Schedule'); // Add this line
+const Activity = require('./model/activity'); // Add this line
 const jwt = require("jsonwebtoken");
 const crypto = require('crypto');
 const association = require("./model/association");
@@ -24,6 +26,8 @@ var complaintRouter = require('./routes/complaint');
 var complaintResponseRouter = require('./routes/complaintResponse');
 const associationRoutes = require('./routes/association');
 const eventRoutes = require('./routes/event');
+const nodemailer = require('nodemailer'); // Add this line
+const cron = require('node-cron'); // Add this line
 const app = express();
 
 
@@ -93,6 +97,78 @@ app.use('/complaint',complaintRouter);
 app.use('/complaintResponse',complaintResponseRouter);
 app.use('/association', associationRoutes);
 app.use('/events', eventRoutes);
+
+
+
+// Email transporter configuration
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+// Function to send reminder email
+const sendReminderEmail = async (userEmail, activities, date) => {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: userEmail,
+    subject: `Your Activity Schedule Reminder for ${date}`,
+    html: `
+      <h2>Your Schedule for ${date}</h2>
+      <p>Here are your scheduled activities for today:</p>
+      <ul>
+        ${activities.map((activity) => `<li>${activity.title} ${activity.completed ? '(Completed)' : ''}</li>`).join('')}
+      </ul>
+      <p>Have a great day!</p>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Reminder email sent to ${userEmail}`);
+  } catch (error) {
+    console.error(`Error sending email to ${userEmail}:`, error);
+  }
+};
+
+// Function to fetch schedules and send daily reminders
+const sendDailyReminders = async () => {
+  const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+  try {
+    const users = await userModel.find(); // Fetch all users
+
+    for (const user of users) {
+      const schedule = await Schedule.findOne({ userId: user._id, date: today });
+
+      if (schedule && schedule.activities.length > 0) {
+        const activityDetails = await Promise.all(
+          schedule.activities.map(async (sched) => {
+            const activity = await Activity.findById(sched.activityId);
+            return {
+              title: activity ? activity.title : 'Unknown Activity',
+              completed: sched.completed,
+            };
+          })
+        );
+
+        if (activityDetails.length > 0) {
+          await sendReminderEmail(user.email, activityDetails, today);
+        }
+      }
+    }
+    console.log('Daily reminders sent successfully');
+  } catch (error) {
+    console.error('Error in sendDailyReminders:', error);
+  }
+};
+
+// Schedule the reminder task to run every day at 3:20 AM
+cron.schedule('0 8 * * *', () => { // Keep as is for testing, change to '20 3 * * *' for 3:20 AM
+  console.log('Running daily reminder task at 3:20 AM...');
+  sendDailyReminders();
+});
 
 async function generateHashedPassword() {
   const randomPassword = crypto.randomBytes(16).toString('hex'); // 32 caractères aléatoires

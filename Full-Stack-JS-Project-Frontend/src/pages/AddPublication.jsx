@@ -1,8 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import EmojiPicker from 'emoji-picker-react';
 import 'react-toastify/dist/ReactToastify.css';
+
+// Fonction utilitaire pour debounce (non utilisée ici, mais conservée pour référence)
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
 
 function AddPublication() {
     const [formData, setFormData] = useState({
@@ -17,6 +30,7 @@ function AddPublication() {
     const [previewImage, setPreviewImage] = useState(null);
     const [showTitleEmojiPicker, setShowTitleEmojiPicker] = useState(false);
     const [showDescEmojiPicker, setShowDescEmojiPicker] = useState(false);
+    const [isLoadingTags, setIsLoadingTags] = useState(false);
     const navigate = useNavigate();
 
     let CKEditorComponent, ClassicEditor;
@@ -27,6 +41,60 @@ function AddPublication() {
     } catch (error) {
         console.error('Failed to load CKEditor:', error);
     }
+
+    // Fonction pour générer des tags avec l'API de Groq
+    const generateTagsFromDescription = async () => {
+        if (!formData.description || formData.description.trim() === '') {
+            toast.error('Veuillez entrer une description pour générer des tags.');
+            return [''];
+        }
+
+        const plainText = formData.description.replace(/<[^>]+>/g, '').trim();
+
+        try {
+            setIsLoadingTags(true);
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer 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',
+                },
+                body: JSON.stringify({
+                    model: 'llama-3.3-70b-versatile',
+                    messages: [
+                        {
+                            role: 'user',
+                            content: `Génère 5 tags significatifs pour ce texte en français : "${plainText}". Retourne uniquement les tags séparés par des virgules, sans texte supplémentaire (exemple : "tag1, tag2, tag3, tag4, tag5").`,
+                        },
+                    ],
+                    max_tokens: 50,
+                    temperature: 0.5,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('Détails de l’erreur API Groq:', errorData);
+                throw new Error(`Erreur API Groq : ${errorData.error?.message || 'Erreur inconnue'}`);
+            }
+
+            const data = await response.json();
+            const rawTags = data.choices[0].message.content.trim();
+            const tags = rawTags
+                .split(',')
+                .map(tag => tag.replace(/[*#]+/g, '').trim())
+                .filter(tag => tag.length > 0)
+                .slice(0, 5);
+
+            setFormData((prev) => ({ ...prev, tags: tags.length > 0 ? tags : [''] }));
+        } catch (error) {
+            console.error('Erreur lors de la génération des tags:', error);
+            toast.error(`Erreur lors de la génération des tags : ${error.message}`);
+            setFormData((prev) => ({ ...prev, tags: [''] }));
+        } finally {
+            setIsLoadingTags(false);
+        }
+    };
 
     const calculateProgress = () => {
         let filledFields = 0;
@@ -187,7 +255,6 @@ function AddPublication() {
                                 <form onSubmit={handleSubmit}>
                                     <div style={{ marginBottom: '30px' }}>
                                         <h3 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '20px' }}>Publication Details</h3>
-                                        {/* Title Field */}
                                         <h5>Title</h5>
                                         <div style={{ marginBottom: '20px', position: 'relative' }}>
                                             {CKEditorComponent && ClassicEditor ? (
@@ -264,7 +331,6 @@ function AddPublication() {
                                             )}
                                         </div>
 
-                                        {/* Description Field */}
                                         <h5>Description</h5>
                                         <div style={{ marginBottom: '20px', position: 'relative' }}>
                                             {CKEditorComponent && ClassicEditor ? (
@@ -342,10 +408,59 @@ function AddPublication() {
                                                     )}
                                                 </>
                                             )}
+                                            <button
+                                                type="button"
+                                                onClick={generateTagsFromDescription}
+                                                disabled={isLoadingTags}
+                                                style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    background: isLoadingTags ? '#ccc' : '#6b48ff',
+                                                    color: '#fff',
+                                                    padding: '10px 20px',
+                                                    borderRadius: '8px',
+                                                    border: 'none',
+                                                    fontSize: '16px',
+                                                    fontWeight: '600',
+                                                    cursor: isLoadingTags ? 'not-allowed' : 'pointer',
+                                                    marginTop: '10px',
+                                                    boxShadow: '0 4px 12px rgba(107, 72, 255, 0.3)',
+                                                    transition: 'all 0.3s ease',
+                                                    gap: '8px',
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    if (!isLoadingTags) {
+                                                        e.target.style.background = '#5439cc';
+                                                        e.target.style.transform = 'scale(1.05)';
+                                                    }
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    if (!isLoadingTags) {
+                                                        e.target.style.background = '#6b48ff';
+                                                        e.target.style.transform = 'scale(1)';
+                                                    }
+                                                }}
+                                            >
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="20"
+                                                    height="20"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                >
+                                                    <path d="M12 2a10 10 0 0 1 10 10 10 10 0 0 1-10 10 10 10 0 0 1-10-10 10 10 0 0 1 10-10z" />
+                                                    <path d="M12 8v8" />
+                                                    <path d="M8 12h8" />
+                                                </svg>
+                                                {isLoadingTags ? 'Génération...' : 'Générer les tags avec IA'}
+                                            </button>
                                         </div>
 
-                                        {/* Tags Field */}
-                                        <h5>Tags</h5>
+                                        <h5>Tags {isLoadingTags ? ' - Chargement...' : ''}</h5>
                                         {formData.tags.map((tag, index) => (
                                             <div key={index} style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
                                                 <input
@@ -354,6 +469,7 @@ function AddPublication() {
                                                     value={tag}
                                                     onChange={handleChange}
                                                     placeholder={`Tag ${index + 1}`}
+                                                    disabled={isLoadingTags}
                                                     style={{
                                                         width: '100%',
                                                         padding: '12px',
@@ -362,35 +478,38 @@ function AddPublication() {
                                                         fontSize: '16px',
                                                         outline: 'none',
                                                         marginRight: '10px',
+                                                        backgroundColor: isLoadingTags ? '#f0f0f0' : '#fff',
                                                     }}
                                                 />
-                                                {index > 0 && (
+                                                {formData.tags.length > 1 && (
                                                     <button
                                                         type="button"
                                                         onClick={() => removeTagField(index)}
+                                                        disabled={isLoadingTags}
                                                         style={{
                                                             background: '#ff4d4d',
                                                             color: '#fff',
                                                             border: 'none',
                                                             borderRadius: '5px',
                                                             padding: '5px 10px',
-                                                            cursor: 'pointer',
+                                                            cursor: isLoadingTags ? 'not-allowed' : 'pointer',
                                                         }}
                                                     >
                                                         -
                                                     </button>
                                                 )}
-                                                {index === formData.tags.length - 1 && (
+                                                {index === formData.tags.length - 1 && formData.tags.length < 5 && (
                                                     <button
                                                         type="button"
                                                         onClick={addTagField}
+                                                        disabled={isLoadingTags}
                                                         style={{
                                                             background: '#0ea5e6',
                                                             color: '#fff',
                                                             border: 'none',
                                                             borderRadius: '5px',
                                                             padding: '5px 10px',
-                                                            cursor: 'pointer',
+                                                            cursor: isLoadingTags ? 'not-allowed' : 'pointer',
                                                             marginLeft: '10px',
                                                         }}
                                                     >
@@ -400,7 +519,6 @@ function AddPublication() {
                                             </div>
                                         ))}
 
-                                        {/* Scheduling Field */}
                                         <h5 style={{ marginBottom: '15px', fontSize: '18px', fontWeight: '600', color: '#333' }}>
                                             Publication Schedule
                                         </h5>
@@ -523,7 +641,6 @@ function AddPublication() {
                                             )}
                                         </div>
 
-                                        {/* Image Upload */}
                                         <div style={{ marginBottom: '20px' }}>
                                             <input
                                                 type="file"
@@ -565,16 +682,16 @@ function AddPublication() {
                                     </div>
                                     <button
                                         type="submit"
-                                        disabled={isSubmitting}
+                                        disabled={isSubmitting || isLoadingTags}
                                         style={{
-                                            background: isSubmitting ? '#ccc' : '#0ea5e6',
+                                            background: isSubmitting || isLoadingTags ? '#ccc' : '#0ea5e6',
                                             color: '#fff',
                                             padding: '12px 24px',
                                             borderRadius: '5px',
                                             border: 'none',
                                             fontSize: '16px',
                                             fontWeight: '600',
-                                            cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                                            cursor: isSubmitting || isLoadingTags ? 'not-allowed' : 'pointer',
                                         }}
                                     >
                                         {isSubmitting ? 'Submitting...' : 'Submit Publication'}
@@ -582,7 +699,6 @@ function AddPublication() {
                                 </form>
                             </div>
 
-                            {/* Sidebar */}
                             <div style={{ background: '#fff', padding: '30px', borderRadius: '10px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
                                 <div style={{ position: 'relative' }}>
                                     <img
