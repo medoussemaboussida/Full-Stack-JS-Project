@@ -9,6 +9,8 @@ const Publication = require('../model/publication'); // Assurez-vous que le chem
 const Appointment = require("../model/appointment");
 const Chat = require("../model/chat");
 const Room = require("../model/Room");
+const Problem = require('../model/problem'); // Add Problem model
+const AttendanceSheet = require('../model/attendanceSheet'); // Add Problem model
 
 const cron = require('node-cron'); // Ajoutez cette dépendance pour les tâches planifiées
 
@@ -1919,3 +1921,267 @@ module.exports.sendMessage = async (req, res) => {
             res.status(500).json({ message: 'Server error' });
         }
     };
+
+// Create a problem
+module.exports.createProblem = async (req, res) => {
+    const userId = req.userId; // Utilisez l'ID du token directement
+    const { what, source, reaction, resolved, satisfaction, startDate, endDate } = req.body;
+  
+    try {
+      const problem = new Problem({
+        userId,
+        what,
+        source,
+        reaction,
+        resolved: resolved || false,
+        satisfaction: satisfaction || '', // Utiliser une chaîne vide par défaut pour correspondre au frontend
+        startDate: startDate || null, // Accepter une date ou null si non fournie
+        endDate: endDate || null,     // Accepter une date ou null si non fournie
+      });
+      await problem.save();
+      res.status(201).json({ message: 'Problem saved successfully', problem });
+    } catch (error) {
+      res.status(500).json({ message: 'Error saving problem', error: error.message });
+    }
+  };
+  
+  // Get problems with sorting
+  module.exports.getProblems = async (req, res) => {
+    const { userId } = req.params;
+    const { sortBy = 'day' } = req.query; // Default to day sorting
+    if (req.userId !== userId) {
+      return res.status(403).json({ message: 'Unauthorized access.' });
+    }
+  
+    try {
+      let problems;
+      if (sortBy === 'day') {
+        problems = await Problem.find({ userId }).sort({ createdAt: -1 });
+      } else if (sortBy === 'month') {
+        problems = await Problem.aggregate([
+          { $match: { userId: mongoose.Types.ObjectId(userId) } },
+          {
+            $group: {
+              _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+              problems: { $push: '$$ROOT' },
+            },
+          },
+          { $sort: { _id: -1 } },
+        ]);
+      } else if (sortBy === 'year') {
+        problems = await Problem.aggregate([
+          { $match: { userId: mongoose.Types.ObjectId(userId) } },
+          {
+            $group: {
+              _id: { $dateToString: { format: '%Y', date: '$createdAt' } },
+              problems: { $push: '$$ROOT' },
+            },
+          },
+          { $sort: { _id: -1 } },
+        ]);
+      } else {
+        return res.status(400).json({ message: 'Invalid sortBy value. Use day, month, or year.' });
+      }
+      res.status(200).json(problems);
+    } catch (error) {
+      res.status(500).json({ message: 'Error fetching problems', error: error.message });
+    }
+  };
+
+  // Mettre à jour un problème
+// backend/controllers/problemController.js
+module.exports.updateProblem = async (req, res) => {
+    const userId = req.userId;
+    const problemId = req.params.problemId;
+    const { what, source, reaction, resolved, satisfaction, startDate, endDate } = req.body;
+  
+    try {
+      const problem = await Problem.findOneAndUpdate(
+        { _id: problemId, userId },
+        {
+          what,
+          source,
+          reaction,
+          resolved,
+          satisfaction,
+          startDate: startDate ? new Date(startDate) : null, // Convertir en Date ou null
+          endDate: endDate ? new Date(endDate) : null,       // Convertir en Date ou null
+        },
+        { new: true } // Retourner le document mis à jour
+      );
+      if (!problem) return res.status(404).json({ message: 'Problem not found' });
+      res.status(200).json({ message: 'Problem updated successfully', problem });
+    } catch (error) {
+      res.status(500).json({ message: 'Error updating problem', error: error.message });
+    }
+  };
+  
+  // Supprimer un problème
+  module.exports.deleteProblem = async (req, res) => {
+    const { userId, problemId } = req.params;
+  
+    if (req.userId !== userId) {
+      return res.status(403).json({ message: 'Unauthorized access.' });
+    }
+  
+    try {
+      const deletedProblem = await Problem.findOneAndDelete({ _id: problemId, userId });
+  
+      if (!deletedProblem) {
+        return res.status(404).json({ message: 'Problème non trouvé.' });
+      }
+  
+      res.status(200).json({ message: 'Problème supprimé avec succès.' });
+    } catch (error) {
+      console.error('Error deleting problem:', error);
+      res.status(500).json({ message: 'Error deleting problem', error: error.message });
+    }
+  };
+
+
+// Middleware pour vérifier le rôle teacher
+module.exports.isTeacher = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.params.userId);
+        if (!user || user.role !== 'teacher') {
+            return res.status(403).json({ message: "Accès réservé aux enseignants" });
+        }
+        req.user = user; // Attach user to request object
+        next();
+    } catch (error) {
+        res.status(500).json({ message: "Erreur serveur", error: error.message });
+    }
+};
+
+// Create an attendance sheet
+module.exports.createAttendanceSheet = async (req, res) => {
+    try {
+        const { subject, classLevel, speciality, studentIds } = req.body;
+        const teacherId = req.params.userId;
+
+        if (!subject || !classLevel || !speciality || !studentIds) {
+            return res.status(400).json({ message: "Tous les champs (subject, classLevel, speciality, studentIds) sont requis" });
+        }
+
+        const attendanceSheet = new AttendanceSheet({
+            teacher: teacherId,
+            subject,
+            classLevel,
+            speciality,
+            students: studentIds.map(studentId => ({ student: studentId }))
+        });
+
+        const savedSheet = await attendanceSheet.save();
+
+        // Associate the sheet with the teacher
+        await User.findByIdAndUpdate(teacherId, {
+            $push: { attendanceSheets: savedSheet._id }
+        });
+
+        res.status(201).json({ message: "Fiche de présence créée avec succès", attendanceSheet: savedSheet });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de la création de la fiche", error: error.message });
+    }
+};
+
+// Get all attendance sheets for a teacher
+module.exports.getAttendanceSheets = async (req, res) => {
+    try {
+        const teacherId = req.params.userId;
+        const attendanceSheets = await AttendanceSheet
+            .find({ teacher: teacherId })
+            .populate('students.student', 'username email');
+
+        res.status(200).json(attendanceSheets);
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de la récupération des fiches", error: error.message });
+    }
+};
+
+// Get a specific attendance sheet
+module.exports.getAttendanceSheetById = async (req, res) => {
+    try {
+        const { userId, sheetId } = req.params;
+        const attendanceSheet = await AttendanceSheet
+            .findOne({ _id: sheetId, teacher: userId })
+            .populate('students.student', 'username email');
+
+        if (!attendanceSheet) {
+            return res.status(404).json({ message: "Fiche de présence non trouvée" });
+        }
+
+        res.status(200).json(attendanceSheet);
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de la récupération de la fiche", error: error.message });
+    }
+};
+
+// Update attendance for a student
+module.exports.updateAttendance = async (req, res) => {
+    try {
+        const { userId, sheetId } = req.params;
+        const { studentId, present } = req.body;
+
+        if (typeof present !== 'boolean') {
+            return res.status(400).json({ message: "Le champ 'present' doit être un booléen" });
+        }
+
+        const updatedSheet = await AttendanceSheet.findOneAndUpdate(
+            { _id: sheetId, teacher: userId },
+            { $set: { "students.$[elem].present": present } },
+            {
+                arrayFilters: [{ "elem.student": studentId }],
+                new: true
+            }
+        ).populate('students.student', 'username email');
+
+        if (!updatedSheet) {
+            return res.status(404).json({ message: "Fiche de présence non trouvée ou non autorisée" });
+        }
+
+        res.status(200).json({ message: "Présence mise à jour avec succès", attendanceSheet: updatedSheet });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de la mise à jour de la présence", error: error.message });
+    }
+};
+
+// Delete an attendance sheet
+module.exports.deleteAttendanceSheet = async (req, res) => {
+    try {
+        const { userId, sheetId } = req.params;
+
+        const deletedSheet = await AttendanceSheet.findOneAndDelete({
+            _id: sheetId,
+            teacher: userId
+        });
+
+        if (!deletedSheet) {
+            return res.status(404).json({ message: "Fiche de présence non trouvée ou non autorisée" });
+        }
+
+        await User.findByIdAndUpdate(userId, {
+            $pull: { attendanceSheets: sheetId }
+        });
+
+        res.status(200).json({ message: "Fiche de présence supprimée avec succès" });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de la suppression de la fiche", error: error.message });
+    }
+};
+
+// Mark attendance (optional standalone function if needed elsewhere)
+module.exports.markAttendance = async (req, res) => {
+    try {
+        const { attendanceSheetId, studentId, isPresent } = req.body;
+
+        await AttendanceSheet.findByIdAndUpdate(attendanceSheetId, {
+            $set: { "students.$[elem].present": isPresent }
+        }, {
+            arrayFilters: [{ "elem.student": studentId }]
+        });
+
+        res.status(200).json({ message: "Présence marquée avec succès" });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors du marquage de la présence", error: error.message });
+    }
+};

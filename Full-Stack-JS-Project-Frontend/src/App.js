@@ -35,6 +35,8 @@ import ForumModerate from './pages/ForumModerate';
 import StudentDashboard from './pages/StudentDashboard';
 import SleepCalculator from './pages/SleepCalculator';
 import Exercises from './pages/Exercices';
+import Problem from './pages/Problem';
+import ProblemList from './pages/ProblemList';
 
 
 const Layout = ({ children }) => {
@@ -103,6 +105,9 @@ function App(){
         <Route path="/StudentDashboard" element={<StudentDashboard />} />
         <Route path="/SleepCalculator" element={<SleepCalculator />} />
         <Route path="/Exercices" element={<Exercises />} />
+
+        <Route path="/add-Problem" element={<Problem />} />
+        <Route path="/List-problems" element={<ProblemList />} />
 
 
         </Routes>

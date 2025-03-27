@@ -136,4 +136,44 @@ router.post("/pin-activity/:userId", userController.verifyToken, activitiesContr
 // ✅ Note Routes (New for your frontend)
 router.post("/notes/:userId", userController.verifyToken, activitiesController.saveNote);
 router.get("/notes/:userId", userController.verifyToken, activitiesController.getNotes);
+
+router.post('/problems', userController.verifyToken, userController.createProblem);
+router.get('/problems/:userId', userController.verifyToken, userController.getProblems);
+router.put('/problems/:userId/:problemId', userController.verifyToken, userController.updateProblem);
+router.delete('/problems/:userId/:problemId', userController.verifyToken, userController.deleteProblem);
+// Attendance routes
+router.post(
+    '/attendance/:userId',
+    userController.verifyToken,
+    userController.isTeacher,
+    userController.createAttendanceSheet
+);
+
+router.get(
+    '/attendance/:userId',
+    userController.verifyToken,
+    userController.isTeacher,
+    userController.getAttendanceSheets
+);
+
+router.get(
+    '/attendance/:userId/:sheetId',
+    userController.verifyToken,
+    userController.isTeacher,
+    userController.getAttendanceSheetById
+);
+
+router.put(
+    '/attendance/:userId/:sheetId',
+    userController.verifyToken,
+    userController.isTeacher,
+    userController.updateAttendance
+);
+
+router.delete(
+    '/attendance/:userId/:sheetId',
+    userController.verifyToken,
+    userController.isTeacher,
+    userController.deleteAttendanceSheet
+);
 module.exports = router;
