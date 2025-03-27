@@ -8,11 +8,8 @@ const path = require('path');
 const Publication = require('../model/publication'); // Assurez-vous que le chemin est correct
 const Appointment = require("../model/appointment");
 const Chat = require("../model/chat");
-const Room = require("../model/Room");
-
-const cron = require('node-cron'); // Ajoutez cette dépendance pour les tâches planifiées
-
 const { v4: uuidv4 } = require('uuid');
+const cron = require('node-cron'); 
 
 
 const Commentaire = require('../model/commentaire'); // Importer le modèle Commentaire
@@ -1816,66 +1813,104 @@ module.exports.getAllAppointments = async (req, res) => {
 
 
 // Send a message
-// Send a message
 module.exports.sendMessage = async (req, res) => {
     try {
-      const { roomCode, encryptedMessage, iv } = req.body;
-      console.log('Received payload:', { roomCode, encryptedMessage, iv });
+      const { roomCode, encryptedMessage, iv, voiceMessage, isVoice } = req.body;
+      console.log('Received payload:', {
+        roomCode,
+        encryptedMessage,
+        iv,
+        voiceMessageLength: voiceMessage?.length,
+        isVoice,
+      });
       console.log('User ID from token:', req.userId);
   
-      if (!roomCode || !encryptedMessage || !iv) {
-        return res.status(400).json({ message: 'roomCode, encryptedMessage, and iv are required' });
+      if (!roomCode) {
+        console.log('Validation failed: roomCode missing');
+        return res.status(400).json({ message: 'roomCode is required' });
       }
-  
       if (!req.userId) {
+        console.log('Validation failed: userId missing');
         return res.status(401).json({ message: 'User ID not found in token' });
       }
   
+      // Validate userId as a valid ObjectId
+      const mongoose = require('mongoose');
+      if (!mongoose.Types.ObjectId.isValid(req.userId)) {
+        console.log('Validation failed: Invalid userId:', req.userId);
+        return res.status(400).json({ message: 'Invalid user ID' });
+      }
+  
+      if (!isVoice && (!encryptedMessage || !iv)) {
+        console.log('Validation failed: encryptedMessage or iv missing for text message');
+        return res.status(400).json({ message: 'encryptedMessage and iv are required for text messages' });
+      }
+      if (isVoice && !voiceMessage) {
+        console.log('Validation failed: voiceMessage missing for voice message');
+        return res.status(400).json({ message: 'voiceMessage is required for voice messages' });
+      }
+  
+      // Add a custom size limit for voice messages (optional)
+      if (isVoice && voiceMessage?.length > 10 * 1024 * 1024) { // 10MB base64 limit
+        console.log('Validation failed: Voice message too large');
+        return res.status(400).json({ message: 'Voice message too large. Keep it under 10MB.' });
+      }
+  
+      console.log('Creating new Chat document...');
       const chat = new Chat({
         roomCode,
-        sender: req.userId, // Use req.userId instead of req.user._id
-        encryptedMessage,
-        iv,
+        sender: req.userId,
+        encryptedMessage: isVoice ? undefined : encryptedMessage,
+        iv: isVoice ? undefined : iv,
+        voiceMessage: isVoice ? voiceMessage : undefined,
+        isVoice: isVoice || false,
       });
   
+      console.log('Saving chat document...');
       await chat.save();
+      console.log('Chat document saved:', chat._id);
+  
+      console.log('Populating sender...');
       const populatedChat = await Chat.findById(chat._id).populate('sender', 'username user_photo');
+      if (!populatedChat) {
+        console.log('Population failed: Chat document not found');
+        return res.status(404).json({ message: 'Chat document not found after saving' });
+      }
+  
       console.log('Saved message:', populatedChat);
       res.status(201).json({ message: 'Message sent successfully', data: populatedChat });
     } catch (err) {
-      console.error('Error sending message:', err);
+      console.error('Error sending message:', err.stack);
       res.status(500).json({ message: 'Failed to send message', error: err.message });
     }
   };
-  
-  // Fetch messages for a room
-  module.exports.RoomChat = async (req, res) => {
-    try {
-      const { roomCode } = req.params;
-      if (!roomCode) {
-        return res.status(400).json({ message: 'roomCode is required' });
-      }
-  
-      const messages = await Chat.find({ roomCode })
-        .populate('sender', 'username user_photo')
-        .sort({ createdAt: 1 });
-      console.log('Returning messages for roomCode:', roomCode, 'Messages:', messages);
-      res.status(200).json(messages);
-    } catch (err) {
-      console.error('Error retrieving messages:', err);
-      res.status(500).json({ message: 'Failed to retrieve messages', error: err.message });
+// Fetch messages for a room
+module.exports.RoomChat = async (req, res) => {
+  try {
+    const { roomCode } = req.params;
+    if (!roomCode) {
+      return res.status(400).json({ message: 'roomCode is required' });
     }
-  };
-  
-  // Deprecated endpoints (no longer needed since we removed public key encryption)
-  module.exports.sharePublicKey = async (req, res) => {
-    res.status(410).json({ message: 'Endpoint deprecated: Encryption simplified' });
-  };
-  
-  module.exports.getPublicKeys = async (req, res) => {
-    res.status(410).json({ message: 'Endpoint deprecated: Encryption simplified' });
-  };
-  
+
+    const messages = await Chat.find({ roomCode })
+      .populate('sender', 'username user_photo')
+      .sort({ createdAt: 1 });
+    console.log('Returning messages for roomCode:', roomCode, 'Messages:', messages);
+    res.status(200).json(messages);
+  } catch (err) {
+    console.error('Error retrieving messages:', err);
+    res.status(500).json({ message: 'Failed to retrieve messages', error: err.message });
+  }
+};
+
+// Deprecated endpoints (unchanged)
+module.exports.sharePublicKey = async (req, res) => {
+  res.status(410).json({ message: 'Endpoint deprecated: Encryption simplified' });
+};
+
+module.exports.getPublicKeys = async (req, res) => {
+  res.status(410).json({ message: 'Endpoint deprecated: Encryption simplified' });
+};
 
   
 

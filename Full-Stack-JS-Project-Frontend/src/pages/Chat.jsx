@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import EmojiPicker from 'emoji-picker-react';
@@ -6,7 +6,7 @@ import { jsPDF } from 'jspdf';
 import { jwtDecode } from 'jwt-decode';
 import VideoChat from './VideoChat';
 
-// Crypto utilities
+// Crypto utilities (unchanged)
 const importKeyFromRoomCode = async (roomCode) => {
   const encoder = new TextEncoder();
   const keyMaterial = encoder.encode(roomCode);
@@ -67,6 +67,15 @@ const Chat = () => {
     const stored = localStorage.getItem('sentMessages');
     return stored ? JSON.parse(stored) : {};
   });
+  const [prevMessageCount, setPrevMessageCount] = useState(0);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingState, setRecordingState] = useState('idle'); // idle, recording, paused, stopped
+  const [audioBlob, setAudioBlob] = useState(null);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const intervalRef = useRef(null); // For polling
+  const timerRef = useRef(null); // For recording duration
 
   useEffect(() => {
     const storedToken = localStorage.getItem('jwt-token');
@@ -105,14 +114,26 @@ const Chat = () => {
     }
   }, [joinedRoom, token]);
 
+  // Polling effect with proper cleanup
   useEffect(() => {
     if (joinedRoom && token) {
-      const fetchWithKey = async () => {
-        const key = await importKeyFromRoomCode(joinedRoom);
-        const interval = setInterval(() => fetchMessages(key), 5000);
-        return () => clearInterval(interval);
+      let key;
+      const startPolling = async () => {
+        key = await importKeyFromRoomCode(joinedRoom);
+        intervalRef.current = setInterval(() => {
+          console.log('Polling messages...');
+          fetchMessages(key);
+        }, 5000);
       };
-      fetchWithKey();
+      startPolling();
+
+      return () => {
+        if (intervalRef.current) {
+          console.log('Cleaning up interval:', intervalRef.current);
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      };
     }
   }, [joinedRoom, token]);
 
@@ -125,10 +146,12 @@ const Chat = () => {
       const response = await axios.get(`http://localhost:5000/users/chat/${joinedRoom}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log('Fetched messages:', response.data);
       const encryptedMessages = response.data || [];
       const decryptedMessages = await Promise.all(
         encryptedMessages.map(async (msg) => {
+          if (msg.isVoice) {
+            return { ...msg, message: '[Voice Message]' };
+          }
           try {
             const ivBuffer = base64ToArrayBuffer(msg.iv);
             if (ivBuffer.byteLength !== 12) throw new Error('Invalid IV length');
@@ -141,7 +164,6 @@ const Chat = () => {
             console.error('Decryption error for message:', msg._id, decryptErr);
             if (msg.sender._id === userId) {
               const roomMessages = sentMessages[joinedRoom] || {};
-              console.log(`Message ${msg._id} from current user, looking up in sentMessages:`, roomMessages);
               const messageContent = roomMessages[msg._id] || '[Your message]';
               return { ...msg, message: messageContent };
             }
@@ -149,7 +171,9 @@ const Chat = () => {
           }
         })
       );
+
       setMessages(decryptedMessages);
+      setPrevMessageCount(decryptedMessages.length);
       setError(null);
     } catch (err) {
       console.error('Error fetching messages:', err);
@@ -170,7 +194,7 @@ const Chat = () => {
     try {
       const key = await importKeyFromRoomCode(joinedRoom);
       const { encryptedMessage, iv } = await encryptMessage(key, newMessage);
-      const payload = { roomCode: joinedRoom, encryptedMessage, iv };
+      const payload = { roomCode: joinedRoom, encryptedMessage, iv, isVoice: false };
       console.log('Sending message with payload:', payload);
       const response = await axios.post(
         'http://localhost:5000/users/chat',
@@ -192,11 +216,158 @@ const Chat = () => {
       });
       setNewMessage('');
       setShowEmojiPicker(false);
-      setTimeout(() => fetchMessages(key), 500);
+      fetchMessages(key);
     } catch (err) {
       console.error('Error sending message:', err.response?.data || err.message);
       setError('Failed to send message: ' + (err.response?.data?.message || err.message || 'Network error'));
     }
+  };
+
+  // Voice Recording Logic with Modern UI
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        if (audioBlob.size > 5 * 1024 * 1024) { // Keep original 5MB limit
+          setError('Audio file too large. Keep it under 5MB.');
+          setRecordingState('idle');
+          setAudioBlob(null);
+          setRecordingDuration(0);
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        setAudioBlob(audioBlob);
+        setRecordingState('stopped');
+        stream.getTracks().forEach((track) => track.stop());
+      };
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+      setRecordingState('recording');
+      setRecordingDuration(0);
+      timerRef.current = setInterval(() => {
+        setRecordingDuration((prev) => prev + 1);
+      }, 1000);
+      setTimeout(() => stopRecording(), 10000); // Stop after 10 seconds
+    } catch (err) {
+      setError('Failed to start recording: ' + err.message);
+      if (err.name === 'NotAllowedError') {
+        setError('Microphone access denied. Please allow microphone access to record voice messages.');
+      }
+    }
+  };
+
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.pause();
+      setRecordingState('paused');
+      clearInterval(timerRef.current);
+    }
+  };
+
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
+      mediaRecorderRef.current.resume();
+      setRecordingState('recording');
+      timerRef.current = setInterval(() => {
+        setRecordingDuration((prev) => prev + 1);
+      }, 1000);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      clearInterval(timerRef.current);
+    }
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      setRecordingState('idle');
+      setAudioBlob(null);
+      setRecordingDuration(0);
+      clearInterval(timerRef.current);
+    }
+  };
+
+  const playRecording = () => {
+    if (audioBlob) {
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.play().catch((err) => setError('Failed to play recording: ' + err.message));
+    }
+  };
+
+  const sendVoiceMessage = async () => {
+    if (!audioBlob || !joinedRoom || !token || !userId) {
+      console.log('Cannot send voice message: Missing required fields', { audioBlob, joinedRoom, token, userId });
+      setError('Cannot send voice message: Missing required fields');
+      return;
+    }
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(audioBlob);
+      reader.onloadend = async () => {
+        const base64Audio = reader.result.split(',')[1];
+        const payload = {
+          roomCode: joinedRoom,
+          voiceMessage: base64Audio,
+          isVoice: true,
+        };
+        console.log('Sending voice message payload:', {
+          roomCode: payload.roomCode,
+          voiceMessageLength: payload.voiceMessage.length,
+          isVoice: payload.isVoice,
+        });
+        try {
+          const response = await axios.post(
+            'http://localhost:5000/users/chat',
+            payload,
+            { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+          );
+          console.log('Voice message sent successfully:', response.data);
+          const messageId = response.data.data._id;
+          setSentMessages((prev) => ({
+            ...prev,
+            [joinedRoom]: {
+              ...(prev[joinedRoom] || {}),
+              [messageId]: '[Voice Message]',
+            },
+          }));
+          setAudioBlob(null);
+          setRecordingState('idle');
+          setRecordingDuration(0);
+          const key = await importKeyFromRoomCode(joinedRoom);
+          fetchMessages(key);
+        } catch (err) {
+          console.error('Voice message request failed:', {
+            status: err.response?.status,
+            data: err.response?.data,
+            message: err.message,
+          });
+          setError('Failed to send voice message. Please try again later.');
+          setRecordingState('stopped'); // Allow retry without discarding the recording
+        }
+      };
+    } catch (err) {
+      console.error('Error in sendVoiceMessage:', err);
+      setError('Failed to send voice message. Please try again later.');
+      setRecordingState('stopped');
+    }
+  };
+
+  const playVoiceMessage = (base64Audio) => {
+    const audio = new Audio(`data:audio/webm;base64,${base64Audio}`);
+    audio.play().catch((err) => setError('Failed to play audio: ' + err.message));
   };
 
   const joinRoom = () => {
@@ -211,6 +382,7 @@ const Chat = () => {
     const normalizedRoomCode = roomCode.trim().toLowerCase();
     setJoinedRoom(normalizedRoomCode);
     setMessages([]);
+    setPrevMessageCount(0);
     setError(null);
   };
 
@@ -226,94 +398,82 @@ const Chat = () => {
     setNewMessage((prev) => prev + emojiObject.emoji);
   };
 
-  const summarizeStudentMessages = (messages, userId) => {
-    if (!messages || messages.length === 0) return 'No messages from the student to summarize.';
-    const studentMessages = messages
-      .filter((msg) => msg.sender._id === userId)
-      .map((msg) => `${msg.sender.username || 'Student'}: ${msg.message}`)
-      .join('\n');
-    if (!studentMessages) return 'No messages from the student found.';
-    const stopWords = new Set([
-      'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from',
-      'has', 'he', 'in', 'is', 'it', 'its', 'of', 'on', 'that', 'the',
-      'to', 'was', 'were', 'will', 'with', 'i', 'you', 'we', 'they',
-    ]);
-    const sentences = studentMessages.split('\n').filter((s) => s.trim() !== '');
-    if (sentences.length === 0) return 'No messages from the student to summarize.';
-    const wordFreq = {};
-    const words = studentMessages.toLowerCase().split(/\s+/);
-    words.forEach((word) => {
-      if (!stopWords.has(word) && word.length > 2) {
-        wordFreq[word] = (wordFreq[word] || 0) + 1;
-      }
-    });
-    const sentenceScores = sentences.map((sentence) => {
-      const sentenceWords = sentence.toLowerCase().split(/\s+/);
-      let score = 0;
-      sentenceWords.forEach((word) => {
-        if (wordFreq[word]) score += wordFreq[word];
-      });
-      return { sentence, score };
-    });
-    const sortedSentences = sentenceScores.sort((a, b) => b.score - a.score);
-    const topSentences = sortedSentences
-      .slice(0, Math.min(2, sortedSentences.length))
-      .map((item) => item.sentence);
-    return topSentences.join('\n');
-  };
-
-  const generateStudentSummary = (messages, userId) => {
-    if (messages.length === 0) return 'No messages to process.';
-    const summary = summarizeStudentMessages(messages, userId);
-    return `Summary of the Student's Messages:\n\n${summary}`;
-  };
-
   const exportToPDF = async () => {
-    const doc = new jsPDF();
-    let yOffset = 10;
-    doc.setFontSize(16);
-    doc.text(`Chat Room: ${joinedRoom}`, 10, yOffset);
-    yOffset += 10;
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+  
+    // Load logo image
+    const logoImg = new Image();
+    logoImg.src = '/assets/img/logo/logo.png';
+    await logoImg.decode();
+  
+    // Page dimensions
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+  
+    // Add header with logo and title
+    doc.addImage(logoImg, 'PNG', 10, 10, 30, 30);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9); // Smaller font size
+    doc.setTextColor(0, 51, 102);
+    doc.text(`Chat Room: ${joinedRoom}`, pageWidth - 135, 15, { align: 'left' });
+
+  
+    // Decorative line
+    doc.setLineWidth(0.5);
+    doc.setDrawColor(0, 51, 102);
+    doc.line(10, 45, pageWidth - 10, 45);
+  
+    // Export timestamp
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Exported on: ${new Date().toLocaleString()}`, pageWidth - 10, 25, { align: 'right' });
+  
+    // Messages section
+    let yOffset = 55;
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
-    doc.text('Chat Messages:', 10, yOffset);
-    yOffset += 10;
-    messages.forEach((msg) => {
-      const sender = msg.sender.username || 'Unknown';
+    doc.setTextColor(0, 0, 0);
+  
+    messages.forEach((msg, index) => {
+      const sender = msg.sender?.username || 'Unknown';
       const time = new Date(msg.createdAt).toLocaleTimeString();
-      const messageText = `[${time}] ${sender}: ${msg.message}`;
-      const splitText = doc.splitTextToSize(messageText, 180);
+      const messageText = `[${time}] ${sender}: ${msg.isVoice ? '[Voice Message]' : msg.message}`;
+  
+      if (index % 2 === 0) {
+        doc.setFillColor(240, 248, 255);
+        doc.rect(10, yOffset - 4, pageWidth - 20, 10, 'F');
+      }
+  
+      const splitText = doc.splitTextToSize(messageText, pageWidth - 40);
       splitText.forEach((line) => {
-        if (yOffset > 280) {
+        if (yOffset > pageHeight - 20) {
           doc.addPage();
-          yOffset = 10;
+          doc.addImage(logoImg, 'PNG', 10, 10, 30, 30);
+          doc.setFontSize(18);
+          doc.setTextColor(0, 51, 102);
+          doc.text(`Chat Room: ${joinedRoom} (Continued)`, pageWidth / 2, 25, { align: 'center' });
+          doc.line(10, 45, pageWidth - 10, 45);
+          yOffset = 55;
         }
-        doc.text(line, 10, yOffset);
+        doc.text(line, 15, yOffset);
         yOffset += 7;
       });
+      yOffset += 3;
     });
-    yOffset += 10;
-    if (yOffset > 280) {
-      doc.addPage();
-      yOffset = 10;
-    }
-    doc.text('--------------------------------------------------', 10, yOffset);
-    yOffset += 10;
-    doc.setFontSize(12);
-    doc.text("Summary of the Student's Messages:", 10, yOffset);
-    yOffset += 10;
-    const summary = generateStudentSummary(messages, userId);
-    const splitSummary = doc.splitTextToSize(summary, 180);
-    splitSummary.forEach((line) => {
-      if (yOffset > 280) {
-        doc.addPage();
-        yOffset = 10;
-      }
-      doc.text(line, 10, yOffset);
-      yOffset += 7;
-    });
+  
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(' EspritCare - Chat History', pageWidth / 2, pageHeight - 10, { align: 'center' });
+  
+    // Save the PDF
     doc.save(`chat_room_${joinedRoom}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
-
+  
   const joinVideoChat = () => {
     if (!joinedRoom || !userId) {
       setError('Please join a room and ensure you are logged in.');
@@ -324,6 +484,12 @@ const Chat = () => {
 
   const closeVideoChat = () => {
     setShowVideoCall(false);
+  };
+
+  const formatDuration = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
   if (!token) {
@@ -453,7 +619,7 @@ const Chat = () => {
             font-weight: bold;
             margin-bottom: 5px;
           }
-          .emoji-button {
+          .emoji-button, .video-button, .voice-button, .refresh-button, .send-button {
             background: none;
             border: none;
             font-size: 1.2rem;
@@ -462,20 +628,25 @@ const Chat = () => {
             color: #666;
             transition: color 0.3s ease;
           }
-          .emoji-button:hover {
+          .emoji-button:hover, .video-button:hover, .refresh-button:hover, .send-button:hover {
             color: #007bff;
           }
-          .video-button {
+          .voice-button {
+            color: ${isRecording ? '#ff6b6b' : '#666'};
+          }
+          .voice-button:hover {
+            color: ${isRecording ? '#e55a5a' : '#007bff'};
+          }
+          .play-voice-button {
             background: none;
             border: none;
-            font-size: 1.2rem;
+            font-size: 1rem;
             cursor: pointer;
-            padding: 0 10px;
-            color: #666;
-            transition: color 0.3s ease;
+            color: #28a745;
+            margin-left: 5px;
           }
-          .video-button:hover {
-            color: #007bff;
+          .play-voice-button:hover {
+            color: #218838;
           }
           .emoji-picker-container {
             position: absolute;
@@ -540,6 +711,52 @@ const Chat = () => {
           }
           .close-video-call:hover {
             background: #e55a5a;
+          }
+          .audio-recorder {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8f9fa;
+            border-radius: 5px;
+            padding: 10px;
+            width: 100%;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+          }
+          .audio-recorder button {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 5px 10px;
+            color: #666;
+            transition: color 0.3s ease;
+          }
+          .audio-recorder button:hover {
+            color: #007bff;
+          }
+          .audio-recorder .cancel-button:hover {
+            color: #dc3545;
+          }
+          .audio-recorder .stop-button:hover {
+            color: #ff6b6b;
+          }
+          .audio-recorder .duration {
+            font-size: 1rem;
+            color: #333;
+            margin: 0 10px;
+          }
+          .audio-recorder .recording-indicator {
+            width: 10px;
+            height: 10px;
+            background: #ff6b6b;
+            border-radius: 50%;
+            margin-right: 5px;
+            animation: blink 1s infinite;
+          }
+          @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
           }
         `}
       </style>
@@ -652,7 +869,19 @@ const Chat = () => {
                                     msg.sender._id === userId ? 'text-white bg-primary' : 'bg-body-tertiary'
                                   }`}
                                 >
-                                  {msg.message}
+                                  {msg.isVoice ? (
+                                    <>
+                                      [Voice Message]
+                                      <button
+                                        className="play-voice-button"
+                                        onClick={() => playVoiceMessage(msg.voiceMessage)}
+                                      >
+                                        <i className="fas fa-play"></i>
+                                      </button>
+                                    </>
+                                  ) : (
+                                    msg.message
+                                  )}
                                 </p>
                                 <p
                                   className={`small ${
@@ -691,55 +920,107 @@ const Chat = () => {
                       )}
                     </div>
                     <div className="card-footer text-muted d-flex justify-content-start align-items-center p-3 position-relative">
-                      <div style={{ display: 'flex', alignItems: 'center', marginRight: '15px' }}>
-                        <img
-                          id="user-avatar"
-                          src={
-                            messages.find((m) => m.sender._id === userId)?.sender?.user_photo
-                              ? `http://localhost:5000${messages.find((m) => m.sender._id === userId).sender.user_photo}`
-                              : '/assets/img/user_icon.png'
-                          }
-                          alt="User Avatar"
-                          style={{
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '50%',
-                            cursor: 'pointer',
-                            objectFit: 'cover',
-                          }}
-                          onClick={() => (window.location.href = '/student')}
-                        />
-                      </div>
-                      <input
-                        type="text"
-                        className="form-control form-control-lg mx-3"
-                        id="exampleFormControlInput1"
-                        placeholder="Type message"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyPress={handleMessageKeyPress}
-                      />
-                      <button
-                        className="emoji-button"
-                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                      >
-                        <i className="fas fa-smile"></i>
-                      </button>
-                      <button onClick={sendMessage} className="btn btn-link text-muted">
-                        <i className="fas fa-paper-plane"></i>
-                      </button>
-                      <button onClick={async () => {
-                        const key = await importKeyFromRoomCode(joinedRoom);
-                        fetchMessages(key);
-                      }} className="btn btn-link text-muted">
-                        <i className="fas fa-sync-alt"></i>
-                      </button>
-                      <button onClick={joinVideoChat} className="video-button">
-                        <i className="fas fa-video"></i>
-                      </button>
-                      {showEmojiPicker && (
-                        <div className="emoji-picker-container">
-                          <EmojiPicker onEmojiClick={handleEmojiClick} />
+                      {recordingState === 'idle' ? (
+                        <>
+                          <div style={{ display: 'flex', alignItems: 'center', marginRight: '15px' }}>
+                            <img
+                              id="user-avatar"
+                              src={
+                                messages.find((m) => m.sender._id === userId)?.sender?.user_photo
+                                  ? `http://localhost:5000${messages.find((m) => m.sender._id === userId).sender.user_photo}`
+                                  : '/assets/img/user_icon.png'
+                              }
+                              alt="User Avatar"
+                              style={{
+                                width: '40px',
+                                height: '40px',
+                                borderRadius: '50%',
+                                cursor: 'pointer',
+                                objectFit: 'cover',
+                              }}
+                              onClick={() => (window.location.href = '/student')}
+                            />
+                          </div>
+                          <input
+                            type="text"
+                            className="form-control form-control-lg mx-3"
+                            id="exampleFormControlInput1"
+                            placeholder="Type message"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyPress={handleMessageKeyPress}
+                          />
+                          <button className="voice-button" onClick={startRecording}>
+                            <i className="fas fa-microphone"></i>
+                          </button>
+                          <button
+                            className="emoji-button"
+                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                          >
+                            <i className="fas fa-smile"></i>
+                          </button>
+                          <button onClick={sendMessage} className="send-button">
+                            <i className="fas fa-paper-plane"></i>
+                          </button>
+                          <button
+                            onClick={async () => {
+                              const key = await importKeyFromRoomCode(joinedRoom);
+                              fetchMessages(key);
+                            }}
+                            className="refresh-button"
+                          >
+                            <i className="fas fa-sync-alt"></i>
+                          </button>
+                          <button onClick={joinVideoChat} className="video-button">
+                            <i className="fas fa-video"></i>
+                          </button>
+                          {showEmojiPicker && (
+                            <div className="emoji-picker-container">
+                              <EmojiPicker onEmojiClick={handleEmojiClick} />
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="audio-recorder">
+                          {recordingState === 'recording' && (
+                            <>
+                              <div style={{ display: 'flex', alignItems: 'center' }}>
+                                <div className="recording-indicator"></div>
+                                <span className="duration">{formatDuration(recordingDuration)}</span>
+                              </div>
+                              <button onClick={pauseRecording}>
+                                <i className="fas fa-pause"></i>
+                              </button>
+                              <button onClick={stopRecording} className="stop-button">
+                                <i className="fas fa-stop"></i>
+                              </button>
+                            </>
+                          )}
+                          {recordingState === 'paused' && (
+                            <>
+                              <span className="duration">{formatDuration(recordingDuration)}</span>
+                              <button onClick={resumeRecording}>
+                                <i className="fas fa-play"></i>
+                              </button>
+                              <button onClick={stopRecording} className="stop-button">
+                                <i className="fas fa-stop"></i>
+                              </button>
+                            </>
+                          )}
+                          {recordingState === 'stopped' && (
+                            <>
+                              <span className="duration">{formatDuration(recordingDuration)}</span>
+                              <button onClick={playRecording}>
+                                <i className="fas fa-play"></i>
+                              </button>
+                              <button onClick={sendVoiceMessage} className="send-button">
+                                <i className="fas fa-paper-plane"></i>
+                              </button>
+                            </>
+                          )}
+                          <button onClick={cancelRecording} className="cancel-button">
+                            <i className="fas fa-trash"></i>
+                          </button>
                         </div>
                       )}
                     </div>
