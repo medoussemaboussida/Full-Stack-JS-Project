@@ -3,19 +3,20 @@ import { useNavigate } from "react-router-dom";
 import {
   Box, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Select, MenuItem, InputLabel, FormControl, Alert, IconButton, InputBase,
-  Divider, Chip, Avatar
+  Divider, Chip, Avatar, Badge, Tooltip
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import CommentIcon from "@mui/icons-material/Comment";
-import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf"; // Icône pour le bouton PDF
+import ReportIcon from "@mui/icons-material/Report";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import Header from "../../components/Header";
 import SearchIcon from "@mui/icons-material/Search";
 import { useTheme } from "@mui/material";
 import { tokens } from "../../theme";
 import Snackbar from '@mui/material/Snackbar';
-import html2pdf from "html2pdf.js"; // Importer html2pdf.js
+import html2pdf from "html2pdf.js";
 
 // Fonction pour supprimer les balises HTML
 const stripHtmlTags = (str) => {
@@ -34,7 +35,9 @@ const Publication = () => {
   const [notification, setNotification] = useState({ open: false, message: "", severity: "success" });
   const [openProfileModal, setOpenProfileModal] = useState(false);
   const [openCommentsModal, setOpenCommentsModal] = useState(false);
+  const [openReportsModal, setOpenReportsModal] = useState(false);
   const [comments, setComments] = useState([]);
+  const [reports, setReports] = useState([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [authorFilter, setAuthorFilter] = useState("all");
   const [authors, setAuthors] = useState([]);
@@ -45,33 +48,71 @@ const Publication = () => {
   const token = localStorage.getItem("jwt-token");
 
   // Charger les publications
-  const fetchPublications = (query = "") => {
+  const fetchPublications = async (query = "") => {
     let url = query
       ? `http://localhost:5000/users/searchPublications?searchTerm=${query}`
       : "http://localhost:5000/users/allPublication";
 
-    fetch(url, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch publications");
-        return res.json();
-      })
-      .then((data) => {
-        if (Array.isArray(data)) {
-          const pubs = data.map((pub) => ({ id: pub._id, ...pub }));
-          setPublications(pubs);
-          const uniqueAuthors = [...new Set(pubs.map(pub => pub.author_id?.username).filter(Boolean))];
-          setAuthors(uniqueAuthors);
-        } else {
-          setPublications([]);
-          setAuthors([]);
-        }
-      })
-      .catch((err) => {
-        console.error("❌ Error fetching publications:", err);
-        setNotification({ open: true, message: "Failed to load publications", severity: "error" });
+    try {
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
+      if (!res.ok) throw new Error("Failed to fetch publications");
+      const data = await res.json();
+
+      console.log("📋 Données brutes des publications:", data); // Log pour déboguer
+
+      if (Array.isArray(data)) {
+        const pubs = await Promise.all(
+          data.map(async (pub) => {
+            // Vérifier si le champ reports existe
+            if (pub.reports && Array.isArray(pub.reports)) {
+              console.log(`✅ Publication ${pub._id} a ${pub.reports.length} signalements`);
+              return {
+                id: pub._id,
+                ...pub,
+                reportCount: pub.reports.length,
+              };
+            } else {
+              // Si reports n'est pas inclus, faire une requête séparée pour récupérer les signalements
+              console.log(`⚠️ Publication ${pub._id} n'a pas de champ reports, récupération séparée...`);
+              try {
+                const reportRes = await fetch(`http://localhost:5000/users/publication/reports/${pub._id}`, {
+                  headers: token ? { Authorization: `Bearer ${token}` } : {},
+                });
+                if (!reportRes.ok) throw new Error(`Failed to fetch reports for publication ${pub._id}`);
+                const reportData = await reportRes.json();
+                console.log(`📊 Signalements pour ${pub._id}:`, reportData);
+                return {
+                  id: pub._id,
+                  ...pub,
+                  reportCount: Array.isArray(reportData) ? reportData.length : 0,
+                };
+              } catch (err) {
+                console.error(`❌ Erreur lors de la récupération des signalements pour ${pub._id}:`, err);
+                return {
+                  id: pub._id,
+                  ...pub,
+                  reportCount: 0,
+                };
+              }
+            }
+          })
+        );
+
+        console.log("📋 Publications avec reportCount:", pubs); // Log final pour vérifier
+
+        setPublications(pubs);
+        const uniqueAuthors = [...new Set(pubs.map(pub => pub.author_id?.username).filter(Boolean))];
+        setAuthors(uniqueAuthors);
+      } else {
+        setPublications([]);
+        setAuthors([]);
+      }
+    } catch (err) {
+      console.error("❌ Error fetching publications:", err);
+      setNotification({ open: true, message: "Failed to load publications", severity: "error" });
+    }
   };
 
   // Filtrer les publications côté client
@@ -210,12 +251,26 @@ const Publication = () => {
       });
   };
 
-  // Générer le PDF avec les publications classées par mois
-  const generatePDF = () => {
-    // Trier les publications par date
-    const sortedPublications = [...publications].sort((a, b) => new Date(a.datePublication) - new Date(b.datePublication));
+  const handleViewReports = (id) => {
+    fetch(`http://localhost:5000/users/publication/reports/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch reports");
+        return res.json();
+      })
+      .then((data) => {
+        setReports(data);
+        setOpenReportsModal(true);
+      })
+      .catch((err) => {
+        console.error("❌ Error retrieving reports:", err);
+        setNotification({ open: true, message: "Failed to load reports!", severity: "error" });
+      });
+  };
 
-    // Grouper par mois
+  const generatePDF = () => {
+    const sortedPublications = [...publications].sort((a, b) => new Date(a.datePublication) - new Date(b.datePublication));
     const publicationsByMonth = sortedPublications.reduce((acc, pub) => {
       const date = new Date(pub.datePublication);
       const monthYear = date.toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -226,7 +281,6 @@ const Publication = () => {
       return acc;
     }, {});
 
-    // Créer le contenu HTML pour le PDF
     let htmlContent = `
       <style>
         body { font-family: Arial, sans-serif; padding: 20px; }
@@ -257,7 +311,6 @@ const Publication = () => {
       });
     });
 
-    // Générer le PDF avec html2pdf.js
     const element = document.createElement("div");
     element.innerHTML = htmlContent;
     html2pdf()
@@ -323,15 +376,31 @@ const Publication = () => {
     {
       field: "actions",
       headerName: "Actions",
-      flex: 1,
+      flex: 1.5,
       renderCell: (params) => (
-        <Box display="flex" gap={1}>
+        <Box
+          display="flex"
+          gap={0.5}
+          flexWrap="wrap"
+          sx={{ alignItems: "center" }}
+        >
           <Button
             variant="contained"
             color="info"
             size="small"
             startIcon={<VisibilityIcon />}
             onClick={() => handleViewProfile(params.row.id)}
+            sx={{
+              padding: "4px 8px",
+              fontSize: "0.75rem",
+              borderRadius: "8px",
+              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+              transition: "all 0.3s ease",
+              "&:hover": {
+                transform: "translateY(-2px)",
+                boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+              },
+            }}
           >
             View
           </Button>
@@ -346,10 +415,68 @@ const Publication = () => {
               "&:hover": {
                 backgroundColor: "#ff7000",
               },
+              padding: "4px 8px",
+              fontSize: "0.75rem",
+              borderRadius: "8px",
+              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+              transition: "all 0.3s ease",
+              "&:hover": {
+                transform: "translateY(-2px)",
+                boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+              },
             }}
           >
             Comment
           </Button>
+          <Tooltip title={`Voir les signalements (${params.row.reportCount || 0})`}>
+            <Badge
+              badgeContent={params.row.reportCount || 0}
+              color="error"
+              sx={{
+                "& .MuiBadge-badge": {
+                  backgroundColor: params.row.reportCount > 0 ? "#ff1744" : "#bdbdbd",
+                  color: "#fff",
+                  fontSize: "0.7rem",
+                  height: "18px",
+                  minWidth: "18px",
+                  borderRadius: "50%",
+                  border: "2px solid #fff",
+                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
+                  transform: "scale(1)",
+                  transition: "transform 0.3s ease",
+                  animation: params.row.reportCount > 0 ? "pulse 1.5s infinite" : "none",
+                  "&:hover": {
+                    transform: "scale(1.1)",
+                  },
+                },
+              }}
+            >
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<ReportIcon />}
+                onClick={() => handleViewReports(params.row.id)}
+                sx={{
+                  backgroundColor: params.row.reportCount > 0 ? colors.redAccent[500] : colors.grey[500],
+                  color: "#fff",
+                  "&:hover": {
+                    backgroundColor: params.row.reportCount > 0 ? colors.redAccent[700] : colors.grey[700],
+                  },
+                  padding: "4px 8px",
+                  fontSize: "0.75rem",
+                  borderRadius: "8px",
+                  boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    transform: "translateY(-2px)",
+                    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+                  },
+                }}
+              >
+                Reports
+              </Button>
+            </Badge>
+          </Tooltip>
         </Box>
       ),
     },
@@ -460,7 +587,6 @@ const Publication = () => {
             ))}
           </Select>
         </FormControl>
-        {/* Bouton pour générer le PDF */}
         <Button
           variant="contained"
           startIcon={<PictureAsPdfIcon />}
@@ -473,13 +599,20 @@ const Publication = () => {
             },
             height: "48px",
             padding: "0 20px",
+            borderRadius: "8px",
+            boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+            transition: "all 0.3s ease",
+            "&:hover": {
+              transform: "translateY(-2px)",
+              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+            },
           }}
         >
           Generate PDF
         </Button>
       </Box>
 
-      <Box sx={{ height: 500, width: "100%" }}>
+      <Box sx={{ height: 500, width: "100%", minWidth: "1200px" }}>
         <DataGrid checkboxSelection rows={filteredPublications} columns={columns} />
       </Box>
 
@@ -771,6 +904,110 @@ const Publication = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Modal pour les Signalements */}
+      <Dialog
+        open={openReportsModal}
+        onClose={() => setOpenReportsModal(false)}
+        maxWidth="md"
+        fullWidth
+        sx={{
+          "& .MuiDialog-paper": {
+            borderRadius: "12px",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+            backgroundColor: colors.primary[400],
+            overflow: "hidden",
+            transition: "all 0.3s ease-in-out",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontSize: "1.8rem",
+            fontWeight: "600",
+            textAlign: "center",
+            backgroundColor: colors.redAccent[700],
+            color: "#fff",
+            padding: "16px 24px",
+            borderBottom: `1px solid ${colors.grey[700]}`,
+          }}
+        >
+          Reports
+        </DialogTitle>
+        <DialogContent
+          sx={{
+            padding: "24px",
+            backgroundColor: colors.primary[500],
+            color: colors.grey[100],
+            maxHeight: "60vh",
+            overflowY: "auto",
+          }}
+        >
+          {reports.length > 0 ? (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              {reports.map((report) => (
+                <Box
+                  key={report._id}
+                  sx={{
+                    backgroundColor: colors.primary[600],
+                    padding: "16px",
+                    borderRadius: "8px",
+                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: "12px", mb: "8px" }}>
+                    <Avatar
+                      src={report.userId?.user_photo ? `http://localhost:5000${report.userId.user_photo}` : null}
+                      alt={report.userId?.username}
+                      sx={{ width: 40, height: 40 }}
+                    />
+                    <Typography sx={{ fontWeight: "bold", color: colors.grey[100] }}>
+                      {report.userId?.username || "Unknown"}
+                    </Typography>
+                  </Box>
+                  <Typography sx={{ fontSize: "1rem", color: colors.grey[200] }}>
+                    <strong>Reason:</strong> {report.reason}
+                  </Typography>
+                  {report.customReason && (
+                    <Typography sx={{ fontSize: "1rem", color: colors.grey[200], mt: "8px" }}>
+                      <strong>Details:</strong> {report.customReason}
+                    </Typography>
+                  )}
+                  <Typography sx={{ fontSize: "0.9rem", color: colors.grey[400], mt: "8px" }}>
+                    Reported on: {new Date(report.dateReported).toLocaleString()}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            <Typography sx={{ textAlign: "center", color: colors.grey[300], fontSize: "1.2rem" }}>
+              No reports available for this publication.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions
+          sx={{
+            padding: "16px 24px",
+            backgroundColor: colors.primary[400],
+            borderTop: `1px solid ${colors.grey[700]}`,
+          }}
+        >
+          <Button
+            onClick={() => setOpenReportsModal(false)}
+            variant="outlined"
+            sx={{
+              fontSize: "1.1rem",
+              color: colors.grey[100],
+              borderColor: colors.grey[600],
+              padding: "8px 16px",
+              borderRadius: "8px",
+              "&:hover": { backgroundColor: colors.grey[800], borderColor: colors.grey[500] },
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Modal Ajouter/Modifier */}
       <Dialog open={open} onClose={handleClose}>
         <DialogTitle>{formData.id ? "Update Publication" : "Add Publication"}</DialogTitle>
@@ -825,11 +1062,17 @@ const Publication = () => {
 
 export default Publication;
 
-// Animation CSS pour l'effet fade-in
+// Animation CSS pour l'effet fade-in et le badge
 const styles = `
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
   }
 `;
 
