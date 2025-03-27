@@ -8,12 +8,14 @@ import {
 import { DataGrid } from "@mui/x-data-grid";
 import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
-import CommentIcon from "@mui/icons-material/Comment"; // Nouvelle icône pour les commentaires
+import CommentIcon from "@mui/icons-material/Comment";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf"; // Icône pour le bouton PDF
 import Header from "../../components/Header";
 import SearchIcon from "@mui/icons-material/Search";
 import { useTheme } from "@mui/material";
 import { tokens } from "../../theme";
 import Snackbar from '@mui/material/Snackbar';
+import html2pdf from "html2pdf.js"; // Importer html2pdf.js
 
 // Fonction pour supprimer les balises HTML
 const stripHtmlTags = (str) => {
@@ -23,6 +25,7 @@ const stripHtmlTags = (str) => {
 
 const Publication = () => {
   const [publications, setPublications] = useState([]);
+  const [filteredPublications, setFilteredPublications] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({ titrePublication: "", description: "", status: "", tag: "" });
@@ -30,8 +33,11 @@ const Publication = () => {
   const [selectedPublication, setSelectedPublication] = useState(null);
   const [notification, setNotification] = useState({ open: false, message: "", severity: "success" });
   const [openProfileModal, setOpenProfileModal] = useState(false);
-  const [openCommentsModal, setOpenCommentsModal] = useState(false); // Nouvel état pour le modal des commentaires
-  const [comments, setComments] = useState([]); // État pour stocker les commentaires
+  const [openCommentsModal, setOpenCommentsModal] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [authorFilter, setAuthorFilter] = useState("all");
+  const [authors, setAuthors] = useState([]);
   const navigate = useNavigate();
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
@@ -53,15 +59,31 @@ const Publication = () => {
       })
       .then((data) => {
         if (Array.isArray(data)) {
-          setPublications(data.map((pub) => ({ id: pub._id, ...pub })));
+          const pubs = data.map((pub) => ({ id: pub._id, ...pub }));
+          setPublications(pubs);
+          const uniqueAuthors = [...new Set(pubs.map(pub => pub.author_id?.username).filter(Boolean))];
+          setAuthors(uniqueAuthors);
         } else {
           setPublications([]);
+          setAuthors([]);
         }
       })
       .catch((err) => {
         console.error("❌ Error fetching publications:", err);
         setNotification({ open: true, message: "Failed to load publications", severity: "error" });
       });
+  };
+
+  // Filtrer les publications côté client
+  const filterPublications = (pubs, status, author) => {
+    let filtered = [...pubs];
+    if (status !== "all") {
+      filtered = filtered.filter(pub => pub.status === status);
+    }
+    if (author !== "all") {
+      filtered = filtered.filter(pub => pub.author_id?.username === author);
+    }
+    return filtered;
   };
 
   useEffect(() => {
@@ -75,6 +97,11 @@ const Publication = () => {
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
+
+  useEffect(() => {
+    const filtered = filterPublications(publications, statusFilter, authorFilter);
+    setFilteredPublications(filtered);
+  }, [publications, statusFilter, authorFilter]);
 
   const handleOpen = (pub = null) => {
     setFormData(pub ? { ...pub, tag: pub.tag?.join(",") || "" } : { titrePublication: "", description: "", status: "", tag: "" });
@@ -140,7 +167,6 @@ const Publication = () => {
       });
   };
 
-  // Fonction pour mettre à jour le statut avec le contrôleur updatePublicationStatus
   const handleStatusChange = (publicationId, newStatus) => {
     fetch(`http://localhost:5000/users/publication/${publicationId}`, {
       method: "PATCH",
@@ -166,7 +192,6 @@ const Publication = () => {
       });
   };
 
-  // Nouvelle fonction pour récupérer les commentaires
   const handleViewComments = (id) => {
     fetch(`http://localhost:5000/users/commentaires/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -182,6 +207,71 @@ const Publication = () => {
       .catch((err) => {
         console.error("❌ Error retrieving comments:", err);
         setNotification({ open: true, message: "Failed to load comments!", severity: "error" });
+      });
+  };
+
+  // Générer le PDF avec les publications classées par mois
+  const generatePDF = () => {
+    // Trier les publications par date
+    const sortedPublications = [...publications].sort((a, b) => new Date(a.datePublication) - new Date(b.datePublication));
+
+    // Grouper par mois
+    const publicationsByMonth = sortedPublications.reduce((acc, pub) => {
+      const date = new Date(pub.datePublication);
+      const monthYear = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+      if (!acc[monthYear]) {
+        acc[monthYear] = [];
+      }
+      acc[monthYear].push(pub);
+      return acc;
+    }, {});
+
+    // Créer le contenu HTML pour le PDF
+    let htmlContent = `
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        h1 { text-align: center; color: #333; }
+        h2 { color: #555; margin-top: 20px; }
+        .publication { margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .title { font-weight: bold; font-size: 16px; color: #2c3e50; }
+        .description { font-size: 14px; color: #666; }
+        .meta { font-size: 12px; color: #888; }
+      </style>
+      <h1>All Publications</h1>
+    `;
+
+    Object.keys(publicationsByMonth).forEach((month) => {
+      htmlContent += `<h2>${month}</h2>`;
+      publicationsByMonth[month].forEach((pub) => {
+        htmlContent += `
+          <div class="publication">
+            <div class="title">${stripHtmlTags(pub.titrePublication)}</div>
+            <div class="description">${stripHtmlTags(pub.description)}</div>
+            <div class="meta">
+              Author: ${pub.author_id?.username || "Unknown"} | 
+              Date: ${new Date(pub.datePublication).toLocaleDateString()} | 
+              Status: ${pub.status}
+            </div>
+          </div>
+        `;
+      });
+    });
+
+    // Générer le PDF avec html2pdf.js
+    const element = document.createElement("div");
+    element.innerHTML = htmlContent;
+    html2pdf()
+      .from(element)
+      .set({
+        margin: 1,
+        filename: "Publications_by_Month.pdf",
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
+      })
+      .save()
+      .catch((err) => {
+        console.error("Error generating PDF:", err);
+        setNotification({ open: true, message: "Failed to generate PDF!", severity: "error" });
       });
   };
 
@@ -251,10 +341,10 @@ const Publication = () => {
             startIcon={<CommentIcon />}
             onClick={() => handleViewComments(params.row.id)}
             sx={{
-              backgroundColor: "#fab200", // Couleur personnalisée
-              color: "#fff", // Texte blanc pour contraste
+              backgroundColor: "#fab200",
+              color: "#fff",
               "&:hover": {
-                backgroundColor: "#ff7000", // Légère variation au survol
+                backgroundColor: "#ff7000",
               },
             }}
           >
@@ -297,10 +387,100 @@ const Publication = () => {
             <SearchIcon />
           </IconButton>
         </Box>
+        <FormControl sx={{ minWidth: 200 }}>
+          <InputLabel sx={{ color: colors.grey[100], "&.Mui-focused": { color: colors.greenAccent[500] } }}>
+            Filter by Status
+          </InputLabel>
+          <Select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            sx={{
+              backgroundColor: colors.primary[400],
+              color: colors.grey[100],
+              borderRadius: "8px",
+              height: "48px",
+              "& .MuiOutlinedInput-notchedOutline": {
+                borderColor: colors.grey[700],
+              },
+              "&:hover .MuiOutlinedInput-notchedOutline": {
+                borderColor: colors.greenAccent[500],
+              },
+              "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                borderColor: colors.greenAccent[500],
+                boxShadow: `0 0 8px ${colors.greenAccent[500]}`,
+              },
+              "& .MuiSvgIcon-root": {
+                color: colors.grey[100],
+              },
+              "& .MuiSelect-select": {
+                padding: "12px",
+              },
+            }}
+          >
+            <MenuItem value="all">All Statuses</MenuItem>
+            <MenuItem value="published">Published</MenuItem>
+            <MenuItem value="archived">Archived</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl sx={{ minWidth: 200 }}>
+          <InputLabel sx={{ color: colors.grey[100], "&.Mui-focused": { color: colors.greenAccent[500] } }}>
+            Filter by Author
+          </InputLabel>
+          <Select
+            value={authorFilter}
+            onChange={(e) => setAuthorFilter(e.target.value)}
+            sx={{
+              backgroundColor: colors.primary[400],
+              color: colors.grey[100],
+              borderRadius: "8px",
+              height: "48px",
+              "& .MuiOutlinedInput-notchedOutline": {
+                borderColor: colors.grey[700],
+              },
+              "&:hover .MuiOutlinedInput-notchedOutline": {
+                borderColor: colors.greenAccent[500],
+              },
+              "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                borderColor: colors.greenAccent[500],
+                boxShadow: `0 0 8px ${colors.greenAccent[500]}`,
+              },
+              "& .MuiSvgIcon-root": {
+                color: colors.grey[100],
+              },
+              "& .MuiSelect-select": {
+                padding: "12px",
+              },
+            }}
+          >
+            <MenuItem value="all">All Authors</MenuItem>
+            {authors.map((author) => (
+              <MenuItem key={author} value={author}>
+                {author}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        {/* Bouton pour générer le PDF */}
+        <Button
+          variant="contained"
+          startIcon={<PictureAsPdfIcon />}
+          onClick={generatePDF}
+          sx={{
+            backgroundColor: colors.blueAccent[700],
+            color: "#fff",
+            "&:hover": {
+              backgroundColor: colors.blueAccent[800],
+            },
+            height: "48px",
+            padding: "0 20px",
+          }}
+        >
+          Generate PDF
+        </Button>
       </Box>
 
       <Box sx={{ height: 500, width: "100%" }}>
-        <DataGrid checkboxSelection rows={publications} columns={columns} />
+        <DataGrid checkboxSelection rows={filteredPublications} columns={columns} />
       </Box>
 
       {/* Modal pour les Détails */}
