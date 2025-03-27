@@ -420,15 +420,12 @@ app.post('/logout', (req, res) => {
   }
 });
 
-
-// In server.js
 app.get('/generate-jitsi-room', (req, res) => {
   const roomCode = req.query.roomCode;
   const jitsiRoom = `MoodwaveChat_${roomCode}`;
   const roomPassword = crypto.randomBytes(8).toString('hex'); // Generate a random password
   res.json({ jitsiRoom, roomPassword });
 });
-
 // Gestion des erreurs
 app.use(function(req, res, next) {
   next(createError(404));
