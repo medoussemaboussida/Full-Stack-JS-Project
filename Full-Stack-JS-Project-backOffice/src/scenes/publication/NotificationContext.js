@@ -3,22 +3,31 @@ import { createContext, useContext, useState, useEffect } from "react";
 const NotificationContext = createContext();
 
 export const NotificationProvider = ({ children }) => {
-  // Charger les publications vues depuis localStorage
+  // Charger les publications et commentaires vus depuis localStorage
   const [viewedPublications, setViewedPublications] = useState(() => {
     const stored = localStorage.getItem("viewedPublications");
     return stored ? new Set(JSON.parse(stored)) : new Set();
   });
 
-  // Initialiser reportedPublications
-  const [reportedPublications, setReportedPublications] = useState([]);
+  const [viewedComments, setViewedComments] = useState(() => {
+    const stored = localStorage.getItem("viewedComments");
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  });
 
-  // Mettre à jour localStorage chaque fois que viewedPublications change
+  // Initialiser les publications et commentaires signalés
+  const [reportedPublications, setReportedPublications] = useState([]);
+  const [reportedComments, setReportedComments] = useState([]);
+
+  // Mettre à jour localStorage chaque fois que viewedPublications ou viewedComments change
   useEffect(() => {
     localStorage.setItem("viewedPublications", JSON.stringify([...viewedPublications]));
   }, [viewedPublications]);
 
+  useEffect(() => {
+    localStorage.setItem("viewedComments", JSON.stringify([...viewedComments]));
+  }, [viewedComments]);
+
   const addReportedPublication = (publication) => {
-    // Ne pas ajouter si la publication a déjà été vue
     if (viewedPublications.has(publication.id)) {
       return;
     }
@@ -31,15 +40,38 @@ export const NotificationProvider = ({ children }) => {
     });
   };
 
+  const addReportedComment = (comment) => {
+    if (viewedComments.has(comment._id)) {
+      return;
+    }
+
+    setReportedComments((prev) => {
+      if (prev.some(c => c._id === comment._id)) {
+        return prev;
+      }
+      return [...prev, comment];
+    });
+  };
+
   const removeReportedPublication = (publicationId) => {
-    // Supprimer de la liste des notifications
     setReportedPublications((prev) => prev.filter(pub => pub.id !== publicationId));
-    // Ajouter à la liste des publications vues
     setViewedPublications((prev) => new Set(prev).add(publicationId));
   };
 
+  const removeReportedComment = (commentId) => {
+    setReportedComments((prev) => prev.filter(c => c._id !== commentId));
+    setViewedComments((prev) => new Set(prev).add(commentId));
+  };
+
   return (
-    <NotificationContext.Provider value={{ reportedPublications, addReportedPublication, removeReportedPublication }}>
+    <NotificationContext.Provider value={{
+      reportedPublications,
+      reportedComments,
+      addReportedPublication,
+      addReportedComment,
+      removeReportedPublication,
+      removeReportedComment
+    }}>
       {children}
     </NotificationContext.Provider>
   );

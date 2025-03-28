@@ -27,9 +27,13 @@ function PublicationDetailPsy() {
     const [showEditEmojiPicker, setShowEditEmojiPicker] = useState(false);
     const [showShareOptions, setShowShareOptions] = useState(false);
     const [isAnonymous, setIsAnonymous] = useState(false);
-    const [showReportModal, setShowReportModal] = useState(false); // État pour le popup de signalement
-    const [reportReason, setReportReason] = useState(''); // Raison du signalement
-    const [reportCustomReason, setReportCustomReason] = useState(''); // Texte personnalisé pour "other"
+    const [showReportModal, setShowReportModal] = useState(false); // État pour le popup de signalement de publication
+    const [reportReason, setReportReason] = useState(''); // Raison du signalement de publication
+    const [reportCustomReason, setReportCustomReason] = useState(''); // Texte personnalisé pour "other" (publication)
+    const [showCommentReportModal, setShowCommentReportModal] = useState(false); // État pour le popup de signalement de commentaire
+    const [commentReportReason, setCommentReportReason] = useState(''); // Raison du signalement de commentaire
+    const [commentReportCustomReason, setCommentReportCustomReason] = useState(''); // Texte personnalisé pour "other" (commentaire)
+    const [selectedCommentId, setSelectedCommentId] = useState(null); // ID du commentaire à signaler
 
     const BASE_URL = "http://localhost:5000";
     const ANONYMOUS_PHOTO = '/assets/img/anonymous_member.png';
@@ -338,7 +342,7 @@ function PublicationDetailPsy() {
         window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
     };
 
-    // Fonction pour gérer le signalement
+    // Fonction pour gérer le signalement d'une publication
     const handleReportSubmit = async (e) => {
         e.preventDefault();
         const token = localStorage.getItem('jwt-token');
@@ -377,6 +381,54 @@ function PublicationDetailPsy() {
                 setShowReportModal(false);
                 setReportReason('');
                 setReportCustomReason('');
+            } else {
+                toast.error(`Erreur: ${result.message}`);
+            }
+        } catch (error) {
+            toast.error(`Erreur lors du signalement: ${error.message}`);
+        }
+    };
+
+    // Fonction pour gérer le signalement d'un commentaire
+    const handleCommentReportSubmit = async (e) => {
+        e.preventDefault();
+        const token = localStorage.getItem('jwt-token');
+        if (!token) {
+            toast.error('Vous devez être connecté pour signaler un commentaire');
+            setShowCommentReportModal(false);
+            return;
+        }
+
+        if (!commentReportReason) {
+            toast.error('Veuillez sélectionner une raison de signalement');
+            return;
+        }
+
+        if (commentReportReason === 'other' && !commentReportCustomReason.trim()) {
+            toast.error('Veuillez préciser la raison dans le champ texte');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${BASE_URL}/users/comment/report/${selectedCommentId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    reason: commentReportReason,
+                    customReason: commentReportReason === 'other' ? commentReportCustomReason : undefined,
+                }),
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                toast.success('Commentaire signalé avec succès');
+                setShowCommentReportModal(false);
+                setCommentReportReason('');
+                setCommentReportCustomReason('');
+                setSelectedCommentId(null);
             } else {
                 toast.error(`Erreur: ${result.message}`);
             }
@@ -461,7 +513,6 @@ function PublicationDetailPsy() {
                                                             </a>
                                                         </div>
                                                     )}
-                                                    {/* Bouton de signalement */}
                                                     <a href="#" onClick={(e) => { e.preventDefault(); setShowReportModal(true); }} style={{ marginLeft: '15px' }}>
                                                         <i className="far fa-flag" title="Signaler cette publication"></i> Report
                                                     </a>
@@ -593,7 +644,7 @@ function PublicationDetailPsy() {
                                                                         <p>{comment.contenu}</p>
                                                                     )}
                                                                     <div style={{ display: 'flex', gap: '10px' }}>
-                                                                        <a href="#" onClick={(e) => e.preventDefault()}><i className="far fa-reply"></i> Reply</a>
+                                                                       
                                                                         {userId && comment.auteur_id && comment.auteur_id._id && comment.auteur_id._id.toString() === userId && (
                                                                             <>
                                                                                 <a href="#" onClick={(e) => handleEditComment(e, comment)}>
@@ -604,6 +655,19 @@ function PublicationDetailPsy() {
                                                                                 </a>
                                                                             </>
                                                                         )}
+                                                                        {/* Icône de signalement pour tous les utilisateurs connectés */}
+                                                                        {userId && comment.auteur_id && comment.auteur_id._id && comment.auteur_id._id.toString() !== userId && (
+                                <a
+                                    href="#"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        setSelectedCommentId(comment._id);
+                                        setShowCommentReportModal(true);
+                                    }}
+                                >
+                                    <i className="far fa-flag" title="Signaler ce commentaire"></i>
+                                </a>
+                            )}
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -762,7 +826,7 @@ function PublicationDetailPsy() {
                     </div>
                 </div>
 
-                {/* Popup de signalement */}
+                {/* Popup de signalement pour la publication */}
                 {showReportModal && (
                     <div className="modal" style={{
                         position: 'fixed',
@@ -788,7 +852,7 @@ function PublicationDetailPsy() {
                             <form onSubmit={handleReportSubmit}>
                                 <div className="form-group">
                                     <label htmlFor="reportReason" style={{ display: 'block', marginBottom: '10px' }}>
-                                    Reason for reporting :
+                                        Reason for reporting:
                                     </label>
                                     <select
                                         id="reportReason"
@@ -799,10 +863,10 @@ function PublicationDetailPsy() {
                                         required
                                     >
                                         <option value="">Select a reason</option>
-                                        <option value="inappropriate_content">inappropriate content</option>
+                                        <option value="inappropriate_content">Inappropriate content</option>
                                         <option value="spam">Spam</option>
                                         <option value="harassment">Harassment</option>
-                                        <option value="offensive_language">Offensive_language</option>
+                                        <option value="offensive_language">Offensive language</option>
                                         <option value="misinformation">Misinformation</option>
                                         <option value="other">Other</option>
                                     </select>
@@ -810,7 +874,7 @@ function PublicationDetailPsy() {
                                 {reportReason === 'other' && (
                                     <div className="form-group">
                                         <label htmlFor="customReason" style={{ display: 'block', marginBottom: '10px' }}>
-                                        Specify the reason :
+                                            Specify the reason:
                                         </label>
                                         <textarea
                                             id="customReason"
@@ -838,6 +902,95 @@ function PublicationDetailPsy() {
                                             setShowReportModal(false);
                                             setReportReason('');
                                             setReportCustomReason('');
+                                        }}
+                                        className="theme-btn"
+                                        style={{ backgroundColor: '#6c757d', padding: '10px 20px' }}
+                                    >
+                                        Cancel <i className="far fa-times"></i>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Popup de signalement pour le commentaire */}
+                {showCommentReportModal && (
+                    <div className="modal" style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: 'rgba(0,0,0,0.5)',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 1000,
+                    }}>
+                        <div style={{
+                            backgroundColor: '#fff',
+                            padding: '20px',
+                            borderRadius: '8px',
+                            width: '400px',
+                            maxWidth: '90%',
+                            boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+                        }}>
+                            <h3 style={{ marginBottom: '20px', textAlign: 'center' }}>Report this comment</h3>
+                            <form onSubmit={handleCommentReportSubmit}>
+                                <div className="form-group">
+                                    <label htmlFor="commentReportReason" style={{ display: 'block', marginBottom: '10px' }}>
+                                        Reason for reporting:
+                                    </label>
+                                    <select
+                                        id="commentReportReason"
+                                        value={commentReportReason}
+                                        onChange={(e) => setCommentReportReason(e.target.value)}
+                                        className="form-control"
+                                        style={{ width: '100%', padding: '8px', marginBottom: '15px' }}
+                                        required
+                                    >
+                                        <option value="">Select a reason</option>
+                                        <option value="inappropriate_content">Inappropriate content</option>
+                                        <option value="spam">Spam</option>
+                                        <option value="harassment">Harassment</option>
+                                        <option value="offensive_language">Offensive language</option>
+                                        <option value="misinformation">Misinformation</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                                {commentReportReason === 'other' && (
+                                    <div className="form-group">
+                                        <label htmlFor="commentCustomReason" style={{ display: 'block', marginBottom: '10px' }}>
+                                            Specify the reason:
+                                        </label>
+                                        <textarea
+                                            id="commentCustomReason"
+                                            value={commentReportCustomReason}
+                                            onChange={(e) => setCommentReportCustomReason(e.target.value)}
+                                            className="form-control"
+                                            rows="3"
+                                            placeholder="Describe the reason here..."
+                                            style={{ width: '100%', padding: '8px', marginBottom: '15px' }}
+                                            required
+                                        />
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <button
+                                        type="submit"
+                                        className="theme-btn"
+                                        style={{ backgroundColor: '#dc3545', padding: '10px 20px' }}
+                                    >
+                                        Report <i className="far fa-flag"></i>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowCommentReportModal(false);
+                                            setCommentReportReason('');
+                                            setCommentReportCustomReason('');
+                                            setSelectedCommentId(null);
                                         }}
                                         className="theme-btn"
                                         style={{ backgroundColor: '#6c757d', padding: '10px 20px' }}

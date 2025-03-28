@@ -17,6 +17,7 @@ const cron = require('node-cron');
 
 
 const Commentaire = require('../model/commentaire'); // Importer le modèle Commentaire
+const CommentReport = require('../model/CommentReport');
 
 dotenv.config();
 
@@ -843,6 +844,38 @@ module.exports.deleteCommentaire = async (req, res) => {
     }
 };
 
+// Supprimer un commentaire (réservé aux administrateurs)
+module.exports.deleteCommentaireAdmin = async (req, res) => {
+    try {
+        const { commentId } = req.params;
+        const token = req.headers.authorization.split(' ')[1];
+        const decoded = jwt.verify(token, 'randa');
+        const userId = decoded.id;
+
+        // Récupérer l'utilisateur pour vérifier son rôle
+        const user = await User.findById(userId); // Assurez-vous que le modèle User est importé
+        if (!user) {
+            return res.status(404).json({ message: 'Utilisateur non trouvé' });
+        }
+
+        // Vérifier si l'utilisateur est un administrateur
+        if (user.role !== 'admin') { // Assurez-vous que le champ 'role' existe dans votre modèle User
+            return res.status(403).json({ message: 'Accès refusé : seuls les administrateurs peuvent supprimer des commentaires' });
+        }
+
+        // Supprimer le commentaire sans vérifier l'auteur
+        const commentaire = await Commentaire.findByIdAndDelete(commentId);
+        if (!commentaire) {
+            return res.status(404).json({ message: 'Commentaire non trouvé' });
+        }
+
+        res.status(200).json({ message: 'Commentaire supprimé avec succès par l\'administrateur' });
+    } catch (error) {
+        console.error('Erreur lors de la suppression du commentaire par l\'administrateur:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
 // Dans votre controller (par exemple, publicationController.js)
 module.exports.getPublicationsByTags = async (req, res) => {
     try {
@@ -1165,6 +1198,114 @@ module.exports.deleteReport = async (req, res) => {
         res.status(500).json({ message: 'Erreur serveur', error: error.message });
     }
 };
+
+
+
+// Ajouter un signalement pour un commentaire
+module.exports.addCommentReport = async (req, res) => {
+    try {
+        const { commentId } = req.params; // ID du commentaire à signaler
+        const { reason, customReason } = req.body;
+        const userId = req.userId; // Récupéré via verifyToken
+
+        // Vérifier si le commentaire existe
+        const comment = await Commentaire.findById(commentId);
+        if (!comment) {
+            return res.status(404).json({ message: 'Commentaire non trouvé' });
+        }
+
+        // Vérifier si l'utilisateur existe
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'Utilisateur non trouvé' });
+        }
+
+        // Vérifier si l'utilisateur a déjà signalé ce commentaire
+        const existingReport = await CommentReport.findOne({ commentId, userId });
+        if (existingReport) {
+            return res.status(400).json({ message: 'Vous avez déjà signalé ce commentaire' });
+        }
+
+        // Créer un nouveau signalement
+        const report = new CommentReport({
+            commentId,
+            userId,
+            reason,
+            customReason: reason === 'other' ? customReason : undefined,
+        });
+
+        const savedReport = await report.save();
+
+        res.status(201).json({
+            message: 'Signalement ajouté avec succès',
+            report: savedReport,
+        });
+    } catch (error) {
+        console.error('Erreur lors de l’ajout du signalement du commentaire:', error);
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: 'Erreur de validation', error: error.message });
+        }
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Récupérer tous les signalements de commentaires (pour admin ou psy)
+module.exports.getAllCommentReports = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const userRole = req.userRole;
+
+        // Vérifier les autorisations
+        if (userRole !== 'admin' && userRole !== 'psychiatrist') {
+            return res.status(403).json({ message: 'Accès non autorisé' });
+        }
+
+        const reports = await CommentReport.find()
+            .populate('commentId', 'contenu publication_id')
+            .populate('userId', 'username email')
+            .sort({ dateReported: -1 });
+
+        res.status(200).json(reports);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des signalements de commentaires:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Récupérer les signalements d'un commentaire spécifique
+module.exports.getReportsByComment = async (req, res) => {
+    try {
+        const { commentId } = req.params;
+        const userId = req.userId;
+        const userRole = req.userRole;
+
+        // Vérifier si le commentaire existe
+        const comment = await Commentaire.findById(commentId).populate('publication_id');
+        if (!comment) {
+            return res.status(404).json({ message: 'Commentaire non trouvé' });
+        }
+
+        // Vérifier les autorisations
+        // Seuls les admins, les psychiatres, ou l'auteur de la publication associée peuvent voir les signalements
+        if (
+            userRole !== 'admin' &&
+            userRole !== 'psychiatrist' &&
+            comment.publication_id.author_id.toString() !== userId
+        ) {
+            return res.status(403).json({ message: 'Accès non autorisé' });
+        }
+
+        const reports = await CommentReport.find({ commentId })
+            .populate('userId', 'username email')
+            .sort({ dateReported: -1 });
+
+        res.status(200).json(reports);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des signalements du commentaire:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
 
 
 //supprimer student

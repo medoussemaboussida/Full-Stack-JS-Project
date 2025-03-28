@@ -10,6 +10,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import CommentIcon from "@mui/icons-material/Comment";
 import ReportIcon from "@mui/icons-material/Report";
+import DeleteIcon from "@mui/icons-material/Delete";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import NotificationsOutlinedIcon from "@mui/icons-material/NotificationsOutlined";
 import Header from "../../components/Header";
@@ -18,7 +19,7 @@ import { useTheme } from "@mui/material";
 import { tokens } from "../../theme";
 import Snackbar from '@mui/material/Snackbar';
 import html2pdf from "html2pdf.js";
-import { useNotification } from "../publication/NotificationContext"; // Importer le contexte
+import { useNotification } from "../publication/NotificationContext";
 
 // Fonction pour supprimer les balises HTML
 const stripHtmlTags = (str) => {
@@ -27,7 +28,7 @@ const stripHtmlTags = (str) => {
 };
 
 const Publication = () => {
-  const { reportedPublications, addReportedPublication, removeReportedPublication } = useNotification(); // Utiliser le contexte
+  const { reportedPublications, reportedComments, addReportedPublication, addReportedComment, removeReportedPublication, removeReportedComment } = useNotification();
   const [publications, setPublications] = useState([]);
   const [filteredPublications, setFilteredPublications] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,18 +40,47 @@ const Publication = () => {
   const [openProfileModal, setOpenProfileModal] = useState(false);
   const [openCommentsModal, setOpenCommentsModal] = useState(false);
   const [openReportsModal, setOpenReportsModal] = useState(false);
-  const [openNotificationsModal, setOpenNotificationsModal] = useState(false); // État pour le modal des notifications
+  const [openNotificationsModal, setOpenNotificationsModal] = useState(false);
+  const [openCommentReportsModal, setOpenCommentReportsModal] = useState(false);
+  const [openDeleteConfirmModal, setOpenDeleteConfirmModal] = useState(false); // État pour la confirmation de suppression
+  const [commentToDelete, setCommentToDelete] = useState(null); // Stocker le commentaire à supprimer
+  const [selectedComment, setSelectedComment] = useState(null);
   const [comments, setComments] = useState([]);
   const [reports, setReports] = useState([]);
+  const [commentReports, setCommentReports] = useState([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [authorFilter, setAuthorFilter] = useState("all");
   const [authors, setAuthors] = useState([]);
-  const [reportedPublicationsLocal, setReportedPublicationsLocal] = useState(new Set()); // Suivi des publications déjà signalées pour l'alerte
+  const [reportedPublicationsLocal, setReportedPublicationsLocal] = useState(new Set());
+  const [reportedCommentsLocal, setReportedCommentsLocal] = useState(new Set());
+  const [currentPublicationId, setCurrentPublicationId] = useState(null);
+  const [userRole, setUserRole] = useState(null); // Ajout de l'état pour le rôle
   const navigate = useNavigate();
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
 
   const token = localStorage.getItem("jwt-token");
+
+  // Charger le rôle de l'utilisateur au montage du composant
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/users/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Failed to fetch user role");
+        const data = await res.json();
+        setUserRole(data.role);
+      } catch (err) {
+        console.error("❌ Error fetching user role:", err);
+        setNotification({ open: true, message: "Failed to load user role", severity: "error" });
+      }
+    };
+
+    if (token) {
+      fetchUserRole();
+    }
+  }, []);
 
   // Charger les publications
   const fetchPublications = async (query = "") => {
@@ -77,9 +107,8 @@ const Publication = () => {
                 ...pub,
                 reportCount: pub.reports.length,
               };
-              // Ajouter la publication aux notifications si elle a des signalements
               if (newPub.reportCount > 0) {
-                addReportedPublication(newPub); // Le contexte vérifiera si elle a déjà été vue
+                addReportedPublication(newPub);
               }
               return newPub;
             } else {
@@ -99,9 +128,8 @@ const Publication = () => {
                   reportCount,
                 };
 
-                // Ajouter la publication aux notifications si elle a des signalements
                 if (reportCount > 0) {
-                  addReportedPublication(newPub); // Le contexte vérifiera si elle a déjà été vue
+                  addReportedPublication(newPub);
                 }
 
                 return newPub;
@@ -119,7 +147,6 @@ const Publication = () => {
 
         console.log("📋 Publications avec reportCount:", pubs);
 
-        // Vérifier les publications avec 2 signalements ou plus pour l'alerte
         pubs.forEach((pub) => {
           if (pub.reportCount >= 2 && !reportedPublicationsLocal.has(pub.id)) {
             setNotification({
@@ -141,6 +168,113 @@ const Publication = () => {
     } catch (err) {
       console.error("❌ Error fetching publications:", err);
       setNotification({ open: true, message: "Failed to load publications", severity: "error" });
+    }
+  };
+
+  // Charger les commentaires avec leurs signalements
+  const fetchComments = async (publicationId) => {
+    try {
+      const res = await fetch(`http://localhost:5000/users/commentaires/${publicationId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to fetch comments");
+      const data = await res.json();
+
+      const commentsWithReports = await Promise.all(
+        data.map(async (comment) => {
+          try {
+            const reportRes = await fetch(`http://localhost:5000/users/comment/reports/${comment._id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!reportRes.ok) throw new Error(`Failed to fetch reports for comment ${comment._id}`);
+            const reportData = await reportRes.json();
+            const reportCount = Array.isArray(reportData) ? reportData.length : 0;
+
+            const newComment = {
+              ...comment,
+              reportCount,
+            };
+
+            if (reportCount >= 2 && !reportedCommentsLocal.has(comment._id)) {
+              setNotification({
+                open: true,
+                message: `⚠️ Commentaire de "${comment.auteur_id?.username || "Unknown"}" a atteint ${reportCount} signalements !`,
+                severity: "warning",
+              });
+              setReportedCommentsLocal((prev) => new Set(prev).add(comment._id));
+            }
+
+            if (reportCount > 0) {
+              addReportedComment(newComment);
+            }
+
+            return newComment;
+          } catch (err) {
+            console.error(`❌ Erreur lors de la récupération des signalements pour le commentaire ${comment._id}:`, err);
+            return { ...comment, reportCount: 0 };
+          }
+        })
+      );
+
+      setComments(commentsWithReports);
+    } catch (err) {
+      console.error("❌ Error retrieving comments:", err);
+      setNotification({ open: true, message: "Failed to load comments!", severity: "error" });
+    }
+  };
+
+  // Ouvrir la boîte de dialogue de confirmation avant suppression
+  const handleOpenDeleteConfirm = (commentId) => {
+    setCommentToDelete(commentId);
+    setOpenDeleteConfirmModal(true);
+  };
+
+  // Fermer la boîte de dialogue de confirmation
+  const handleCloseDeleteConfirm = () => {
+    setOpenDeleteConfirmModal(false);
+    setCommentToDelete(null);
+  };
+
+  // Supprimer un commentaire
+  const handleDeleteComment = async () => {
+    if (!commentToDelete) return;
+
+    try {
+      const res = await fetch(`http://localhost:5000/users/deleteCommentAdmin/${commentToDelete}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to delete comment");
+      }
+
+      // Recharger les commentaires après la suppression
+      if (currentPublicationId) {
+        await fetchComments(currentPublicationId);
+      }
+
+      // Supprimer le commentaire des notifications si nécessaire
+      removeReportedComment(commentToDelete);
+
+      setNotification({
+        open: true,
+        message: "Commentaire supprimé avec succès !",
+        severity: "success",
+      });
+
+      // Fermer la boîte de dialogue de confirmation
+      handleCloseDeleteConfirm();
+    } catch (err) {
+      console.error("❌ Error deleting comment:", err);
+      setNotification({
+        open: true,
+        message: err.message || "Failed to delete comment!",
+        severity: "error",
+      });
     }
   };
 
@@ -263,21 +397,9 @@ const Publication = () => {
   };
 
   const handleViewComments = (id) => {
-    fetch(`http://localhost:5000/users/commentaires/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch comments");
-        return res.json();
-      })
-      .then((data) => {
-        setComments(data);
-        setOpenCommentsModal(true);
-      })
-      .catch((err) => {
-        console.error("❌ Error retrieving comments:", err);
-        setNotification({ open: true, message: "Failed to load comments!", severity: "error" });
-      });
+    setCurrentPublicationId(id);
+    fetchComments(id);
+    setOpenCommentsModal(true);
   };
 
   const handleViewReports = (id) => {
@@ -298,6 +420,25 @@ const Publication = () => {
       });
   };
 
+  const handleViewCommentReports = (comment) => {
+    fetch(`http://localhost:5000/users/comment/reports/${comment._id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch comment reports");
+        return res.json();
+      })
+      .then((data) => {
+        setCommentReports(data);
+        setSelectedComment(comment);
+        setOpenCommentReportsModal(true);
+      })
+      .catch((err) => {
+        console.error("❌ Error retrieving comment reports:", err);
+        setNotification({ open: true, message: "Failed to load comment reports!", severity: "error" });
+      });
+  };
+
   const handleOpenNotifications = () => {
     setOpenNotificationsModal(true);
   };
@@ -307,14 +448,15 @@ const Publication = () => {
   };
 
   const handleViewReportedPublication = (publication) => {
-    // Supprimer la publication de la liste des notifications
     removeReportedPublication(publication.id);
-
-    // Fermer le modal des notifications
     handleCloseNotifications();
-
-    // Afficher les détails de la publication
     handleViewProfile(publication.id);
+  };
+
+  const handleViewReportedComment = (comment) => {
+    removeReportedComment(comment._id);
+    handleCloseNotifications();
+    handleViewCommentReports(comment);
   };
 
   const generatePDF = () => {
@@ -637,11 +779,11 @@ const Publication = () => {
         </FormControl>
         <IconButton onClick={handleOpenNotifications}>
           <Badge
-            badgeContent={reportedPublications.length}
+            badgeContent={reportedPublications.length + reportedComments.length}
             color="error"
             sx={{
               "& .MuiBadge-badge": {
-                backgroundColor: reportedPublications.length > 0 ? "#ff1744" : "#bdbdbd",
+                backgroundColor: (reportedPublications.length + reportedComments.length) > 0 ? "#ff1744" : "#bdbdbd",
                 color: "#fff",
                 fontSize: "0.7rem",
                 height: "18px",
@@ -925,13 +1067,65 @@ const Publication = () => {
                 >
                   <Box sx={{ display: "flex", alignItems: "center", gap: "12px", mb: "8px" }}>
                     <Avatar
-                      src={comment.auteur_id.user_photo ? `http://localhost:5000${comment.auteur_id.user_photo}` : null}
-                      alt={comment.auteur_id.username}
+                      src={comment.auteur_id?.user_photo ? `http://localhost:5000${comment.auteur_id.user_photo}` : null}
+                      alt={comment.auteur_id?.username}
                       sx={{ width: 40, height: 40 }}
                     />
                     <Typography sx={{ fontWeight: "bold", color: colors.grey[100] }}>
-                      {comment.auteur_id.username}
+                      {comment.auteur_id?.username || "Unknown"}
                     </Typography>
+                    <Tooltip title={`Voir les signalements (${comment.reportCount || 0})`}>
+                      <Badge
+                        badgeContent={comment.reportCount || 0}
+                        color="error"
+                        sx={{
+                          "& .MuiBadge-badge": {
+                            backgroundColor: comment.reportCount > 0 ? "#ff1744" : "#bdbdbd",
+                            color: "#fff",
+                            fontSize: "0.7rem",
+                            height: "18px",
+                            minWidth: "18px",
+                            borderRadius: "50%",
+                            border: "2px solid #fff",
+                            boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
+                          },
+                        }}
+                      >
+                        <Button
+                          variant="contained"
+                          size="small"
+                          startIcon={<ReportIcon />}
+                          onClick={() => handleViewCommentReports(comment)}
+                          sx={{
+                            backgroundColor: comment.reportCount > 0 ? colors.redAccent[500] : colors.grey[500],
+                            color: "#fff",
+                            "&:hover": {
+                              backgroundColor: comment.reportCount > 0 ? colors.redAccent[700] : colors.grey[700],
+                            },
+                            padding: "4px 8px",
+                            fontSize: "0.75rem",
+                            borderRadius: "8px",
+                          }}
+                        >
+                          Reports
+                        </Button>
+                      </Badge>
+                    </Tooltip>
+                    { ( // Afficher l'icône de suppression uniquement pour les admins
+                      <Tooltip title="Delete the comment">
+                        <IconButton
+                          onClick={() => handleOpenDeleteConfirm(comment._id)}
+                          sx={{
+                            color: colors.redAccent[500],
+                            "&:hover": {
+                              color: colors.redAccent[700],
+                            },
+                          }}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                   </Box>
                   <Typography sx={{ fontSize: "1rem", color: colors.grey[200] }}>
                     {comment.contenu}
@@ -972,7 +1166,87 @@ const Publication = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Modal pour les Signalements */}
+      {/* Modal de Confirmation de Suppression */}
+      <Dialog
+        open={openDeleteConfirmModal}
+        onClose={handleCloseDeleteConfirm}
+        maxWidth="sm"
+        fullWidth
+        sx={{
+          "& .MuiDialog-paper": {
+            borderRadius: "12px",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+            backgroundColor: colors.primary[400],
+            overflow: "hidden",
+            transition: "all 0.3s ease-in-out",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontSize: "1.5rem",
+            fontWeight: "600",
+            textAlign: "center",
+            backgroundColor: colors.redAccent[700],
+            color: "#fff",
+            padding: "16px 24px",
+            borderBottom: `1px solid ${colors.grey[700]}`,
+          }}
+        >
+          Confirmer la Suppression
+        </DialogTitle>
+        <DialogContent
+          sx={{
+            padding: "24px",
+            backgroundColor: colors.primary[500],
+            color: colors.grey[100],
+          }}
+        >
+          <Typography sx={{ fontSize: "1.2rem", textAlign: "center" }}>
+          Are you sure you want to delete this comment? This action is irreversible
+          </Typography>
+        </DialogContent>
+        <DialogActions
+          sx={{
+            padding: "16px 24px",
+            backgroundColor: colors.primary[400],
+            borderTop: `1px solid ${colors.grey[700]}`,
+            display: "flex",
+            justifyContent: "space-between",
+          }}
+        >
+          <Button
+            onClick={handleCloseDeleteConfirm}
+            variant="outlined"
+            sx={{
+              fontSize: "1.1rem",
+              color: colors.grey[100],
+              borderColor: colors.grey[600],
+              padding: "8px 16px",
+              borderRadius: "8px",
+              "&:hover": { backgroundColor: colors.grey[800], borderColor: colors.grey[500] },
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteComment}
+            variant="contained"
+            sx={{
+              fontSize: "1.1rem",
+              backgroundColor: colors.redAccent[500],
+              color: "#fff",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              "&:hover": { backgroundColor: colors.redAccent[700] },
+            }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal pour les Signalements de Publication */}
       <Dialog
         open={openReportsModal}
         onClose={() => setOpenReportsModal(false)}
@@ -1076,6 +1350,110 @@ const Publication = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Modal pour les Signalements de Commentaire */}
+      <Dialog
+        open={openCommentReportsModal}
+        onClose={() => setOpenCommentReportsModal(false)}
+        maxWidth="md"
+        fullWidth
+        sx={{
+          "& .MuiDialog-paper": {
+            borderRadius: "12px",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+            backgroundColor: colors.primary[400],
+            overflow: "hidden",
+            transition: "all 0.3s ease-in-out",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontSize: "1.8rem",
+            fontWeight: "600",
+            textAlign: "center",
+            backgroundColor: colors.redAccent[700],
+            color: "#fff",
+            padding: "16px 24px",
+            borderBottom: `1px solid ${colors.grey[700]}`,
+          }}
+        >
+          Comment Reports
+        </DialogTitle>
+        <DialogContent
+          sx={{
+            padding: "24px",
+            backgroundColor: colors.primary[500],
+            color: colors.grey[100],
+            maxHeight: "60vh",
+            overflowY: "auto",
+          }}
+        >
+          {commentReports.length > 0 ? (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              {commentReports.map((report) => (
+                <Box
+                  key={report._id}
+                  sx={{
+                    backgroundColor: colors.primary[600],
+                    padding: "16px",
+                    borderRadius: "8px",
+                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: "12px", mb: "8px" }}>
+                    <Avatar
+                      src={report.userId?.user_photo ? `http://localhost:5000${report.userId.user_photo}` : null}
+                      alt={report.userId?.username}
+                      sx={{ width: 40, height: 40 }}
+                    />
+                    <Typography sx={{ fontWeight: "bold", color: colors.grey[100] }}>
+                      {report.userId?.username || "Unknown"}
+                    </Typography>
+                  </Box>
+                  <Typography sx={{ fontSize: "1rem", color: colors.grey[200] }}>
+                    <strong>Reason:</strong> {report.reason}
+                  </Typography>
+                  {report.customReason && (
+                    <Typography sx={{ fontSize: "1rem", color: colors.grey[200], mt: "8px" }}>
+                      <strong>Details:</strong> {report.customReason}
+                    </Typography>
+                  )}
+                  <Typography sx={{ fontSize: "0.9rem", color: colors.grey[400], mt: "8px" }}>
+                    Reported on: {new Date(report.dateReported).toLocaleString()}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            <Typography sx={{ textAlign: "center", color: colors.grey[300], fontSize: "1.2rem" }}>
+              No reports available for this comment.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions
+          sx={{
+            padding: "16px 24px",
+            backgroundColor: colors.primary[400],
+            borderTop: `1px solid ${colors.grey[700]}`,
+          }}
+        >
+          <Button
+            onClick={() => setOpenCommentReportsModal(false)}
+            variant="outlined"
+            sx={{
+              fontSize: "1.1rem",
+              color: colors.grey[100],
+              borderColor: colors.grey[600],
+              padding: "8px 16px",
+              borderRadius: "8px",
+              "&:hover": { backgroundColor: colors.grey[800], borderColor: colors.grey[500] },
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Modal pour les Notifications */}
       <Dialog
         open={openNotificationsModal}
@@ -1114,7 +1492,7 @@ const Publication = () => {
             overflowY: "auto",
           }}
         >
-          {reportedPublications.length > 0 ? (
+          {(reportedPublications.length > 0 || reportedComments.length > 0) ? (
             <List>
               {reportedPublications.map((pub) => (
                 <ListItem
@@ -1132,7 +1510,29 @@ const Publication = () => {
                 >
                   <ListItemText
                     primary={stripHtmlTags(pub.titrePublication)}
-                    secondary={`Signalée ${pub.reportCount} fois`}
+                    secondary={`Publication signalée ${pub.reportCount} fois`}
+                    primaryTypographyProps={{ color: colors.grey[100], fontWeight: "bold" }}
+                    secondaryTypographyProps={{ color: colors.grey[300] }}
+                  />
+                </ListItem>
+              ))}
+              {reportedComments.map((comment) => (
+                <ListItem
+                  key={comment._id}
+                  button
+                  onClick={() => handleViewReportedComment(comment)}
+                  sx={{
+                    backgroundColor: colors.primary[600],
+                    borderRadius: "8px",
+                    mb: "8px",
+                    "&:hover": {
+                      backgroundColor: colors.primary[700],
+                    },
+                  }}
+                >
+                  <ListItemText
+                    primary={`Commentaire de ${comment.auteur_id?.username || "Unknown"}`}
+                    secondary={`Signalé ${comment.reportCount} fois`}
                     primaryTypographyProps={{ color: colors.grey[100], fontWeight: "bold" }}
                     secondaryTypographyProps={{ color: colors.grey[300] }}
                   />
@@ -1141,7 +1541,7 @@ const Publication = () => {
             </List>
           ) : (
             <Typography sx={{ textAlign: "center", color: colors.grey[300], fontSize: "1.2rem" }}>
-              Aucune publication signalée pour le moment.
+              Aucune publication ou commentaire signalé pour le moment.
             </Typography>
           )}
         </DialogContent>
