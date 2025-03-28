@@ -722,17 +722,110 @@ module.exports.updatePublication = (req, res) => {
 };
 
 
-// Ajouter un commentaire
+//ban
+module.exports.banUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { days, reason, customReason } = req.body;
+
+        // Vérification des permissions
+        if (req.userRole !== "admin" && req.userRole !== "psychiatrist") {
+            return res.status(403).json({ message: "Permission refusée" });
+        }
+
+        // Validation des champs requis
+        if (!userId || !days || !reason) {
+            return res.status(400).json({ message: "L'ID utilisateur, le nombre de jours et la raison sont requis" });
+        }
+
+        if (reason === "other" && !customReason) {
+            return res.status(400).json({ message: "Une raison personnalisée est requise pour 'other'" });
+        }
+
+        // Trouver l'utilisateur
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "Utilisateur non trouvé" });
+        }
+
+        // Calculer la date d'expiration du bannissement
+        const daysInt = parseInt(days);
+        if (isNaN(daysInt) || daysInt <= 0) {
+            return res.status(400).json({ message: "Le nombre de jours doit être un entier positif" });
+        }
+
+        const banExpiration = new Date();
+        banExpiration.setDate(banExpiration.getDate() + daysInt);
+
+        // Déterminer la raison finale
+        const finalReason = reason === "other" && customReason ? customReason : reason;
+
+        // Mettre à jour l'utilisateur
+        user.isBanned = true;
+        user.banExpiration = banExpiration;
+        user.banReason = finalReason;
+
+        const updatedUser = await user.save();
+
+        // Envoyer un email à l'utilisateur banni
+        const subject = "Vous avez été banni d'EspritCare";
+        const htmlContent = `
+            <h2>Notification de bannissement</h2>
+            <p>Bonjour ${user.username},</p>
+            <p>Votre compte sur EspritCare a été banni pour la raison suivante :</p>
+            <ul>
+                <li><strong>Raison :</strong> ${finalReason}</li>
+                <li><strong>Durée :</strong> ${daysInt} jour${daysInt > 1 ? 's' : ''}</li>
+                <li><strong>Expiration :</strong> ${banExpiration.toLocaleString()}</li>
+            </ul>
+            <p>Si vous pensez qu'il s'agit d'une erreur, veuillez contacter notre support à support@espritcare.com.</p>
+            <p>Cordialement,<br>L'équipe EspritCare</p>
+        `;
+
+        try {
+            await sendEmail(user.email, subject, htmlContent);
+            console.log(`Email de bannissement envoyé à ${user.email}`);
+        } catch (emailErr) {
+            console.error(`Erreur lors de l'envoi de l'email à ${user.email} :`, emailErr);
+            // Ne pas bloquer la réponse en cas d'échec d'email
+        }
+
+        // Réponse au client
+        res.status(200).json({
+            message: "Utilisateur banni avec succès",
+            user: {
+                _id: updatedUser._id,
+                username: updatedUser.username,
+                isBanned: updatedUser.isBanned,
+                banExpiration: updatedUser.banExpiration,
+                banReason: updatedUser.banReason,
+            },
+        });
+    } catch (err) {
+        console.error("Erreur lors du bannissement de l'utilisateur:", err);
+        res.status(500).json({ message: "Erreur serveur", error: err.message });
+    }
+};
+
+// Vérifier le statut de bannissement avant d'ajouter un commentaire
 module.exports.addCommentaire = async (req, res) => {
     try {
         const token = req.headers.authorization.split(' ')[1];
         const decoded = jwt.verify(token, 'randa');
         const userId = decoded.id;
 
+        // Vérifier si l'utilisateur est banni
+        const user = await User.findById(userId);
+        if (user.isBanned && user.banExpiration && new Date() < user.banExpiration) {
+            return res.status(403).json({
+                message: `Vous êtes banni jusqu'au ${user.banExpiration.toLocaleString()} pour la raison suivante : ${user.banReason}`,
+            });
+        }
+
         const { contenu, publication_id, isAnonymous } = req.body;
 
         if (!contenu || !publication_id) {
-            return res.status(400).json({ message: 'Le contenu et l\'ID de la publication sont requis' });
+            return res.status(400).json({ message: "Le contenu et l'ID de la publication sont requis" });
         }
 
         const commentaire = new Commentaire({
@@ -750,20 +843,20 @@ module.exports.addCommentaire = async (req, res) => {
             ? {
                 ...populatedCommentaire.toObject(),
                 auteur_id: {
-                    _id: populatedCommentaire.auteur_id._id, // Conserver l'_id
+                    _id: populatedCommentaire.auteur_id._id,
                     username: 'Anonyme',
-                    user_photo: null
-                }
+                    user_photo: null,
+                },
             }
             : populatedCommentaire;
 
-        res.status(201).json({ 
-            message: 'Commentaire ajouté avec succès', 
-            commentaire: responseCommentaire 
+        res.status(201).json({
+            message: "Commentaire ajouté avec succès",
+            commentaire: responseCommentaire,
         });
     } catch (error) {
-        console.error('Erreur lors de l\'ajout du commentaire:', error);
-        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+        console.error("Erreur lors de l'ajout du commentaire:", error);
+        res.status(500).json({ message: "Erreur serveur", error: error.message });
     }
 };
 

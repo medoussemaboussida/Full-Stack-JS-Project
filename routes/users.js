@@ -46,6 +46,7 @@ router.post('/comment/report/:commentId', userController.verifyToken, userContro
 router.get('/comment/reports', userController.verifyToken, userController.getAllCommentReports);
 router.get('/comment/reports/:commentId', userController.verifyToken, userController.getReportsByComment);
 router.delete('/deleteCommentAdmin/:commentId', userController.deleteCommentaireAdmin);
+router.post('/ban/:userId', userController.verifyToken, userController.banUser);
 
 
 
