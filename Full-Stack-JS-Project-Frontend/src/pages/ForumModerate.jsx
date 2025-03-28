@@ -6,6 +6,7 @@ import { faTrashAlt, faToggleOn, faToggleOff, faFlag, faBan } from "@fortawesome
 import { faSearch, faHeart } from "@fortawesome/free-solid-svg-icons";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
+import { addNotification } from "../utils/notificationUtils"; // Importer l'utilitaire
 
 // Fonction pour couper la description à 3 lignes
 const truncateDescription = (text, isExpanded) => {
@@ -16,8 +17,9 @@ const truncateDescription = (text, isExpanded) => {
 };
 // Fonction pour générer l'URL du QR code avec les informations de ban
 const generateQRCodeUrl = (user) => {
-  const qrData = `Username: ${user.user_id.username}\nLevel and Speciality: ${user.user_id.level || 'N/A'} ${user.user_id.speciality || 'N/A'}\nReason of ban: ${user.reason}\nBan expires: ${new Date(user.expiresAt).toLocaleString("fr-FR")}`;  const encodedData = encodeURIComponent(qrData);
-  return `https://api.qrserver.com/v1/create-qr-code/?data=${encodedData}&size=120x120`; 
+  const qrData = `Username: ${user.user_id.username}\nLevel and Speciality: ${user.user_id.level || 'N/A'} ${user.user_id.speciality || 'N/A'}\nReason of ban: ${user.reason}\nBan expires: ${new Date(user.expiresAt).toLocaleString("fr-FR")}`;
+  const encodedData = encodeURIComponent(qrData);
+  return `https://api.qrserver.com/v1/create-qr-code/?data=${encodedData}&size=120x120`;
 };
 
 function ForumModerate() {
@@ -268,6 +270,10 @@ function ForumModerate() {
   };
 
   const handleDeleteComment = (commentId) => {
+    // Trouver le commentaire pour récupérer l'user_id et le contenu
+    const comment = comments.find((c) => c._id === commentId);
+    if (!comment) return;
+
     fetch(`http://localhost:5000/forumComment/deleteComment/${commentId}`, {
       method: "DELETE",
       headers: {
@@ -281,6 +287,10 @@ function ForumModerate() {
         setComments(comments.filter((comment) => comment._id !== commentId));
         setShowDeleteCommentModal(false);
         toast.success("Comment deleted successfully!");
+
+        // Ajouter une notification pour l'utilisateur
+        const message = `Your comment "${comment.content}" has been deleted by a moderator.`;
+        addNotification(comment.user_id._id, message, "comment_deleted");
       })
       .catch((error) => {
         console.error("Erreur lors de la suppression du commentaire:", error);
@@ -311,6 +321,10 @@ function ForumModerate() {
   };
 
   const handleDelete = (forumId) => {
+    // Trouver le forum pour récupérer l'user_id et le titre
+    const forum = forums.find((f) => f._id === forumId);
+    if (!forum) return;
+
     fetch(`http://localhost:5000/forum/deleteForum/${forumId}`, {
       method: "DELETE",
       headers: {
@@ -324,6 +338,10 @@ function ForumModerate() {
         setForums(forums.filter((forum) => forum._id !== forumId));
         setShowDeleteModal(false);
         toast.success("Topic deleted successfully!");
+
+        // Ajouter une notification pour l'utilisateur
+        const message = `Your post "${forum.title}" has been deleted by a moderator.`;
+        addNotification(forum.user_id._id, message, "post_deleted");
       })
       .catch((error) => {
         console.error("Erreur lors de la suppression du forum:", error);
@@ -423,6 +441,12 @@ function ForumModerate() {
       if (response.ok) {
         toast.success(data.message || "User banned successfully!");
         setShowBanModal(false);
+
+        // Ajouter une notification pour l'utilisateur banni
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + parseInt(banDuration));
+        const message = `You have been banned for ${banReason}. Ban expires on ${expiresAt.toLocaleString("fr-FR")}.`;
+        addNotification(userToBan, message, "ban");
       } else {
         toast.error(data.message || "Failed to ban user.");
       }
