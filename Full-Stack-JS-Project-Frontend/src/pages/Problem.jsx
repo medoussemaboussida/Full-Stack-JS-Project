@@ -15,6 +15,7 @@ const Problem = () => {
     satisfaction: '',
     startDate: '',
     endDate: '',
+    notes: '', // Added notes field
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -59,7 +60,7 @@ const Problem = () => {
     try {
       const response = await axios.post(
         `http://localhost:5000/users/problems`,
-        formData,
+        formData, // Includes notes in the payload
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -74,6 +75,7 @@ const Problem = () => {
         satisfaction: '',
         startDate: '',
         endDate: '',
+        notes: '', // Reset notes field
       });
       setTimeout(() => navigate('/list-problems'), 2000);
     } catch (error) {
@@ -85,7 +87,7 @@ const Problem = () => {
   };
 
   const handleCancel = () => {
-    navigate(`/problems/list/${userId}`);
+    navigate(`/list-problems`);
   };
 
   return (
@@ -200,7 +202,6 @@ const Problem = () => {
                       style={{ width: '100%', padding: '12px', borderRadius: '5px', border: '1px solid #ddd' }}
                     />
                   </div>
-
                   <div className="form-group" style={{ marginBottom: '20px' }}>
                     <label style={{ color: '#666' }}>Start Date</label>
                     <input
@@ -212,7 +213,6 @@ const Problem = () => {
                       style={{ width: '100%', padding: '12px', borderRadius: '5px', border: '1px solid #ddd' }}
                     />
                   </div>
-
                   <div className="form-group" style={{ marginBottom: '20px' }}>
                     <label style={{ color: '#666' }}>End Date</label>
                     <input
@@ -224,7 +224,6 @@ const Problem = () => {
                       style={{ width: '100%', padding: '12px', borderRadius: '5px', border: '1px solid #ddd' }}
                     />
                   </div>
-
                   <div className="form-group" style={{ marginBottom: '20px' }}>
                     <label style={{ display: 'block', marginBottom: '10px', color: '#666' }}>
                       Are you satisfied with your reaction?
@@ -257,7 +256,6 @@ const Problem = () => {
                       ))}
                     </div>
                   </div>
-
                   <div className="form-group" style={{ marginBottom: '20px', display: 'flex', alignItems: 'center' }}>
                     <label style={{ marginRight: '10px', color: '#666' }}>Is the problem resolved?</label>
                     <input
@@ -266,6 +264,24 @@ const Problem = () => {
                       checked={formData.resolved}
                       onChange={handleChange}
                       style={{ width: '20px', height: '20px' }}
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: '20px' }}>
+                    <label style={{ color: '#666' }}>Notes</label>
+                    <textarea
+                      name="notes"
+                      value={formData.notes}
+                      onChange={handleChange}
+                      placeholder="Add any additional notes here..."
+                      className="form-control"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '5px',
+                        border: '1px solid #ddd',
+                        minHeight: '100px',
+                        resize: 'vertical',
+                      }}
                     />
                   </div>
                   <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
@@ -307,8 +323,6 @@ const Problem = () => {
           </div>
         </div>
       </div>
-
-
     </div>
   );
 };

@@ -2081,7 +2081,7 @@ module.exports.getPublicKeys = async (req, res) => {
 // Create a problem (unchanged)
 module.exports.createProblem = async (req, res) => {
   const userId = req.userId;
-  const { what, source, reaction, resolved, satisfaction, startDate, endDate } = req.body;
+  const { what, source, reaction, resolved, satisfaction, startDate, endDate, notes } = req.body;
 
   if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
     return res.status(400).json({ message: "startDate must be before endDate" });
@@ -2097,6 +2097,7 @@ module.exports.createProblem = async (req, res) => {
       satisfaction: satisfaction || '',
       startDate: startDate || null,
       endDate: endDate || null,
+      notes,
     });
     await problem.save();
     res.status(201).json({ message: 'Problem saved successfully', problem });
@@ -2107,61 +2108,43 @@ module.exports.createProblem = async (req, res) => {
 
 // Get problems with sorting, searching, and pagination
 module.exports.getProblems = async (req, res) => {
-  const { userId } = req.params;
-  const {
-    sortField = 'createdAt', // Champ de tri par défaut
-    sortOrder = 'desc',     // Ordre de tri par défaut (descendant)
-    search = '',           // Recherche par défaut vide
-    page = 1,              // Page par défaut
-    limit = 5              // Limite par défaut (correspond au frontend)
-  } = req.query;
+    const { userId } = req.params;
+    const { sortBy = 'createdAt', sortOrder = 'desc', search, page = 1, limit = 5 } = req.query;
+  
+    try {
+      // Construire la requête MongoDB
+      let query = { userId };
+      if (search) {
+        query.$or = [
+          { what: { $regex: search, $options: 'i' } },
+          { source: { $regex: search, $options: 'i' } },
+          { reaction: { $regex: search, $options: 'i' } },
+          { notes: { $regex: search, $options: 'i' } },
 
-  if (req.userId !== userId) {
-    return res.status(403).json({ message: 'Unauthorized access.' });
-  }
-
-  try {
-    // Construire le filtre de recherche
-    const searchQuery = {
-      userId,
-      $or: [
-        { what: { $regex: search, $options: 'i' } },      // Recherche insensible à la casse
-        { source: { $regex: search, $options: 'i' } },
-        { reaction: { $regex: search, $options: 'i' } },
-      ],
-    };
-
-    // Calculer le nombre total de documents pour la pagination
-    const totalItems = await Problem.countDocuments(searchQuery);
-
-    // Construire l'ordre de tri
-    const sortCriteria = {};
-    sortCriteria[sortField] = sortOrder === 'asc' ? 1 : -1;
-
-    // Récupérer les problèmes avec tri, recherche et pagination
-    const problems = await Problem.find(searchQuery)
-      .sort(sortCriteria)
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-
-    // Réponse avec les données paginées
-    res.status(200).json({
-      problems,
-      totalItems,
-      totalPages: Math.ceil(totalItems / limit),
-      currentPage: parseInt(page),
-    });
-  } catch (error) {
-    console.error('Error fetching problems:', error);
-    res.status(500).json({ message: 'Error fetching problems', error: error.message });
-  }
-};
+        ];
+      }
+  
+      // Compter le nombre total de documents pour calculer les pages
+      const totalProblems = await Problem.countDocuments(query);
+      const totalPages = Math.ceil(totalProblems / limit);
+  
+      // Trier et paginer
+      const problems = await Problem.find(query)
+        .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 }) // Tri sur tous les problèmes
+        .skip((page - 1) * limit)
+        .limit(parseInt(limit));
+  
+      res.json({ problems, totalPages });
+    } catch (error) {
+      res.status(500).json({ message: 'Error fetching problems', error });
+    }
+  };
 
 // Update a problem (unchanged)
 module.exports.updateProblem = async (req, res) => {
   const userId = req.userId;
   const problemId = req.params.problemId;
-  const { what, source, reaction, resolved, satisfaction, startDate, endDate } = req.body;
+  const { what, source, reaction, resolved, satisfaction, startDate, endDate, notes} = req.body;
 
   if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
     return res.status(400).json({ message: "startDate must be before endDate" });
@@ -2178,6 +2161,7 @@ module.exports.updateProblem = async (req, res) => {
         satisfaction,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
+        notes,
       },
       { new: true }
     );

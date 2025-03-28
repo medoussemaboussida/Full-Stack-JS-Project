@@ -13,6 +13,7 @@ const problemSchema = new mongoose.Schema({
   },
   startDate: { type: Date },                        // Date de début du problème
   endDate: { type: Date },                          // Date de fin du problème
+  notes: { type: String },                          // Notes supplémentaires (optionnel)
   createdAt: { type: Date, default: Date.now },     // Date de création
 });
 
