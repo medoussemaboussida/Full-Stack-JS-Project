@@ -441,6 +441,7 @@ function ActivitySchedule() {
       await saveMood(currentActivity._id, selectedMood);
       fetchMoods().then((moodsData) => {
         setMoods(moodsData);
+        console.log("Moods:", moodsData);
       });
     }
     setShowMoodModal(false);
@@ -1402,34 +1403,46 @@ function ActivitySchedule() {
             }}
           >
             <ul style={{ listStyle: "none", padding: "0" }}>
-              {moods.map((mood, index) => {
-                const activity = activities.find((act) => act._id === mood.activityId);
-                return (
-                  <li
-                    key={index}
-                    style={{
-                      padding: "10px 0",
-                      borderBottom: index < moods.length - 1 ? "1px solid #ddd" : "none",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      fontSize: "14px",
-                    }}
-                  >
-                    <span>
-                      <strong>{activity ? activity.title : "Unknown Activity"}</strong> -{" "}
-                      {moodIcons[mood.mood]} {mood.mood}
-                    </span>
-                    <span style={{ color: "#666", fontSize: "12px" }}>
-                      {new Date(mood.date).toLocaleDateString("en-US", {
-                        month: "long",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
-                  </li>
-                );
-              })}
+            {moods.map((mood, index) => {
+  // Extract the activity ID from the populated object
+  const activityId = mood.activityId && typeof mood.activityId === "object"
+    ? mood.activityId._id
+    : mood.activityId;
+  
+  const activity = activities.find((act) => act._id === activityId);
+  console.log(`Mood ${index}:`, {
+    rawMood: mood,
+    activityId: activityId,
+    foundActivity: activity,
+  });
+  return (
+    <li
+      key={index}
+      style={{
+        padding: "10px 0",
+        borderBottom: index < moods.length - 1 ? "1px solid #ddd" : "none",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        fontSize: "14px",
+      }}
+    >
+      <span>
+        <strong>{activity ? activity.title : "Unknown Activity"}</strong> -{" "}
+        {moodIcons[mood.mood]} {mood.mood}
+      </span>
+      <span style={{ color: "#666", fontSize: "12px" }}>
+        {new Date(mood.date).toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+
+          year: "numeric",
+        })}
+      </span>
+    </li>
+  );
+})}
+
             </ul>
           </div>
         )}

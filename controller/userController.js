@@ -6,8 +6,12 @@ const sendEmail = require('../utils/emailSender');
 const multer = require('multer');
 const path = require('path');
 const Publication = require('../model/publication'); // Assurez-vous que le chemin est correct
+const ReportPublication = require('../model/ReportPublication');
 const Appointment = require("../model/appointment");
 const Chat = require("../model/chat");
+const Problem = require('../model/problem'); // Add Problem model
+const AttendanceSheet = require('../model/attendanceSheet'); // Add Problem model
+
 const { v4: uuidv4 } = require('uuid');
 const cron = require('node-cron'); 
 
@@ -1045,6 +1049,124 @@ module.exports.searchPublications = async (req, res) => {
     }
 };
 
+
+
+// Ajouter un signalement
+module.exports.addReport = async (req, res) => {
+    try {
+        const { id } = req.params; // ID de la publication à signaler
+        const { reason, customReason } = req.body;
+        const userId = req.userId; // Récupéré via verifyToken
+
+        const publication = await Publication.findById(id);
+        if (!publication) {
+            return res.status(404).json({ message: 'Publication non trouvée' });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'Utilisateur non trouvé' });
+        }
+
+        const existingReport = await ReportPublication.findOne({ publicationId: id, userId });
+        if (existingReport) {
+            return res.status(400).json({ message: 'Vous avez déjà signalé cette publication' });
+        }
+
+        const report = new ReportPublication({
+            publicationId: id,
+            userId,
+            reason,
+            customReason: reason === 'other' ? customReason : undefined,
+        });
+
+        const savedReport = await report.save();
+
+        res.status(201).json({
+            message: 'Signalement ajouté avec succès',
+            report: savedReport,
+        });
+    } catch (error) {
+        console.error('Erreur lors de l’ajout du signalement:', error);
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: 'Erreur de validation', error: error.message });
+        }
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Récupérer tous les signalements (pour admin ou psy, par exemple)
+module.exports.getAllReports = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const userRole = req.userRole;
+
+        if (userRole !== 'admin' && userRole !== 'psychiatrist') {
+            return res.status(403).json({ message: 'Accès non autorisé' });
+        }
+
+        const reports = await ReportPublication.find()
+            .populate('publicationId', 'titrePublication description')
+            .populate('userId', 'username email')
+            .sort({ dateReported: -1 });
+
+        res.status(200).json(reports);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des signalements:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Récupérer les signalements d'une publication spécifique
+module.exports.getReportsByPublication = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId;
+        const userRole = req.userRole;
+
+        const publication = await Publication.findById(id);
+        if (!publication) {
+            return res.status(404).json({ message: 'Publication non trouvée' });
+        }
+
+        if (userRole !== 'admin' && userRole !== 'psychiatrist' && publication.author_id.toString() !== userId) {
+            return res.status(403).json({ message: 'Accès non autorisé' });
+        }
+
+        const reports = await ReportPublication.find({ publicationId: id })
+            .populate('userId', 'username email')
+            .sort({ dateReported: -1 });
+
+        res.status(200).json(reports);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des signalements:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Supprimer un signalement (pour admin ou psy)
+module.exports.deleteReport = async (req, res) => {
+    try {
+        const { reportId } = req.params;
+        const userRole = req.userRole;
+
+        if (userRole !== 'admin' && userRole !== 'psychiatrist') {
+            return res.status(403).json({ message: 'Accès non autorisé' });
+        }
+
+        const report = await ReportPublication.findByIdAndDelete(reportId);
+        if (!report) {
+            return res.status(404).json({ message: 'Signalement non trouvé' });
+        }
+
+        res.status(200).json({ message: 'Signalement supprimé avec succès' });
+    } catch (error) {
+        console.error('Erreur lors de la suppression du signalement:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+
 //supprimer student
 module.exports.deleteStudentById = async (req, res) => {
     try {
@@ -2041,3 +2163,264 @@ module.exports.updatechat = async (req, res) => {
             res.status(500).json({ message: 'Server error' });
         }
     };
+
+// Create a problem
+// Create a problem (unchanged)
+module.exports.createProblem = async (req, res) => {
+  const userId = req.userId;
+  const { what, source, reaction, resolved, satisfaction, startDate, endDate, notes } = req.body;
+
+  if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+    return res.status(400).json({ message: "startDate must be before endDate" });
+  }
+
+  try {
+    const problem = new Problem({
+      userId,
+      what,
+      source,
+      reaction,
+      resolved: resolved || false,
+      satisfaction: satisfaction || '',
+      startDate: startDate || null,
+      endDate: endDate || null,
+      notes,
+    });
+    await problem.save();
+    res.status(201).json({ message: 'Problem saved successfully', problem });
+  } catch (error) {
+    res.status(500).json({ message: 'Error saving problem', error: error.message });
+  }
+};
+
+// Get problems with sorting, searching, and pagination
+module.exports.getProblems = async (req, res) => {
+    const { userId } = req.params;
+    const { sortBy = 'createdAt', sortOrder = 'desc', search, page = 1, limit = 5 } = req.query;
+  
+    try {
+      // Construire la requête MongoDB
+      let query = { userId };
+      if (search) {
+        query.$or = [
+          { what: { $regex: search, $options: 'i' } },
+          { source: { $regex: search, $options: 'i' } },
+          { reaction: { $regex: search, $options: 'i' } },
+          { notes: { $regex: search, $options: 'i' } },
+
+        ];
+      }
+  
+      // Compter le nombre total de documents pour calculer les pages
+      const totalProblems = await Problem.countDocuments(query);
+      const totalPages = Math.ceil(totalProblems / limit);
+  
+      // Trier et paginer
+      const problems = await Problem.find(query)
+        .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 }) // Tri sur tous les problèmes
+        .skip((page - 1) * limit)
+        .limit(parseInt(limit));
+  
+      res.json({ problems, totalPages });
+    } catch (error) {
+      res.status(500).json({ message: 'Error fetching problems', error });
+    }
+  };
+
+// Update a problem (unchanged)
+module.exports.updateProblem = async (req, res) => {
+  const userId = req.userId;
+  const problemId = req.params.problemId;
+  const { what, source, reaction, resolved, satisfaction, startDate, endDate, notes} = req.body;
+
+  if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+    return res.status(400).json({ message: "startDate must be before endDate" });
+  }
+
+  try {
+    const problem = await Problem.findOneAndUpdate(
+      { _id: problemId, userId },
+      {
+        what,
+        source,
+        reaction,
+        resolved,
+        satisfaction,
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+        notes,
+      },
+      { new: true }
+    );
+    if (!problem) return res.status(404).json({ message: 'Problem not found' });
+    res.status(200).json({ message: 'Problem updated successfully', problem });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating problem', error: error.message });
+  }
+};
+
+// Delete a problem (unchanged)
+module.exports.deleteProblem = async (req, res) => {
+  const { userId, problemId } = req.params;
+
+  if (req.userId !== userId) {
+    return res.status(403).json({ message: 'Unauthorized access.' });
+  }
+
+  try {
+    const deletedProblem = await Problem.findOneAndDelete({ _id: problemId, userId });
+    if (!deletedProblem) {
+      return res.status(404).json({ message: 'Problem not found.' });
+    }
+    res.status(200).json({ message: 'Problem deleted successfully.' });
+  } catch (error) {
+    console.error('Error deleting problem:', error);
+    res.status(500).json({ message: 'Error deleting problem', error: error.message });
+  }
+};
+// Middleware pour vérifier le rôle teacher
+module.exports.isTeacher = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.params.userId);
+        if (!user || user.role !== 'teacher') {
+            return res.status(403).json({ message: "Accès réservé aux enseignants" });
+        }
+        req.user = user; // Attach user to request object
+        next();
+    } catch (error) {
+        res.status(500).json({ message: "Erreur serveur", error: error.message });
+    }
+};
+
+// Create an attendance sheet
+module.exports.createAttendanceSheet = async (req, res) => {
+    try {
+        const { subject, classLevel, speciality, studentIds } = req.body;
+        const teacherId = req.params.userId;
+
+        if (!subject || !classLevel || !speciality || !studentIds) {
+            return res.status(400).json({ message: "Tous les champs (subject, classLevel, speciality, studentIds) sont requis" });
+        }
+
+        const attendanceSheet = new AttendanceSheet({
+            teacher: teacherId,
+            subject,
+            classLevel,
+            speciality,
+            students: studentIds.map(studentId => ({ student: studentId }))
+        });
+
+        const savedSheet = await attendanceSheet.save();
+
+        // Associate the sheet with the teacher
+        await User.findByIdAndUpdate(teacherId, {
+            $push: { attendanceSheets: savedSheet._id }
+        });
+
+        res.status(201).json({ message: "Fiche de présence créée avec succès", attendanceSheet: savedSheet });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de la création de la fiche", error: error.message });
+    }
+};
+
+// Get all attendance sheets for a teacher
+module.exports.getAttendanceSheets = async (req, res) => {
+    try {
+        const teacherId = req.params.userId;
+        const attendanceSheets = await AttendanceSheet
+            .find({ teacher: teacherId })
+            .populate('students.student', 'username email');
+
+        res.status(200).json(attendanceSheets);
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de la récupération des fiches", error: error.message });
+    }
+};
+
+// Get a specific attendance sheet
+module.exports.getAttendanceSheetById = async (req, res) => {
+    try {
+        const { userId, sheetId } = req.params;
+        const attendanceSheet = await AttendanceSheet
+            .findOne({ _id: sheetId, teacher: userId })
+            .populate('students.student', 'username email');
+
+        if (!attendanceSheet) {
+            return res.status(404).json({ message: "Fiche de présence non trouvée" });
+        }
+
+        res.status(200).json(attendanceSheet);
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de la récupération de la fiche", error: error.message });
+    }
+};
+
+// Update attendance for a student
+module.exports.updateAttendance = async (req, res) => {
+    try {
+        const { userId, sheetId } = req.params;
+        const { studentId, present } = req.body;
+
+        if (typeof present !== 'boolean') {
+            return res.status(400).json({ message: "Le champ 'present' doit être un booléen" });
+        }
+
+        const updatedSheet = await AttendanceSheet.findOneAndUpdate(
+            { _id: sheetId, teacher: userId },
+            { $set: { "students.$[elem].present": present } },
+            {
+                arrayFilters: [{ "elem.student": studentId }],
+                new: true
+            }
+        ).populate('students.student', 'username email');
+
+        if (!updatedSheet) {
+            return res.status(404).json({ message: "Fiche de présence non trouvée ou non autorisée" });
+        }
+
+        res.status(200).json({ message: "Présence mise à jour avec succès", attendanceSheet: updatedSheet });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de la mise à jour de la présence", error: error.message });
+    }
+};
+
+// Delete an attendance sheet
+module.exports.deleteAttendanceSheet = async (req, res) => {
+    try {
+        const { userId, sheetId } = req.params;
+
+        const deletedSheet = await AttendanceSheet.findOneAndDelete({
+            _id: sheetId,
+            teacher: userId
+        });
+
+        if (!deletedSheet) {
+            return res.status(404).json({ message: "Fiche de présence non trouvée ou non autorisée" });
+        }
+
+        await User.findByIdAndUpdate(userId, {
+            $pull: { attendanceSheets: sheetId }
+        });
+
+        res.status(200).json({ message: "Fiche de présence supprimée avec succès" });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de la suppression de la fiche", error: error.message });
+    }
+};
+
+// Mark attendance (optional standalone function if needed elsewhere)
+module.exports.markAttendance = async (req, res) => {
+    try {
+        const { attendanceSheetId, studentId, isPresent } = req.body;
+
+        await AttendanceSheet.findByIdAndUpdate(attendanceSheetId, {
+            $set: { "students.$[elem].present": isPresent }
+        }, {
+            arrayFilters: [{ "elem.student": studentId }]
+        });
+
+        res.status(200).json({ message: "Présence marquée avec succès" });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors du marquage de la présence", error: error.message });
+    }
+};

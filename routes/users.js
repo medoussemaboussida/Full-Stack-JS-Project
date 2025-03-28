@@ -39,6 +39,10 @@ router.get('/searchPublications', userController.searchPublications);
 router.post('/publication/pin/:publicationId', userController.verifyToken, userController.togglePinPublication); // Nouvelle route pour épingler/désépingler
 router.get('/pinnedPublications', userController.verifyToken, userController.getPinnedPublications); // Nouvelle route pour récupérer les épinglés
 router.put('/update-receive-emails/:id', userController.verifyToken, userController.updateReceiveEmails); // Nouvelle route
+router.post('/publication/report/:id', userController.verifyToken, userController.addReport);
+router.get('/reports', userController.verifyToken, userController.getAllReports);
+router.get('/publication/reports/:id', userController.verifyToken, userController.getReportsByPublication);
+
 
 
 
@@ -141,4 +145,45 @@ router.post("/pin-activity/:userId", userController.verifyToken, activitiesContr
 // ✅ Note Routes (New for your frontend)
 router.post("/notes/:userId", userController.verifyToken, activitiesController.saveNote);
 router.get("/notes/:userId", userController.verifyToken, activitiesController.getNotes);
+
+router.post('/problems', userController.verifyToken, userController.createProblem);
+router.get('/problems/:userId', userController.verifyToken, userController.getProblems);
+router.put('/problems/:userId/:problemId', userController.verifyToken, userController.updateProblem);
+router.delete('/problems/:userId/:problemId', userController.verifyToken, userController.deleteProblem);
+// Attendance routes
+router.post(
+    '/attendance/:userId',
+    userController.verifyToken,
+    userController.isTeacher,
+    userController.createAttendanceSheet
+);
+
+router.get(
+    '/attendance/:userId',
+    userController.verifyToken,
+    userController.isTeacher,
+    userController.getAttendanceSheets
+);
+
+router.get(
+    '/attendance/:userId/:sheetId',
+    userController.verifyToken,
+    userController.isTeacher,
+    userController.getAttendanceSheetById
+);
+
+router.put(
+    '/attendance/:userId/:sheetId',
+    userController.verifyToken,
+    userController.isTeacher,
+    userController.updateAttendance
+);
+
+router.delete(
+    '/attendance/:userId/:sheetId',
+    userController.verifyToken,
+    userController.isTeacher,
+    userController.deleteAttendanceSheet
+);
+
 module.exports = router;

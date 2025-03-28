@@ -92,7 +92,13 @@ availability: [
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Publication', // Référence au modèle Publication
     }],
-    receiveEmails: { type: Boolean, default: true }
+    receiveEmails: { type: Boolean, default: true },
+    
+    attendanceSheets: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'AttendanceSheet'
+    }]
+
 },
 
 
