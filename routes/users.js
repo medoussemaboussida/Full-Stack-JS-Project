@@ -42,6 +42,8 @@ router.put('/update-receive-emails/:id', userController.verifyToken, userControl
 
 
 
+
+
 router.get('/psychiatrists', userController.getPsychiatrists);
 router.put('/psychiatrists/add-availability/:id', userController.addAvailability);
 router.delete('/psychiatrists/delete-availability/:id/:index', userController.deleteAvailability);
@@ -57,6 +59,9 @@ router.get('/chat/:roomCode/public-keys', userController.verifyToken, userContro
 router.get('/chat/:roomCode', userController.verifyToken, userController.RoomChat);
 router.get('/me', userController.verifyToken, userController.photo);
 router.get('/allappoint', userController.getAllAppoint);
+router.delete('/chat/:messageId', userController.verifyToken, userController.deletechat);
+router.put('/chat/:messageId', userController.verifyToken, userController.updatechat);
+
 
 
 

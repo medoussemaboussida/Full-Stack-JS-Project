@@ -1929,8 +1929,95 @@ module.exports.getPublicKeys = async (req, res) => {
       res.status(500).json({ message: 'Failed to retrieve messages', error: err.message });
     }
   };
-  
 
+
+  
+  module.exports.deletechat = async (req, res) => {
+    try {
+      console.log('Starting deletechat, req.userId:', req.userId);
+      if (!req.userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+  
+      const messageId = req.params.messageId;
+      console.log('Message ID:', messageId);
+  
+      const message = await Chat.findById(messageId);
+      if (!message) {
+        return res.status(404).json({ message: 'Message not found' });
+      }
+  
+      if (message.sender.toString() !== req.userId) {
+        return res.status(403).json({ message: 'Unauthorized' });
+      }
+  
+      const deletedMessage = await Chat.findByIdAndDelete(messageId);
+  
+      if (!deletedMessage) {
+        return res.status(404).json({ message: 'Message not found after deletion' });
+      }
+  
+      console.log('Message deleted:', deletedMessage);
+      res.status(200).json({ message: 'Message deleted', data: deletedMessage });
+    } catch (err) {
+      console.error('Error in deletechat:', err.stack);
+      res.status(500).json({ message: 'Server error', error: err.message });
+    }
+  };
+
+
+  
+  
+// Assuming Chat model is still Mongoose-based
+
+module.exports.updatechat = async (req, res) => {
+  try {
+    console.log('Starting updatechat, req.userId:', req.userId);
+    if (!req.userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    const messageId = req.params.messageId;
+    console.log('Message ID:', messageId);
+
+    const { encryptedMessage, iv } = req.body;
+    console.log('Request body:', { encryptedMessage, iv });
+    if (!encryptedMessage || !iv) {
+      return res.status(400).json({ message: 'encryptedMessage and iv are required' });
+    }
+
+    // Fetch the existing message to check ownership and type
+    const message = await Chat.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+
+    if (message.sender.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+
+    if (message.isVoice) {
+      return res.status(400).json({ message: 'Cannot update voice messages' });
+    }
+
+    // Update the message
+    const updatedMessage = await Chat.findByIdAndUpdate(
+      messageId,
+      { encryptedMessage, iv },
+      { new: true } // Return the updated document
+    );
+
+    if (!updatedMessage) {
+      return res.status(404).json({ message: 'Message not found after update' });
+    }
+
+    console.log('Message updated:', updatedMessage);
+    res.status(200).json({ message: 'Message updated', data: updatedMessage });
+  } catch (err) {
+    console.error('Error in updatechat:', err.stack);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
     module.exports.photo = async (req, res) => {
  
         try {
