@@ -15,7 +15,6 @@ const truncateDescription = (text, isExpanded) => {
   }
   return text;
 };
-
 // Fonction pour générer l'URL du QR code avec les informations de ban
 const generateQRCodeUrl = (user) => {
   const qrData = `Username: ${user.user_id.username}\nLevel and Speciality: ${user.user_id.level || 'N/A'} ${user.user_id.speciality || 'N/A'}\nReason of ban: ${user.reason}\nBan expires: ${new Date(user.expiresAt).toLocaleString("fr-FR")}`;

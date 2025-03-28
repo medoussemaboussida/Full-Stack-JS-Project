@@ -17,7 +17,7 @@ export const getNotifications = (userId) => {
     notifications.push(newNotification);
     localStorage.setItem(`notifications_${userId}`, JSON.stringify(notifications));
   };
-  
+
   // Marquer une notification comme lue
   export const markNotificationAsRead = (userId, notificationId) => {
     const notifications = getNotifications(userId);

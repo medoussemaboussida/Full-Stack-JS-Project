@@ -19,7 +19,6 @@ import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
 import EmojiPicker from "emoji-picker-react";
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "../utils/notificationUtils"; // Import des fonctions de notificationsUtils
-
 // Fonction pour couper la description à 3 lignes
 const truncateDescription = (text, isExpanded) => {
   if (!isExpanded) {
