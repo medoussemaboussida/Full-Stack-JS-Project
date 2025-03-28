@@ -86,12 +86,27 @@ router.put("/updateEtat/:id", userController.updateEtat);  // Route pour modifie
 router.post("/logout", userController.logout);
 
 
+// ✅ Ajouter une activité avec image
+router.post("/psychiatrist/:id/add-activity", activitiesController.addActivity);
 
 // ✅ Récupérer une activité par son ID
 router.get("/activity/:id", activitiesController.getActivityById);
 
 // ✅ Récupérer toutes les activités
 router.get("/list/activities", activitiesController.getAllActivities);
+
+// ✅ Modifier une activité (psychiatre et admin uniquement) avec image
+router.put("/psychiatrist/:id/update-activity/:activityId", activitiesController.updateActivity);
+
+// ✅ Récupérer les activités 
+router.get("/psychiatrist/:id/activities", activitiesController.getPsychiatristActivities);
+
+// ✅ Route pour récupérer les activités par catégorie
+router.get("/activities/category", activitiesController.getActivitiesByCategory);
+
+// ✅ Supprimer une activité (psychiatre et admin uniquement)
+router.delete("/psychiatrist/:id/delete-activity/:activityId", activitiesController.deleteActivity);
+
 
 // ✅ Récupérer les activités favorites d'un utilisateur
 router.get("/favorite-activities/:id", activitiesController.getFavoriteActivities);
@@ -102,21 +117,7 @@ router.post("/favorite-activity/:id", activitiesController.toggleFavoriteActivit
 // ✅ Supprimer toutes les activités favorites
 router.delete("/clear-favorite/:id", activitiesController.clearFavoriteActivities);
 
-// ✅ Ajouter une activité (psychiatre uniquement) avec image
-router.post("/psychiatrist/:id/add-activity", activitiesController.addActivity);
 
-// ✅ Modifier une activité (psychiatre uniquement) avec image
-router.put("/psychiatrist/:id/update-activity/:activityId", activitiesController.updateActivity);
-
-
-// ✅ Supprimer une activité (psychiatre uniquement)
-router.delete("/psychiatrist/:id/delete-activity/:activityId", activitiesController.deleteActivity);
-
-// ✅ Récupérer les activités 
-router.get("/psychiatrist/:id/activities", activitiesController.getPsychiatristActivities);
-
-// ✅ Route pour récupérer les activités par catégorie
-router.get("/activities/category", activitiesController.getActivitiesByCategory);
 
 //schedule
 // POST /users/schedule/:userId - Save or update scheduled activities
