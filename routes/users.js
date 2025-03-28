@@ -42,6 +42,12 @@ router.put('/update-receive-emails/:id', userController.verifyToken, userControl
 router.post('/publication/report/:id', userController.verifyToken, userController.addReport);
 router.get('/reports', userController.verifyToken, userController.getAllReports);
 router.get('/publication/reports/:id', userController.verifyToken, userController.getReportsByPublication);
+router.post('/comment/report/:commentId', userController.verifyToken, userController.addCommentReport);
+router.get('/comment/reports', userController.verifyToken, userController.getAllCommentReports);
+router.get('/comment/reports/:commentId', userController.verifyToken, userController.getReportsByComment);
+router.delete('/deleteCommentAdmin/:commentId', userController.deleteCommentaireAdmin);
+
+
 
 
 
@@ -61,6 +67,9 @@ router.get('/chat/:roomCode/public-keys', userController.verifyToken, userContro
 router.get('/chat/:roomCode', userController.verifyToken, userController.RoomChat);
 router.get('/me', userController.verifyToken, userController.photo);
 router.get('/allappoint', userController.getAllAppoint);
+router.delete('/chat/:messageId', userController.verifyToken, userController.deletechat);
+router.put('/chat/:messageId', userController.verifyToken, userController.updatechat);
+
 
 
 

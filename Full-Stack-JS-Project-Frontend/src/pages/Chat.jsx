@@ -76,6 +76,9 @@ const Chat = () => {
   const audioChunksRef = useRef([]);
   const intervalRef = useRef(null); // For polling
   const timerRef = useRef(null); // For recording duration
+  const [activeDropdown, setActiveDropdown] = useState(null); // Tracks which message's dropdown is open
+  const [editMessageId, setEditMessageId] = useState(null); // Tracks which message is being edited
+  const [editMessageContent, setEditMessageContent] = useState(''); // Content of the message being edited
 
   useEffect(() => {
     const storedToken = localStorage.getItem('jwt-token');
@@ -114,7 +117,6 @@ const Chat = () => {
     }
   }, [joinedRoom, token]);
 
-  // Polling effect with proper cleanup
   useEffect(() => {
     if (joinedRoom && token) {
       let key;
@@ -223,7 +225,6 @@ const Chat = () => {
     }
   };
 
-  // Voice Recording Logic with Modern UI
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -234,7 +235,7 @@ const Chat = () => {
       };
       mediaRecorderRef.current.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        if (audioBlob.size > 5 * 1024 * 1024) { // Keep original 5MB limit
+        if (audioBlob.size > 5 * 1024 * 1024) {
           setError('Audio file too large. Keep it under 5MB.');
           setRecordingState('idle');
           setAudioBlob(null);
@@ -253,7 +254,7 @@ const Chat = () => {
       timerRef.current = setInterval(() => {
         setRecordingDuration((prev) => prev + 1);
       }, 1000);
-      setTimeout(() => stopRecording(), 10000); // Stop after 10 seconds
+      setTimeout(() => stopRecording(), 10000);
     } catch (err) {
       setError('Failed to start recording: ' + err.message);
       if (err.name === 'NotAllowedError') {
@@ -355,7 +356,7 @@ const Chat = () => {
             message: err.message,
           });
           setError('Failed to send voice message. Please try again later.');
-          setRecordingState('stopped'); // Allow retry without discarding the recording
+          setRecordingState('stopped');
         }
       };
     } catch (err) {
@@ -405,34 +406,27 @@ const Chat = () => {
       format: 'a4'
     });
   
-    // Load logo image
     const logoImg = new Image();
     logoImg.src = '/assets/img/logo/logo.png';
     await logoImg.decode();
   
-    // Page dimensions
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
   
-    // Add header with logo and title
     doc.addImage(logoImg, 'PNG', 10, 10, 30, 30);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9); // Smaller font size
+    doc.setFontSize(9);
     doc.setTextColor(0, 51, 102);
     doc.text(`Chat Room: ${joinedRoom}`, pageWidth - 135, 15, { align: 'left' });
 
-  
-    // Decorative line
     doc.setLineWidth(0.5);
     doc.setDrawColor(0, 51, 102);
     doc.line(10, 45, pageWidth - 10, 45);
   
-    // Export timestamp
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
     doc.text(`Exported on: ${new Date().toLocaleString()}`, pageWidth - 10, 25, { align: 'right' });
   
-    // Messages section
     let yOffset = 55;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
@@ -465,12 +459,10 @@ const Chat = () => {
       yOffset += 3;
     });
   
-    // Footer
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text(' EspritCare - Chat History', pageWidth / 2, pageHeight - 10, { align: 'center' });
   
-    // Save the PDF
     doc.save(`chat_room_${joinedRoom}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
   
@@ -490,6 +482,68 @@ const Chat = () => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  const toggleDropdown = (messageId) => {
+    setActiveDropdown(activeDropdown === messageId ? null : messageId);
+  };
+
+  const deleteMessage = async (messageId) => {
+    if (!token || !joinedRoom) return;
+    try {
+      await axios.delete(`http://localhost:5000/users/chat/${messageId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setMessages(messages.filter((msg) => msg._id !== messageId));
+      setSentMessages((prev) => {
+        const updated = { ...prev };
+        if (updated[joinedRoom] && updated[joinedRoom][messageId]) {
+          delete updated[joinedRoom][messageId];
+        }
+        return updated;
+      });
+      setActiveDropdown(null);
+    } catch (err) {
+      console.error('Error deleting message:', err);
+      setError('Failed to delete message: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const startEditing = (messageId, currentMessage) => {
+    setEditMessageId(messageId);
+    setEditMessageContent(currentMessage);
+    setActiveDropdown(null);
+  };
+
+  const updateMessage = async () => {
+    if (!editMessageContent.trim() || !editMessageId || !joinedRoom || !token) return;
+    try {
+      const key = await importKeyFromRoomCode(joinedRoom);
+      const { encryptedMessage, iv } = await encryptMessage(key, editMessageContent);
+      const response = await axios.put(
+        `http://localhost:5000/users/chat/${editMessageId}`,
+        { encryptedMessage, iv },
+        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+      );
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg._id === editMessageId ? { ...msg, message: editMessageContent } : msg
+        )
+      );
+      setSentMessages((prev) => ({
+        ...prev,
+        [joinedRoom]: {
+          ...(prev[joinedRoom] || {}),
+          [editMessageId]: editMessageContent,
+        },
+      }));
+      setEditMessageId(null);
+      setEditMessageContent('');
+      fetchMessages(key);
+    } catch (err) {
+      console.error('Error updating message:', err);
+      setError('Failed to update message: ' + (err.response?.data?.message || err.message));
+    }
   };
 
   if (!token) {
@@ -613,11 +667,6 @@ const Chat = () => {
             background-color: rgba(255, 255, 255, 0.8);
             padding: 5px 10px;
             border-radius: 5px;
-          }
-          .username {
-            font-size: 0.9rem;
-            font-weight: bold;
-            margin-bottom: 5px;
           }
           .emoji-button, .video-button, .voice-button, .refresh-button, .send-button {
             background: none;
@@ -758,6 +807,62 @@ const Chat = () => {
             50% { opacity: 0.5; }
             100% { opacity: 1; }
           }
+          .username {
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+          }
+          .message-content {
+            max-width: 80%;
+            padding: 8px 12px !important; /* Adjusted padding to match reference */
+            font-size: 0.9rem; /* Slightly larger font size */
+            line-height: 1.2; /* Adjusted line height */
+            margin-bottom: 4px !important; /* Small margin below message */
+            position: relative; /* Needed for dropdown positioning */
+          }
+          .timestamp {
+            max-width: 80%;
+            font-size: 0.75rem; /* Slightly larger timestamp font */
+            line-height: 1; /* Reduced line height */
+            margin-top: 2px !important; /* Small spacing between message and timestamp */
+            margin-bottom: 0 !important; /* No margin below timestamp */
+          }
+          .message-wrapper {
+            display: flex;
+            flex-direction: column;
+          }
+          .d-flex.flex-row {
+            align-items: flex-start; /* Align items to the top to accommodate username */
+            margin-bottom: 20px !important; /* Increased spacing between messages */
+          }
+          .divider {
+            margin-bottom: 1rem !important; /* Adjusted divider margin */
+            display: none; /* Hide divider to match screenshot */
+          }
+          .dropdown-toggle::after {
+            display: none;
+          }
+          .dropdown-menu {
+            min-width: 100px;
+          }
+          .edit-input-container {
+            display: flex;
+            align-items: center;
+            max-width: 80%;
+          }
+          .edit-input {
+            flex-grow: 1;
+            margin-right: 10px;
+          }
+          /* Hide dropdown button by default */
+          .message-content .dropdown-toggle {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+          }
+          /* Show dropdown button on hover */
+          .message-content:hover .dropdown-toggle {
+            opacity: 1;
+          }
         `}
       </style>
       <section>
@@ -821,7 +926,7 @@ const Chat = () => {
                         <p className="text-center">No messages yet</p>
                       ) : (
                         <>
-                          <div className="divider d-flex align-items-center mb-4">
+                          <div className="divider d-flex align-items-center mb-2">
                             <p className="text-center mx-3 mb-0" style={{ color: '#a2aab7' }}>
                               Today
                             </p>
@@ -830,7 +935,7 @@ const Chat = () => {
                             <div
                               key={msg._id}
                               className={`d-flex flex-row ${
-                                msg.sender._id === userId ? 'justify-content-end mb-4 pt-1' : 'justify-content-start mb-4'
+                                msg.sender._id === userId ? 'justify-content-end pt-1' : 'justify-content-start'
                               }`}
                             >
                               {msg.sender._id !== userId && (
@@ -854,65 +959,225 @@ const Chat = () => {
                                   />
                                 </div>
                               )}
-                              <div>
-                                <p
-                                  className={`small username ${
-                                    msg.sender._id === userId ? 'me-3 text-white' : 'ms-3'
-                                  }`}
-                                >
-                                  {msg.sender.username || 'Unknown'}
-                                </p>
-                                <p
-                                  className={`small p-2 ${
-                                    msg.sender._id === userId ? 'me-3' : 'ms-3'
-                                  } mb-1 rounded-3 ${
-                                    msg.sender._id === userId ? 'text-white bg-primary' : 'bg-body-tertiary'
-                                  }`}
-                                >
-                                  {msg.isVoice ? (
-                                    <>
-                                      [Voice Message]
-                                      <button
-                                        className="play-voice-button"
-                                        onClick={() => playVoiceMessage(msg.voiceMessage)}
-                                      >
-                                        <i className="fas fa-play"></i>
-                                      </button>
-                                    </>
-                                  ) : (
-                                    msg.message
-                                  )}
-                                </p>
-                                <p
-                                  className={`small ${
-                                    msg.sender._id === userId ? 'me-3' : 'ms-3'
-                                  } mb-3 rounded-3 text-muted ${
-                                    msg.sender._id === userId ? 'd-flex justify-content-end' : ''
-                                  }`}
-                                >
-                                  {new Date(msg.createdAt).toLocaleTimeString()}
-                                </p>
-                              </div>
-                              {msg.sender._id === userId && (
-                                <div style={{ display: 'flex', alignItems: 'center', marginLeft: '15px' }}>
-                                  <img
-                                    id="user-avatar"
-                                    src={
-                                      msg.sender?.user_photo
-                                        ? `http://localhost:5000${msg.sender.user_photo}`
-                                        : '/assets/img/user_icon.png'
-                                    }
-                                    alt={msg.sender.username || 'User Avatar'}
-                                    style={{
-                                      width: '45px',
-                                      height: '45px',
-                                      borderRadius: '50%',
-                                      cursor: 'pointer',
-                                      objectFit: 'cover',
-                                    }}
-                                    onClick={() => (window.location.href = '/student')}
-                                  />
-                                </div>
+                              {msg.sender._id === userId ? (
+                                <>
+                                  <div className="message-wrapper">
+                                    <p
+                                      className={`small username me-3 ${
+                                        msg.sender._id === userId ? 'text-white' : ''
+                                      }`}
+                                    >
+                                      {msg.sender.username || 'Unknown'}
+                                    </p>
+                                    {editMessageId === msg._id ? (
+                                      <div className="edit-input-container">
+                                        <input
+                                          type="text"
+                                          className="form-control edit-input"
+                                          value={editMessageContent}
+                                          onChange={(e) => setEditMessageContent(e.target.value)}
+                                          onKeyPress={(e) => e.key === 'Enter' && updateMessage()}
+                                        />
+                                        <button onClick={updateMessage} className="btn btn-sm btn-primary">
+                                          Save
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setEditMessageId(null);
+                                            setEditMessageContent('');
+                                          }}
+                                          className="btn btn-sm btn-secondary ms-2"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <p
+                                          className={`small message-content me-3 mb-0 rounded-3 ${
+                                            msg.sender._id === userId ? 'text-white bg-primary' : 'bg-body-tertiary'
+                                          }`}
+                                          style={{
+                                            alignSelf: 'flex-end',
+                                          }}
+                                        >
+                                          {msg.isVoice ? (
+                                            <>
+                                              [Voice Message]
+                                              <button
+                                                className="play-voice-button"
+                                                onClick={() => playVoiceMessage(msg.voiceMessage)}
+                                              >
+                                                <i className="fas fa-play"></i>
+                                              </button>
+                                            </>
+                                          ) : (
+                                            msg.message
+                                          )}
+                                          {msg.sender._id === userId && !msg.isVoice && (
+                                            <button
+                                              className="btn btn-link p-0 ms-2 dropdown-toggle"
+                                              onClick={() => toggleDropdown(msg._id)}
+                                              style={{ color: 'inherit', textDecoration: 'none' }}
+                                            >
+                                              <i className="fas fa-ellipsis-v"></i>
+                                            </button>
+                                          )}
+                                        </p>
+                                        {msg.sender._id === userId && !msg.isVoice && activeDropdown === msg._id && (
+                                          <div
+                                            className="dropdown-menu show"
+                                            style={{
+                                              position: 'absolute',
+                                              right: '0',
+                                              zIndex: 10,
+                                            }}
+                                          >
+                                            <button
+                                              className="dropdown-item"
+                                              onClick={() => startEditing(msg._id, msg.message)}
+                                            >
+                                              Edit
+                                            </button>
+                                            <button
+                                              className="dropdown-item text-danger"
+                                              onClick={() => deleteMessage(msg._id)}
+                                            >
+                                              Delete
+                                            </button>
+                                          </div>
+                                        )}
+                                        <p
+                                          className={`small timestamp me-3 rounded-3 text-muted d-flex justify-content-end`}
+                                          style={{
+                                            alignSelf: 'flex-end',
+                                          }}
+                                        >
+                                          {new Date(msg.createdAt).toLocaleTimeString()}
+                                        </p>
+                                      </>
+                                    )}
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', marginLeft: '15px' }}>
+                                    <img
+                                      id="user-avatar"
+                                      src={
+                                        msg.sender?.user_photo
+                                          ? `http://localhost:5000${msg.sender.user_photo}`
+                                          : '/assets/img/user_icon.png'
+                                      }
+                                      alt={msg.sender.username || 'User Avatar'}
+                                      style={{
+                                        width: '45px',
+                                        height: '45px',
+                                        borderRadius: '50%',
+                                        cursor: 'pointer',
+                                        objectFit: 'cover',
+                                      }}
+                                      onClick={() => (window.location.href = '/student')}
+                                    />
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="message-wrapper">
+                                    <p
+                                      className={`small username ms-3 ${
+                                        msg.sender._id === userId ? 'text-white' : ''
+                                      }`}
+                                    >
+                                      {msg.sender.username || 'Unknown'}
+                                    </p>
+                                    {editMessageId === msg._id ? (
+                                      <div className="edit-input-container">
+                                        <input
+                                          type="text"
+                                          className="form-control edit-input"
+                                          value={editMessageContent}
+                                          onChange={(e) => setEditMessageContent(e.target.value)}
+                                          onKeyPress={(e) => e.key === 'Enter' && updateMessage()}
+                                        />
+                                        <button onClick={updateMessage} className="btn btn-sm btn-primary">
+                                          Save
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setEditMessageId(null);
+                                            setEditMessageContent('');
+                                          }}
+                                          className="btn btn-sm btn-secondary ms-2"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <p
+                                          className={`small message-content ms-3 mb-0 rounded-3 ${
+                                            msg.sender._id === userId ? 'text-white bg-primary' : 'bg-body-tertiary'
+                                          }`}
+                                          style={{
+                                            alignSelf: 'flex-start',
+                                          }}
+                                        >
+                                          {msg.isVoice ? (
+                                            <>
+                                              [Voice Message]
+                                              <button
+                                                className="play-voice-button"
+                                                onClick={() => playVoiceMessage(msg.voiceMessage)}
+                                              >
+                                                <i className="fas fa-play"></i>
+                                              </button>
+                                            </>
+                                          ) : (
+                                            msg.message
+                                          )}
+                                          {msg.sender._id === userId && !msg.isVoice && (
+                                            <button
+                                              className="btn btn-link p-0 ms-2 dropdown-toggle"
+                                              onClick={() => toggleDropdown(msg._id)}
+                                              style={{ color: 'inherit', textDecoration: 'none' }}
+                                            >
+                                              <i className="fas fa-ellipsis-v"></i>
+                                            </button>
+                                          )}
+                                        </p>
+                                        {msg.sender._id === userId && !msg.isVoice && activeDropdown === msg._id && (
+                                          <div
+                                            className="dropdown-menu show"
+                                            style={{
+                                              position: 'absolute',
+                                              left: '0',
+                                              zIndex: 10,
+                                            }}
+                                          >
+                                            <button
+                                              className="dropdown-item"
+                                              onClick={() => startEditing(msg._id, msg.message)}
+                                            >
+                                              Edit
+                                            </button>
+                                            <button
+                                              className="dropdown-item text-danger"
+                                              onClick={() => deleteMessage(msg._id)}
+                                            >
+                                              Delete
+                                            </button>
+                                          </div>
+                                        )}
+                                        <p
+                                          className={`small timestamp ms-3 rounded-3 text-muted`}
+                                          style={{
+                                            alignSelf: 'flex-start',
+                                          }}
+                                        >
+                                          {new Date(msg.createdAt).toLocaleTimeString()}
+                                        </p>
+                                      </>
+                                    )}
+                                  </div>
+                                </>
                               )}
                             </div>
                           ))}
