@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "nodemon app.js"
+    "dev": "nodemon app.js",
+    "test": "jest",
+    "build-dev": "npm install"
   },
   "dependencies": {
     "@fortawesome/free-regular-svg-icons": "^6.7.2",
@@ -35,5 +37,8 @@
     "passport-google-oauth20": "^2.0.0",
     "password-strength": "^0.0.1",
     "yup": "^1.6.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
   }
 }
