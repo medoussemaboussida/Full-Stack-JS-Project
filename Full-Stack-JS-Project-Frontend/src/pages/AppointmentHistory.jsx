@@ -9,13 +9,14 @@ const AppointmentHistory = () => {
     const [role, setRole] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-
     const [editingAppointmentId, setEditingAppointmentId] = useState(null);
     const [newStatus, setNewStatus] = useState('');
-
-    // To manage the display of the delete confirmation modal
     const [showModal, setShowModal] = useState(false);
     const [selectedAppointmentId, setSelectedAppointmentId] = useState(null);
+
+    // Filter states
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [searchName, setSearchName] = useState('');
 
     useEffect(() => {
         const fetchAppointments = async () => {
@@ -32,6 +33,10 @@ const AppointmentHistory = () => {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`,
                     },
+                    params: {
+                        statusFilter,
+                        searchName,
+                    },
                 });
                 setAppointments(response.data.appointments);
                 setRole(response.data.role);
@@ -44,12 +49,12 @@ const AppointmentHistory = () => {
         };
 
         fetchAppointments();
-    }, []);
+    }, [statusFilter, searchName]);
 
     const handleDeleteAppointment = async () => {
         try {
             const token = localStorage.getItem('jwt-token');
-            const response = await axios.delete(
+            await axios.delete(
                 `http://localhost:5000/users/appointments/${selectedAppointmentId}`,
                 {
                     headers: {
@@ -63,27 +68,10 @@ const AppointmentHistory = () => {
                 prevAppointments.filter((appointment) => appointment._id !== selectedAppointmentId)
             );
             setShowModal(false);
-            toast.success('Appointment deleted successfully!', {
-                position: 'top-right',
-                autoClose: 3000,
-                hideProgressBar: false,
-                closeOnClick: true,
-                pauseOnHover: true,
-                draggable: true,
-            });
+            toast.success('Appointment deleted successfully!', { position: 'top-right', autoClose: 3000 });
         } catch (err) {
             console.error('Error deleting appointment:', err);
-            toast.error(
-                err.response?.data?.message || 'An error occurred while deleting the appointment.',
-                {
-                    position: 'top-right',
-                    autoClose: 5000,
-                    hideProgressBar: false,
-                    closeOnClick: true,
-                    pauseOnHover: true,
-                    draggable: true,
-                }
-            );
+            toast.error(err.response?.data?.message || 'Error deleting appointment', { position: 'top-right', autoClose: 5000 });
         }
     };
 
@@ -95,7 +83,7 @@ const AppointmentHistory = () => {
     const handleStatusChange = async (appointmentId) => {
         try {
             const token = localStorage.getItem('jwt-token');
-            const response = await axios.put(
+            await axios.put(
                 `http://localhost:5000/users/appointments/${appointmentId}/status`,
                 { status: newStatus },
                 {
@@ -112,27 +100,10 @@ const AppointmentHistory = () => {
                 )
             );
             setEditingAppointmentId(null);
-            toast.success('Status updated successfully!', {
-                position: 'top-right',
-                autoClose: 3000,
-                hideProgressBar: false,
-                closeOnClick: true,
-                pauseOnHover: true,
-                draggable: true,
-            });
+            toast.success('Status updated successfully!', { position: 'top-right', autoClose: 3000 });
         } catch (err) {
             console.error('Error updating status:', err);
-            toast.error(
-                err.response?.data?.message || 'An error occurred while updating the status.',
-                {
-                    position: 'top-right',
-                    autoClose: 5000,
-                    hideProgressBar: false,
-                    closeOnClick: true,
-                    pauseOnHover: true,
-                    draggable: true,
-                }
-            );
+            toast.error(err.response?.data?.message || 'Error updating status', { position: 'top-right', autoClose: 5000 });
         }
     };
 
@@ -142,6 +113,40 @@ const AppointmentHistory = () => {
     return (
         <div className="appointment-history-container">
             <h2>Appointment History</h2>
+
+            {/* Filter Controls with Blue Outline */}
+            <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    style={{
+                        padding: '8px',
+                        borderRadius: '5px',
+                        border: '2px solid #007BFF', // Blue outline
+                        outline: 'none',
+                    }}
+                >
+                    <option value="all">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="completed">Completed</option>
+                    <option value="canceled">Canceled</option>
+                </select>
+                <input
+                    type="text"
+                    value={searchName}
+                    onChange={(e) => setSearchName(e.target.value)}
+                    placeholder={role === 'psychiatrist' ? 'Search by student name' : role === 'student' ? 'Search by psychiatrist name' : 'Search by name...'}
+                    style={{
+                        padding: '8px',
+                        borderRadius: '5px',
+                        border: '2px solid #007BFF', // Blue outline
+                        outline: 'none',
+                        width: '200px',
+                    }}
+                />
+            </div>
+
             {appointments.length === 0 ? (
                 <p className="no-appointments">No appointments found.</p>
             ) : (
@@ -236,7 +241,6 @@ const AppointmentHistory = () => {
                 </div>
             )}
 
-            {/* Delete confirmation modal */}
             <Modal show={showModal} onHide={() => setShowModal(false)}>
                 <Modal.Header closeButton>
                     <Modal.Title>Confirm Deletion</Modal.Title>

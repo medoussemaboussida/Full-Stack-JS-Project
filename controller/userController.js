@@ -2013,43 +2013,100 @@ module.exports.deleteAvailability = async (req, res) => {
 // Récupérer l'historique des rendez-vous pour un étudiant
 module.exports.getAppointmentHistory = async (req, res) => {
     try {
-        const userId = req.userId; // ID de l'utilisateur connecté, défini par verifyToken
+        // Ensure req.userId and req.userRole are set by verifyToken
+        if (!req.userId || !req.userRole) {
+            console.error('Missing userId or userRole:', { userId: req.userId, userRole: req.userRole });
+            return res.status(401).json({ message: 'User authentication failed' });
+        }
 
-        // Récupérer l'utilisateur pour vérifier son rôle
-        const user = await User.findById(userId);
+        const userId = req.userId;
+        const userRole = req.userRole;
+        console.log('User ID:', userId, 'Role:', userRole); // Debug
+
+        // Fetch user
+        let user;
+        try {
+            user = await User.findById(userId);
+            console.log('Fetched User:', user); // Debug
+        } catch (err) {
+            console.error('Error fetching user:', err);
+            return res.status(500).json({ message: 'Error querying user database', error: err.message });
+        }
         if (!user) {
-            return res.status(404).json({ message: "Utilisateur non trouvé" });
+            return res.status(404).json({ message: 'User not found' });
         }
 
-        let appointments;
-        if (user.role === "student") {
-            // Pour un étudiant, récupérer les rendez-vous où il est le student
-            appointments = await Appointment.find({ student: userId })
-                .populate('psychiatrist', 'username email')
-                .sort({ date: -1 })
-                .exec();
-        } else if (user.role === "psychiatrist") {
-            // Pour un psychiatre, récupérer les rendez-vous où il est le psychiatrist
-            appointments = await Appointment.find({ psychiatrist: userId })
-                .populate('student', 'username email')
-                .sort({ date: -1 })
-                .exec();
+        // Build query based on role
+        let query = {};
+        if (userRole === 'student') {
+            query.student = userId;
+        } else if (userRole === 'psychiatrist') {
+            query.psychiatrist = userId;
         } else {
-            return res.status(403).json({ message: "Rôle non autorisé pour voir l'historique des rendez-vous" });
+            return res.status(403).json({ message: 'Invalid role' });
         }
 
-        if (!appointments.length) {
-            return res.status(404).json({ message: "Aucun rendez-vous trouvé" });
+        // Extract filter parameters
+        const { statusFilter, searchName } = req.query;
+        console.log('Filter Params:', { statusFilter, searchName }); // Debug
+
+        // Apply status filter
+        if (statusFilter && statusFilter !== 'all') {
+            if (!['pending', 'confirmed', 'canceled', 'completed'].includes(statusFilter)) {
+                return res.status(400).json({ message: 'Invalid status value' });
+            }
+            query.status = statusFilter;
         }
 
-        res.status(200).json({ message: "Historique des rendez-vous récupéré avec succès", appointments, role: user.role });
+        // Apply name search filter
+        if (searchName && searchName.trim() !== '') {
+            const nameRegex = new RegExp(searchName, 'i'); // Case-insensitive
+            try {
+                if (userRole === 'student') {
+                    const psychiatrists = await User.find({ username: nameRegex, role: 'psychiatrist' });
+                    console.log('Found Psychiatrists:', psychiatrists); // Debug
+                    if (psychiatrists.length > 0) {
+                        query.psychiatrist = { $in: psychiatrists.map(p => p._id) };
+                    } else {
+                        query.psychiatrist = null; // Force empty result if no matches
+                    }
+                } else if (userRole === 'psychiatrist') {
+                    const students = await User.find({ username: nameRegex, role: 'student' });
+                    console.log('Found Students:', students); // Debug
+                    if (students.length > 0) {
+                        query.student = { $in: students.map(s => s._id) };
+                    } else {
+                        query.student = null; // Force empty result if no matches
+                    }
+                }
+            } catch (err) {
+                console.error('Error searching users by name:', err);
+                return res.status(500).json({ message: 'Error searching by name', error: err.message });
+            }
+        }
+
+        // Fetch appointments
+        console.log('Query:', query); // Debug
+        let appointments;
+        try {
+            appointments = await Appointment.find(query)
+                .populate('student', 'username email')
+                .populate('psychiatrist', 'username email');
+            console.log('Fetched Appointments:', appointments); // Debug
+        } catch (err) {
+            console.error('Error fetching appointments:', err);
+            return res.status(500).json({ message: 'Error querying appointments database', error: err.message });
+        }
+
+        res.status(200).json({
+            appointments,
+            role: userRole,
+        });
     } catch (error) {
-        console.error('Erreur dans getAppointmentHistory:', error);
-        res.status(500).json({ message: "Erreur serveur", error: error.message });
+        console.error('Error in getAppointmentHistory:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
-
-
 
 
 module.exports.updateAppointmentStatus = async (req, res) => {
