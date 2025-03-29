@@ -3,7 +3,7 @@ import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { Link } from 'react-router-dom'; // Ajout de Link pour la navigation
+import { Link } from 'react-router-dom';
 import '../App.css';
 
 const Associations = () => {
@@ -13,9 +13,12 @@ const Associations = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [sortOrder, setSortOrder] = useState('name-asc');
   const associationsPerPage = 8;
 
-  // Fonction pour récupérer toutes les associations
+  // Fetch all associations
   const fetchAssociations = async () => {
     try {
       console.log('Fetching associations from API...');
@@ -30,7 +33,7 @@ const Associations = () => {
     }
   };
 
-  // Vérification du rôle utilisateur
+  // Fetch user role
   const fetchUserRole = async (token, userId) => {
     try {
       const response = await axios.get(`http://localhost:5000/users/session/${userId}`, {
@@ -47,7 +50,7 @@ const Associations = () => {
     }
   };
 
-  // Suppression d'une association
+  // Handle deletion of an association
   const handleDelete = (associationId) => {
     const token = localStorage.getItem('jwt-token');
     if (!token || userRole !== 'admin') {
@@ -91,17 +94,66 @@ const Associations = () => {
     );
   };
 
+  // Function to truncate long text
+  const truncateText = (text, maxLength) => {
+    if (text.length > maxLength) {
+      return text.substring(0, maxLength) + '...';
+    }
+    return text;
+  };
+
+  // Handle search input change
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+
+  // Handle filter change (by support type)
+  const handleFilterChange = (e) => {
+    setFilterType(e.target.value);
+    setCurrentPage(1);
+  };
+
+  // Handle sort change
+  const handleSortChange = (e) => {
+    setSortOrder(e.target.value);
+    setCurrentPage(1);
+  };
+
+  // Filter and sort associations
+  const filteredAssociations = associations
+    .filter((assoc) => {
+      const name = assoc.Name_association.toLowerCase();
+      const term = searchTerm.toLowerCase();
+      const matchesSearch = name.includes(term);
+      const matchesFilter =
+        filterType === 'all' || assoc.support_type === filterType;
+      return matchesSearch && matchesFilter;
+    })
+    .sort((a, b) => {
+      if (sortOrder === 'name-asc') {
+        return a.Name_association.localeCompare(b.Name_association);
+      } else if (sortOrder === 'name-desc') {
+        return b.Name_association.localeCompare(a.Name_association);
+      } else if (sortOrder === 'recent') {
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      } else if (sortOrder === 'oldest') {
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      }
+      return 0;
+    });
+
   // Pagination
   const indexOfLastAssociation = currentPage * associationsPerPage;
   const indexOfFirstAssociation = indexOfLastAssociation - associationsPerPage;
-  const currentAssociations = associations.slice(indexOfFirstAssociation, indexOfLastAssociation);
-  const totalPages = Math.ceil(associations.length / associationsPerPage);
+  const currentAssociations = filteredAssociations.slice(indexOfFirstAssociation, indexOfLastAssociation);
+  const totalPages = Math.ceil(filteredAssociations.length / associationsPerPage);
 
   const handlePageChange = (pageNumber) => {
     setCurrentPage(pageNumber);
   };
 
-  // Initialisation
+  // Initial fetch
   useEffect(() => {
     const token = localStorage.getItem('jwt-token');
     if (token) {
@@ -121,7 +173,6 @@ const Associations = () => {
 
   return (
     <>
-      {/* Breadcrumb */}
       <div
         className="site-breadcrumb"
         style={{ background: "url(/assets/img/breadcrumb/01.jpg)" }}
@@ -136,7 +187,6 @@ const Associations = () => {
           </ul>
         </div>
       </div>
-      {/* Fin Breadcrumb */}
 
       <div className="team-area py-100">
         <div className="container">
@@ -153,50 +203,214 @@ const Associations = () => {
               </div>
             </div>
           </div>
+
+          {/* Search, Filter, and Sort Controls */}
+          <div style={{ marginBottom: '30px', display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={handleSearchChange}
+              placeholder="Rechercher une association..."
+              style={{
+                width: '60%',
+                maxWidth: '600px',
+                padding: '15px 20px',
+                borderRadius: '25px',
+                border: 'none',
+                backgroundColor: '#fff',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+                fontSize: '16px',
+                color: '#333',
+                outline: 'none',
+                transition: 'all 0.3s ease',
+              }}
+              onFocus={(e) => {
+                e.target.style.boxShadow = '0 6px 20px rgba(14, 165, 230, 0.3)';
+                e.target.style.width = '65%';
+              }}
+              onBlur={(e) => {
+                e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
+                e.target.style.width = '60%';
+              }}
+            />
+
+            <select
+              value={filterType}
+              onChange={handleFilterChange}
+              style={{
+                padding: '15px 20px',
+                borderRadius: '25px',
+                border: 'none',
+                backgroundColor: '#fff',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+                fontSize: '16px',
+                color: '#333',
+                outline: 'none',
+                transition: 'all 0.3s ease',
+                width: '200px',
+                cursor: 'pointer',
+              }}
+              onFocus={(e) => {
+                e.target.style.boxShadow = '0 6px 20px rgba(14, 165, 230, 0.3)';
+                e.target.style.width = '220px';
+              }}
+              onBlur={(e) => {
+                e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
+                e.target.style.width = '200px';
+              }}
+            >
+              <option value="all">Tous les types</option>
+              <option value="Financial">Financier</option>
+              <option value="Material">Matériel</option>
+              <option value="Educational">Éducatif</option>
+              <option value="Other">Autre</option>
+            </select>
+
+            <select
+              value={sortOrder}
+              onChange={handleSortChange}
+              style={{
+                padding: '15px 20px',
+                borderRadius: '25px',
+                border: 'none',
+                backgroundColor: '#fff',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+                fontSize: '16px',
+                color: '#333',
+                outline: 'none',
+                transition: 'all 0.3s ease',
+                width: '200px',
+                cursor: 'pointer',
+              }}
+              onFocus={(e) => {
+                e.target.style.boxShadow = '0 6px 20px rgba(14, 165, 230, 0.3)';
+                e.target.style.width = '220px';
+              }}
+              onBlur={(e) => {
+                e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
+                e.target.style.width = '200px';
+              }}
+            >
+              <option value="name-asc">Nom (A-Z)</option>
+              <option value="name-desc">Nom (Z-A)</option>
+              <option value="recent">Plus récent</option>
+              <option value="oldest">Plus ancien</option>
+            </select>
+          </div>
+
           <div className="row g-4">
-            {currentAssociations.map((association, index) => (
-              <div className="col-md-6 col-lg-3" key={association._id}>
-                <div className="team-item wow fadeInUp" data-wow-delay={`${0.25 * (index + 1)}s`}>
-                  <div className="team-img">
-                    <img
-                      src={`http://localhost:5000${association.logo_association}`}
-                      alt={association.Name_association}
-                      onError={(e) => (e.target.src = '/assets/img/team/default.jpg')}
-                    />
-                    <div className="team-social-wrap">
-                      <div className="team-social-btn">
-                        <button type="button">
-                          <i className="far fa-share-alt"></i>
-                        </button>
-                      </div>
-                      <div className="team-social">
-                        <a href={association.facebook || '#'}><i className="fab fa-facebook-f"></i></a>
-                        <a href={association.twitter || '#'}><i className="fab fa-x-twitter"></i></a>
-                        <a href={association.linkedin || '#'}><i className="fab fa-linkedin-in"></i></a>
-                        <a href={association.youtube || '#'}><i className="fab fa-youtube"></i></a>
+            {currentAssociations.length > 0 ? (
+              currentAssociations.map((association, index) => (
+                <div className="col-md-6 col-lg-3" key={association._id}>
+                  <div
+                    className="team-item wow fadeInUp"
+                    data-wow-delay={`${0.25 * (index + 1)}s`}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      height: '350px', // Fixed height for the entire container
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div
+                      className="team-img"
+                      style={{
+                        position: 'relative',
+                        height: '200px', // Fixed height for the image section
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <img
+                        src={association.logo_association ? `http://localhost:5000${association.logo_association}` : '/assets/img/team/default.jpg'}
+                        alt={association.Name_association}
+                        onError={(e) => (e.target.src = '/assets/img/team/default.jpg')}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover', // Ensure image fits without distortion
+                          objectPosition: 'center',
+                        }}
+                      />
+                      <div className="team-social-wrap">
+                        <div className="team-social-btn">
+                          <button type="button">
+                            <i className="far fa-share-alt"></i>
+                          </button>
+                        </div>
+                        <div className="team-social">
+                          {association.facebook && (
+                            <a href={association.facebook} target="_blank" rel="noopener noreferrer">
+                              <i className="fab fa-facebook-f"></i>
+                            </a>
+                          )}
+                          {association.twitter && (
+                            <a href={association.twitter} target="_blank" rel="noopener noreferrer">
+                              <i className="fab fa-x-twitter"></i>
+                            </a>
+                          )}
+                          {association.linkedin && (
+                            <a href={association.linkedin} target="_blank" rel="noopener noreferrer">
+                              <i className="fab fa-linkedin-in"></i>
+                            </a>
+                          )}
+                          {association.youtube && (
+                            <a href={association.youtube} target="_blank" rel="noopener noreferrer">
+                              <i className="fab fa-youtube"></i>
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="team-content">
-                    <h4>
-                      <Link to={`/AssociationDetails/${association._id}`}>
-                        {association.Name_association}
-                      </Link>
-                    </h4>
-                    <span>{association.support_type || 'Association'}</span>
-                    {userRole === 'admin' && (
-                      <button
-                        onClick={() => handleDelete(association._id)}
-                        style={{ marginTop: '10px', backgroundColor: '#f44336', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '3px' }}
-                      >
-                        Supprimer
-                      </button>
-                    )}
+                    <div
+                      className="team-content"
+                      style={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        padding: '15px',
+                        textAlign: 'center',
+                        height: '150px', // Fixed height for the content section
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: '16px', lineHeight: '1.2' }}>
+                          <Link to={`/AssociationDetails/${association._id}`}>
+                            {truncateText(association.Name_association, 20)}
+                          </Link>
+                        </h4>
+                        <span style={{ fontSize: '14px', color: '#666', margin: '5px 0', display: 'block' }}>
+                          {truncateText(association.support_type || 'Association', 15)}
+                        </span>
+                      </div>
+                      {userRole === 'admin' && (
+                        <button
+                          onClick={() => handleDelete(association._id)}
+                          style={{
+                            marginTop: '10px',
+                            backgroundColor: '#f44336',
+                            color: '#fff',
+                            border: 'none',
+                            padding: '5px 10px',
+                            borderRadius: '3px',
+                            fontSize: '14px',
+                          }}
+                        >
+                          Supprimer
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div style={{ textAlign: 'center', gridColumn: 'span 4' }}>
+                <p>Aucune association trouvée.</p>
               </div>
-            ))}
+            )}
           </div>
+
           {totalPages > 1 && (
             <div className="pagination" style={{ textAlign: 'center', marginTop: '20px' }}>
               {Array.from({ length: totalPages }, (_, i) => (

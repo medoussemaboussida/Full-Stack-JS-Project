@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { Link, useNavigate } from "react-router-dom";
-import { jwtDecode } from 'jwt-decode';
+import { useParams, useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "bootstrap/dist/css/bootstrap.min.css";
-import '../App.css';
+import "../App.css";
 
 const BASE_URL = "http://localhost:5000";
 
@@ -31,7 +30,9 @@ const emailDomains = [
   "@msn.com"
 ];
 
-const AddEvent = () => {
+const EditEvent = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -47,35 +48,38 @@ const AddEvent = () => {
   });
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState(null);
-  const [userRole, setUserRole] = useState(null);
   const [imagePreview, setImagePreview] = useState("/assets/img/about/image.png");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('jwt-token');
-    if (token) {
+    const fetchEvent = async () => {
       try {
-        const decoded = jwtDecode(token);
-        const currentTime = Date.now() / 1000;
-        if (decoded.exp < currentTime) {
-          toast.error("Your session has expired, please log in again", { autoClose: 3000 });
-          localStorage.removeItem('jwt-token');
-          setTimeout(() => navigate('/login'), 3000);
-          return;
-        }
-        setUserRole(decoded.role);
+        const response = await axios.get(`${BASE_URL}/events/getEvent/${id}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("jwt-token")}`,
+          },
+        });
+        const event = response.data;
+        setFormData({
+          title: event.title || "",
+          description: event.description || "",
+          start_date: event.start_date ? new Date(event.start_date).toISOString().split("T")[0] : "",
+          end_date: event.end_date ? new Date(event.end_date).toISOString().split("T")[0] : "",
+          event_type: event.event_type || "in-person",
+          localisation: event.localisation || "",
+          lieu: event.lieu || "",
+          online_link: event.online_link || "",
+          heure: event.heure || "",
+          contact_email: event.contact_email || "",
+          image: null,
+        });
+        setImagePreview(event.imageUrl || "/assets/img/about/image.png");
       } catch (error) {
-        console.error('Invalid token:', error);
-        toast.error("Invalid token, please log in again", { autoClose: 3000 });
-        localStorage.removeItem('jwt-token');
-        setTimeout(() => navigate('/login'), 3000);
+        toast.error("Erreur lors de la récupération de l'événement", { autoClose: 3000 });
       }
-    } else {
-      toast.error("You must be logged in to access this page", { autoClose: 3000 });
-      setTimeout(() => navigate('/login'), 3000);
-    }
-  }, [navigate]);
+    };
+    fetchEvent();
+  }, [id]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -92,104 +96,73 @@ const AddEvent = () => {
     setErrors({ ...errors, [name]: "" });
   };
 
-  const handleReset = () => {
-    setFormData({
-      title: "",
-      description: "",
-      start_date: "",
-      end_date: "",
-      event_type: "in-person",
-      localisation: "",
-      lieu: "",
-      online_link: "",
-      heure: "",
-      contact_email: "",
-      image: null,
-    });
-    setImagePreview("/assets/img/about/image.png");
-    setErrors({});
-    setServerError(null);
-  };
-
-  const onSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     setErrors({});
     setServerError(null);
-  
-    const token = localStorage.getItem('jwt-token');
+
+    const token = localStorage.getItem("jwt-token");
     if (!token) {
-      toast.error("You must be logged in to add an event", { autoClose: 3000 });
-      setTimeout(() => navigate('/login'), 3000);
+      toast.error("Vous devez être connecté pour modifier un événement", { autoClose: 3000 });
+      setTimeout(() => navigate("/login"), 3000);
       setIsSubmitting(false);
       return;
     }
-    if (userRole !== 'association_member') {
-      toast.error("Only association members can add an event", { autoClose: 3000 });
-      setIsSubmitting(false);
-      return;
-    }
-  
+
     const formDataToSend = new FormData();
-    formDataToSend.append('title', formData.title);
-    formDataToSend.append('description', formData.description);
-    formDataToSend.append('start_date', formData.start_date);
-    formDataToSend.append('end_date', formData.end_date);
-    formDataToSend.append('event_type', formData.event_type);
-    if (formData.event_type === 'in-person') {
-      formDataToSend.append('localisation', formData.localisation);
-      formDataToSend.append('lieu', formData.lieu);
+    formDataToSend.append("title", formData.title);
+    formDataToSend.append("description", formData.description);
+    formDataToSend.append("start_date", formData.start_date);
+    formDataToSend.append("end_date", formData.end_date);
+    formDataToSend.append("event_type", formData.event_type);
+    if (formData.event_type === "in-person") {
+      formDataToSend.append("localisation", formData.localisation);
+      formDataToSend.append("lieu", formData.lieu);
     } else {
-      formDataToSend.append('online_link', formData.online_link);
+      formDataToSend.append("online_link", formData.online_link);
     }
-    formDataToSend.append('heure', formData.heure);
-    formDataToSend.append('contact_email', formData.contact_email);
+    formDataToSend.append("heure", formData.heure);
+    formDataToSend.append("contact_email", formData.contact_email);
     if (formData.image) {
-      formDataToSend.append('image', formData.image);
+      formDataToSend.append("image", formData.image);
     }
-  
-    console.log('Data sent to backend:', Object.fromEntries(formDataToSend));
-  
+
     try {
-      const response = await axios.post(`${BASE_URL}/events/addEvent`, formDataToSend, {
+      await axios.put(`${BASE_URL}/events/updateEvent/${id}`, formDataToSend, {
         headers: {
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
         },
       });
-      toast.success("Event added successfully!", { autoClose: 2000 });
-      handleReset();
-      setTimeout(() => navigate('/events'), 2000);
+      toast.success("Événement mis à jour avec succès !", { autoClose: 2000 });
+      setTimeout(() => navigate("/events"), 2000);
     } catch (error) {
-      // Ajoutez ce log ici pour voir la réponse complète du backend
-      console.log('Full error response for online event:', error.response);
-      
-      if (error.response?.status === 403) {
-        toast.error("Your session has expired, please log in again", { autoClose: 3000 });
-        localStorage.removeItem('jwt-token');
-        setTimeout(() => navigate('/login'), 3000);
-      } else if (error.response?.status === 400) {
-        if (Array.isArray(error.response?.data?.errors)) {
-          const backendErrors = error.response.data.errors.reduce((acc, err) => {
-            const field = err.toLowerCase().includes("title") ? "title" :
-                          err.toLowerCase().includes("description") ? "description" :
-                          err.toLowerCase().includes("start date") ? "start_date" :
-                          err.toLowerCase().includes("end date") ? "end_date" :
-                          err.toLowerCase().includes("event type") ? "event_type" :
-                          err.toLowerCase().includes("location") ? "localisation" :
-                          err.toLowerCase().includes("venue") ? "lieu" :
-                          err.toLowerCase().includes("online link") ? "online_link" :
-                          err.toLowerCase().includes("email") ? "contact_email" : "";
+      console.log("Réponse d'erreur du backend:", error.response?.data);
+      if (error.response?.status === 400) {
+        const errorsArray = error.response.data.errors;
+        if (Array.isArray(errorsArray)) {
+          const backendErrors = errorsArray.reduce((acc, err) => {
+            const field = err.includes("titre") ? "title" :
+                         err.includes("description") ? "description" :
+                         err.includes("date de début") ? "start_date" :
+                         err.includes("date de fin") ? "end_date" :
+                         err.includes("type d'événement") ? "event_type" :
+                         err.includes("localisation") ? "localisation" :
+                         err.includes("lieu") ? "lieu" :
+                         err.includes("lien en ligne") ? "online_link" :
+                         err.includes("email") ? "contact_email" : "";
             if (field) acc[field] = err;
             return acc;
           }, {});
           setErrors(backendErrors);
         } else {
-          const errorMessage = error.response?.data?.message || "Validation error occurred";
+          const errorMessage = error.response.data.message || "Erreur de validation";
           setServerError(errorMessage);
           toast.error(errorMessage, { autoClose: 3000 });
         }
       } else {
-        const errorMessage = error.response?.data?.message || "An error occurred while adding the event";
+        const errorMessage = error.response?.data?.message || "Une erreur est survenue lors de la mise à jour de l'événement";
         setServerError(errorMessage);
         toast.error(errorMessage, { autoClose: 3000 });
       }
@@ -197,16 +170,16 @@ const AddEvent = () => {
       setIsSubmitting(false);
     }
   };
-  
-  
+
   return (
     <>
       <div className="site-breadcrumb" style={{ background: "url(/assets/img/breadcrumb/01.jpg)" }}>
         <div className="container">
-          <h2 className="breadcrumb-title">Add a New Event</h2>
+          <h2 className="breadcrumb-title">Modifier un Événement</h2>
           <ul className="breadcrumb-menu">
-            <li><Link to="/Home">Home</Link></li>
-            <li className="active">Add an Event</li>
+            <li><Link to="/Home">Accueil</Link></li>
+            <li><Link to="/events">Événements</Link></li>
+            <li className="active">Modifier un Événement</li>
           </ul>
         </div>
       </div>
@@ -233,21 +206,21 @@ const AddEvent = () => {
               </div>
               <div className="col-lg-6">
                 <div className="become-volunteer-form">
-                  <h2>Add an Event</h2>
-                  <p>Fill out the form below to create a new event.</p>
+                  <h2>Modifier un Événement</h2>
+                  <p>Modifiez les détails de l'événement ci-dessous.</p>
                   {serverError && (
                     <p style={{ color: '#dc3545', fontSize: '14px', marginBottom: '15px' }}>
                       {serverError}
                     </p>
                   )}
-                  <form onSubmit={onSubmit}>
+                  <form onSubmit={handleSubmit}>
                     <div className="row">
                       <div className="col-md-12" style={{ marginBottom: '15px' }}>
                         <input
                           type="text"
                           name="title"
                           className="form-control"
-                          placeholder="Event Title"
+                          placeholder="Titre de l'événement"
                           value={formData.title}
                           onChange={handleChange}
                           style={{ borderColor: errors.title ? '#dc3545' : '#ced4da' }}
@@ -277,7 +250,7 @@ const AddEvent = () => {
                       </div>
                       <div className="col-md-6" style={{ marginBottom: '15px' }}>
                         <label htmlFor="start_date" style={{ marginBottom: '5px', display: 'block' }}>
-                          Start Date
+                          Date de début
                         </label>
                         <input
                           type="date"
@@ -296,7 +269,7 @@ const AddEvent = () => {
                       </div>
                       <div className="col-md-6" style={{ marginBottom: '15px' }}>
                         <label htmlFor="end_date" style={{ marginBottom: '5px', display: 'block' }}>
-                          End Date
+                          Date de fin
                         </label>
                         <input
                           type="date"
@@ -315,7 +288,7 @@ const AddEvent = () => {
                       </div>
                       <div className="col-md-6" style={{ marginBottom: '15px' }}>
                         <label htmlFor="event_type" style={{ marginBottom: '5px', display: 'block' }}>
-                          Event Type
+                          Type d'événement
                         </label>
                         <select
                           id="event_type"
@@ -333,8 +306,8 @@ const AddEvent = () => {
                             transition: 'all 0.3s ease',
                           }}
                         >
-                          <option value="in-person">In-Person</option>
-                          <option value="online">Online</option>
+                          <option value="in-person">Présentiel</option>
+                          <option value="online">En ligne</option>
                         </select>
                         {errors.event_type && (
                           <p style={{ color: '#dc3545', fontSize: '14px', marginTop: '5px' }}>
@@ -343,14 +316,11 @@ const AddEvent = () => {
                         )}
                       </div>
                       <div className="col-md-6" style={{ marginBottom: '15px' }}>
-                        <label htmlFor="heure" style={{ marginBottom: '5px', display: 'block' }}>
-                          Time
-                        </label>
                         <input
                           type="time"
                           name="heure"
                           className="form-control"
-                          placeholder="Time (HH:MM)"
+                          placeholder="Heure (HH:MM)"
                           value={formData.heure}
                           onChange={handleChange}
                           style={{ borderColor: errors.heure ? '#dc3545' : '#ced4da' }}
@@ -364,11 +334,7 @@ const AddEvent = () => {
                       {formData.event_type === 'in-person' && (
                         <>
                           <div className="col-md-6" style={{ marginBottom: '15px' }}>
-                            <label htmlFor="localisation" style={{ marginBottom: '5px', display: 'block' }}>
-                              Location
-                            </label>
                             <select
-                              id="localisation"
                               name="localisation"
                               className="form-control"
                               value={formData.localisation}
@@ -383,7 +349,7 @@ const AddEvent = () => {
                                 transition: 'all 0.3s ease',
                               }}
                             >
-                              <option value="">Select a Governorate</option>
+                              <option value="">Sélectionnez une gouvernorat</option>
                               {tunisianGovernorates.map((governorate) => (
                                 <option key={governorate} value={governorate}>
                                   {governorate}
@@ -397,15 +363,11 @@ const AddEvent = () => {
                             )}
                           </div>
                           <div className="col-md-6" style={{ marginBottom: '15px' }}>
-                            <label htmlFor="lieu" style={{ marginBottom: '5px', display: 'block' }}>
-                              Venue
-                            </label>
                             <input
                               type="text"
-                              id="lieu"
                               name="lieu"
                               className="form-control"
-                              placeholder="Venue (e.g., hall)"
+                              placeholder="Lieu (ex. salle)"
                               value={formData.lieu}
                               onChange={handleChange}
                               style={{ borderColor: errors.lieu ? '#dc3545' : '#ced4da' }}
@@ -420,15 +382,11 @@ const AddEvent = () => {
                       )}
                       {formData.event_type === 'online' && (
                         <div className="col-md-12" style={{ marginBottom: '15px' }}>
-                          <label htmlFor="online_link" style={{ marginBottom: '5px', display: 'block' }}>
-                            Online Link
-                          </label>
                           <input
                             type="url"
-                            id="online_link"
                             name="online_link"
                             className="form-control"
-                            placeholder="Online Event Link (e.g., https://zoom.us/...)"
+                            placeholder="Lien de l'événement en ligne (ex. https://zoom.us/...)"
                             value={formData.online_link}
                             onChange={handleChange}
                             style={{ borderColor: errors.online_link ? '#dc3545' : '#ced4da' }}
@@ -441,15 +399,11 @@ const AddEvent = () => {
                         </div>
                       )}
                       <div className="col-md-12" style={{ marginBottom: '15px' }}>
-                        <label htmlFor="contact_email" style={{ marginBottom: '5px', display: 'block' }}>
-                          Contact Email
-                        </label>
                         <input
                           type="email"
-                          id="contact_email"
                           name="contact_email"
                           className="form-control"
-                          placeholder="Contact Email"
+                          placeholder="Email de contact"
                           list="emailSuggestions"
                           value={formData.contact_email}
                           onChange={handleChange}
@@ -468,7 +422,7 @@ const AddEvent = () => {
                       </div>
                       <div className="col-md-12" style={{ marginBottom: '15px' }}>
                         <label htmlFor="image" style={{ marginBottom: '5px', display: 'block' }}>
-                          Event Image
+                          Image de l'événement
                         </label>
                         <input
                           type="file"
@@ -493,22 +447,7 @@ const AddEvent = () => {
                             cursor: isSubmitting ? 'not-allowed' : 'pointer',
                           }}
                         >
-                          {isSubmitting ? "Adding..." : "Add Event"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleReset}
-                          className="theme-btn"
-                          style={{
-                            backgroundColor: '#6c757d',
-                            color: '#fff',
-                            padding: '10px 20px',
-                            border: 'none',
-                            borderRadius: '5px',
-                            marginLeft: '10px',
-                          }}
-                        >
-                          Reset
+                          {isSubmitting ? "Mise à jour..." : "Mettre à jour l'événement"}
                         </button>
                       </div>
                     </div>
@@ -523,4 +462,4 @@ const AddEvent = () => {
   );
 };
 
-export default AddEvent;
+export default EditEvent;
