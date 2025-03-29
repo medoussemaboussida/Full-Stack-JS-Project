@@ -2776,3 +2776,131 @@ module.exports.markAttendance = async (req, res) => {
         res.status(500).json({ message: "Erreur lors du marquage de la présence", error: error.message });
     }
 };
+
+// Participer à un événement
+module.exports.participate = async (req, res) => {
+    console.time("participate");
+    try {
+      const { eventId } = req.params;
+      const userId = req.userId;
+  
+      console.log(`Tentative de participation de l'utilisateur ${userId} à l'événement ${eventId}`);
+  
+      // Validation des IDs
+      if (!mongoose.Types.ObjectId.isValid(eventId) || !mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({ message: "ID invalide" });
+      }
+  
+      // Récupérer l'utilisateur et l'événement en parallèle
+      const [user, event] = await Promise.all([
+        User.findById(userId).select("role username participatedEvents"),
+        Event.findById(eventId),
+      ]);
+  
+      // Vérifications de base
+      if (!user) {
+        console.log(`Utilisateur ${userId} non trouvé`);
+        return res.status(404).json({ message: "Utilisateur non trouvé" });
+      }
+      if (user.role !== "student") {
+        console.log(`Utilisateur ${userId} n'est pas un étudiant`);
+        return res.status(403).json({ message: "Seuls les étudiants peuvent participer aux événements" });
+      }
+      if (!event) {
+        console.log(`Événement ${eventId} non trouvé`);
+        return res.status(404).json({ message: "Événement non trouvé" });
+      }
+  
+      // Vérifier le statut de l'événement
+      if (event.status === "canceled" || event.status === "past") {
+        console.log(`Événement ${eventId} annulé ou terminé`);
+        return res.status(400).json({ message: "Impossible de participer à un événement annulé ou terminé" });
+      }
+  
+      // Vérifier si l'utilisateur participe déjà
+      if (event.participants.includes(userId)) {
+        console.log(`Utilisateur ${userId} participe déjà à l'événement ${eventId}`);
+        return res.status(400).json({ message: "Vous participez déjà à cet événement" });
+      }
+  
+      // Vérifier la limite de participants
+      if (event.max_participants && event.participants.length >= event.max_participants) {
+        console.log(`Limite de participants atteinte pour l'événement ${eventId}`);
+        return res.status(400).json({ message: "Cet événement a atteint sa limite de participants" });
+      }
+  
+      // Ajouter l'utilisateur aux participants et l'événement aux participations
+      event.participants.push(userId);
+      if (!user.participatedEvents.includes(eventId)) user.participatedEvents.push(eventId);
+  
+      // Sauvegarder les deux documents en parallèle
+      await Promise.all([event.save(), user.save()]);
+  
+      console.log(`✅ ${user.username} a rejoint l'événement "${event.title}". Participants: ${event.participants.length}`);
+      res.status(200).json({
+        message: "Participation enregistrée avec succès",
+        event: event.title,
+        participantsCount: event.participants.length,
+      });
+    } catch (error) {
+      console.error("Erreur lors de la participation à l'événement:", error.stack);
+      res.status(500).json({ message: "Erreur serveur interne", error: error.message });
+    } finally {
+      console.timeEnd("participate");
+    }
+  };
+  
+  // Vérifier la participation
+  module.exports.checkParticipation = async (req, res) => {
+    console.time("checkParticipation");
+    try {
+      const { eventId } = req.params;
+      const userId = req.userId;
+  
+      console.log(`Vérification de la participation de ${userId} à l'événement ${eventId}`);
+  
+      // Validation des IDs
+      if (!mongoose.Types.ObjectId.isValid(eventId) || !mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({ message: "ID invalide" });
+      }
+  
+      // Récupérer l'utilisateur et l'événement
+      const [user, event] = await Promise.all([
+        User.findById(userId).select("role participatedEvents"),
+        Event.findById(eventId).select("participants"),
+      ]);
+  
+      // Vérifications de base
+      if (!user) {
+        console.log(`Utilisateur ${userId} non trouvé`);
+        return res.status(404).json({ message: "Utilisateur non trouvé" });
+      }
+      if (user.role !== "student") {
+        console.log(`Utilisateur ${userId} n'est pas un étudiant`);
+        return res.status(403).json({ message: "Seuls les étudiants peuvent vérifier leur participation" });
+      }
+      if (!event) {
+        console.log(`Événement ${eventId} non trouvé`);
+        return res.status(404).json({ message: "Événement non trouvé" });
+      }
+  
+      // Vérifier la participation dans les deux sens pour cohérence
+      const isParticipatingInEvent = event.participants.includes(userId);
+      const isParticipatingInUser = user.participatedEvents.some((id) => id.toString() === eventId);
+  
+      // Si incohérence détectée, loguer pour investigation
+      if (isParticipatingInEvent !== isParticipatingInUser) {
+        console.warn(`Incohérence détectée: event.participants=${isParticipatingInEvent}, user.participatedEvents=${isParticipatingInUser}`);
+      }
+  
+      // Priorité à event.participants comme source de vérité
+      const isParticipating = isParticipatingInEvent;
+      console.log(`Résultat de la vérification: ${isParticipating}`);
+      res.status(200).json({ isParticipating });
+    } catch (error) {
+      console.error("Erreur lors de la vérification de la participation:", error.stack);
+      res.status(500).json({ message: "Erreur serveur interne", error: error.message });
+    } finally {
+      console.timeEnd("checkParticipation");
+    }
+  };

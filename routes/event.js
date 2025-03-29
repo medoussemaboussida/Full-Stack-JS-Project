@@ -3,6 +3,7 @@ const router = express.Router();
 const eventController = require('../controller/eventController'); // Chemin correct supposé
 const userController = require('../controller/userController'); // Middleware pour JWT
 
+console.log('Event controller loaded:', eventController.getEvents); // Vérifiez ceci
 // Ajouter un événement (authentification requise)
 router.post('/addEvent', userController.verifyToken, eventController.addEvent);
 // Récupérer tous les événements (accessible publiquement)

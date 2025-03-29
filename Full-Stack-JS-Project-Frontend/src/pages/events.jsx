@@ -18,6 +18,11 @@ const Countdown = ({ targetDate }) => {
       const target = new Date(targetDate);
       const diff = target - now;
 
+      if (isNaN(target.getTime())) {
+        setTimeLeft({ days: "N/A", hours: "N/A", minutes: "N/A", seconds: "N/A" });
+        return;
+      }
+
       if (diff > 0) {
         setTimeLeft({
           days: Math.floor(diff / (1000 * 60 * 60 * 24)),
@@ -36,11 +41,14 @@ const Countdown = ({ targetDate }) => {
   }, [targetDate]);
 
   return (
-    <div className="coming-countdown" style={{ display: "flex", gap: "20px", justifyContent: "center", fontSize: "24px", color: "#ff7f5d", fontWeight: "bold" }}>
-      <span>{timeLeft.days || 0} Days</span>
-      <span>{timeLeft.hours || 0} Hours</span>
-      <span>{timeLeft.minutes || 0} Minutes</span>
-      <span>{timeLeft.seconds || 0} Seconds</span>
+    <div
+      className="coming-countdown"
+      style={{ display: "flex", gap: "20px", justifyContent: "center", fontSize: "24px", color: "#ff7f5d", fontWeight: "bold" }}
+    >
+      <span>{timeLeft.days ?? "N/A"} Days</span>
+      <span>{timeLeft.hours ?? "N/A"} Hours</span>
+      <span>{timeLeft.minutes ?? "N/A"} Minutes</span>
+      <span>{timeLeft.seconds ?? "N/A"} Seconds</span>
     </div>
   );
 };
@@ -55,27 +63,48 @@ const Events = () => {
   const [filterLocation, setFilterLocation] = useState("all");
   const [filterEventType, setFilterEventType] = useState("all");
   const [sortOrder, setSortOrder] = useState("title-asc");
+  const [isParticipatingNearest, setIsParticipatingNearest] = useState(false);
+  const [participationStatus, setParticipationStatus] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState({}); // État de soumission pour chaque événement
   const eventsPerPage = 6;
 
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        console.log("Fetching events from:", `${BASE_URL}/events/getEvents`);
         const response = await axios.get(`${BASE_URL}/events/getEvents`, {
           headers: { "Content-Type": "application/json" },
         });
-        console.log("Events received:", response.data);
-        setEvents(response.data);
+        const eventsData = response.data;
+        setEvents(eventsData);
 
-        // Trouver l'événement le plus proche dans le futur
-        const currentDate = new Date("2025-03-28"); // Date actuelle selon vos instructions
-        const futureEvents = response.data.filter((event) => new Date(event.start_date) > currentDate);
+        const currentDate = new Date("2025-03-28");
+        const futureEvents = eventsData.filter((event) => new Date(event.start_date) > currentDate);
         if (futureEvents.length > 0) {
           const nearest = futureEvents.reduce((prev, curr) =>
             new Date(prev.start_date) - currentDate < new Date(curr.start_date) - currentDate ? prev : curr
           );
           setNearestEvent(nearest);
+          await checkParticipation(nearest._id, setIsParticipatingNearest);
         }
+
+        // Vérification batchée de la participation
+        const token = localStorage.getItem("token");
+        if (token) {
+          const participationPromises = eventsData.map((event) =>
+            axios.get(`${BASE_URL}/events/events/${event._id}/check-participation`, {
+              headers: { Authorization: `Bearer ${token}` },
+            }).then((res) => ({ id: event._id, status: res.data.isParticipating }))
+          );
+          const results = await Promise.allSettled(participationPromises);
+          const newParticipationStatus = {};
+          results.forEach((result) => {
+            if (result.status === "fulfilled") {
+              newParticipationStatus[result.value.id] = result.value.status;
+            }
+          });
+          setParticipationStatus(newParticipationStatus);
+        }
+
         setLoading(false);
       } catch (error) {
         console.error("Error fetching events:", error.response?.data || error.message);
@@ -87,99 +116,116 @@ const Events = () => {
     fetchEvents();
   }, []);
 
-  // Format date
+  const checkParticipation = async (eventId, setStatusCallback) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      const response = await axios.get(`${BASE_URL}/events/events/${eventId}/check-participation`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setStatusCallback(response.data.isParticipating);
+    } catch (error) {
+      console.error("Error checking participation:", error.response?.data || error.message);
+    }
+  };
+
+  const handleParticipate = async (eventId, setStatusCallback) => {
+    if (isSubmitting[eventId]) return; // Éviter les clics multiples
+
+    setIsSubmitting((prev) => ({ ...prev, [eventId]: true }));
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        toast.error("Please log in to participate");
+        return;
+      }
+
+      console.log(`Participating in event ${eventId}`);
+      const response = await axios.post(`${BASE_URL}/events/events/${eventId}/participate`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setStatusCallback(true);
+      setParticipationStatus((prev) => ({ ...prev, [eventId]: true }));
+      if (eventId === nearestEvent?._id) setIsParticipatingNearest(true);
+      toast.success(response.data.message || "You have successfully joined the event!");
+    } catch (error) {
+      console.error("Error participating in event:", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to join the event");
+    } finally {
+      setIsSubmitting((prev) => ({ ...prev, [eventId]: false }));
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    return isNaN(date.getTime())
+      ? "Invalid Date"
+      : date.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
   };
 
-  // Handle image loading errors
   const handleImageError = (e) => {
-    e.target.src = `/assets/img/event/01.jpg`;
+    e.target.src = "/assets/img/event/01.jpg";
   };
 
-  // Truncate long text
   const truncateText = (text, maxLength) => {
     if (!text) return "N/A";
-    if (text.length > maxLength) {
-      return text.substring(0, maxLength) + "...";
-    }
-    return text;
+    return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
   };
 
-  // Handle search input change
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
     setCurrentPage(1);
   };
 
-  // Handle filter change (by location)
   const handleFilterLocationChange = (e) => {
     setFilterLocation(e.target.value);
     setCurrentPage(1);
   };
 
-  // Handle filter change (by event type)
   const handleFilterEventTypeChange = (e) => {
     setFilterEventType(e.target.value);
     setCurrentPage(1);
   };
 
-  // Handle sort change
   const handleSortChange = (e) => {
     setSortOrder(e.target.value);
     setCurrentPage(1);
   };
 
-  // Filter and sort events
   const filteredEvents = events
     .filter((event) => {
-      const title = event.title ? event.title.toLowerCase() : "";
+      const title = event.title?.toLowerCase() || "";
       const term = searchTerm.toLowerCase();
       const matchesSearch = title.includes(term);
       const matchesLocation =
-        filterLocation === "all" ||
-        (event.event_type === "in-person" && event.localisation === filterLocation);
-      const matchesEventType =
-        filterEventType === "all" || event.event_type === filterEventType;
+        filterLocation === "all" || (event.event_type === "in-person" && event.localisation === filterLocation);
+      const matchesEventType = filterEventType === "all" || event.event_type === filterEventType;
       return matchesSearch && matchesLocation && matchesEventType;
     })
     .sort((a, b) => {
-      if (sortOrder === "title-asc") {
-        return (a.title || "").localeCompare(b.title || "");
-      } else if (sortOrder === "title-desc") {
-        return (b.title || "").localeCompare(a.title || "");
-      } else if (sortOrder === "recent") {
-        return new Date(b.start_date || 0) - new Date(a.start_date || 0);
-      } else if (sortOrder === "oldest") {
-        return new Date(a.start_date || 0) - new Date(b.start_date || 0);
-      }
+      if (sortOrder === "title-asc") return (a.title || "").localeCompare(b.title || "");
+      if (sortOrder === "title-desc") return (b.title || "").localeCompare(a.title || "");
+      if (sortOrder === "recent") return new Date(b.start_date || 0) - new Date(a.start_date || 0);
+      if (sortOrder === "oldest") return new Date(a.start_date || 0) - new Date(b.start_date || 0);
       return 0;
     });
 
-  // Pagination
   const indexOfLastEvent = currentPage * eventsPerPage;
   const indexOfFirstEvent = indexOfLastEvent - eventsPerPage;
   const currentEvents = filteredEvents.slice(indexOfFirstEvent, indexOfLastEvent);
   const totalPages = Math.ceil(filteredEvents.length / eventsPerPage);
 
-  const handlePageChange = (pageNumber) => {
-    setCurrentPage(pageNumber);
-  };
+  const handlePageChange = (pageNumber) => setCurrentPage(pageNumber);
 
-  // Construire l'URL de l'image pour l'arrière-plan
   const backgroundImageUrl = nearestEvent?.imageUrl
-    ? `url('${BASE_URL}/${nearestEvent.imageUrl.replace(/^\/+/, '')}')`
+    ? `url('${BASE_URL}/${nearestEvent.imageUrl.replace(/^\/+/, "")}')`
     : "url('/assets/img/coming-soon/01.jpg')";
 
   return (
     <>
-      {/* Page Events initiale */}
       <div className="site-breadcrumb" style={{ background: "url(/assets/img/breadcrumb/01.jpg)" }}>
         <div className="container">
           <h2 className="breadcrumb-title">Our Events</h2>
@@ -233,24 +279,9 @@ const Events = () => {
                 e.target.style.width = "60%";
               }}
             />
-            <select
-              value={filterLocation}
-              onChange={handleFilterLocationChange}
-              style={{
-                padding: "15px 20px",
-                borderRadius: "25px",
-                border: "none",
-                backgroundColor: "#fff",
-                boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
-                fontSize: "16px",
-                color: "#333",
-                outline: "none",
-                transition: "all 0.3s ease",
-                width: "200px",
-                cursor: "pointer",
-              }}
-            >
+            <select value={filterLocation} onChange={handleFilterLocationChange} style={{ padding: "15px 20px", borderRadius: "25px", border: "none", backgroundColor: "#fff", boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)", fontSize: "16px", color: "#333", outline: "none", transition: "all 0.3s ease", width: "200px", cursor: "pointer" }}>
               <option value="all">All Locations</option>
+              {/* Liste des gouvernorats tunisiens reste inchangée */}
               <option value="Ariana">Ariana</option>
               <option value="Béja">Béja</option>
               <option value="Ben Arous">Ben Arous</option>
@@ -276,44 +307,12 @@ const Events = () => {
               <option value="Tunis">Tunis</option>
               <option value="Zaghouan">Zaghouan</option>
             </select>
-            <select
-              value={filterEventType}
-              onChange={handleFilterEventTypeChange}
-              style={{
-                padding: "15px 20px",
-                borderRadius: "25px",
-                border: "none",
-                backgroundColor: "#fff",
-                boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
-                fontSize: "16px",
-                color: "#333",
-                outline: "none",
-                transition: "all 0.3s ease",
-                width: "200px",
-                cursor: "pointer",
-              }}
-            >
+            <select value={filterEventType} onChange={handleFilterEventTypeChange} style={{ padding: "15px 20px", borderRadius: "25px", border: "none", backgroundColor: "#fff", boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)", fontSize: "16px", color: "#333", outline: "none", transition: "all 0.3s ease", width: "200px", cursor: "pointer" }}>
               <option value="all">All Types</option>
               <option value="in-person">In-Person</option>
               <option value="online">Online</option>
             </select>
-            <select
-              value={sortOrder}
-              onChange={handleSortChange}
-              style={{
-                padding: "15px 20px",
-                borderRadius: "25px",
-                border: "none",
-                backgroundColor: "#fff",
-                boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
-                fontSize: "16px",
-                color: "#333",
-                outline: "none",
-                transition: "all 0.3s ease",
-                width: "200px",
-                cursor: "pointer",
-              }}
-            >
+            <select value={sortOrder} onChange={handleSortChange} style={{ padding: "15px 20px", borderRadius: "25px", border: "none", backgroundColor: "#fff", boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)", fontSize: "16px", color: "#333", outline: "none", transition: "all 0.3s ease", width: "200px", cursor: "pointer" }}>
               <option value="title-asc">Title (A-Z)</option>
               <option value="title-desc">Title (Z-A)</option>
               <option value="recent">Most Recent</option>
@@ -353,7 +352,7 @@ const Events = () => {
                       <div className="event-img" style={{ position: "relative", flex: "0 0 40%" }}>
                         <Link to={`/event/${event._id}`}>
                           <img
-                            src={event.imageUrl ? `${BASE_URL}/${event.imageUrl.replace(/^\/+/, '')}` : `/assets/img/event/0${(index % 4) + 1}.jpg`}
+                            src={event.imageUrl ? `${BASE_URL}/${event.imageUrl.replace(/^\/+/, "")}` : `/assets/img/event/0${(index % 4) + 1}.jpg`}
                             alt={event.title || "Event"}
                             onError={handleImageError}
                             style={{ width: "100%", height: "200px", objectFit: "cover", borderRadius: "15px 0 0 15px" }}
@@ -411,35 +410,66 @@ const Events = () => {
                           <Link
                             to={`/event/${event._id}`}
                             style={{ color: "#333", textDecoration: "none", transition: "color 0.3s ease" }}
-                            onMouseEnter={(e) => e.target.style.color = "#ff7f5d"}
-                            onMouseLeave={(e) => e.target.style.color = "#333"}
+                            onMouseEnter={(e) => (e.target.style.color = "#ff7f5d")}
+                            onMouseLeave={(e) => (e.target.style.color = "#333")}
                           >
                             {truncateText(event.title, 25)}
                           </Link>
                         </h4>
-                        <Link
-                          to={`/event/${event._id}`}
-                          className="theme-btn"
-                          style={{
-                            backgroundColor: "#ff7f5d",
-                            color: "#fff",
-                            padding: "10px 20px",
-                            borderRadius: "25px",
-                            textDecoration: "none",
-                            fontWeight: "500",
-                            transition: "background-color 0.3s ease, transform 0.3s ease",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.target.style.backgroundColor = "#ff5733";
-                            e.target.style.transform = "scale(1.05)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.target.style.backgroundColor = "#ff7f5d";
-                            e.target.style.transform = "scale(1)";
-                          }}
-                        >
-                          Join Now <i className="fas fa-circle-arrow-right" style={{ marginLeft: "8px" }}></i>
-                        </Link>
+                        <div style={{ display: "flex", gap: "10px" }}>
+                          <Link
+                            to={`/event/${event._id}`}
+                            className="theme-btn"
+                            style={{
+                              backgroundColor: "#ff7f5d",
+                              color: "#fff",
+                              padding: "10px 20px",
+                              borderRadius: "25px",
+                              textDecoration: "none",
+                              fontWeight: "500",
+                              transition: "background-color 0.3s ease, transform 0.3s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.backgroundColor = "#ff5733";
+                              e.target.style.transform = "scale(1.05)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.backgroundColor = "#ff7f5d";
+                              e.target.style.transform = "scale(1)";
+                            }}
+                          >
+                            Details <i className="fas fa-circle-arrow-right" style={{ marginLeft: "8px" }}></i>
+                          </Link>
+                          <button
+                            onClick={() => handleParticipate(event._id, (status) => setParticipationStatus((prev) => ({ ...prev, [event._id]: status })))}
+                            disabled={participationStatus[event._id] || isSubmitting[event._id]}
+                            style={{
+                              backgroundColor: participationStatus[event._id] ? "#ccc" : isSubmitting[event._id] ? "#999" : "#28a745",
+                              color: "#fff",
+                              padding: "10px 20px",
+                              borderRadius: "25px",
+                              border: "none",
+                              fontWeight: "500",
+                              transition: "background-color 0.3s ease, transform 0.3s ease",
+                              cursor: participationStatus[event._id] || isSubmitting[event._id] ? "not-allowed" : "pointer",
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!participationStatus[event._id] && !isSubmitting[event._id]) {
+                                e.target.style.backgroundColor = "#218838";
+                                e.target.style.transform = "scale(1.05)";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!participationStatus[event._id] && !isSubmitting[event._id]) {
+                                e.target.style.backgroundColor = "#28a745";
+                                e.target.style.transform = "scale(1)";
+                              }
+                            }}
+                          >
+                            {isSubmitting[event._id] ? "Joining..." : participationStatus[event._id] ? "Joined" : "Participate"}{" "}
+                            <i className="fas fa-check" style={{ marginLeft: "8px" }}></i>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -472,7 +502,6 @@ const Events = () => {
         </div>
       </div>
 
-      {/* Superposition "Coming Soon" exactement comme le HTML fourni */}
       {showComingSoon && nearestEvent && (
         <div
           className="coming-soon py-90"
@@ -526,9 +555,37 @@ const Events = () => {
                       <div className="coming-countdown-wrap">
                         <Countdown targetDate={nearestEvent.start_date} />
                       </div>
+                      <button
+                        onClick={() => handleParticipate(nearestEvent._id, setIsParticipatingNearest)}
+                        disabled={isParticipatingNearest || isSubmitting[nearestEvent._id]}
+                        style={{
+                          backgroundColor: isParticipatingNearest ? "#ccc" : isSubmitting[nearestEvent._id] ? "#999" : "#28a745",
+                          color: "#fff",
+                          padding: "12px 25px",
+                          borderRadius: "25px",
+                          border: "none",
+                          fontWeight: "500",
+                          transition: "background-color 0.3s ease, transform 0.3s ease",
+                          cursor: isParticipatingNearest || isSubmitting[nearestEvent._id] ? "not-allowed" : "pointer",
+                          marginTop: "20px",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isParticipatingNearest && !isSubmitting[nearestEvent._id]) {
+                            e.target.style.backgroundColor = "#218838";
+                            e.target.style.transform = "scale(1.05)";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isParticipatingNearest && !isSubmitting[nearestEvent._id]) {
+                            e.target.style.backgroundColor = "#28a745";
+                            e.target.style.transform = "scale(1)";
+                          }
+                        }}
+                      >
+                        {isSubmitting[nearestEvent._id] ? "Joining..." : isParticipatingNearest ? "Already Joined" : "Join Now"}{" "}
+                        <i className="fas fa-check" style={{ marginLeft: "8px" }}></i>
+                      </button>
                     </div>
-                 
-             
                   </div>
                 </div>
               </div>
