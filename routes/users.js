@@ -59,6 +59,8 @@ router.delete('/psychiatrists/delete-availability/:id/:index', userController.de
 router.put('/psychiatrists/update-availability/:id/:index', userController.updateAvailability);
 router.post("/appointments/book", userController.verifyToken, userController.bookappointment);
 router.get('/appointments/history', userController.verifyToken, userController.getAppointmentHistory);
+router.put('/appointments/:id', userController.verifyToken, userController.updateAppointment);
+router.get('/psychiatrists/:id', userController.verifyToken, userController.getPsychiatristById);
 router.put('/appointments/:appointmentId/status', userController.verifyToken, userController.updateAppointmentStatus);
 router.delete('/appointments/:appointmentId', userController.verifyToken, userController.deleteAppointment);
 router.get('/allAppointments', userController.getAllAppointments);

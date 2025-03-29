@@ -2197,6 +2197,42 @@ module.exports.updateAppointmentStatus = async (req, res) => {
     }
 };
 
+// controllers/userController.js
+module.exports.getPsychiatristById = async (req, res) => {
+    try {
+        const psychiatrist = await User.findById(req.params.id);
+        if (!psychiatrist || psychiatrist.role !== 'psychiatrist') {
+            return res.status(404).json({ message: 'Psychiatrist not found' });
+        }
+        res.status(200).json(psychiatrist);
+    } catch (error) {
+        console.error('Error fetching psychiatrist:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+
+module.exports.updateAppointment = async (req, res) => {
+    try {
+        const { date, startTime, endTime } = req.body;
+        const appointment = await Appointment.findById(req.params.id);
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
+        }
+        if (appointment.student.toString() !== req.userId) {
+            return res.status(403).json({ message: 'Unauthorized' });
+        }
+        appointment.date = date;
+        appointment.startTime = startTime;
+        appointment.endTime = endTime;
+        await appointment.save();
+        res.status(200).json(appointment);
+    } catch (error) {
+        console.error('Error updating appointment:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
 module.exports.deleteAppointment = async (req, res) => {
     try {
         const userId = req.userId; // ID de l'utilisateur connecté (from verifyToken middleware)
