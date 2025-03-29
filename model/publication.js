@@ -29,7 +29,7 @@ const publicationSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['draft', 'published', 'archived'], // Statuts possibles
+        enum: ['draft', 'published', 'archived','later'], // Statuts possibles
         default: 'draft', // Par défaut, brouillon
         required: [true, 'Le statut de la publication est obligatoire'],
     },
@@ -69,6 +69,12 @@ const publicationSchema = new mongoose.Schema({
         type: Boolean,
         default: false, // Par défaut, une publication n'est pas épinglée
     },
+    // Nouveau champ pour le compteur de vues
+    viewCount: {
+        type: Number,
+        default: 0, // Par défaut, 0 vue
+    },
+    viewedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 }, {
     timestamps: true, // Ajoute createdAt et updatedAt automatiquement
 });

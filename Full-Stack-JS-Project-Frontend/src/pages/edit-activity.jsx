@@ -151,12 +151,15 @@ function EditActivity() {
     <div>
       <ToastContainer position="top-right" autoClose={3000} />
 
-      <div className="site-breadcrumb" style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}>
+      <div className="site-breadcrumb" style={{ background: "url(/assets/img/breadcrumb/01.jpg)" }}>
         <div className="container">
           <h2 className="breadcrumb-title">Edit Activity</h2>
           <ul className="breadcrumb-menu">
             <li>
               <a href="/Home">Home</a>
+            </li>
+            <li>
+              <a href="/Activities">Activities</a>
             </li>
             <li className="active">Edit Activity</li>
           </ul>
@@ -187,8 +190,16 @@ function EditActivity() {
             </div>
             <div className="col-lg-6">
               <div className="become-volunteer-form">
-                <h2>Edit Activity</h2>
-                <form onSubmit={handleSubmit}>
+              <h2
+                    style={{
+                      fontSize: "32px",
+                      fontWeight: "700",
+                      marginBottom: "40px",
+                    }}
+                  >
+                    Edit an <span style={{ color: "#ff5a5f" }}>Activity</span>
+                  </h2>               
+                   <form onSubmit={handleSubmit}>
                   <div className="row">
                     <div className="col-md-12">
                       <div className="form-group">

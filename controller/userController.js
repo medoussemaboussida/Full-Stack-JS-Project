@@ -6,12 +6,18 @@ const sendEmail = require('../utils/emailSender');
 const multer = require('multer');
 const path = require('path');
 const Publication = require('../model/publication'); // Assurez-vous que le chemin est correct
+const ReportPublication = require('../model/ReportPublication');
 const Appointment = require("../model/appointment");
 const Chat = require("../model/chat");
+const Problem = require('../model/problem'); // Add Problem model
+const AttendanceSheet = require('../model/attendanceSheet'); // Add Problem model
+
 const { v4: uuidv4 } = require('uuid');
+const cron = require('node-cron'); 
 
 
 const Commentaire = require('../model/commentaire'); // Importer le modèle Commentaire
+const CommentReport = require('../model/CommentReport');
 
 dotenv.config();
 
@@ -124,7 +130,8 @@ module.exports.Session = async (req, res) => {
             level: user.level,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
-            availability: user.availability
+            availability: user.availability,
+            receiveEmails: user.receiveEmails // Ajouté ici
         });
     } catch (error) {
         res.status(500).json({ message: 'Erreur serveur', error });
@@ -323,19 +330,48 @@ module.exports.getStudentById = async (req, res) => {
     }
 };
 
+// Nouvelle route pour mettre à jour la préférence email
+module.exports.updateReceiveEmails = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const { receiveEmails } = req.body;
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
+        user.receiveEmails = receiveEmails;
+        const updatedUser = await user.save();
+        res.status(200).json({ message: "Préférence email mise à jour avec succès", user: updatedUser });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
+
+
 module.exports.addPublication = (req, res) => {
     upload1(req, res, async (err) => {
-        if (err) {
-            console.log('Erreur Multer:', err);
-            return res.status(400).json({ message: err });
-        }
+        if (err) return res.status(400).json({ message: err });
 
         try {
-            console.log('Données reçues:', req.body, req.file);
-            const { titrePublication, description } = req.body;
+            const { titrePublication, description, tag, scheduledDate } = req.body;
 
             if (!titrePublication || !description) {
-                return res.status(400).json({ message: 'Le titre et la description sont obligatoires' });
+                return res.status(400).json({ message: 'The title and description are required' });
+            }
+
+            // Déterminer le statut et la date de publication
+            let status = 'draft';
+            let datePublication = new Date();
+
+            if (scheduledDate && scheduledDate !== 'now') {
+                const scheduledTime = new Date(scheduledDate);
+                if (scheduledTime > new Date()) {
+                    status = 'later'; // Si la date est future, statut = archived
+                    datePublication = scheduledTime; // La date de publication est la date planifiée
+                } else {
+                    status = 'published'; // Si la date est passée ou actuelle, publier immédiatement
+                }
+            } else {
+                status = 'published'; // Si "now" ou pas de scheduledDate, publier immédiatement
             }
 
             const publication = new Publication({
@@ -343,53 +379,93 @@ module.exports.addPublication = (req, res) => {
                 description,
                 imagePublication: req.file ? `/uploads/publications/${req.file.filename}` : null,
                 author_id: req.userId,
-                status: 'draft',
-                datePublication: new Date(),
-                tag: req.body.tag ? req.body.tag.split(',') : []
+                status,
+                datePublication,
+                tag: tag ? tag.split(',') : [],
             });
 
             const savedPublication = await publication.save();
 
-            // Récupérer tous les étudiants
-            const students = await User.find({ role: 'student' });
-            if (students.length === 0) {
-                console.log('Aucun étudiant trouvé pour recevoir l’email.');
-            } else {
-                // Construire le contenu de l'email
-                const publicationLink = `http://localhost:3000/PublicationDetailPsy/${savedPublication._id}`;
-                const subject = 'New Publication Added on EspritCare';
-                const htmlContent = `
-                    <h2>New Publication Available!"</h2>
-                    <p>Hello</p>
-                    <p>A new publication has been added by a psychiatrist on EspritCare:</p>
-                    <ul>
-                        <li><strong>Title :</strong> ${titrePublication}</li>
-                        <li><strong>Description :</strong> ${description}</li>
-                    </ul>
-                    <p>Click on the link below to view it. :</p>
-                    <a href="${publicationLink}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #0ea5e6; color: #fff; text-decoration: none; border-radius: 5px;">
-                        View Publication
-                    </a>
-                    <p>Stay connected for more updates !</p>
-                `;
-
-                // Envoyer un email à chaque étudiant
-                const emailPromises = students.map(student =>
-                    sendEmail(student.email, subject, htmlContent)
-                        .catch(err => console.error(`Erreur lors de l’envoi à ${student.email} :`, err))
-                );
-
-                await Promise.all(emailPromises);
-                console.log(`Emails envoyés à ${students.length} étudiants.`);
+            // Si la publication est publiée immédiatement, envoyer les emails
+            if (status === 'published') {
+                const students = await User.find({ role: 'student', receiveEmails: true });
+                if (students.length > 0) {
+                    const publicationLink = `http://localhost:3000/PublicationDetailPsy/${savedPublication._id}`;
+                    const subject = 'New Publication Added on EspritCare';
+                    const htmlContent = `
+                        <h2>New Publication Available!</h2>
+                        <p>Hello</p>
+                        <p>A new publication has been added by a psychiatrist on EspritCare:</p>
+                        <ul>
+                            <li><strong>Title :</strong> ${titrePublication}</li>
+                            <li><strong>Description :</strong> ${description}</li>
+                        </ul>
+                        <p>Click on the link below to view it:</p>
+                        <a href="${publicationLink}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #0ea5e6; color: #fff; text-decoration: none; border-radius: 5px;">
+                            View Publication
+                        </a>
+                        <p>Stay connected for more updates!</p>
+                    `;
+                    const emailPromises = students.map(student =>
+                        sendEmail(student.email, subject, htmlContent)
+                            .catch(err => console.error(`Erreur lors de l’envoi à ${student.email} :`, err))
+                    );
+                    await Promise.all(emailPromises);
+                    console.log(`Emails envoyés à ${students.length} étudiants.`);
+                }
             }
 
-            res.status(201).json({ message: 'Publication ajoutée avec succès', publication: savedPublication });
+            res.status(201).json({ message: 'Publication added successfully', publication: savedPublication });
         } catch (error) {
-            console.log('Erreur lors de l’ajout:', error);
             res.status(500).json({ message: 'Erreur lors de l’ajout de la publication', error: error.message });
         }
     });
 };
+
+// Tâche cron pour vérifier et publier les publications archivées
+cron.schedule('* * * * *', async () => { // Exécute toutes les minutes (ajustez selon vos besoins)
+    try {
+        const now = new Date();
+        const archivedPublications = await Publication.find({
+            status: 'later',
+            datePublication: { $lte: now }, // Publications dont la date est atteinte ou dépassée
+        });
+
+        for (const publication of archivedPublications) {
+            publication.status = 'published';
+            await publication.save();
+
+            // Envoyer des emails aux étudiants une fois publiée
+            const students = await User.find({ role: 'student', receiveEmails: true });
+            if (students.length > 0) {
+                const publicationLink = `http://localhost:3000/PublicationDetailPsy/${publication._id}`;
+                const subject = 'New Publication Added on EspritCare';
+                const htmlContent = `
+                    <h2>New Publication Available!</h2>
+                    <p>Hello</p>
+                    <p>A new publication has been added by a psychiatrist on EspritCare:</p>
+                    <ul>
+                        <li><strong>Title :</strong> ${publication.titrePublication}</li>
+                        <li><strong>Description :</strong> ${publication.description}</li>
+                    </ul>
+                    <p>Click on the link below to view it:</p>
+                    <a href="${publicationLink}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #0ea5e6; color: #fff; text-decoration: none; border-radius: 5px;">
+                        View Publication
+                    </a>
+                    <p>Stay connected for more updates!</p>
+                `;
+                const emailPromises = students.map(student =>
+                    sendEmail(student.email, subject, htmlContent)
+                        .catch(err => console.error(`Erreur lors de l’envoi à ${student.email} :`, err))
+                );
+                await Promise.all(emailPromises);
+                console.log(`Publication ${publication._id} publiée et emails envoyés à ${students.length} étudiants.`);
+            }
+        }
+    } catch (error) {
+        console.error('Erreur dans la tâche cron de publication:', error);
+    }
+});
 
 
 // Exportation du middleware verifyToken
@@ -418,37 +494,59 @@ module.exports.updatePublicationStatus = async (req, res) => {
     }
 };
 
-// Épingler ou désépingler une publication
+// Épingler ou désépingler une publication pour l'utilisateur connecté
 module.exports.togglePinPublication = async (req, res) => {
     try {
         const { publicationId } = req.params;
-        const userId = req.userId; // Récupéré via verifyToken
+        const userId = req.userId; // Récupéré via le middleware verifyToken
 
-        // Vérifier si la publication existe et appartient à l'utilisateur
-        const publication = await Publication.findOne({ _id: publicationId, author_id: userId });
-        if (!publication) {
-            return res.status(404).json({ message: 'Publication non trouvée ou non autorisée' });
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'Utilisateur non trouvé' });
         }
 
-        // Inverser l'état isPinned
-        publication.isPinned = !publication.isPinned;
-        const updatedPublication = await publication.save();
+        const publication = await Publication.findById(publicationId);
+        if (!publication) {
+            return res.status(404).json({ message: 'Publication non trouvée' });
+        }
 
-        res.status(200).json({
-            message: publication.isPinned ? 'Publication épinglée avec succès' : 'Publication désépinglée avec succès',
-            publication: updatedPublication,
-        });
+        const isPinned = user.pinnedPublications.includes(publicationId);
+        if (isPinned) {
+            user.pinnedPublications = user.pinnedPublications.filter(id => id.toString() !== publicationId);
+            await user.save();
+            return res.status(200).json({ message: 'Publication unpinned successfully' });
+        } else {
+            user.pinnedPublications.push(publicationId);
+            await user.save();
+            return res.status(200).json({ message: 'Publication pinned successfully' });
+        }
     } catch (error) {
         console.error('Erreur lors de la gestion de l’épinglage:', error);
         res.status(500).json({ message: 'Erreur serveur', error: error.message });
     }
 };
 
-// Mettre à jour getAllPublications pour inclure isPinned dans la réponse
+// Récupérer les publications épinglées de l'utilisateur connecté
+module.exports.getPinnedPublications = async (req, res) => {
+    try {
+        const userId = req.userId; // Récupéré via verifyToken
+        const user = await User.findById(userId).populate('pinnedPublications');
+        if (!user) {
+            return res.status(404).json({ message: 'Utilisateur non trouvé' });
+        }
+
+        res.status(200).json(user.pinnedPublications);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des publications épinglées:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// getAllPublications reste inchangé car il ne doit pas être affecté par les pins individuels
 module.exports.getAllPublications = async (req, res) => {
     try {
-        const { sort } = req.query; // Accepter un paramètre de tri
-        const sortOrder = sort === 'oldest' ? 1 : -1; // Par défaut, tri récent (-1)
+        const { sort } = req.query;
+        const sortOrder = sort === 'oldest' ? 1 : -1;
 
         const publications = await Publication.aggregate([
             {
@@ -471,7 +569,7 @@ module.exports.getAllPublications = async (req, res) => {
                 $unwind: { path: '$author_id', preserveNullAndEmptyArrays: true },
             },
             {
-                $sort: { datePublication: sortOrder }, // Trier par date selon le paramètre
+                $sort: { datePublication: sortOrder },
             },
             {
                 $project: {
@@ -481,7 +579,6 @@ module.exports.getAllPublications = async (req, res) => {
                     datePublication: 1,
                     tag: 1,
                     status: 1,
-                    isPinned: 1, // Inclure le champ isPinned
                     'author_id._id': 1,
                     'author_id.username': 1,
                     commentsCount: { $size: '$commentaires' },
@@ -491,7 +588,6 @@ module.exports.getAllPublications = async (req, res) => {
             },
         ]);
 
-        // Filtrer les publications archivées côté serveur
         const filteredPublications = publications.filter(post => post.status !== 'archived');
         res.status(200).json(filteredPublications);
     } catch (error) {
@@ -522,16 +618,40 @@ module.exports.getMyPublications = async (req, res) => {
 module.exports.getPublicationById = async (req, res) => {
     try {
         const { id } = req.params;
-        const publication = await Publication.findById(id)
-            .populate('author_id', 'username user_photo')
-            .populate('likes', 'username') // Optionnel : inclure les détails des utilisateurs qui ont aimé
-            .populate('dislikes', 'username'); // Optionnel : inclure les détails des utilisateurs qui ont désapprouvé
+        const token = req.headers.authorization?.split(' ')[1]; // Récupérer le token (optionnel)
+        let userId = null;
 
+        // Décoder le token pour obtenir l'ID de l'utilisateur (si connecté)
+        if (token) {
+            const decoded = jwt.verify(token, 'randa');
+            userId = decoded.id;
+        }
+
+        // Récupérer la publication
+        const publication = await Publication.findById(id);
         if (!publication) {
             return res.status(404).json({ message: 'Publication non trouvée' });
         }
 
-        res.status(200).json(publication);
+        // Vérifier si l'utilisateur est connecté et s'il n'a pas encore vu la publication
+        if (userId) {
+            if (!publication.viewedBy) publication.viewedBy = []; // Initialiser viewedBy si vide
+            if (!publication.viewedBy.includes(userId)) {
+                publication.viewCount += 1; // Incrémenter uniquement la première fois
+                publication.viewedBy.push(userId); // Ajouter l'utilisateur à viewedBy
+                await publication.save();
+            }
+        }
+        // Note : Si l'utilisateur n'est pas connecté (pas de token), on n'incrémente pas viewCount.
+        // Si vous voulez compter les vues anonymes différemment, précisez-le-moi.
+
+        // Peupler les champs nécessaires après mise à jour
+        const populatedPublication = await Publication.findById(id)
+            .populate('author_id', 'username user_photo')
+            .populate('likes', 'username')
+            .populate('dislikes', 'username');
+
+        res.status(200).json(populatedPublication);
     } catch (error) {
         console.error('Erreur lors de la récupération de la publication:', error);
         res.status(500).json({ message: 'Erreur serveur', error: error.message });
@@ -581,6 +701,17 @@ module.exports.updatePublication = (req, res) => {
             if (req.file) publication.imagePublication = `/uploads/publications/${req.file.filename}`;
             if (req.body.tag) publication.tag = req.body.tag.split(',').map(tag => tag.trim()).filter(tag => tag);
 
+            // Gestion du statut et de la date programmée
+            if (req.body.status) {
+                publication.status = req.body.status;
+                if (req.body.status === 'published') {
+                    publication.scheduledDate = null; // Réinitialiser la date programmée
+                    publication.datePublication = new Date(); // Mettre à jour la date de publication à maintenant
+                } else if (req.body.status === 'later' && req.body.scheduledDate) {
+                    publication.scheduledDate = new Date(req.body.scheduledDate); // Définir la date programmée
+                }
+            }
+
             const updatedPublication = await publication.save();
             res.status(200).json({ message: 'Publication updated successfully', publication: updatedPublication });
         } catch (error) {
@@ -591,50 +722,167 @@ module.exports.updatePublication = (req, res) => {
 };
 
 
-// Ajouter un commentaire
+//ban
+module.exports.banUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { days, reason, customReason } = req.body;
+
+        // Vérification des permissions
+        if (req.userRole !== "admin" && req.userRole !== "psychiatrist") {
+            return res.status(403).json({ message: "Permission refusée" });
+        }
+
+        // Validation des champs requis
+        if (!userId || !days || !reason) {
+            return res.status(400).json({ message: "L'ID utilisateur, le nombre de jours et la raison sont requis" });
+        }
+
+        if (reason === "other" && !customReason) {
+            return res.status(400).json({ message: "Une raison personnalisée est requise pour 'other'" });
+        }
+
+        // Trouver l'utilisateur
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "Utilisateur non trouvé" });
+        }
+
+        // Calculer la date d'expiration du bannissement
+        const daysInt = parseInt(days);
+        if (isNaN(daysInt) || daysInt <= 0) {
+            return res.status(400).json({ message: "Le nombre de jours doit être un entier positif" });
+        }
+
+        const banExpiration = new Date();
+        banExpiration.setDate(banExpiration.getDate() + daysInt);
+
+        // Déterminer la raison finale
+        const finalReason = reason === "other" && customReason ? customReason : reason;
+
+        // Mettre à jour l'utilisateur
+        user.isBanned = true;
+        user.banExpiration = banExpiration;
+        user.banReason = finalReason;
+
+        const updatedUser = await user.save();
+
+        // Envoyer un email à l'utilisateur banni
+        const subject = "Vous avez été banni d'EspritCare";
+        const htmlContent = `
+            <h2>Notification de bannissement</h2>
+            <p>Bonjour ${user.username},</p>
+            <p>Votre compte sur EspritCare a été banni pour la raison suivante :</p>
+            <ul>
+                <li><strong>Raison :</strong> ${finalReason}</li>
+                <li><strong>Durée :</strong> ${daysInt} jour${daysInt > 1 ? 's' : ''}</li>
+                <li><strong>Expiration :</strong> ${banExpiration.toLocaleString()}</li>
+            </ul>
+            <p>Si vous pensez qu'il s'agit d'une erreur, veuillez contacter notre support à support@espritcare.com.</p>
+            <p>Cordialement,<br>L'équipe EspritCare</p>
+        `;
+
+        try {
+            await sendEmail(user.email, subject, htmlContent);
+            console.log(`Email de bannissement envoyé à ${user.email}`);
+        } catch (emailErr) {
+            console.error(`Erreur lors de l'envoi de l'email à ${user.email} :`, emailErr);
+            // Ne pas bloquer la réponse en cas d'échec d'email
+        }
+
+        // Réponse au client
+        res.status(200).json({
+            message: "Utilisateur banni avec succès",
+            user: {
+                _id: updatedUser._id,
+                username: updatedUser.username,
+                isBanned: updatedUser.isBanned,
+                banExpiration: updatedUser.banExpiration,
+                banReason: updatedUser.banReason,
+            },
+        });
+    } catch (err) {
+        console.error("Erreur lors du bannissement de l'utilisateur:", err);
+        res.status(500).json({ message: "Erreur serveur", error: err.message });
+    }
+};
+
+// Vérifier le statut de bannissement avant d'ajouter un commentaire
 module.exports.addCommentaire = async (req, res) => {
     try {
         const token = req.headers.authorization.split(' ')[1];
         const decoded = jwt.verify(token, 'randa');
         const userId = decoded.id;
 
-        const { contenu, publication_id } = req.body;
+        // Vérifier si l'utilisateur est banni
+        const user = await User.findById(userId);
+        if (user.isBanned && user.banExpiration && new Date() < user.banExpiration) {
+            return res.status(403).json({
+                message: `Vous êtes banni jusqu'au ${user.banExpiration.toLocaleString()} pour la raison suivante : ${user.banReason}`,
+            });
+        }
+
+        const { contenu, publication_id, isAnonymous } = req.body;
 
         if (!contenu || !publication_id) {
-            return res.status(400).json({ message: 'Le contenu et l\'ID de la publication sont requis' });
+            return res.status(400).json({ message: "Le contenu et l'ID de la publication sont requis" });
         }
 
         const commentaire = new Commentaire({
             contenu,
             publication_id,
             auteur_id: userId,
+            isAnonymous: isAnonymous || false,
         });
 
         const savedCommentaire = await commentaire.save();
-        
-        // Peupler les informations de l'auteur avec username et user_photo avant de renvoyer la réponse
         const populatedCommentaire = await Commentaire.findById(savedCommentaire._id)
             .populate('auteur_id', 'username user_photo');
 
-        res.status(201).json({ 
-            message: 'Commentaire ajouté avec succès', 
-            commentaire: populatedCommentaire 
+        const responseCommentaire = populatedCommentaire.isAnonymous
+            ? {
+                ...populatedCommentaire.toObject(),
+                auteur_id: {
+                    _id: populatedCommentaire.auteur_id._id,
+                    username: 'Anonyme',
+                    user_photo: null,
+                },
+            }
+            : populatedCommentaire;
+
+        res.status(201).json({
+            message: "Commentaire ajouté avec succès",
+            commentaire: responseCommentaire,
         });
     } catch (error) {
-        console.error('Erreur lors de l\'ajout du commentaire:', error);
-        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+        console.error("Erreur lors de l'ajout du commentaire:", error);
+        res.status(500).json({ message: "Erreur serveur", error: error.message });
     }
 };
 
-// Récupérer les commentaires d'une publication
+// Récupérer les commentaires
 module.exports.getCommentairesByPublication = async (req, res) => {
     try {
         const { publicationId } = req.params;
         const commentaires = await Commentaire.find({ publication_id: publicationId })
-            .populate('auteur_id', 'username user_photo') // Ajouter 'user_photo' ici
+            .populate('auteur_id', 'username user_photo')
             .sort({ dateCreation: -1 });
 
-        res.status(200).json(commentaires);
+        const formattedCommentaires = commentaires.map(comment => {
+            if (comment.isAnonymous) {
+                return {
+                    ...comment.toObject(), // Convertir en objet JS
+                    auteur_id: {
+                        _id: comment.auteur_id._id, // Conserver l'_id
+                        username: 'Anonyme',
+                        user_photo: null
+                    }
+                };
+            }
+            return comment;
+        });
+
+        res.status(200).json(formattedCommentaires);
     } catch (error) {
         console.error('Erreur lors de la récupération des commentaires:', error);
         res.status(500).json({ message: 'Erreur serveur', error: error.message });
@@ -685,6 +933,38 @@ module.exports.deleteCommentaire = async (req, res) => {
         res.status(200).json({ message: 'Commentaire supprimé avec succès' });
     } catch (error) {
         console.error('Erreur lors de la suppression du commentaire:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Supprimer un commentaire (réservé aux administrateurs)
+module.exports.deleteCommentaireAdmin = async (req, res) => {
+    try {
+        const { commentId } = req.params;
+        const token = req.headers.authorization.split(' ')[1];
+        const decoded = jwt.verify(token, 'randa');
+        const userId = decoded.id;
+
+        // Récupérer l'utilisateur pour vérifier son rôle
+        const user = await User.findById(userId); // Assurez-vous que le modèle User est importé
+        if (!user) {
+            return res.status(404).json({ message: 'Utilisateur non trouvé' });
+        }
+
+        // Vérifier si l'utilisateur est un administrateur
+        if (user.role !== 'admin') { // Assurez-vous que le champ 'role' existe dans votre modèle User
+            return res.status(403).json({ message: 'Accès refusé : seuls les administrateurs peuvent supprimer des commentaires' });
+        }
+
+        // Supprimer le commentaire sans vérifier l'auteur
+        const commentaire = await Commentaire.findByIdAndDelete(commentId);
+        if (!commentaire) {
+            return res.status(404).json({ message: 'Commentaire non trouvé' });
+        }
+
+        res.status(200).json({ message: 'Commentaire supprimé avec succès par l\'administrateur' });
+    } catch (error) {
+        console.error('Erreur lors de la suppression du commentaire par l\'administrateur:', error);
         res.status(500).json({ message: 'Erreur serveur', error: error.message });
     }
 };
@@ -894,6 +1174,232 @@ module.exports.searchPublications = async (req, res) => {
         res.status(500).json({ message: 'Erreur serveur', error: error.message });
     }
 };
+
+
+
+// Ajouter un signalement
+module.exports.addReport = async (req, res) => {
+    try {
+        const { id } = req.params; // ID de la publication à signaler
+        const { reason, customReason } = req.body;
+        const userId = req.userId; // Récupéré via verifyToken
+
+        const publication = await Publication.findById(id);
+        if (!publication) {
+            return res.status(404).json({ message: 'Publication non trouvée' });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'Utilisateur non trouvé' });
+        }
+
+        const existingReport = await ReportPublication.findOne({ publicationId: id, userId });
+        if (existingReport) {
+            return res.status(400).json({ message: 'Vous avez déjà signalé cette publication' });
+        }
+
+        const report = new ReportPublication({
+            publicationId: id,
+            userId,
+            reason,
+            customReason: reason === 'other' ? customReason : undefined,
+        });
+
+        const savedReport = await report.save();
+
+        res.status(201).json({
+            message: 'Signalement ajouté avec succès',
+            report: savedReport,
+        });
+    } catch (error) {
+        console.error('Erreur lors de l’ajout du signalement:', error);
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: 'Erreur de validation', error: error.message });
+        }
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Récupérer tous les signalements (pour admin ou psy, par exemple)
+module.exports.getAllReports = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const userRole = req.userRole;
+
+        if (userRole !== 'admin' && userRole !== 'psychiatrist') {
+            return res.status(403).json({ message: 'Accès non autorisé' });
+        }
+
+        const reports = await ReportPublication.find()
+            .populate('publicationId', 'titrePublication description')
+            .populate('userId', 'username email')
+            .sort({ dateReported: -1 });
+
+        res.status(200).json(reports);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des signalements:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Récupérer les signalements d'une publication spécifique
+module.exports.getReportsByPublication = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.userId;
+        const userRole = req.userRole;
+
+        const publication = await Publication.findById(id);
+        if (!publication) {
+            return res.status(404).json({ message: 'Publication non trouvée' });
+        }
+
+        if (userRole !== 'admin' && userRole !== 'psychiatrist' && publication.author_id.toString() !== userId) {
+            return res.status(403).json({ message: 'Accès non autorisé' });
+        }
+
+        const reports = await ReportPublication.find({ publicationId: id })
+            .populate('userId', 'username email')
+            .sort({ dateReported: -1 });
+
+        res.status(200).json(reports);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des signalements:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Supprimer un signalement (pour admin ou psy)
+module.exports.deleteReport = async (req, res) => {
+    try {
+        const { reportId } = req.params;
+        const userRole = req.userRole;
+
+        if (userRole !== 'admin' && userRole !== 'psychiatrist') {
+            return res.status(403).json({ message: 'Accès non autorisé' });
+        }
+
+        const report = await ReportPublication.findByIdAndDelete(reportId);
+        if (!report) {
+            return res.status(404).json({ message: 'Signalement non trouvé' });
+        }
+
+        res.status(200).json({ message: 'Signalement supprimé avec succès' });
+    } catch (error) {
+        console.error('Erreur lors de la suppression du signalement:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+
+
+// Ajouter un signalement pour un commentaire
+module.exports.addCommentReport = async (req, res) => {
+    try {
+        const { commentId } = req.params; // ID du commentaire à signaler
+        const { reason, customReason } = req.body;
+        const userId = req.userId; // Récupéré via verifyToken
+
+        // Vérifier si le commentaire existe
+        const comment = await Commentaire.findById(commentId);
+        if (!comment) {
+            return res.status(404).json({ message: 'Commentaire non trouvé' });
+        }
+
+        // Vérifier si l'utilisateur existe
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'Utilisateur non trouvé' });
+        }
+
+        // Vérifier si l'utilisateur a déjà signalé ce commentaire
+        const existingReport = await CommentReport.findOne({ commentId, userId });
+        if (existingReport) {
+            return res.status(400).json({ message: 'Vous avez déjà signalé ce commentaire' });
+        }
+
+        // Créer un nouveau signalement
+        const report = new CommentReport({
+            commentId,
+            userId,
+            reason,
+            customReason: reason === 'other' ? customReason : undefined,
+        });
+
+        const savedReport = await report.save();
+
+        res.status(201).json({
+            message: 'Signalement ajouté avec succès',
+            report: savedReport,
+        });
+    } catch (error) {
+        console.error('Erreur lors de l’ajout du signalement du commentaire:', error);
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: 'Erreur de validation', error: error.message });
+        }
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Récupérer tous les signalements de commentaires (pour admin ou psy)
+module.exports.getAllCommentReports = async (req, res) => {
+    try {
+        const userId = req.userId;
+        const userRole = req.userRole;
+
+        // Vérifier les autorisations
+        if (userRole !== 'admin' && userRole !== 'psychiatrist') {
+            return res.status(403).json({ message: 'Accès non autorisé' });
+        }
+
+        const reports = await CommentReport.find()
+            .populate('commentId', 'contenu publication_id')
+            .populate('userId', 'username email')
+            .sort({ dateReported: -1 });
+
+        res.status(200).json(reports);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des signalements de commentaires:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+// Récupérer les signalements d'un commentaire spécifique
+module.exports.getReportsByComment = async (req, res) => {
+    try {
+        const { commentId } = req.params;
+        const userId = req.userId;
+        const userRole = req.userRole;
+
+        // Vérifier si le commentaire existe
+        const comment = await Commentaire.findById(commentId).populate('publication_id');
+        if (!comment) {
+            return res.status(404).json({ message: 'Commentaire non trouvé' });
+        }
+
+        // Vérifier les autorisations
+        // Seuls les admins, les psychiatres, ou l'auteur de la publication associée peuvent voir les signalements
+        if (
+            userRole !== 'admin' &&
+            userRole !== 'psychiatrist' &&
+            comment.publication_id.author_id.toString() !== userId
+        ) {
+            return res.status(403).json({ message: 'Accès non autorisé' });
+        }
+
+        const reports = await CommentReport.find({ commentId })
+            .populate('userId', 'username email')
+            .sort({ dateReported: -1 });
+
+        res.status(200).json(reports);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des signalements du commentaire:', error);
+        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+    }
+};
+
+
 
 //supprimer student
 module.exports.deleteStudentById = async (req, res) => {
@@ -1407,117 +1913,200 @@ module.exports.deleteAvailability = async (req, res) => {
 
   
   module.exports.bookappointment = async (req, res) => {
-      const { psychiatristId, day, startTime, endTime } = req.body; // Changed from "date" to "day"
-      const studentId = req.userId; // Changed from req.user.id to req.userId
-  
-      console.log('Requête reçue:', { psychiatristId, day, startTime, endTime, studentId }); // Débogage
-  
-      try {
-          // Vérifier si les champs obligatoires sont présents
-          if (!psychiatristId || !day || !startTime || !endTime) {
-              return res.status(400).json({ message: 'Tous les champs (psychiatristId, day, startTime, endTime) sont requis' });
-          }
-  
-          const psychiatrist = await User.findById(psychiatristId);
-          if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
-              return res.status(404).json({ message: "Psychiatrist not found" });
-          }
-  
-          console.log('Disponibilités du psychiatre:', psychiatrist.availability); // Débogage
-  
-          // Vérifier si le créneau est disponible
-          const isAvailable = psychiatrist.availability.some(slot =>
-              slot.day === day &&
-              slot.startTime === startTime &&
-              slot.endTime === endTime
-          );
-          if (!isAvailable) {
-              return res.status(400).json({ message: "This slot is not available" });
-          }
-  
-          // Vérifier s'il existe déjà une réservation pour ce créneau (éviter les doublons globaux)
-          const existingAppointment = await Appointment.findOne({
-              psychiatrist: psychiatristId,
-              day,
-              startTime,
-              endTime,
-          });
-          if (existingAppointment) {
-              return res.status(400).json({ message: 'This slot is already booked by another user.' });
-          }
-  
-          // Créer une nouvelle réservation
-          const appointment = new Appointment({
-              psychiatrist: psychiatristId,
-              student: studentId,
-              date: new Date().toISOString().split('T')[0], // Date par défaut si nécessaire
-              startTime,
-              endTime,
-          });
-          await appointment.save();
-  
-          // Mettre à jour la disponibilité du psychiatre en supprimant le créneau réservé
-          await User.updateOne(
-              { _id: psychiatristId },
-              {
-                  $pull: {
-                      availability: {
-                          day,
-                          startTime,
-                          endTime,
-                      },
-                  },
-              }
-          );
-  
-          res.status(201).json({ message: "Appointment booked successfully", appointment });
-      } catch (error) {
-          console.error('Erreur dans bookAppointment:', error);
-          res.status(500).json({ message: "Server error", error: error.message });
-      }
-  };
+    const { psychiatristId, day, startTime, endTime } = req.body;
+    const studentId = req.userId;
 
+    console.log('Requête reçue:', { psychiatristId, day, startTime, endTime, studentId });
 
+    try {
+        // Vérifier si les champs obligatoires sont présents
+        if (!psychiatristId || !day || !startTime || !endTime) {
+            return res.status(400).json({ message: 'Tous les champs (psychiatristId, day, startTime, endTime) sont requis' });
+        }
+
+        const psychiatrist = await User.findById(psychiatristId);
+        if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
+            return res.status(404).json({ message: "Psychiatrist not found" });
+        }
+
+        console.log('Disponibilités du psychiatre:', psychiatrist.availability);
+
+        // Convertir les temps en minutes pour comparaison
+        const requestedStartMinutes = parseInt(startTime.split(':')[0]) * 60 + parseInt(startTime.split(':')[1]);
+        const requestedEndMinutes = parseInt(endTime.split(':')[0]) * 60 + parseInt(endTime.split(':')[1]);
+
+        // Vérifier si le créneau demandé est inclus dans une disponibilité existante
+        const availabilitySlotIndex = psychiatrist.availability.findIndex(slot => {
+            if (slot.day !== day) return false;
+            const slotStartMinutes = parseInt(slot.startTime.split(':')[0]) * 60 + parseInt(slot.startTime.split(':')[1]);
+            const slotEndMinutes = parseInt(slot.endTime.split(':')[0]) * 60 + parseInt(slot.endTime.split(':')[1]);
+            return requestedStartMinutes >= slotStartMinutes && requestedEndMinutes <= slotEndMinutes;
+        });
+
+        if (availabilitySlotIndex === -1) {
+            return res.status(400).json({ message: "This slot is not available" });
+        }
+
+        // Vérifier s'il existe déjà une réservation pour ce créneau
+        const existingAppointment = await Appointment.findOne({
+            psychiatrist: psychiatristId,
+            date: new Date().toISOString().split('T')[0], // Adjust date logic if needed
+            startTime,
+            endTime,
+        });
+        if (existingAppointment) {
+            return res.status(400).json({ message: 'This slot is already booked by another user.' });
+        }
+
+        // Créer une nouvelle réservation
+        const appointment = new Appointment({
+            psychiatrist: psychiatristId,
+            student: studentId,
+            date: new Date().toISOString().split('T')[0], // Use current date or adjust based on your logic
+            startTime,
+            endTime,
+        });
+        await appointment.save();
+
+        // Ajuster la disponibilité du psychiatre
+        const availabilitySlot = psychiatrist.availability[availabilitySlotIndex];
+        const slotStartMinutes = parseInt(availabilitySlot.startTime.split(':')[0]) * 60 + parseInt(availabilitySlot.startTime.split(':')[1]);
+        const slotEndMinutes = parseInt(availabilitySlot.endTime.split(':')[0]) * 60 + parseInt(availabilitySlot.endTime.split(':')[1]);
+
+        // Supprimer l'ancien créneau
+        psychiatrist.availability.splice(availabilitySlotIndex, 1);
+
+        // Ajouter les créneaux restants si nécessaire
+        if (slotStartMinutes < requestedStartMinutes) {
+            psychiatrist.availability.push({
+                day,
+                startTime: availabilitySlot.startTime,
+                endTime: startTime,
+                date: availabilitySlot.date,
+                title: availabilitySlot.title,
+            });
+        }
+        if (requestedEndMinutes < slotEndMinutes) {
+            psychiatrist.availability.push({
+                day,
+                startTime: endTime,
+                endTime: availabilitySlot.endTime,
+                date: availabilitySlot.date,
+                title: availabilitySlot.title,
+            });
+        }
+
+        // Sauvegarder les modifications
+        await psychiatrist.save();
+
+        res.status(201).json({
+            message: "Appointment booked successfully",
+            appointment,
+            updatedAvailability: psychiatrist.availability, // Retourner les nouvelles disponibilités
+        });
+    } catch (error) {
+        console.error('Erreur dans bookAppointment:', error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
 
 // Récupérer l'historique des rendez-vous pour un étudiant
 module.exports.getAppointmentHistory = async (req, res) => {
     try {
-        const userId = req.userId; // ID de l'utilisateur connecté, défini par verifyToken
+        // Ensure req.userId and req.userRole are set by verifyToken
+        if (!req.userId || !req.userRole) {
+            console.error('Missing userId or userRole:', { userId: req.userId, userRole: req.userRole });
+            return res.status(401).json({ message: 'User authentication failed' });
+        }
 
-        // Récupérer l'utilisateur pour vérifier son rôle
-        const user = await User.findById(userId);
+        const userId = req.userId;
+        const userRole = req.userRole;
+        console.log('User ID:', userId, 'Role:', userRole); // Debug
+
+        // Fetch user
+        let user;
+        try {
+            user = await User.findById(userId);
+            console.log('Fetched User:', user); // Debug
+        } catch (err) {
+            console.error('Error fetching user:', err);
+            return res.status(500).json({ message: 'Error querying user database', error: err.message });
+        }
         if (!user) {
-            return res.status(404).json({ message: "Utilisateur non trouvé" });
+            return res.status(404).json({ message: 'User not found' });
         }
 
-        let appointments;
-        if (user.role === "student") {
-            // Pour un étudiant, récupérer les rendez-vous où il est le student
-            appointments = await Appointment.find({ student: userId })
-                .populate('psychiatrist', 'username email')
-                .sort({ date: -1 })
-                .exec();
-        } else if (user.role === "psychiatrist") {
-            // Pour un psychiatre, récupérer les rendez-vous où il est le psychiatrist
-            appointments = await Appointment.find({ psychiatrist: userId })
-                .populate('student', 'username email')
-                .sort({ date: -1 })
-                .exec();
+        // Build query based on role
+        let query = {};
+        if (userRole === 'student') {
+            query.student = userId;
+        } else if (userRole === 'psychiatrist') {
+            query.psychiatrist = userId;
         } else {
-            return res.status(403).json({ message: "Rôle non autorisé pour voir l'historique des rendez-vous" });
+            return res.status(403).json({ message: 'Invalid role' });
         }
 
-        if (!appointments.length) {
-            return res.status(404).json({ message: "Aucun rendez-vous trouvé" });
+        // Extract filter parameters
+        const { statusFilter, searchName } = req.query;
+        console.log('Filter Params:', { statusFilter, searchName }); // Debug
+
+        // Apply status filter
+        if (statusFilter && statusFilter !== 'all') {
+            if (!['pending', 'confirmed', 'canceled', 'completed'].includes(statusFilter)) {
+                return res.status(400).json({ message: 'Invalid status value' });
+            }
+            query.status = statusFilter;
         }
 
-        res.status(200).json({ message: "Historique des rendez-vous récupéré avec succès", appointments, role: user.role });
+        // Apply name search filter
+        if (searchName && searchName.trim() !== '') {
+            const nameRegex = new RegExp(searchName, 'i'); // Case-insensitive
+            try {
+                if (userRole === 'student') {
+                    const psychiatrists = await User.find({ username: nameRegex, role: 'psychiatrist' });
+                    console.log('Found Psychiatrists:', psychiatrists); // Debug
+                    if (psychiatrists.length > 0) {
+                        query.psychiatrist = { $in: psychiatrists.map(p => p._id) };
+                    } else {
+                        query.psychiatrist = null; // Force empty result if no matches
+                    }
+                } else if (userRole === 'psychiatrist') {
+                    const students = await User.find({ username: nameRegex, role: 'student' });
+                    console.log('Found Students:', students); // Debug
+                    if (students.length > 0) {
+                        query.student = { $in: students.map(s => s._id) };
+                    } else {
+                        query.student = null; // Force empty result if no matches
+                    }
+                }
+            } catch (err) {
+                console.error('Error searching users by name:', err);
+                return res.status(500).json({ message: 'Error searching by name', error: err.message });
+            }
+        }
+
+        // Fetch appointments
+        console.log('Query:', query); // Debug
+        let appointments;
+        try {
+            appointments = await Appointment.find(query)
+                .populate('student', 'username email')
+                .populate('psychiatrist', 'username email');
+            console.log('Fetched Appointments:', appointments); // Debug
+        } catch (err) {
+            console.error('Error fetching appointments:', err);
+            return res.status(500).json({ message: 'Error querying appointments database', error: err.message });
+        }
+
+        res.status(200).json({
+            appointments,
+            role: userRole,
+        });
     } catch (error) {
-        console.error('Erreur dans getAppointmentHistory:', error);
-        res.status(500).json({ message: "Erreur serveur", error: error.message });
+        console.error('Error in getAppointmentHistory:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
-
 
 
 module.exports.updateAppointmentStatus = async (req, res) => {
@@ -1562,8 +2151,8 @@ module.exports.updateAppointmentStatus = async (req, res) => {
         appointment.status = status;
         await appointment.save();
 
-        // Générer un code unique pour l'accès au chat
-        const chatCode = Math.floor(100000 + Math.random() * 900000); // Code à 6 chiffres
+        // Générer un code unique de 32 bytes (256 bits) pour l'accès au chat
+        const chatCode = crypto.randomBytes(32).toString('hex'); // 32 bytes -> 64 caractères hexadécimaux
 
         // Envoyer un email si le rendez-vous est confirmé
         if (status === 'confirmed' && appointment.student && appointment.psychiatrist) {
@@ -1601,13 +2190,48 @@ module.exports.updateAppointmentStatus = async (req, res) => {
             }
         }
 
-        res.status(200).json({ message: "Statut du rendez-vous mis à jour avec succès", appointment });
+        res.status(200).json({ message: "Statut du rendez-vous mis à jour avec succès", appointment, chatCode });
     } catch (error) {
         console.error('Erreur dans updateAppointmentStatus:', error);
         res.status(500).json({ message: "Erreur serveur", error: error.message });
     }
 };
 
+// controllers/userController.js
+module.exports.getPsychiatristById = async (req, res) => {
+    try {
+        const psychiatrist = await User.findById(req.params.id);
+        if (!psychiatrist || psychiatrist.role !== 'psychiatrist') {
+            return res.status(404).json({ message: 'Psychiatrist not found' });
+        }
+        res.status(200).json(psychiatrist);
+    } catch (error) {
+        console.error('Error fetching psychiatrist:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+
+module.exports.updateAppointment = async (req, res) => {
+    try {
+        const { date, startTime, endTime } = req.body;
+        const appointment = await Appointment.findById(req.params.id);
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
+        }
+        if (appointment.student.toString() !== req.userId) {
+            return res.status(403).json({ message: 'Unauthorized' });
+        }
+        appointment.date = date;
+        appointment.startTime = startTime;
+        appointment.endTime = endTime;
+        await appointment.save();
+        res.status(200).json(appointment);
+    } catch (error) {
+        console.error('Error updating appointment:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
 
 module.exports.deleteAppointment = async (req, res) => {
     try {
@@ -1662,46 +2286,212 @@ module.exports.getAllAppointments = async (req, res) => {
 };
 
 
-module.exports.Chat = async (req, res) => {
+// Send a message
+module.exports.sendMessage = async (req, res) => {
     try {
-      const { roomCode, message } = req.body;
-      const userId = req.userId;
-      if (!roomCode || !userId || !message) {
-        return res.status(400).json({ message: 'roomCode, userId, and message are required' });
+      const { roomCode, encryptedMessage, iv, voiceMessage, isVoice } = req.body;
+      console.log('Received payload:', {
+        roomCode,
+        encryptedMessage,
+        iv,
+        voiceMessageLength: voiceMessage?.length,
+        isVoice,
+      });
+      console.log('User ID from token:', req.userId);
+  
+      if (!roomCode) {
+        console.log('Validation failed: roomCode missing');
+        return res.status(400).json({ message: 'roomCode is required' });
+      }
+      if (!req.userId) {
+        console.log('Validation failed: userId missing');
+        return res.status(401).json({ message: 'User ID not found in token' });
       }
   
-      const chatMessage = new Chat({
-        chatId: uuidv4(), // Generate unique chatId
-        roomCode,
-        sender: userId,
-        message,
-      });
-      await chatMessage.save();
+      // Validate userId as a valid ObjectId
+      const mongoose = require('mongoose');
+      if (!mongoose.Types.ObjectId.isValid(req.userId)) {
+        console.log('Validation failed: Invalid userId:', req.userId);
+        return res.status(400).json({ message: 'Invalid user ID' });
+      }
   
-      res.status(201).json({ message: 'Message added successfully', data: chatMessage });
+      if (!isVoice && (!encryptedMessage || !iv)) {
+        console.log('Validation failed: encryptedMessage or iv missing for text message');
+        return res.status(400).json({ message: 'encryptedMessage and iv are required for text messages' });
+      }
+      if (isVoice && !voiceMessage) {
+        console.log('Validation failed: voiceMessage missing for voice message');
+        return res.status(400).json({ message: 'voiceMessage is required for voice messages' });
+      }
+  
+      // Add a custom size limit for voice messages (optional)
+      if (isVoice && voiceMessage?.length > 10 * 1024 * 1024) { // 10MB base64 limit
+        console.log('Validation failed: Voice message too large');
+        return res.status(400).json({ message: 'Voice message too large. Keep it under 10MB.' });
+      }
+  
+      console.log('Creating new Chat document...');
+      const chat = new Chat({
+        roomCode,
+        sender: req.userId,
+        encryptedMessage: isVoice ? undefined : encryptedMessage,
+        iv: isVoice ? undefined : iv,
+        voiceMessage: isVoice ? voiceMessage : undefined,
+        isVoice: isVoice || false,
+      });
+  
+      console.log('Saving chat document...');
+      await chat.save();
+      console.log('Chat document saved:', chat._id);
+  
+      console.log('Populating sender...');
+      const populatedChat = await Chat.findById(chat._id).populate('sender', 'username user_photo');
+      if (!populatedChat) {
+        console.log('Population failed: Chat document not found');
+        return res.status(404).json({ message: 'Chat document not found after saving' });
+      }
+  
+      console.log('Saved message:', populatedChat);
+      res.status(201).json({ message: 'Message sent successfully', data: populatedChat });
     } catch (err) {
-      console.error('Error adding message:', err);
-      res.status(500).json({ message: 'Failed to add message', error: err.message });
+      console.error('Error sending message:', err.stack);
+      res.status(500).json({ message: 'Failed to send message', error: err.message });
+    }
+  };
+// Fetch messages for a room
+module.exports.RoomChat = async (req, res) => {
+  try {
+    const { roomCode } = req.params;
+    if (!roomCode) {
+      return res.status(400).json({ message: 'roomCode is required' });
+    }
+
+    const messages = await Chat.find({ roomCode })
+      .populate('sender', 'username user_photo')
+      .sort({ createdAt: 1 });
+    console.log('Returning messages for roomCode:', roomCode, 'Messages:', messages);
+    res.status(200).json(messages);
+  } catch (err) {
+    console.error('Error retrieving messages:', err);
+    res.status(500).json({ message: 'Failed to retrieve messages', error: err.message });
+  }
+};
+
+// Deprecated endpoints (unchanged)
+module.exports.sharePublicKey = async (req, res) => {
+  res.status(410).json({ message: 'Endpoint deprecated: Encryption simplified' });
+};
+
+module.exports.getPublicKeys = async (req, res) => {
+  res.status(410).json({ message: 'Endpoint deprecated: Encryption simplified' });
+};
+
+  
+
+
+  // Fetch room messages
+  module.exports.RoomChat = async (req, res) => {
+    try {
+      const { roomCode } = req.params;
+      const messages = await Chat.find({ roomCode })
+        .populate('sender', 'username user_photo')
+        .sort({ createdAt: 1 });
+  
+      res.status(200).json(messages);
+    } catch (err) {
+      console.error('Error retrieving messages:', err);
+      res.status(500).json({ message: 'Failed to retrieve messages', error: err.message });
     }
   };
 
+
   
-module.exports.RoomChat = async (req, res) => {
+  module.exports.deletechat = async (req, res) => {
     try {
-        const { roomCode } = req.params;
-        const messages = await Chat.find({ roomCode })
-          .populate('sender', 'username user_photo') // Optional: Populate sender's username
-          .sort({ createdAt: 1 }); // Sort by creation time
-    
-        res.status(200).json(messages);
-      } catch (err) {
-        console.error('Error retrieving messages:', err);
-        res.status(500).json({ message: 'Failed to retrieve messages', error: err.message });
+      console.log('Starting deletechat, req.userId:', req.userId);
+      if (!req.userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
       }
-    };
+  
+      const messageId = req.params.messageId;
+      console.log('Message ID:', messageId);
+  
+      const message = await Chat.findById(messageId);
+      if (!message) {
+        return res.status(404).json({ message: 'Message not found' });
+      }
+  
+      if (message.sender.toString() !== req.userId) {
+        return res.status(403).json({ message: 'Unauthorized' });
+      }
+  
+      const deletedMessage = await Chat.findByIdAndDelete(messageId);
+  
+      if (!deletedMessage) {
+        return res.status(404).json({ message: 'Message not found after deletion' });
+      }
+  
+      console.log('Message deleted:', deletedMessage);
+      res.status(200).json({ message: 'Message deleted', data: deletedMessage });
+    } catch (err) {
+      console.error('Error in deletechat:', err.stack);
+      res.status(500).json({ message: 'Server error', error: err.message });
+    }
+  };
 
 
+  
+  
+// Assuming Chat model is still Mongoose-based
 
+module.exports.updatechat = async (req, res) => {
+  try {
+    console.log('Starting updatechat, req.userId:', req.userId);
+    if (!req.userId) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    const messageId = req.params.messageId;
+    console.log('Message ID:', messageId);
+
+    const { encryptedMessage, iv } = req.body;
+    console.log('Request body:', { encryptedMessage, iv });
+    if (!encryptedMessage || !iv) {
+      return res.status(400).json({ message: 'encryptedMessage and iv are required' });
+    }
+
+    // Fetch the existing message to check ownership and type
+    const message = await Chat.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+
+    if (message.sender.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+
+    if (message.isVoice) {
+      return res.status(400).json({ message: 'Cannot update voice messages' });
+    }
+
+    // Update the message
+    const updatedMessage = await Chat.findByIdAndUpdate(
+      messageId,
+      { encryptedMessage, iv },
+      { new: true } // Return the updated document
+    );
+
+    if (!updatedMessage) {
+      return res.status(404).json({ message: 'Message not found after update' });
+    }
+
+    console.log('Message updated:', updatedMessage);
+    res.status(200).json({ message: 'Message updated', data: updatedMessage });
+  } catch (err) {
+    console.error('Error in updatechat:', err.stack);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
     module.exports.photo = async (req, res) => {
  
         try {
@@ -1725,3 +2515,264 @@ module.exports.RoomChat = async (req, res) => {
             res.status(500).json({ message: 'Server error' });
         }
     };
+
+// Create a problem
+// Create a problem (unchanged)
+module.exports.createProblem = async (req, res) => {
+  const userId = req.userId;
+  const { what, source, reaction, resolved, satisfaction, startDate, endDate, notes } = req.body;
+
+  if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+    return res.status(400).json({ message: "startDate must be before endDate" });
+  }
+
+  try {
+    const problem = new Problem({
+      userId,
+      what,
+      source,
+      reaction,
+      resolved: resolved || false,
+      satisfaction: satisfaction || '',
+      startDate: startDate || null,
+      endDate: endDate || null,
+      notes,
+    });
+    await problem.save();
+    res.status(201).json({ message: 'Problem saved successfully', problem });
+  } catch (error) {
+    res.status(500).json({ message: 'Error saving problem', error: error.message });
+  }
+};
+
+// Get problems with sorting, searching, and pagination
+module.exports.getProblems = async (req, res) => {
+    const { userId } = req.params;
+    const { sortBy = 'createdAt', sortOrder = 'desc', search, page = 1, limit = 5 } = req.query;
+  
+    try {
+      // Construire la requête MongoDB
+      let query = { userId };
+      if (search) {
+        query.$or = [
+          { what: { $regex: search, $options: 'i' } },
+          { source: { $regex: search, $options: 'i' } },
+          { reaction: { $regex: search, $options: 'i' } },
+          { notes: { $regex: search, $options: 'i' } },
+
+        ];
+      }
+  
+      // Compter le nombre total de documents pour calculer les pages
+      const totalProblems = await Problem.countDocuments(query);
+      const totalPages = Math.ceil(totalProblems / limit);
+  
+      // Trier et paginer
+      const problems = await Problem.find(query)
+        .sort({ [sortBy]: sortOrder === 'asc' ? 1 : -1 }) // Tri sur tous les problèmes
+        .skip((page - 1) * limit)
+        .limit(parseInt(limit));
+  
+      res.json({ problems, totalPages });
+    } catch (error) {
+      res.status(500).json({ message: 'Error fetching problems', error });
+    }
+  };
+
+// Update a problem (unchanged)
+module.exports.updateProblem = async (req, res) => {
+  const userId = req.userId;
+  const problemId = req.params.problemId;
+  const { what, source, reaction, resolved, satisfaction, startDate, endDate, notes} = req.body;
+
+  if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+    return res.status(400).json({ message: "startDate must be before endDate" });
+  }
+
+  try {
+    const problem = await Problem.findOneAndUpdate(
+      { _id: problemId, userId },
+      {
+        what,
+        source,
+        reaction,
+        resolved,
+        satisfaction,
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+        notes,
+      },
+      { new: true }
+    );
+    if (!problem) return res.status(404).json({ message: 'Problem not found' });
+    res.status(200).json({ message: 'Problem updated successfully', problem });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating problem', error: error.message });
+  }
+};
+
+// Delete a problem (unchanged)
+module.exports.deleteProblem = async (req, res) => {
+  const { userId, problemId } = req.params;
+
+  if (req.userId !== userId) {
+    return res.status(403).json({ message: 'Unauthorized access.' });
+  }
+
+  try {
+    const deletedProblem = await Problem.findOneAndDelete({ _id: problemId, userId });
+    if (!deletedProblem) {
+      return res.status(404).json({ message: 'Problem not found.' });
+    }
+    res.status(200).json({ message: 'Problem deleted successfully.' });
+  } catch (error) {
+    console.error('Error deleting problem:', error);
+    res.status(500).json({ message: 'Error deleting problem', error: error.message });
+  }
+};
+// Middleware pour vérifier le rôle teacher
+module.exports.isTeacher = async (req, res, next) => {
+    try {
+        const user = await User.findById(req.params.userId);
+        if (!user || user.role !== 'teacher') {
+            return res.status(403).json({ message: "Accès réservé aux enseignants" });
+        }
+        req.user = user; // Attach user to request object
+        next();
+    } catch (error) {
+        res.status(500).json({ message: "Erreur serveur", error: error.message });
+    }
+};
+
+// Create an attendance sheet
+module.exports.createAttendanceSheet = async (req, res) => {
+    try {
+        const { subject, classLevel, speciality, studentIds } = req.body;
+        const teacherId = req.params.userId;
+
+        if (!subject || !classLevel || !speciality || !studentIds) {
+            return res.status(400).json({ message: "Tous les champs (subject, classLevel, speciality, studentIds) sont requis" });
+        }
+
+        const attendanceSheet = new AttendanceSheet({
+            teacher: teacherId,
+            subject,
+            classLevel,
+            speciality,
+            students: studentIds.map(studentId => ({ student: studentId }))
+        });
+
+        const savedSheet = await attendanceSheet.save();
+
+        // Associate the sheet with the teacher
+        await User.findByIdAndUpdate(teacherId, {
+            $push: { attendanceSheets: savedSheet._id }
+        });
+
+        res.status(201).json({ message: "Fiche de présence créée avec succès", attendanceSheet: savedSheet });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de la création de la fiche", error: error.message });
+    }
+};
+
+// Get all attendance sheets for a teacher
+module.exports.getAttendanceSheets = async (req, res) => {
+    try {
+        const teacherId = req.params.userId;
+        const attendanceSheets = await AttendanceSheet
+            .find({ teacher: teacherId })
+            .populate('students.student', 'username email');
+
+        res.status(200).json(attendanceSheets);
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de la récupération des fiches", error: error.message });
+    }
+};
+
+// Get a specific attendance sheet
+module.exports.getAttendanceSheetById = async (req, res) => {
+    try {
+        const { userId, sheetId } = req.params;
+        const attendanceSheet = await AttendanceSheet
+            .findOne({ _id: sheetId, teacher: userId })
+            .populate('students.student', 'username email');
+
+        if (!attendanceSheet) {
+            return res.status(404).json({ message: "Fiche de présence non trouvée" });
+        }
+
+        res.status(200).json(attendanceSheet);
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de la récupération de la fiche", error: error.message });
+    }
+};
+
+// Update attendance for a student
+module.exports.updateAttendance = async (req, res) => {
+    try {
+        const { userId, sheetId } = req.params;
+        const { studentId, present } = req.body;
+
+        if (typeof present !== 'boolean') {
+            return res.status(400).json({ message: "Le champ 'present' doit être un booléen" });
+        }
+
+        const updatedSheet = await AttendanceSheet.findOneAndUpdate(
+            { _id: sheetId, teacher: userId },
+            { $set: { "students.$[elem].present": present } },
+            {
+                arrayFilters: [{ "elem.student": studentId }],
+                new: true
+            }
+        ).populate('students.student', 'username email');
+
+        if (!updatedSheet) {
+            return res.status(404).json({ message: "Fiche de présence non trouvée ou non autorisée" });
+        }
+
+        res.status(200).json({ message: "Présence mise à jour avec succès", attendanceSheet: updatedSheet });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de la mise à jour de la présence", error: error.message });
+    }
+};
+
+// Delete an attendance sheet
+module.exports.deleteAttendanceSheet = async (req, res) => {
+    try {
+        const { userId, sheetId } = req.params;
+
+        const deletedSheet = await AttendanceSheet.findOneAndDelete({
+            _id: sheetId,
+            teacher: userId
+        });
+
+        if (!deletedSheet) {
+            return res.status(404).json({ message: "Fiche de présence non trouvée ou non autorisée" });
+        }
+
+        await User.findByIdAndUpdate(userId, {
+            $pull: { attendanceSheets: sheetId }
+        });
+
+        res.status(200).json({ message: "Fiche de présence supprimée avec succès" });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors de la suppression de la fiche", error: error.message });
+    }
+};
+
+// Mark attendance (optional standalone function if needed elsewhere)
+module.exports.markAttendance = async (req, res) => {
+    try {
+        const { attendanceSheetId, studentId, isPresent } = req.body;
+
+        await AttendanceSheet.findByIdAndUpdate(attendanceSheetId, {
+            $set: { "students.$[elem].present": isPresent }
+        }, {
+            arrayFilters: [{ "elem.student": studentId }]
+        });
+
+        res.status(200).json({ message: "Présence marquée avec succès" });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur lors du marquage de la présence", error: error.message });
+    }
+};

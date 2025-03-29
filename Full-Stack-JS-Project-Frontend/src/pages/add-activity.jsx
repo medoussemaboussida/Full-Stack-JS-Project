@@ -13,6 +13,7 @@ function AddActivity() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const navigate = useNavigate();
 
   const categories = [
@@ -25,6 +26,107 @@ function AddActivity() {
     "Domestic and Organizational",
     "Nature and Animal-Related",
   ];
+
+  // Récupérer le token depuis localStorage
+  const getToken = () => {
+    return localStorage.getItem("jwt-token"); // Assurez-vous que c'est la clé correcte utilisée dans votre app
+  };
+
+  // Fonction pour générer une description à partir du titre
+  const generateDescription = async () => {
+    if (!formData.title.trim()) {
+      toast.error("Veuillez d'abord entrer un titre");
+      return;
+    }
+
+    const token = getToken();
+    if (!token) {
+      toast.error("Vous devez être connecté pour générer une description");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const response = await fetch("http://localhost:5000/users/generate-description", { // Corrigez l'URL si nécessaire
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`, // Ajout du token JWT
+        },
+        body: JSON.stringify({ title: formData.title }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        setFormData((prev) => ({
+          ...prev,
+          description: data.description,
+        }));
+      } else {
+        toast.error(data.message || "Erreur lors de la génération");
+      }
+    } catch (error) {
+      toast.error("Erreur lors de la génération de la description");
+      setFormData((prev) => ({
+        ...prev,
+        description: `Description automatique de ${formData.title}`,
+      }));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Fonction pour générer un titre à partir de la description
+  const generateTitle = async () => {
+    if (!formData.description.trim()) {
+      toast.error("Veuillez d'abord entrer une description");
+      return;
+    }
+
+    const token = getToken();
+    if (!token) {
+      toast.error("Vous devez être connecté pour générer un titre");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const response = await fetch("http://localhost:5000/users/generate-title", { // Corrigez l'URL si nécessaire
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`, // Ajout du token JWT
+        },
+        body: JSON.stringify({ description: formData.description }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        setFormData((prev) => ({
+          ...prev,
+          title: data.title,
+        }));
+      } else {
+        toast.error(data.message || "Erreur lors de la génération");
+      }
+    } catch (error) {
+      toast.error("Erreur lors de la génération du titre");
+      setFormData((prev) => ({
+        ...prev,
+        title: `Titre automatique`,
+      }));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
@@ -44,55 +146,44 @@ function AddActivity() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
 
-    const token = localStorage.getItem("jwt-token");
+    const token = getToken();
     if (!token) {
-      toast.error("You must be logged in to add an activity.");
-      setIsSubmitting(false);
+      toast.error("Vous devez être connecté pour ajouter une activité");
       return;
     }
 
-    let userId;
-    try {
-      const decoded = jwtDecode(token);
-      userId = decoded.id;
-    } catch (error) {
-      toast.error("Invalid session, please log in again.");
-      localStorage.removeItem("jwt-token");
-      navigate("/login");
+    // Validation des champs
+    if (!formData.title.trim()) {
+      toast.error("Veuillez remplir le titre de l'activité");
+      return;
+    }
+    if (!formData.description.trim()) {
+      toast.error("Veuillez remplir la description de l'activité");
+      return;
+    }
+    if (!formData.category) {
+      toast.error("Veuillez sélectionner une catégorie");
       return;
     }
 
-    if (!userId) {
-      toast.error("User not found, please log in again.");
-      setIsSubmitting(false);
-      return;
-    }
+    setIsSubmitting(true);
 
     const data = new FormData();
     data.append("title", formData.title);
     data.append("description", formData.description);
     data.append("category", formData.category);
-
-    // Vérification si une image est sélectionnée
     if (formData.image) {
       data.append("image", formData.image);
-    } else {
-      // Charge l'image par défaut en utilisant fetch et crée un blob
-      const response = await fetch("assets/img/activity/03.jpg");
-      const imageBlob = await response.blob();
-      const file = new File([imageBlob], "03.jpg", { type: "image/jpeg" });
-      data.append("image", file);
     }
 
     try {
       const response = await fetch(
-        `http://localhost:5000/users/psychiatrist/${userId}/add-activity`,
+        `http://localhost:5000/users/psychiatrist/${jwtDecode(token).id}/add-activity`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${token}`,
+            "Authorization": `Bearer ${token}`,
           },
           body: data,
         }
@@ -100,21 +191,20 @@ function AddActivity() {
 
       const result = await response.json();
       if (response.ok) {
-        toast.success("Activity successfully added!");
+        toast.success("Activité ajoutée avec succès !");
         setFormData({ title: "", description: "", category: "", image: null });
         setPreviewImage(null);
         setTimeout(() => navigate("/Activities"), 2000);
       } else {
-        toast.error(result.message || "Error while adding the activity.");
+        toast.error(result.message || "Erreur lors de l'ajout de l'activité");
       }
     } catch (error) {
-      toast.error("Network error while adding the activity.");
+      toast.error("Erreur réseau lors de l'ajout de l'activité");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Handle Cancel Add
   const handleCancelAdd = () => {
     navigate("/Activities");
   };
@@ -123,20 +213,17 @@ function AddActivity() {
     <div>
       <ToastContainer position="top-right" autoClose={3000} />
 
-      {/* Breadcrumb */}
       <div className="site-breadcrumb" style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}>
         <div className="container">
           <h2 className="breadcrumb-title">Add an Activity</h2>
           <ul className="breadcrumb-menu">
-            <li>
-              <a href="/Home">Home</a>
-            </li>
+            <li><a href="/Home">Home</a></li>
+            <li><a href="/Activities">Activities</a></li>
             <li className="active">Add an Activity</li>
           </ul>
         </div>
       </div>
 
-      {/* Form Section */}
       <div className="py-120">
         <div className="container">
           <div className="row align-items-center">
@@ -159,8 +246,15 @@ function AddActivity() {
                           value={formData.title}
                           onChange={handleChange}
                           placeholder="Activity Title"
-                          required
                         />
+                        <button
+                          type="button"
+                          className="theme-btn mt-2"
+                          onClick={generateDescription}
+                          disabled={isGenerating || isSubmitting}
+                        >
+                          {isGenerating ? "Génération..." : "Générer Description"}
+                        </button>
                       </div>
                     </div>
 
@@ -172,9 +266,16 @@ function AddActivity() {
                           value={formData.description}
                           onChange={handleChange}
                           placeholder="Activity Description"
-                          required
                           rows="3"
                         ></textarea>
+                        <button
+                          type="button"
+                          className="theme-btn mt-2"
+                          onClick={generateTitle}
+                          disabled={isGenerating || isSubmitting}
+                        >
+                          {isGenerating ? "Génération..." : "Générer Titre"}
+                        </button>
                       </div>
                     </div>
 
@@ -185,7 +286,6 @@ function AddActivity() {
                           name="category"
                           value={formData.category}
                           onChange={handleChange}
-                          required
                         >
                           <option value="">Select a Category</option>
                           {categories.map((cat, index) => (
@@ -214,7 +314,7 @@ function AddActivity() {
                         <button
                           type="submit"
                           className="theme-btn mt-2"
-                          disabled={isSubmitting}
+                          disabled={isSubmitting || isGenerating}
                         >
                           {isSubmitting ? "Submitting..." : "Add Activity"}{" "}
                           <i className="fas fa-circle-arrow-right"></i>
@@ -223,8 +323,8 @@ function AddActivity() {
                           type="button"
                           className="theme-btn mt-2"
                           onClick={handleCancelAdd}
-                          disabled={isSubmitting}
-                          style={{ backgroundColor: "#f44336" }} // Red to indicate cancellation
+                          disabled={isSubmitting || isGenerating}
+                          style={{ backgroundColor: "#f44336" }}
                         >
                           Cancel Add <i className="fas fa-times"></i>
                         </button>
@@ -238,7 +338,6 @@ function AddActivity() {
         </div>
       </div>
 
-      {/* Footer */}
       <footer className="footer-area">
         <div className="container">
           <div className="copyright text-center">

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
 
 // Importer CKEditor
 let CKEditorComponent, ClassicEditor;
@@ -20,12 +22,36 @@ const stripHtmlTags = (html) => {
     return tempDiv.textContent || tempDiv.innerText || '';
 };
 
+// Générer les jours d'un mois pour le calendrier
+const generateDatesForMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const dates = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+        const currentDate = new Date(year, month, day);
+        dates.push(currentDate.toISOString().split('T')[0]);
+    }
+    return dates;
+};
+
+// Obtenir le premier jour du mois (0 = Dimanche, 1 = Lundi, etc.)
+const getFirstDayOfMonth = (date) => {
+    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+};
+
+// Obtenir le nombre de jours dans le mois
+const getDaysInMonth = (date) => {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+};
+
 function Publication() {
     const [userRole, setUserRole] = useState(null);
     const [userId, setUserId] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [publications, setPublications] = useState([]);
     const [favoritePublications, setFavoritePublications] = useState([]);
+    const [pinnedPublications, setPinnedPublications] = useState([]);
     const [showEditModal, setShowEditModal] = useState(false);
     const [editFormData, setEditFormData] = useState({
         _id: '',
@@ -40,10 +66,20 @@ function Publication() {
     const [filterType, setFilterType] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOrder, setSortOrder] = useState('recent');
+    const [showCalendarModal, setShowCalendarModal] = useState(false);
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [selectedDate, setSelectedDate] = useState(null);
+    const [showNotesModal, setShowNotesModal] = useState(false);
+    // Initialiser les notes depuis localStorage ou objet vide si rien n'existe
+    const [notes, setNotes] = useState(() => {
+        const savedNotes = localStorage.getItem('calendarNotes');
+        return savedNotes ? JSON.parse(savedNotes) : {};
+    });
+    const [currentNote, setCurrentNote] = useState('');
 
     const publicationsPerPage = 6;
 
-    // Fonction pour récupérer toutes les publications depuis l'API
+    // Récupérer toutes les publications depuis l'API
     const fetchPublications = async () => {
         try {
             console.log('Fetching publications from API...');
@@ -57,7 +93,7 @@ function Publication() {
             console.log('API Response:', data);
 
             if (response.ok) {
-                const filteredPublications = data.filter(post => post.status !== 'archived');
+                const filteredPublications = data.filter(post => post.status !== 'archived' && post.status !== 'later');
                 setPublications(filteredPublications);
                 console.log('Filtered Publications updated:', filteredPublications);
             } else {
@@ -68,7 +104,7 @@ function Publication() {
         }
     };
 
-    // Fonction pour récupérer les publications favorites
+    // Récupérer les publications favorites
     const fetchFavoritePublications = async () => {
         try {
             const token = localStorage.getItem('jwt-token');
@@ -87,6 +123,31 @@ function Publication() {
             }
         } catch (error) {
             console.error('Error fetching favorite publications:', error);
+        }
+    };
+
+    // Récupérer les publications épinglées depuis l'API
+    const fetchPinnedPublications = async () => {
+        try {
+            const token = localStorage.getItem('jwt-token');
+            if (!token) return;
+
+            const response = await fetch('http://localhost:5000/users/pinnedPublications', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setPinnedPublications(data.map(pub => pub._id));
+                console.log('Pinned Publications fetched:', data);
+            } else {
+                console.error('Failed to fetch pinned publications:', data.message);
+            }
+        } catch (error) {
+            console.error('Error fetching pinned publications:', error);
         }
     };
 
@@ -118,16 +179,17 @@ function Publication() {
         }
     };
 
-    // Gérer l'épinglage/désépinglage d'une publication via l'API
+    // Gérer l'épinglage/désépinglage via l'API
     const handlePin = async (publicationId) => {
         const token = localStorage.getItem('jwt-token');
         if (!token) {
             toast.error('Vous devez être connecté pour épingler une publication');
             return;
         }
+
         try {
             const response = await fetch(`http://localhost:5000/users/publication/pin/${publicationId}`, {
-                method: 'PATCH',
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
@@ -136,11 +198,10 @@ function Publication() {
             const data = await response.json();
             if (response.ok) {
                 toast.success(data.message);
-                // Mettre à jour localement les publications avec le nouvel état isPinned
-                setPublications(prev =>
-                    prev.map(post =>
-                        post._id === publicationId ? { ...post, isPinned: data.publication.isPinned } : post
-                    )
+                setPinnedPublications(prev =>
+                    prev.includes(publicationId)
+                        ? prev.filter(id => id !== publicationId)
+                        : [...prev, publicationId]
                 );
             } else {
                 toast.error(`Erreur: ${data.message}`);
@@ -162,22 +223,44 @@ function Publication() {
         setCurrentPage(1);
     };
 
-    // Filtrer et trier les publications avec épinglage basé sur isPinned
+    // Gestion du calendrier
+    const handlePreviousMonth = () => setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1));
+    const handleNextMonth = () => setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1));
+    const handlePlanDay = (date) => {
+        setSelectedDate(date);
+        setCurrentNote(notes[date] || '');
+        setShowNotesModal(true);
+    };
+
+    const handleSaveNote = () => {
+        if (selectedDate) {
+            setNotes(prev => {
+                const updatedNotes = { ...prev, [selectedDate]: currentNote };
+                // Sauvegarder dans localStorage
+                localStorage.setItem('calendarNotes', JSON.stringify(updatedNotes));
+                return updatedNotes;
+            });
+            toast.success(`Note saved for ${selectedDate}`);
+            setShowNotesModal(false);
+        }
+    };
+
+    // Filtrer et trier les publications avec épinglage basé sur pinnedPublications
     const displayedPublications = filterType === 'favorites' ? favoritePublications : publications;
     const filteredPublications = displayedPublications
         .filter(post => {
             const titre = stripHtmlTags(post.titrePublication).toLowerCase();
+            const tag = stripHtmlTags(post.tag).toLowerCase();
             const auteur = (post.author_id?.username || 'Unknown').toLowerCase();
             const term = searchTerm.toLowerCase();
-            return titre.includes(term) || auteur.includes(term);
+            return titre.includes(term) || auteur.includes(term) || tag.includes(term);
         })
         .sort((a, b) => {
-            const isAPinned = a.isPinned;
-            const isBPinned = b.isPinned;
+            const isAPinned = pinnedPublications.includes(a._id);
+            const isBPinned = pinnedPublications.includes(b._id);
 
-            if (isAPinned && !isBPinned) return -1; // A épinglé, B non -> A en premier
-            if (!isAPinned && isBPinned) return 1;  // B épinglé, A non -> B en premier
-            // Si les deux sont épinglés ou non épinglés, tri par date
+            if (isAPinned && !isBPinned) return -1;
+            if (!isAPinned && isBPinned) return 1;
             const dateA = new Date(a.datePublication);
             const dateB = new Date(b.datePublication);
             return sortOrder === 'recent' ? dateB - dateA : dateA - dateB;
@@ -334,6 +417,7 @@ function Publication() {
                             if (response.ok) {
                                 setPublications(publications.filter(post => post._id !== publicationId));
                                 setFavoritePublications(favoritePublications.filter(post => post._id !== publicationId));
+                                setPinnedPublications(pinnedPublications.filter(id => id !== publicationId));
                                 toast.success('Publication successfully deleted', { autoClose: 3000 });
                             } else {
                                 const data = await response.json();
@@ -380,6 +464,7 @@ function Publication() {
                             if (response.ok) {
                                 setPublications(publications.filter(post => post._id !== publicationId));
                                 setFavoritePublications(favoritePublications.filter(post => post._id !== publicationId));
+                                setPinnedPublications(pinnedPublications.filter(id => id !== publicationId));
                                 toast.success('Publication successfully archived', { autoClose: 3000 });
                             } else {
                                 const data = await response.json();
@@ -426,6 +511,7 @@ function Publication() {
                             if (data.role === 'student') {
                                 fetchFavoritePublications();
                             }
+                            fetchPinnedPublications();
                         } else {
                             console.error('Failed to fetch user:', data.message);
                         }
@@ -572,35 +658,57 @@ function Publication() {
                                     e.target.style.width = '60%';
                                 }}
                             />
-                            {/* Sélecteur de tri par date */}
-                            <select
-                                value={sortOrder}
-                                onChange={handleSortChange}
-                                style={{
-                                    padding: '15px 20px',
-                                    borderRadius: '25px',
-                                    border: 'none',
-                                    backgroundColor: '#fff',
-                                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
-                                    fontSize: '16px',
-                                    color: '#333',
-                                    outline: 'none',
-                                    transition: 'all 0.3s ease',
-                                    width: '200px',
-                                    cursor: 'pointer',
-                                }}
-                                onFocus={(e) => {
-                                    e.target.style.boxShadow = '0 6px 20px rgba(14, 165, 230, 0.3)';
-                                    e.target.style.width = '220px';
-                                }}
-                                onBlur={(e) => {
-                                    e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
-                                    e.target.style.width = '200px';
-                                }}
-                            >
-                                <option value="recent">Most Recent</option>
-                                <option value="oldest">Oldest First</option>
-                            </select>
+                            {/* Sélecteur de tri par date avec bouton calendrier */}
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <select
+                                    value={sortOrder}
+                                    onChange={handleSortChange}
+                                    style={{
+                                        padding: '15px 20px',
+                                        borderRadius: '25px',
+                                        border: 'none',
+                                        backgroundColor: '#fff',
+                                        boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+                                        fontSize: '16px',
+                                        color: '#333',
+                                        outline: 'none',
+                                        transition: 'all 0.3s ease',
+                                        width: '200px',
+                                        cursor: 'pointer',
+                                    }}
+                                    onFocus={(e) => {
+                                        e.target.style.boxShadow = '0 6px 20px rgba(14, 165, 230, 0.3)';
+                                        e.target.style.width = '220px';
+                                    }}
+                                    onBlur={(e) => {
+                                        e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
+                                        e.target.style.width = '200px';
+                                    }}
+                                >
+                                    <option value="recent">Most Recent</option>
+                                    <option value="oldest">Oldest First</option>
+                                </select>
+                                {userRole === 'psychiatrist' && (
+                                    <button
+                                        onClick={() => setShowCalendarModal(true)}
+                                        style={{
+                                            padding: '15px',
+                                            borderRadius: '25px',
+                                            border: 'none',
+                                            backgroundColor: '#fff',
+                                            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+                                            fontSize: '16px',
+                                            color: '#333',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.3s ease'
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.boxShadow = '0 6px 20px rgba(14, 165, 230, 0.3)'}
+                                        onMouseLeave={(e) => e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)'}
+                                    >
+                                        <FontAwesomeIcon icon={faCalendarAlt} />
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '30px' }}>
@@ -614,7 +722,7 @@ function Publication() {
                                             overflow: 'hidden',
                                             boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
                                             transition: 'transform 0.3s ease',
-                                            border: post.isPinned ? '2px solid #ffd700' : 'none', // Bordure dorée si épinglé
+                                            border: pinnedPublications.includes(post._id) ? '2px solid #ffd700' : 'none',
                                         }}
                                         onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-10px)'}
                                         onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
@@ -761,26 +869,26 @@ function Publication() {
                                                         >
                                                             Archive <i className="fas fa-archive" style={{ marginLeft: '5px' }}></i>
                                                         </button>
-                                                        <button
-                                                            onClick={() => handlePin(post._id)}
-                                                            style={{
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                background: post.isPinned ? '#ffd700' : '#ff9800',
-                                                                color: '#fff',
-                                                                padding: '10px 20px',
-                                                                borderRadius: '5px',
-                                                                border: 'none',
-                                                                cursor: 'pointer',
-                                                                transition: 'background 0.3s ease'
-                                                            }}
-                                                            onMouseEnter={(e) => e.target.style.background = post.isPinned ? '#ffca28' : '#f57c00'}
-                                                            onMouseLeave={(e) => e.target.style.background = post.isPinned ? '#ffd700' : '#ff9800'}
-                                                        >
-                                                            {post.isPinned ? 'Unpin' : 'Pin'} <i className="fas fa-thumbtack" style={{ marginLeft: '5px' }}></i>
-                                                        </button>
                                                     </>
                                                 )}
+                                                <button
+                                                    onClick={() => handlePin(post._id)}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        background: pinnedPublications.includes(post._id) ? '#ffd700' : '#ff9800',
+                                                        color: '#fff',
+                                                        padding: '10px 20px',
+                                                        borderRadius: '5px',
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        transition: 'background 0.3s ease'
+                                                    }}
+                                                    onMouseEnter={(e) => e.target.style.background = pinnedPublications.includes(post._id) ? '#ffca28' : '#f57c00'}
+                                                    onMouseLeave={(e) => e.target.style.background = pinnedPublications.includes(post._id) ? '#ffd700' : '#ff9800'}
+                                                >
+                                                    {pinnedPublications.includes(post._id) ? 'Unpin' : 'Pin'} <i className="fas fa-thumbtack" style={{ marginLeft: '5px' }}></i>
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -794,7 +902,7 @@ function Publication() {
 
                         {/* Pagination */}
                         <div style={{ marginTop: '50px', display: 'flex', justifyContent: 'center' }}>
-                            <ul style={{ display: 'flex', listStyle: 'none', padding: 0, gap: '10px' }}>
+                            <ul style={{ display: 'flex', listStyle: 'none', padding: '0', gap: '10px' }}>
                                 <li>
                                     <button
                                         onClick={() => handlePageChange(currentPage - 1)}
@@ -906,7 +1014,6 @@ function Publication() {
                             gap: '30px',
                         }}
                     >
-                        {/* Section gauche : Formulaire */}
                         <div>
                             <h3 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '20px' }}>Edit Publication</h3>
                             <form onSubmit={handleSaveEdit}>
@@ -1094,7 +1201,6 @@ function Publication() {
                             </form>
                         </div>
 
-                        {/* Section droite : Sidebar */}
                         <div style={{ padding: '20px 0' }}>
                             <div style={{ position: 'relative' }}>
                                 <img
@@ -1146,6 +1252,66 @@ function Publication() {
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal pour le calendrier */}
+            {showCalendarModal && userRole === 'psychiatrist' && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+                    <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '8px', width: '1100px', maxWidth: '95%', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+                        <h3 style={{ fontSize: '24px', color: '#333', textAlign: 'center' }}>{currentDate.toLocaleString('default', { month: 'long' })} {currentDate.getFullYear()}</h3>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                            <button onClick={handlePreviousMonth} style={{ backgroundColor: '#0ea5e6', color: 'white', padding: '8px 16px', borderRadius: '5px', border: 'none', cursor: 'pointer' }}>Previous</button>
+                            <button onClick={handleNextMonth} style={{ backgroundColor: '#0ea5e6', color: 'white', padding: '8px 16px', borderRadius: '5px', border: 'none', cursor: 'pointer' }}>Next</button>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '5px', backgroundColor: '#fff', padding: '10px', borderRadius: '10px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                                <div key={day} style={{ textAlign: 'center', fontWeight: 'bold', color: '#666', padding: '10px 0' }}>{day}</div>
+                            ))}
+                            {(() => {
+                                const firstDay = getFirstDayOfMonth(currentDate);
+                                const daysInMonth = getDaysInMonth(currentDate);
+                                const calendarDays = [];
+                                for (let i = 0; i < firstDay; i++) calendarDays.push(null);
+                                for (let day = 1; day <= daysInMonth; day++) calendarDays.push(day);
+                                return calendarDays.map((day, index) => {
+                                    const dateStr = day ? `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : null;
+                                    const isToday = day === new Date().getDate() && currentDate.getMonth() === new Date().getMonth() && currentDate.getFullYear() === new Date().getFullYear();
+                                    return (
+                                        <div key={index} style={{ background: day ? '#fff' : '#f0f0f0', borderRadius: '8px', padding: '10px', minHeight: '100px', border: isToday ? '2px solid #ff5a5f' : '1px solid #ddd', position: 'relative' }}>
+                                            {day && (
+                                                <>
+                                                    <div style={{ fontWeight: 'bold', color: '#333', marginBottom: '5px' }}>{day}</div>
+                                                    <button onClick={() => handlePlanDay(dateStr)} style={{ backgroundColor: '#0ea5e6', color: 'white', padding: '2px 7px', borderRadius: '5px', border: 'none', cursor: 'pointer' }}>+</button>
+                                                    {notes[dateStr] && <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>{notes[dateStr].substring(0, 20)}...</p>}
+                                                </>
+                                            )}
+                                        </div>
+                                    );
+                                });
+                            })()}
+                        </div>
+                        <button onClick={() => setShowCalendarModal(false)} style={{ backgroundColor: '#f44336', color: 'white', padding: '10px 20px', borderRadius: '5px', border: 'none', cursor: 'pointer', marginTop: '20px', display: 'block', marginLeft: 'auto' }}>Close</button>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal pour écrire des notes */}
+            {showNotesModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+                    <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', width: '400px', maxWidth: '90%', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+                        <h3 style={{ marginBottom: '20px' }}>Notes for {selectedDate}</h3>
+                        <textarea
+                            value={currentNote}
+                            onChange={(e) => setCurrentNote(e.target.value)}
+                            placeholder="Write your notes here..."
+                            style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ccc', minHeight: '100px', fontSize: '16px' }}
+                        />
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '20px' }}>
+                            <button onClick={handleSaveNote} style={{ backgroundColor: '#0ea5e6', color: 'white', padding: '10px 20px', borderRadius: '5px', border: 'none', cursor: 'pointer' }}>Save</button>
+                            <button onClick={() => setShowNotesModal(false)} style={{ backgroundColor: '#f44336', color: 'white', padding: '10px 20px', borderRadius: '5px', border: 'none', cursor: 'pointer' }}>Cancel</button>
                         </div>
                     </div>
                 </div>

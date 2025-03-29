@@ -3,6 +3,8 @@ const Activity = require("../model/activity"); // Import du modèle Activity
 const multer = require("multer");
 const path = require("path");
 const Schedule = require("../model/Schedule");
+const Mood = require("../model/Mood");
+const Note = require("../model/Note"); // New model for notes
 
 // ✅ Récupérer les activités favorites d'un utilisateur
 module.exports.getFavoriteActivities = async (req, res) => {
@@ -374,3 +376,186 @@ exports.getSchedule = async (req, res) => {
         res.status(500).json({ message: "Error fetching schedules", error: error.message });
     }
 };
+
+// Sauvegarder une nouvelle humeur
+exports.saveMood = async (req, res) => {
+    const { userId } = req.params;
+    const { activityId, mood, date } = req.body;
+
+    try {
+        // Vérifier si req.userId est défini
+        if (!req.userId) {
+            return res.status(401).json({ message: "Unauthorized: User not authenticated" });
+        }
+
+        // Vérifier si l'utilisateur dans le token correspond à l'userId
+        if (req.userId !== userId) {
+            return res.status(403).json({ message: "Unauthorized: User ID does not match" });
+        }
+
+        // Vérifier que les champs requis sont présents
+        if (!activityId || !mood) {
+            return res.status(400).json({ message: "Activity ID and mood are required" });
+        }
+
+        // Vérifier que l'humeur est valide
+        const validMoods = ["Very Sad", "Sad", "Neutral", "Happy", "Very Happy"];
+        if (!validMoods.includes(mood)) {
+            return res.status(400).json({ message: "Invalid mood value" });
+        }
+
+        // Créer une nouvelle entrée d'humeur
+        const moodEntry = new Mood({
+            userId,
+            activityId,
+            mood,
+            date: date || Date.now(),
+        });
+
+        // Sauvegarder dans la base de données
+        await moodEntry.save();
+
+        res.status(200).json({ message: "Mood saved successfully", mood: moodEntry });
+    } catch (error) {
+        console.error("Error saving mood:", error);
+        res.status(500).json({ message: "Error saving mood", error: error.message });
+    }
+};
+  // Récupérer les humeurs d'un utilisateur
+  exports.getMoods = async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        // Vérifier si req.userId est défini
+        if (!req.userId) {
+            return res.status(401).json({ message: "Unauthorized: User not authenticated" });
+        }
+
+        // Vérifier si l'utilisateur dans le token correspond à l'userId
+        if (req.userId !== userId) {
+            return res.status(403).json({ message: "Unauthorized: User ID does not match" });
+        }
+
+        // Récupérer toutes les humeurs de l'utilisateur
+        const moods = await Mood.find({ userId })
+            .populate("activityId", "title")
+            .sort({ date: -1 });
+
+        res.status(200).json(moods);
+    } catch (error) {
+        console.error("Error fetching moods:", error);
+        res.status(500).json({ message: "Error fetching moods", error: error.message });
+    }
+};
+
+// ✅ Récupérer les activités épinglées d'un utilisateur
+exports.getPinnedActivities = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+
+        // Vérifier que l'utilisateur authentifié correspond à l'userId
+        if (req.userId !== userId) {
+            return res.status(403).json({ message: "Unauthorized access" });
+        }
+
+        // Trouver l'utilisateur et récupérer ses activités épinglées
+        const user = await User.findById(userId).select('pinnedActivities');
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Optionnel : Récupérer les détails complets des activités épinglées
+        const pinnedActivitiesDetails = await Activity.find({
+            _id: { $in: user.pinnedActivities },
+        });
+
+        res.status(200).json({ pinnedActivities: user.pinnedActivities });
+    } catch (error) {
+        console.error("Error fetching pinned activities:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+// ✅ Basculer l'état épinglé d'une activité (pin/unpin)
+exports.togglePinActivity = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const { activity } = req.body;
+
+        // Vérifier que l'utilisateur authentifié correspond à l'userId
+        if (req.userId !== userId) {
+            return res.status(403).json({ message: "Unauthorized access" });
+        }
+
+        // Trouver l'utilisateur
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Vérifier si l'activité existe
+        const activityExists = await Activity.findById(activity);
+        if (!activityExists) {
+            return res.status(404).json({ message: "Activity not found" });
+        }
+
+        // Basculer l'état épinglé
+        const isPinned = user.pinnedActivities.includes(activity);
+        if (isPinned) {
+            user.pinnedActivities = user.pinnedActivities.filter(
+                (id) => id.toString() !== activity
+            );
+        } else {
+            user.pinnedActivities.push(activity);
+        }
+
+        await user.save();
+
+        res.status(200).json({
+            message: `Activity ${isPinned ? "unpinned" : "pinned"} successfully`,
+            pinnedActivities: user.pinnedActivities,
+        });
+    } catch (error) {
+        console.error("Error toggling pinned activity:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+// ✅ Save note (New)
+module.exports.saveNote = async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { date, note } = req.body;
+  
+      if (!date || !note) {
+        return res.status(400).json({ message: "Date or note missing" });
+      }
+  
+      const existingNote = await Note.findOneAndUpdate(
+        { userId, date },
+        { note },
+        { upsert: true, new: true }
+      );
+  
+      res.status(200).json({ message: "Note saved successfully", note: existingNote });
+    } catch (error) {
+      res.status(500).json({ message: "Erreur serveur", error });
+    }
+  };
+  
+  // ✅ Get notes (New)
+  module.exports.getNotes = async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const notes = await Note.find({ userId });
+  
+      // Transform into an object with date as key
+      const notesObj = notes.reduce((acc, note) => {
+        acc[note.date] = note.note;
+        return acc;
+      }, {});
+  
+      res.status(200).json({ notes: notesObj });
+    } catch (error) {
+      res.status(500).json({ message: "Erreur serveur", error });
+    }
+  };

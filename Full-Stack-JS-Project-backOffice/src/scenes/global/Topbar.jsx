@@ -34,9 +34,7 @@ const Topbar = () => {
             <LightModeOutlinedIcon />
           )}
         </IconButton>
-        <IconButton>
-          <NotificationsOutlinedIcon />
-        </IconButton>
+  
         <IconButton>
           <SettingsOutlinedIcon />
         </IconButton>

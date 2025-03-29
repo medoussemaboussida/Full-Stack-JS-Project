@@ -76,7 +76,7 @@ const userSchema = new mongoose.Schema({
     validationToken: { type: String, required: false },
 
     favoriteActivities: [{ type: String ,required: false}], // Liste des activités favorites
-
+    pinnedActivities: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Activity' }],
 availability: [
         {
             day: { type: String, required: true },
@@ -87,6 +87,21 @@ availability: [
     ],
 
     favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Publication' }],
+
+    pinnedPublications: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Publication', // Référence au modèle Publication
+    }],
+    receiveEmails: { type: Boolean, default: true },
+    
+    attendanceSheets: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'AttendanceSheet'
+    }],
+    isBanned: { type: Boolean, default: false },
+    banExpiration: { type: Date, default: null },
+    banReason: { type: String, default: "" },
+
 },
 
 

@@ -36,7 +36,20 @@ router.post('/publication/dislike/:publicationId', userController.verifyToken, u
 router.post('/publication/favorite/:publicationId', userController.verifyToken, userController.toggleFavorite);
 router.get('/favoritePublications', userController.verifyToken, userController.getFavoritePublications);
 router.get('/searchPublications', userController.searchPublications);
-router.patch('/publication/pin/:publicationId', userController.verifyToken, userController.togglePinPublication);
+router.post('/publication/pin/:publicationId', userController.verifyToken, userController.togglePinPublication); // Nouvelle route pour épingler/désépingler
+router.get('/pinnedPublications', userController.verifyToken, userController.getPinnedPublications); // Nouvelle route pour récupérer les épinglés
+router.put('/update-receive-emails/:id', userController.verifyToken, userController.updateReceiveEmails); // Nouvelle route
+router.post('/publication/report/:id', userController.verifyToken, userController.addReport);
+router.get('/reports', userController.verifyToken, userController.getAllReports);
+router.get('/publication/reports/:id', userController.verifyToken, userController.getReportsByPublication);
+router.post('/comment/report/:commentId', userController.verifyToken, userController.addCommentReport);
+router.get('/comment/reports', userController.verifyToken, userController.getAllCommentReports);
+router.get('/comment/reports/:commentId', userController.verifyToken, userController.getReportsByComment);
+router.delete('/deleteCommentAdmin/:commentId', userController.deleteCommentaireAdmin);
+router.post('/ban/:userId', userController.verifyToken, userController.banUser);
+
+
+
 
 
 
@@ -46,13 +59,20 @@ router.delete('/psychiatrists/delete-availability/:id/:index', userController.de
 router.put('/psychiatrists/update-availability/:id/:index', userController.updateAvailability);
 router.post("/appointments/book", userController.verifyToken, userController.bookappointment);
 router.get('/appointments/history', userController.verifyToken, userController.getAppointmentHistory);
+router.put('/appointments/:id', userController.verifyToken, userController.updateAppointment);
+router.get('/psychiatrists/:id', userController.verifyToken, userController.getPsychiatristById);
 router.put('/appointments/:appointmentId/status', userController.verifyToken, userController.updateAppointmentStatus);
 router.delete('/appointments/:appointmentId', userController.verifyToken, userController.deleteAppointment);
 router.get('/allAppointments', userController.getAllAppointments);
-router.get("/chat/:roomCode", userController.verifyToken, userController.RoomChat);
-router.post("/chat", userController.verifyToken, userController.Chat);
+router.post('/chat', userController.verifyToken, userController.sendMessage);
+router.post('/chat/:roomCode/public-key', userController.verifyToken, userController.sharePublicKey);
+router.get('/chat/:roomCode/public-keys', userController.verifyToken, userController.getPublicKeys);
+router.get('/chat/:roomCode', userController.verifyToken, userController.RoomChat);
 router.get('/me', userController.verifyToken, userController.photo);
 router.get('/allappoint', userController.getAllAppoint);
+router.delete('/chat/:messageId', userController.verifyToken, userController.deletechat);
+router.put('/chat/:messageId', userController.verifyToken, userController.updatechat);
+
 
 
 
@@ -78,12 +98,27 @@ router.put("/updateEtat/:id", userController.updateEtat);  // Route pour modifie
 router.post("/logout", userController.logout);
 
 
+// ✅ Ajouter une activité avec image
+router.post("/psychiatrist/:id/add-activity", activitiesController.addActivity);
 
 // ✅ Récupérer une activité par son ID
 router.get("/activity/:id", activitiesController.getActivityById);
 
 // ✅ Récupérer toutes les activités
 router.get("/list/activities", activitiesController.getAllActivities);
+
+// ✅ Modifier une activité (psychiatre et admin uniquement) avec image
+router.put("/psychiatrist/:id/update-activity/:activityId", activitiesController.updateActivity);
+
+// ✅ Récupérer les activités 
+router.get("/psychiatrist/:id/activities", activitiesController.getPsychiatristActivities);
+
+// ✅ Route pour récupérer les activités par catégorie
+router.get("/activities/category", activitiesController.getActivitiesByCategory);
+
+// ✅ Supprimer une activité (psychiatre et admin uniquement)
+router.delete("/psychiatrist/:id/delete-activity/:activityId", activitiesController.deleteActivity);
+
 
 // ✅ Récupérer les activités favorites d'un utilisateur
 router.get("/favorite-activities/:id", activitiesController.getFavoriteActivities);
@@ -94,21 +129,7 @@ router.post("/favorite-activity/:id", activitiesController.toggleFavoriteActivit
 // ✅ Supprimer toutes les activités favorites
 router.delete("/clear-favorite/:id", activitiesController.clearFavoriteActivities);
 
-// ✅ Ajouter une activité (psychiatre uniquement) avec image
-router.post("/psychiatrist/:id/add-activity", activitiesController.addActivity);
 
-// ✅ Modifier une activité (psychiatre uniquement) avec image
-router.put("/psychiatrist/:id/update-activity/:activityId", activitiesController.updateActivity);
-
-
-// ✅ Supprimer une activité (psychiatre uniquement)
-router.delete("/psychiatrist/:id/delete-activity/:activityId", activitiesController.deleteActivity);
-
-// ✅ Récupérer les activités 
-router.get("/psychiatrist/:id/activities", activitiesController.getPsychiatristActivities);
-
-// ✅ Route pour récupérer les activités par catégorie
-router.get("/activities/category", activitiesController.getActivitiesByCategory);
 
 //schedule
 // POST /users/schedule/:userId - Save or update scheduled activities
@@ -117,5 +138,60 @@ router.post("/schedule/:userId", userController.verifyToken, activitiesControlle
 // GET /users/schedule/:userId - Retrieve scheduled activities
 // routes/users.js (excerpt)
 router.get("/schedule/:userId", userController.verifyToken, activitiesController.getSchedule);
+
+// Nouvelles routes pour les humeurs
+router.post("/moods/:userId", userController.verifyToken, activitiesController.saveMood);
+router.get("/moods/:userId", userController.verifyToken, activitiesController.getMoods);
+
+// Route to get the user's pinned activities
+router.get("/pinned-activities/:userId", userController.verifyToken, activitiesController.getPinnedActivities);
+
+// Route to toggle (pin/unpin) an activity
+router.post("/pin-activity/:userId", userController.verifyToken, activitiesController.togglePinActivity);
+
+
+// ✅ Note Routes (New for your frontend)
+router.post("/notes/:userId", userController.verifyToken, activitiesController.saveNote);
+router.get("/notes/:userId", userController.verifyToken, activitiesController.getNotes);
+
+router.post('/problems', userController.verifyToken, userController.createProblem);
+router.get('/problems/:userId', userController.verifyToken, userController.getProblems);
+router.put('/problems/:userId/:problemId', userController.verifyToken, userController.updateProblem);
+router.delete('/problems/:userId/:problemId', userController.verifyToken, userController.deleteProblem);
+// Attendance routes
+router.post(
+    '/attendance/:userId',
+    userController.verifyToken,
+    userController.isTeacher,
+    userController.createAttendanceSheet
+);
+
+router.get(
+    '/attendance/:userId',
+    userController.verifyToken,
+    userController.isTeacher,
+    userController.getAttendanceSheets
+);
+
+router.get(
+    '/attendance/:userId/:sheetId',
+    userController.verifyToken,
+    userController.isTeacher,
+    userController.getAttendanceSheetById
+);
+
+router.put(
+    '/attendance/:userId/:sheetId',
+    userController.verifyToken,
+    userController.isTeacher,
+    userController.updateAttendance
+);
+
+router.delete(
+    '/attendance/:userId/:sheetId',
+    userController.verifyToken,
+    userController.isTeacher,
+    userController.deleteAttendanceSheet
+);
 
 module.exports = router;

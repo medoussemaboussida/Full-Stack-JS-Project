@@ -20,6 +20,7 @@ const commentaireSchema = new mongoose.Schema({
         type: Date,
         default: Date.now,
     },
+    isAnonymous: { type: Boolean, default: false }, // Nouveau champ
 });
 
 const Commentaire = mongoose.model('Commentaire', commentaireSchema);

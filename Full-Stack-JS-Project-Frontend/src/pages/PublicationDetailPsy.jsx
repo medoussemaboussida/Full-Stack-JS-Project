@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import { jwtDecode } from 'jwt-decode';
+import EmojiPicker from 'emoji-picker-react';
+import { Filter } from 'bad-words';
 import 'react-toastify/dist/ReactToastify.css';
 
 const stripHtmlTags = (html) => {
@@ -21,8 +23,25 @@ function PublicationDetailPsy() {
     const [editCommentId, setEditCommentId] = useState(null);
     const [editCommentContent, setEditCommentContent] = useState('');
     const [relatedPublications, setRelatedPublications] = useState([]);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [showEditEmojiPicker, setShowEditEmojiPicker] = useState(false);
+    const [showShareOptions, setShowShareOptions] = useState(false);
+    const [isAnonymous, setIsAnonymous] = useState(false);
+    const [showReportModal, setShowReportModal] = useState(false); // État pour le popup de signalement de publication
+    const [reportReason, setReportReason] = useState(''); // Raison du signalement de publication
+    const [reportCustomReason, setReportCustomReason] = useState(''); // Texte personnalisé pour "other" (publication)
+    const [showCommentReportModal, setShowCommentReportModal] = useState(false); // État pour le popup de signalement de commentaire
+    const [commentReportReason, setCommentReportReason] = useState(''); // Raison du signalement de commentaire
+    const [commentReportCustomReason, setCommentReportCustomReason] = useState(''); // Texte personnalisé pour "other" (commentaire)
+    const [selectedCommentId, setSelectedCommentId] = useState(null); // ID du commentaire à signaler
 
     const BASE_URL = "http://localhost:5000";
+    const ANONYMOUS_PHOTO = '/assets/img/anonymous_member.png';
+
+    const filter = new Filter();
+    filter.addWords('con', 'salope', 'connard', 'merde', 'putain');
+
+    const containsBadWords = (text) => filter.isProfane(text);
 
     const fetchPublicationDetail = async () => {
         try {
@@ -38,7 +57,6 @@ function PublicationDetailPsy() {
             });
             const data = await response.json();
             if (response.ok) {
-                console.log('Publication récupérée:', data); // Débogage
                 setPublication(data);
                 return data;
             } else {
@@ -60,12 +78,8 @@ function PublicationDetailPsy() {
                 },
             });
             const data = await response.json();
-            if (response.ok) {
-                setCommentaires(data);
-                console.log('Commentaires récupérés:', data);
-            } else {
-                console.error('Failed to fetch commentaires:', data.message);
-            }
+            if (response.ok) setCommentaires(data);
+            else console.error('Failed to fetch commentaires:', data.message);
         } catch (error) {
             console.error('Error fetching commentaires:', error);
         }
@@ -74,10 +88,7 @@ function PublicationDetailPsy() {
     const fetchUserInfo = async () => {
         try {
             const token = localStorage.getItem('jwt-token');
-            if (!token) {
-                console.log('No token found in localStorage');
-                return;
-            }
+            if (!token) return;
 
             const decoded = jwtDecode(token);
             setUserId(decoded.id);
@@ -115,11 +126,9 @@ function PublicationDetailPsy() {
                 const filteredPublications = data.filter(pub => pub._id !== id).slice(0, 3);
                 setRelatedPublications(filteredPublications);
             } else {
-                console.error('Failed to fetch related publications:', data.message);
                 setRelatedPublications([]);
             }
         } catch (error) {
-            console.error('Error fetching related publications:', error);
             setRelatedPublications([]);
         }
     };
@@ -132,6 +141,11 @@ function PublicationDetailPsy() {
             return;
         }
 
+        if (containsBadWords(newComment)) {
+            toast.error('Votre commentaire contient des mots inappropriés.');
+            return;
+        }
+
         try {
             const response = await fetch(`${BASE_URL}/users/commentaire`, {
                 method: 'POST',
@@ -139,20 +153,21 @@ function PublicationDetailPsy() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                 },
-                body: JSON.stringify({ contenu: newComment, publication_id: id }),
+                body: JSON.stringify({ contenu: newComment, publication_id: id, isAnonymous }),
             });
 
             const result = await response.json();
             if (response.ok) {
-                console.log('Nouveau commentaire ajouté:', result.commentaire);
                 setCommentaires([result.commentaire, ...commentaires]);
                 setNewComment('');
+                setShowEmojiPicker(false);
+                setIsAnonymous(false);
                 toast.success('Commentaire ajouté avec succès');
             } else {
                 toast.error(`Erreur: ${result.message}`);
             }
         } catch (error) {
-            toast.error(`Erreur lors de l'ajout du commentaire: ${error.message}`);
+            toast.error(`Erreur: ${error.message}`);
         }
     };
 
@@ -166,6 +181,11 @@ function PublicationDetailPsy() {
         const token = localStorage.getItem('jwt-token');
         if (!token) {
             toast.error('Vous devez être connecté pour modifier un commentaire');
+            return;
+        }
+
+        if (containsBadWords(editCommentContent)) {
+            toast.error('Votre commentaire modifié contient des mots inappropriés.');
             return;
         }
 
@@ -186,12 +206,13 @@ function PublicationDetailPsy() {
                 ));
                 setEditCommentId(null);
                 setEditCommentContent('');
+                setShowEditEmojiPicker(false);
                 toast.success('Commentaire modifié avec succès');
             } else {
                 toast.error(`Erreur: ${result.message}`);
             }
         } catch (error) {
-            toast.error(`Erreur lors de la modification: ${error.message}`);
+            toast.error(`Erreur: ${error.message}`);
         }
     };
 
@@ -199,10 +220,7 @@ function PublicationDetailPsy() {
         e.preventDefault();
         const token = localStorage.getItem('jwt-token');
         if (!token) {
-            toast.error('Vous devez être connecté pour supprimer un commentaire', {
-                position: "top-right",
-                autoClose: 3000,
-            });
+            toast.error('Vous devez être connecté pour supprimer un commentaire');
             return;
         }
 
@@ -215,67 +233,35 @@ function PublicationDetailPsy() {
                         try {
                             const response = await fetch(`${BASE_URL}/users/commentaire/${commentId}`, {
                                 method: 'DELETE',
-                                headers: {
-                                    'Authorization': `Bearer ${token}`,
-                                },
+                                headers: { 'Authorization': `Bearer ${token}` },
                             });
 
                             if (response.ok) {
                                 setCommentaires(commentaires.filter(c => c._id !== commentId));
-                                toast.success('Commentaire supprimé avec succès', {
-                                    position: "top-right",
-                                    autoClose: 3000,
-                                });
+                                toast.success('Commentaire supprimé avec succès');
                             } else {
                                 const result = await response.json();
-                                toast.error(`Erreur: ${result.message}`, {
-                                    position: "top-right",
-                                    autoClose: 3000,
-                                });
+                                toast.error(`Erreur: ${result.message}`);
                             }
                         } catch (error) {
-                            toast.error(`Erreur lors de la suppression: ${error.message}`, {
-                                position: "top-right",
-                                autoClose: 3000,
-                            });
+                            toast.error(`Erreur: ${error.message}`);
                         }
                     }}
-                    style={{
-                        marginRight: '10px',
-                        padding: '5px 10px',
-                        backgroundColor: '#4CAF50',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '3px',
-                        cursor: 'pointer',
-                    }}
+                    style={{ marginRight: '10px', padding: '5px 10px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '3px' }}
                 >
                     Oui
                 </button>
                 <button
                     onClick={() => toast.dismiss(toastId)}
-                    style={{
-                        padding: '5px 10px',
-                        backgroundColor: '#f44336',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '3px',
-                        cursor: 'pointer',
-                    }}
+                    style={{ padding: '5px 10px', backgroundColor: '#f44336', color: 'white', border: 'none', borderRadius: '3px' }}
                 >
                     Non
                 </button>
             </div>,
-            {
-                position: "top-right",
-                autoClose: false,
-                closeOnClick: false,
-                draggable: false,
-            }
+            { autoClose: false, closeOnClick: false, draggable: false }
         );
     };
 
-    // Ajout des fonctions pour Like et Dislike
     const handleLike = async () => {
         const token = localStorage.getItem('jwt-token');
         if (!token) {
@@ -286,10 +272,7 @@ function PublicationDetailPsy() {
         try {
             const response = await fetch(`${BASE_URL}/users/publication/like/${id}`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             });
 
             const result = await response.json();
@@ -300,7 +283,7 @@ function PublicationDetailPsy() {
                 toast.error(`Erreur: ${result.message}`);
             }
         } catch (error) {
-            toast.error(`Erreur lors de l'ajout du Like: ${error.message}`);
+            toast.error(`Erreur: ${error.message}`);
         }
     };
 
@@ -314,10 +297,7 @@ function PublicationDetailPsy() {
         try {
             const response = await fetch(`${BASE_URL}/users/publication/dislike/${id}`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             });
 
             const result = await response.json();
@@ -328,7 +308,132 @@ function PublicationDetailPsy() {
                 toast.error(`Erreur: ${result.message}`);
             }
         } catch (error) {
-            toast.error(`Erreur lors de l'ajout du Dislike: ${error.message}`);
+            toast.error(`Erreur: ${error.message}`);
+        }
+    };
+
+    const handleEmojiClick = (emojiObject) => {
+        setNewComment(prev => prev + emojiObject.emoji);
+        setShowEmojiPicker(false);
+    };
+
+    const handleEditEmojiClick = (emojiObject) => {
+        setEditCommentContent(prev => prev + emojiObject.emoji);
+        setShowEditEmojiPicker(false);
+    };
+
+    const toggleShareOptions = (e) => {
+        e.preventDefault();
+        setShowShareOptions(!showShareOptions);
+    };
+
+    const shareOnTwitter = () => {
+        if (!publication) return;
+        const url = `${window.location.origin}/PublicationDetailPsy/${id}`;
+        const text = `${stripHtmlTags(publication.titrePublication)} - ${stripHtmlTags(publication.description)}`;
+        const truncatedText = text.length > 280 - url.length - 1 ? text.substring(0, 280 - url.length - 3) + '...' : text;
+        window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(truncatedText)}`, '_blank');
+    };
+
+    const shareOnWhatsApp = () => {
+        if (!publication) return;
+        const url = `${window.location.origin}/PublicationDetailPsy/${id}`;
+        const text = `${stripHtmlTags(publication.titrePublication)} - ${stripHtmlTags(publication.description)} - ${url}`;
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+    };
+
+    // Fonction pour gérer le signalement d'une publication
+    const handleReportSubmit = async (e) => {
+        e.preventDefault();
+        const token = localStorage.getItem('jwt-token');
+        if (!token) {
+            toast.error('Vous devez être connecté pour signaler une publication');
+            setShowReportModal(false);
+            return;
+        }
+
+        if (!reportReason) {
+            toast.error('Veuillez sélectionner une raison de signalement');
+            return;
+        }
+
+        if (reportReason === 'other' && !reportCustomReason.trim()) {
+            toast.error('Veuillez préciser la raison dans le champ texte');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${BASE_URL}/users/publication/report/${id}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    reason: reportReason,
+                    customReason: reportReason === 'other' ? reportCustomReason : undefined,
+                }),
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                toast.success('Publication signalée avec succès');
+                setShowReportModal(false);
+                setReportReason('');
+                setReportCustomReason('');
+            } else {
+                toast.error(`Erreur: ${result.message}`);
+            }
+        } catch (error) {
+            toast.error(`Erreur lors du signalement: ${error.message}`);
+        }
+    };
+
+    // Fonction pour gérer le signalement d'un commentaire
+    const handleCommentReportSubmit = async (e) => {
+        e.preventDefault();
+        const token = localStorage.getItem('jwt-token');
+        if (!token) {
+            toast.error('Vous devez être connecté pour signaler un commentaire');
+            setShowCommentReportModal(false);
+            return;
+        }
+
+        if (!commentReportReason) {
+            toast.error('Veuillez sélectionner une raison de signalement');
+            return;
+        }
+
+        if (commentReportReason === 'other' && !commentReportCustomReason.trim()) {
+            toast.error('Veuillez préciser la raison dans le champ texte');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${BASE_URL}/users/comment/report/${selectedCommentId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    reason: commentReportReason,
+                    customReason: commentReportReason === 'other' ? commentReportCustomReason : undefined,
+                }),
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                toast.success('Commentaire signalé avec succès');
+                setShowCommentReportModal(false);
+                setCommentReportReason('');
+                setCommentReportCustomReason('');
+                setSelectedCommentId(null);
+            } else {
+                toast.error(`Erreur: ${result.message}`);
+            }
+        } catch (error) {
+            toast.error(`Erreur lors du signalement: ${error.message}`);
         }
     };
 
@@ -383,34 +488,57 @@ function PublicationDetailPsy() {
                                                     <ul>
                                                         <li><i className="far fa-user"></i>{publication.author_id?.username || 'Unknown'}</li>
                                                         <li><i className="far fa-calendar"></i>{new Date(publication.datePublication).toLocaleDateString()}</li>
+                                                        <li><i className="far fa-eye"></i>{publication.viewCount || 0} vues</li>
                                                     </ul>
                                                 </div>
                                                 <div className="blog-meta-right">
-                                                    <a href="#" className="share-link"><i className="far fa-share-alt"></i>Share</a>
+                                                    <a href="#" className="share-link" onClick={toggleShareOptions}>
+                                                        <i className="far fa-share-alt"></i> Share
+                                                    </a>
+                                                    {showShareOptions && (
+                                                        <div className="share-options" style={{
+                                                            position: 'absolute',
+                                                            background: '#fff',
+                                                            padding: '10px',
+                                                            borderRadius: '5px',
+                                                            boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                                                            zIndex: 1000,
+                                                            marginTop: '5px',
+                                                        }}>
+                                                            <a href="#" onClick={(e) => { e.preventDefault(); shareOnTwitter(); }} style={{ marginRight: '10px' }}>
+                                                                <i className="fab fa-x-twitter" style={{ color: '#1da1f2', fontSize: '20px' }}></i>
+                                                            </a>
+                                                            <a href="#" onClick={(e) => { e.preventDefault(); shareOnWhatsApp(); }}>
+                                                                <i className="fab fa-whatsapp" style={{ color: '#25d366', fontSize: '20px' }}></i>
+                                                            </a>
+                                                        </div>
+                                                    )}
+                                                    <a href="#" onClick={(e) => { e.preventDefault(); setShowReportModal(true); }} style={{ marginLeft: '15px' }}>
+                                                        <i className="far fa-flag" title="Signaler cette publication"></i> Report
+                                                    </a>
                                                 </div>
                                             </div>
                                             <div className="blog-details">
                                                 <h3 className="blog-details-title mb-20">{stripHtmlTags(publication.titrePublication)}</h3>
                                                 <p className="mb-20">{stripHtmlTags(publication.description)}</p>
-                                                {/* Ajout des boutons Like et Dislike */}
                                                 <div className="like-dislike-buttons" style={{ marginBottom: '20px' }}>
-    <button 
-        onClick={handleLike}
-        className="theme-btn"
-        style={{ marginRight: '10px', backgroundColor: publication.likes && publication.likes.includes(userId) ? '#28a745' : '#0ea5e6' }}
-        disabled={publication.likes && publication.likes.includes(userId)}
-    >
-        <i className="far fa-thumbs-up"></i> Like ({publication.likeCount || 0})
-    </button>
-    <button 
-        onClick={handleDislike}
-        className="theme-btn"
-        style={{ backgroundColor: publication.dislikes && publication.dislikes.includes(userId) ? '#dc3545' : '#6c757d' }}
-        disabled={publication.dislikes && publication.dislikes.includes(userId)} // Fixed typo here
-    >
-        <i className="far fa-thumbs-down"></i> Dislike ({publication.dislikeCount || 0})
-    </button>
-</div>
+                                                    <button 
+                                                        onClick={handleLike}
+                                                        className="theme-btn"
+                                                        style={{ marginRight: '10px', backgroundColor: publication.likes && publication.likes.includes(userId) ? '#28a745' : '#0ea5e6' }}
+                                                        disabled={publication.likes && publication.likes.includes(userId)}
+                                                    >
+                                                        <i className="far fa-thumbs-up"></i> Like ({publication.likeCount || 0})
+                                                    </button>
+                                                    <button 
+                                                        onClick={handleDislike}
+                                                        className="theme-btn"
+                                                        style={{ backgroundColor: publication.dislikes && publication.dislikes.includes(userId) ? '#dc3545' : '#6c757d' }}
+                                                        disabled={publication.dislikes && publication.dislikes.includes(userId)}
+                                                    >
+                                                        <i className="far fa-thumbs-down"></i> Dislike ({publication.dislikeCount || 0})
+                                                    </button>
+                                                </div>
                                                 <div className="blog-details-tag pb-20">
                                                     <h5>Tags : </h5>
                                                     <ul>
@@ -457,24 +585,46 @@ function PublicationDetailPsy() {
                                                             <div key={comment._id} className="blog-comment-item">
                                                                 <img
                                                                     src={
-                                                                        comment.auteur_id?.user_photo && comment.auteur_id.user_photo !== ''
-                                                                            ? `${BASE_URL}${comment.auteur_id.user_photo}`
-                                                                            : 'assets/img/blog/com-1 f.jpg'
+                                                                        comment.isAnonymous 
+                                                                            ? ANONYMOUS_PHOTO
+                                                                            : (comment.auteur_id?.user_photo && comment.auteur_id.user_photo !== ''
+                                                                                ? `${BASE_URL}${comment.auteur_id.user_photo}`
+                                                                                : 'assets/img/blog/com-1 f.jpg')
                                                                     }
-                                                                    alt={comment.auteur_id?.username || 'User'}
+                                                                    alt={comment.isAnonymous ? 'Anonymous' : (comment.auteur_id?.username || 'User')}
                                                                     style={{ width: '50px', height: '50px', borderRadius: '50%' }}
                                                                 />
                                                                 <div className="blog-comment-content">
-                                                                    <h5>{comment.auteur_id?.username || 'Unknown'}</h5>
+                                                                    <h5>{comment.isAnonymous ? 'Anonymous' : (comment.auteur_id?.username || 'Unknown')}</h5>
                                                                     <span><i className="far fa-clock"></i> {new Date(comment.dateCreation).toLocaleDateString()}</span>
                                                                     {editCommentId === comment._id ? (
-                                                                        <div>
+                                                                        <div style={{ position: 'relative' }}>
                                                                             <textarea
                                                                                 value={editCommentContent}
                                                                                 onChange={(e) => setEditCommentContent(e.target.value)}
                                                                                 className="form-control"
                                                                                 rows="3"
                                                                             />
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setShowEditEmojiPicker(!showEditEmojiPicker)}
+                                                                                style={{
+                                                                                    position: 'absolute',
+                                                                                    top: '10px',
+                                                                                    right: '10px',
+                                                                                    background: 'none',
+                                                                                    border: 'none',
+                                                                                    cursor: 'pointer',
+                                                                                    fontSize: '20px'
+                                                                                }}
+                                                                            >
+                                                                                😊
+                                                                            </button>
+                                                                            {showEditEmojiPicker && (
+                                                                                <div style={{ position: 'absolute', top: '-350px', right: '0', zIndex: 1000 }}>
+                                                                                    <EmojiPicker onEmojiClick={handleEditEmojiClick} />
+                                                                                </div>
+                                                                            )}
                                                                             <button
                                                                                 onClick={() => handleUpdateComment(comment._id)}
                                                                                 className="theme-btn"
@@ -494,8 +644,8 @@ function PublicationDetailPsy() {
                                                                         <p>{comment.contenu}</p>
                                                                     )}
                                                                     <div style={{ display: 'flex', gap: '10px' }}>
-                                                                        <a href="#" onClick={(e) => e.preventDefault()}><i className="far fa-reply"></i> Reply</a>
-                                                                        {userId && comment.auteur_id?._id.toString() === userId && (
+                                                                       
+                                                                        {userId && comment.auteur_id && comment.auteur_id._id && comment.auteur_id._id.toString() === userId && (
                                                                             <>
                                                                                 <a href="#" onClick={(e) => handleEditComment(e, comment)}>
                                                                                     <i className="far fa-edit" title="Modifier"></i>
@@ -505,6 +655,19 @@ function PublicationDetailPsy() {
                                                                                 </a>
                                                                             </>
                                                                         )}
+                                                                        {/* Icône de signalement pour tous les utilisateurs connectés */}
+                                                                        {userId && comment.auteur_id && comment.auteur_id._id && comment.auteur_id._id.toString() !== userId && (
+                                <a
+                                    href="#"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        setSelectedCommentId(comment._id);
+                                        setShowCommentReportModal(true);
+                                    }}
+                                >
+                                    <i className="far fa-flag" title="Signaler ce commentaire"></i>
+                                </a>
+                            )}
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -513,35 +676,65 @@ function PublicationDetailPsy() {
                                                         <p>No comments yet.</p>
                                                     )}
                                                 </div>
-                                                {userRole === 'student' && (
-                                                    <div className="blog-comment-form">
-                                                        <h3>Leave A Comment</h3>
-                                                        <form onSubmit={handleCommentSubmit}>
-                                                            <div className="row">
-                                                                <div className="col-md-12">
-                                                                    <div className="form-group">
-                                                                        <div className="form-icon">
-                                                                            <i className="far fa-pen"></i>
-                                                                            <textarea
-                                                                                name="message"
-                                                                                value={newComment}
-                                                                                onChange={(e) => setNewComment(e.target.value)}
-                                                                                cols="30"
-                                                                                rows="5"
-                                                                                className="form-control"
-                                                                                placeholder="Your Comment*"
-                                                                                required
-                                                                            />
-                                                                        </div>
+                                                <div className="blog-comment-form">
+                                                    <h3>Leave A Comment</h3>
+                                                    <form onSubmit={handleCommentSubmit}>
+                                                        <div className="row">
+                                                            <div className="col-md-12">
+                                                                <div className="form-group">
+                                                                    <div className="form-icon" style={{ position: 'relative' }}>
+                                                                        <i className="far fa-pen"></i>
+                                                                        <textarea
+                                                                            name="message"
+                                                                            value={newComment}
+                                                                            onChange={(e) => setNewComment(e.target.value)}
+                                                                            cols="30"
+                                                                            rows="5"
+                                                                            className="form-control"
+                                                                            placeholder="Your Comment*"
+                                                                            required
+                                                                        />
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                                                            style={{
+                                                                                position: 'absolute',
+                                                                                top: '10px',
+                                                                                right: '10px',
+                                                                                background: 'none',
+                                                                                border: 'none',
+                                                                                cursor: 'pointer',
+                                                                                fontSize: '20px'
+                                                                            }}
+                                                                        >
+                                                                            😊
+                                                                        </button>
+                                                                        {showEmojiPicker && (
+                                                                            <div style={{ position: 'absolute', top: '-350px', right: '0', zIndex: 1000 }}>
+                                                                                <EmojiPicker onEmojiClick={handleEmojiClick} />
+                                                                            </div>
+                                                                        )}
                                                                     </div>
-                                                                    <button type="submit" className="theme-btn">
-                                                                        Post Comment <i className="far fa-paper-plane"></i>
-                                                                    </button>
                                                                 </div>
+                                                                {userId && (
+                                                                    <div className="form-group" style={{ marginBottom: '15px' }}>
+                                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={isAnonymous}
+                                                                                onChange={(e) => setIsAnonymous(e.target.checked)}
+                                                                            />
+                                                                            Post as anonymous
+                                                                        </label>
+                                                                    </div>
+                                                                )}
+                                                                <button type="submit" className="theme-btn">
+                                                                    Post Comment <i className="far fa-paper-plane"></i>
+                                                                </button>
                                                             </div>
-                                                        </form>
-                                                    </div>
-                                                )}
+                                                        </div>
+                                                    </form>
+                                                </div>
                                                 {userRole === 'psychiatrist' && (
                                                     <div className="psychiatrist-actions">
                                                         <h3>Psychiatrist Actions</h3>
@@ -599,9 +792,7 @@ function PublicationDetailPsy() {
                                                                 {stripHtmlTags(pub.titrePublication)}
                                                             </a>
                                                         </h6>
-                                                        <span>
-                                                            <i className="far fa-clock"></i> {new Date(pub.datePublication).toLocaleDateString()}
-                                                        </span>
+                                                        <span><i className="far fa-clock"></i> {new Date(pub.datePublication).toLocaleDateString()}</span>
                                                     </div>
                                                 </div>
                                             ))
@@ -634,6 +825,183 @@ function PublicationDetailPsy() {
                         </div>
                     </div>
                 </div>
+
+                {/* Popup de signalement pour la publication */}
+                {showReportModal && (
+                    <div className="modal" style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: 'rgba(0,0,0,0.5)',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 1000,
+                    }}>
+                        <div style={{
+                            backgroundColor: '#fff',
+                            padding: '20px',
+                            borderRadius: '8px',
+                            width: '400px',
+                            maxWidth: '90%',
+                            boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+                        }}>
+                            <h3 style={{ marginBottom: '20px', textAlign: 'center' }}>Report this post</h3>
+                            <form onSubmit={handleReportSubmit}>
+                                <div className="form-group">
+                                    <label htmlFor="reportReason" style={{ display: 'block', marginBottom: '10px' }}>
+                                        Reason for reporting:
+                                    </label>
+                                    <select
+                                        id="reportReason"
+                                        value={reportReason}
+                                        onChange={(e) => setReportReason(e.target.value)}
+                                        className="form-control"
+                                        style={{ width: '100%', padding: '8px', marginBottom: '15px' }}
+                                        required
+                                    >
+                                        <option value="">Select a reason</option>
+                                        <option value="inappropriate_content">Inappropriate content</option>
+                                        <option value="spam">Spam</option>
+                                        <option value="harassment">Harassment</option>
+                                        <option value="offensive_language">Offensive language</option>
+                                        <option value="misinformation">Misinformation</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                                {reportReason === 'other' && (
+                                    <div className="form-group">
+                                        <label htmlFor="customReason" style={{ display: 'block', marginBottom: '10px' }}>
+                                            Specify the reason:
+                                        </label>
+                                        <textarea
+                                            id="customReason"
+                                            value={reportCustomReason}
+                                            onChange={(e) => setReportCustomReason(e.target.value)}
+                                            className="form-control"
+                                            rows="3"
+                                            placeholder="Describe the reason here..."
+                                            style={{ width: '100%', padding: '8px', marginBottom: '15px' }}
+                                            required
+                                        />
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <button
+                                        type="submit"
+                                        className="theme-btn"
+                                        style={{ backgroundColor: '#dc3545', padding: '10px 20px' }}
+                                    >
+                                        Report <i className="far fa-flag"></i>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowReportModal(false);
+                                            setReportReason('');
+                                            setReportCustomReason('');
+                                        }}
+                                        className="theme-btn"
+                                        style={{ backgroundColor: '#6c757d', padding: '10px 20px' }}
+                                    >
+                                        Cancel <i className="far fa-times"></i>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Popup de signalement pour le commentaire */}
+                {showCommentReportModal && (
+                    <div className="modal" style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: 'rgba(0,0,0,0.5)',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 1000,
+                    }}>
+                        <div style={{
+                            backgroundColor: '#fff',
+                            padding: '20px',
+                            borderRadius: '8px',
+                            width: '400px',
+                            maxWidth: '90%',
+                            boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+                        }}>
+                            <h3 style={{ marginBottom: '20px', textAlign: 'center' }}>Report this comment</h3>
+                            <form onSubmit={handleCommentReportSubmit}>
+                                <div className="form-group">
+                                    <label htmlFor="commentReportReason" style={{ display: 'block', marginBottom: '10px' }}>
+                                        Reason for reporting:
+                                    </label>
+                                    <select
+                                        id="commentReportReason"
+                                        value={commentReportReason}
+                                        onChange={(e) => setCommentReportReason(e.target.value)}
+                                        className="form-control"
+                                        style={{ width: '100%', padding: '8px', marginBottom: '15px' }}
+                                        required
+                                    >
+                                        <option value="">Select a reason</option>
+                                        <option value="inappropriate_content">Inappropriate content</option>
+                                        <option value="spam">Spam</option>
+                                        <option value="harassment">Harassment</option>
+                                        <option value="offensive_language">Offensive language</option>
+                                        <option value="misinformation">Misinformation</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                                {commentReportReason === 'other' && (
+                                    <div className="form-group">
+                                        <label htmlFor="commentCustomReason" style={{ display: 'block', marginBottom: '10px' }}>
+                                            Specify the reason:
+                                        </label>
+                                        <textarea
+                                            id="commentCustomReason"
+                                            value={commentReportCustomReason}
+                                            onChange={(e) => setCommentReportCustomReason(e.target.value)}
+                                            className="form-control"
+                                            rows="3"
+                                            placeholder="Describe the reason here..."
+                                            style={{ width: '100%', padding: '8px', marginBottom: '15px' }}
+                                            required
+                                        />
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <button
+                                        type="submit"
+                                        className="theme-btn"
+                                        style={{ backgroundColor: '#dc3545', padding: '10px 20px' }}
+                                    >
+                                        Report <i className="far fa-flag"></i>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowCommentReportModal(false);
+                                            setCommentReportReason('');
+                                            setCommentReportCustomReason('');
+                                            setSelectedCommentId(null);
+                                        }}
+                                        className="theme-btn"
+                                        style={{ backgroundColor: '#6c757d', padding: '10px 20px' }}
+                                    >
+                                        Cancel <i className="far fa-times"></i>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
             </main>
             <ToastContainer position="top-right" autoClose={3000} />
         </div>

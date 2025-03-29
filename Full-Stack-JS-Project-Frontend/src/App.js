@@ -31,6 +31,12 @@ import EditActivity from './pages/edit-activity'; // Make sure you have this com
 import ActivitySchedule from './pages/ActivitySchedule';
 import Events from './pages/events';
 import EventDetails from './pages/EventDetails';
+import ForumModerate from './pages/ForumModerate';
+import StudentDashboard from './pages/StudentDashboard';
+import SleepCalculator from './pages/SleepCalculator';
+import Exercises from './pages/Exercices';
+import Problem from './pages/Problem';
+import ProblemList from './pages/ProblemList';
 
 
 const Layout = ({ children }) => {
@@ -73,14 +79,35 @@ function App(){
         <Route path="/PsychiatristList" element={<PsychiatristList />} />
         <Route path="/AddPublication" element={<AddPublication />} />
 
+
+
+
+
         <Route path="/forum" element={<Forum />} />
         <Route path="/AddForum" element={<AddForum />} />
+        <Route path="/moderateForum" element={<ForumModerate />} />
         <Route path="/appointment-history" element={<AppointmentHistory />} />
         <Route path="/chat" element={<Chat />} />
 
         <Route path="/Activities" element={<Activities />} />
         <Route path="/add-activity" element={<AddActivity />} />
         <Route path="/edit-activity/:id" element={<EditActivity />} />
+        <Route path="/activity-schedule" element={<ActivitySchedule />} />
+
+
+        <Route path="/add-association" element={<AddAssociation />} />
+        <Route path="/Associations" element={<Associations />} />
+        <Route path="/AssociationDetails/:id" element={<AssociationDetails />} />
+        <Route path="/add-event" element={<AddEvent />} />
+        <Route path="/Events" element={<Events />} />
+        <Route path="/event/:id" element={<EventDetails />} />
+
+        <Route path="/StudentDashboard" element={<StudentDashboard />} />
+        <Route path="/SleepCalculator" element={<SleepCalculator />} />
+        <Route path="/Exercices" element={<Exercises />} />
+
+        <Route path="/add-Problem" element={<Problem />} />
+        <Route path="/List-problems" element={<ProblemList />} />
 
         <Route path="/add-association" element={<AddAssociation />} />
         <Route path="/Associations" element={<Associations />} />
