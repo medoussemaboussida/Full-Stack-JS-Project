@@ -9,6 +9,7 @@ import {
   faEye,
   faFlag,
   faSmile,
+  faBell, // Ajout de l'icône pour la bulle de notification
 } from "@fortawesome/free-regular-svg-icons";
 import {
   faSearch,
@@ -17,7 +18,7 @@ import {
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
 import EmojiPicker from "emoji-picker-react";
-
+import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "../utils/notificationUtils"; // Import des fonctions de notificationsUtils
 // Fonction pour couper la description à 3 lignes
 const truncateDescription = (text, isExpanded) => {
   if (!isExpanded) {
@@ -63,6 +64,8 @@ function Forum() {
   const [commentReportReason, setCommentReportReason] = useState("");
   const [pinnedTopics, setPinnedTopics] = useState(new Set());
   const [showEmojiPicker, setShowEmojiPicker] = useState({});
+  const [notifications, setNotifications] = useState([]); // État pour les notifications
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false); // État pour le modal de notifications
   const navigate = useNavigate();
 
   // Fonction pour basculer l'état d'expansion
@@ -148,7 +151,7 @@ function Forum() {
     "pressure",
   ];
 
-  // Charger le token, l'ID utilisateur, le rôle, les topics épinglés et vérifier si l'utilisateur est banni
+  // Charger le token, l'ID utilisateur, le rôle, les topics épinglés, vérifier si l'utilisateur est banni et charger les notifications
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
     if (token) {
@@ -164,6 +167,7 @@ function Forum() {
           setUserRole(null);
           setPinnedTopics(new Set());
           setIsBanned(false);
+          setNotifications([]); // Réinitialiser les notifications
           return;
         }
 
@@ -209,6 +213,10 @@ function Forum() {
         } else {
           setPinnedTopics(new Set());
         }
+
+        // Charger les notifications pour l'utilisateur
+        const userNotifications = getNotifications(decoded.id);
+        setNotifications(userNotifications);
       } catch (error) {
         console.error("Erreur de décodage du token:", error);
         localStorage.removeItem("jwt-token");
@@ -217,6 +225,7 @@ function Forum() {
         setUserRole(null);
         setPinnedTopics(new Set());
         setIsBanned(false);
+        setNotifications([]); // Réinitialiser les notifications
       }
     } else {
       console.log("Aucun token trouvé.");
@@ -225,10 +234,11 @@ function Forum() {
       setUserRole(null);
       setPinnedTopics(new Set());
       setIsBanned(false);
+      setNotifications([]); // Réinitialiser les notifications
     }
   }, [token]);
 
-  // Surveiller les changements de userId pour recharger les topics épinglés
+  // Surveiller les changements de userId pour recharger les topics épinglés et les notifications
   useEffect(() => {
     if (userId) {
       const storedPinnedTopics = localStorage.getItem(`pinnedTopics_${userId}`);
@@ -237,8 +247,12 @@ function Forum() {
       } else {
         setPinnedTopics(new Set());
       }
+      // Recharger les notifications lorsque userId change
+      const userNotifications = getNotifications(userId);
+      setNotifications(userNotifications);
     } else {
       setPinnedTopics(new Set());
+      setNotifications([]); // Réinitialiser les notifications
     }
   }, [userId]);
 
@@ -590,6 +604,26 @@ function Forum() {
     },
     [isBanned]
   );
+
+  // Calculer le nombre de notifications non lues
+  const unreadNotificationsCount = notifications.filter((notif) => !notif.read).length;
+
+  // Fonction pour ouvrir le modal des notifications
+  const handleOpenNotifications = () => {
+    setShowNotificationsModal(true);
+  };
+
+  // Fonction pour marquer une notification comme lue
+  const handleMarkAsRead = (notificationId) => {
+    markNotificationAsRead(userId, notificationId);
+    setNotifications(getNotifications(userId)); // Mettre à jour l'état
+  };
+
+  // Fonction pour marquer toutes les notifications comme lues
+  const handleMarkAllAsRead = () => {
+    markAllNotificationsAsRead(userId);
+    setNotifications(getNotifications(userId)); // Mettre à jour l'état
+  };
 
   return (
     <div>
@@ -1158,6 +1192,203 @@ function Forum() {
           </div>
         </div>
       </main>
+
+      {/* Bulle de notification flottante */}
+      {token && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "20px",
+            right: "20px",
+            zIndex: 1000,
+            cursor: "pointer",
+          }}
+          onClick={handleOpenNotifications}
+        >
+          <div
+            style={{
+              backgroundColor: "#007bff",
+              borderRadius: "50%",
+              width: "60px",
+              height: "60px",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+              transition: "transform 0.3s ease",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
+            onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+          >
+            <FontAwesomeIcon
+              icon={faBell}
+              style={{
+                fontSize: "24px",
+                color: "white",
+              }}
+            />
+            {unreadNotificationsCount > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: "-5px",
+                  right: "-5px",
+                  backgroundColor: "red",
+                  color: "white",
+                  borderRadius: "50%",
+                  padding: "5px 8px",
+                  fontSize: "12px",
+                  fontWeight: "bold",
+                }}
+              >
+                {unreadNotificationsCount}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal pour les notifications */}
+      {showNotificationsModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "500px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+              Notifications
+            </h3>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                marginBottom: "10px",
+              }}
+            >
+              <button
+                onClick={handleMarkAllAsRead}
+                style={{
+                  backgroundColor: "#007bff",
+                  color: "white",
+                  padding: "5px 10px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                }}
+              >
+                Mark All as Read
+              </button>
+            </div>
+            <div
+              style={{
+                maxHeight: notifications.length > 3 ? "300px" : "auto",
+                overflowY: notifications.length > 3 ? "auto" : "visible",
+                marginBottom: "20px",
+              }}
+            >
+              {notifications.length > 0 ? (
+                notifications
+                  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                  .map((notif) => (
+                    <div
+                      key={notif.id}
+                      style={{
+                        marginBottom: "10px",
+                        padding: "10px",
+                        borderBottom: "1px solid #ddd",
+                        backgroundColor: notif.read ? "#f9f9f9" : "#e6f3ff",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <div>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontWeight: notif.read ? "normal" : "bold",
+                            color: notif.read ? "#666" : "#000",
+                          }}
+                        >
+                          {notif.message}
+                        </p>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: "12px",
+                            color: "#999",
+                          }}
+                        >
+                          {new Date(notif.createdAt).toLocaleString("fr-FR")}
+                        </p>
+                      </div>
+                      {!notif.read && (
+                        <button
+                          onClick={() => handleMarkAsRead(notif.id)}
+                          style={{
+                            backgroundColor: "#28a745",
+                            color: "white",
+                            padding: "5px 10px",
+                            borderRadius: "5px",
+                            border: "none",
+                            cursor: "pointer",
+                            fontSize: "12px",
+                          }}
+                        >
+                          Mark as Read
+                        </button>
+                      )}
+                    </div>
+                  ))
+              ) : (
+                <p style={{ textAlign: "center" }}>No notifications available.</p>
+              )}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: "10px",
+                marginTop: "20px",
+              }}
+            >
+              <button
+                onClick={() => setShowNotificationsModal(false)}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de confirmation de suppression */}
       {showDeleteModal && (

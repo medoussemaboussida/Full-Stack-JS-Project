@@ -97,7 +97,10 @@ availability: [
     attendanceSheets: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'AttendanceSheet'
-    }]
+    }],
+    isBanned: { type: Boolean, default: false },
+    banExpiration: { type: Date, default: null },
+    banReason: { type: String, default: "" },
 
 },
 

@@ -156,6 +156,13 @@ const Sidebar = () => {
               selected={selected}
               setSelected={setSelected}
             />
+             <Item
+              title="passtime"
+              to="/activities"
+              icon={<FeedOutlinedIcon  />}
+              selected={selected}
+              setSelected={setSelected}
+            />
             <Item
               title="Contacts Information"
               to="/contacts"
