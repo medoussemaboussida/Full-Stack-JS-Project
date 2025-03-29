@@ -1679,77 +1679,102 @@ module.exports.deleteAvailability = async (req, res) => {
 
   
   module.exports.bookappointment = async (req, res) => {
-      const { psychiatristId, day, startTime, endTime } = req.body; // Changed from "date" to "day"
-      const studentId = req.userId; // Changed from req.user.id to req.userId
-  
-      console.log('Requête reçue:', { psychiatristId, day, startTime, endTime, studentId }); // Débogage
-  
-      try {
-          // Vérifier si les champs obligatoires sont présents
-          if (!psychiatristId || !day || !startTime || !endTime) {
-              return res.status(400).json({ message: 'Tous les champs (psychiatristId, day, startTime, endTime) sont requis' });
-          }
-  
-          const psychiatrist = await User.findById(psychiatristId);
-          if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
-              return res.status(404).json({ message: "Psychiatrist not found" });
-          }
-  
-          console.log('Disponibilités du psychiatre:', psychiatrist.availability); // Débogage
-  
-          // Vérifier si le créneau est disponible
-          const isAvailable = psychiatrist.availability.some(slot =>
-              slot.day === day &&
-              slot.startTime === startTime &&
-              slot.endTime === endTime
-          );
-          if (!isAvailable) {
-              return res.status(400).json({ message: "This slot is not available" });
-          }
-  
-          // Vérifier s'il existe déjà une réservation pour ce créneau (éviter les doublons globaux)
-          const existingAppointment = await Appointment.findOne({
-              psychiatrist: psychiatristId,
-              day,
-              startTime,
-              endTime,
-          });
-          if (existingAppointment) {
-              return res.status(400).json({ message: 'This slot is already booked by another user.' });
-          }
-  
-          // Créer une nouvelle réservation
-          const appointment = new Appointment({
-              psychiatrist: psychiatristId,
-              student: studentId,
-              date: new Date().toISOString().split('T')[0], // Date par défaut si nécessaire
-              startTime,
-              endTime,
-          });
-          await appointment.save();
-  
-          // Mettre à jour la disponibilité du psychiatre en supprimant le créneau réservé
-          await User.updateOne(
-              { _id: psychiatristId },
-              {
-                  $pull: {
-                      availability: {
-                          day,
-                          startTime,
-                          endTime,
-                      },
-                  },
-              }
-          );
-  
-          res.status(201).json({ message: "Appointment booked successfully", appointment });
-      } catch (error) {
-          console.error('Erreur dans bookAppointment:', error);
-          res.status(500).json({ message: "Server error", error: error.message });
-      }
-  };
+    const { psychiatristId, day, startTime, endTime } = req.body;
+    const studentId = req.userId;
 
+    console.log('Requête reçue:', { psychiatristId, day, startTime, endTime, studentId });
 
+    try {
+        // Vérifier si les champs obligatoires sont présents
+        if (!psychiatristId || !day || !startTime || !endTime) {
+            return res.status(400).json({ message: 'Tous les champs (psychiatristId, day, startTime, endTime) sont requis' });
+        }
+
+        const psychiatrist = await User.findById(psychiatristId);
+        if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
+            return res.status(404).json({ message: "Psychiatrist not found" });
+        }
+
+        console.log('Disponibilités du psychiatre:', psychiatrist.availability);
+
+        // Convertir les temps en minutes pour comparaison
+        const requestedStartMinutes = parseInt(startTime.split(':')[0]) * 60 + parseInt(startTime.split(':')[1]);
+        const requestedEndMinutes = parseInt(endTime.split(':')[0]) * 60 + parseInt(endTime.split(':')[1]);
+
+        // Vérifier si le créneau demandé est inclus dans une disponibilité existante
+        const availabilitySlotIndex = psychiatrist.availability.findIndex(slot => {
+            if (slot.day !== day) return false;
+            const slotStartMinutes = parseInt(slot.startTime.split(':')[0]) * 60 + parseInt(slot.startTime.split(':')[1]);
+            const slotEndMinutes = parseInt(slot.endTime.split(':')[0]) * 60 + parseInt(slot.endTime.split(':')[1]);
+            return requestedStartMinutes >= slotStartMinutes && requestedEndMinutes <= slotEndMinutes;
+        });
+
+        if (availabilitySlotIndex === -1) {
+            return res.status(400).json({ message: "This slot is not available" });
+        }
+
+        // Vérifier s'il existe déjà une réservation pour ce créneau
+        const existingAppointment = await Appointment.findOne({
+            psychiatrist: psychiatristId,
+            date: new Date().toISOString().split('T')[0], // Adjust date logic if needed
+            startTime,
+            endTime,
+        });
+        if (existingAppointment) {
+            return res.status(400).json({ message: 'This slot is already booked by another user.' });
+        }
+
+        // Créer une nouvelle réservation
+        const appointment = new Appointment({
+            psychiatrist: psychiatristId,
+            student: studentId,
+            date: new Date().toISOString().split('T')[0], // Use current date or adjust based on your logic
+            startTime,
+            endTime,
+        });
+        await appointment.save();
+
+        // Ajuster la disponibilité du psychiatre
+        const availabilitySlot = psychiatrist.availability[availabilitySlotIndex];
+        const slotStartMinutes = parseInt(availabilitySlot.startTime.split(':')[0]) * 60 + parseInt(availabilitySlot.startTime.split(':')[1]);
+        const slotEndMinutes = parseInt(availabilitySlot.endTime.split(':')[0]) * 60 + parseInt(availabilitySlot.endTime.split(':')[1]);
+
+        // Supprimer l'ancien créneau
+        psychiatrist.availability.splice(availabilitySlotIndex, 1);
+
+        // Ajouter les créneaux restants si nécessaire
+        if (slotStartMinutes < requestedStartMinutes) {
+            psychiatrist.availability.push({
+                day,
+                startTime: availabilitySlot.startTime,
+                endTime: startTime,
+                date: availabilitySlot.date,
+                title: availabilitySlot.title,
+            });
+        }
+        if (requestedEndMinutes < slotEndMinutes) {
+            psychiatrist.availability.push({
+                day,
+                startTime: endTime,
+                endTime: availabilitySlot.endTime,
+                date: availabilitySlot.date,
+                title: availabilitySlot.title,
+            });
+        }
+
+        // Sauvegarder les modifications
+        await psychiatrist.save();
+
+        res.status(201).json({
+            message: "Appointment booked successfully",
+            appointment,
+            updatedAvailability: psychiatrist.availability, // Retourner les nouvelles disponibilités
+        });
+    } catch (error) {
+        console.error('Erreur dans bookAppointment:', error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
 
 // Récupérer l'historique des rendez-vous pour un étudiant
 module.exports.getAppointmentHistory = async (req, res) => {
