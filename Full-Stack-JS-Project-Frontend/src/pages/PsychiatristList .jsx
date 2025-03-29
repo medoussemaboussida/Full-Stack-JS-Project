@@ -207,37 +207,54 @@ const PsychiatristList = () => {
                         {filterPsychiatrists().length > 0 ? (
                             filterPsychiatrists().map((psychiatrist) => (
                                 <SwiperSlide key={psychiatrist._id}>
-                                    <div className="psychiatrist-card">
-                                        <div className="psychiatrist-img">
-                                            {psychiatrist.user_photo ? (
-                                                <img
-                                                    src={`http://localhost:5000${psychiatrist.user_photo}`}
-                                                    alt={psychiatrist.username}
-                                                />
-                                            ) : (
-                                                <div className="no-image">No Image</div>
-                                            )}
-                                        </div>
-                                        <div className="psychiatrist-info">
-                                            <h4>{psychiatrist.username}</h4>
-                                            <p>Psychiatrist</p>
-                                            <button
-                                                className="view-availability-btn"
-                                                onClick={() => handleViewAvailability(psychiatrist)}
-                                                style={{
-                                                    backgroundColor: '#6CB4EE',
-                                                    color: 'white',
-                                                    padding: '10px 20px',
-                                                    border: 'none',
-                                                    borderRadius: '5px',
-                                                    cursor: 'pointer',
-                                                }}
-                                            >
-                                                View Availability
-                                            </button>
-                                        </div>
+                                <div className="psychiatrist-card">
+                                    <div className="psychiatrist-img">
+                                        {psychiatrist.user_photo ? (
+                                            <img
+                                                src={`http://localhost:5000${psychiatrist.user_photo}`}
+                                                alt={psychiatrist.username}
+                                            />
+                                        ) : (
+                                            <div className="no-image">No Image</div>
+                                        )}
                                     </div>
-                                </SwiperSlide>
+                                    <div className="psychiatrist-info">
+                                        <h4>{psychiatrist.username}</h4>
+                                        <p>Psychiatrist</p>
+                                        <button
+                                            className="view-availability-btn"
+                                            onClick={() => handleViewAvailability(psychiatrist)}
+                                            style={{
+                                                backgroundColor: '#6CB4EE',
+                                                color: 'white',
+                                                padding: '8px 18px', // Slightly reduced padding for a compact look
+                                                border: 'none',
+                                                borderRadius: '5px',
+                                                cursor: 'pointer',
+                                                opacity: 0.7, // Gives a "disabled-like" look
+                                                position: 'relative',
+                                                top: '-10px', // Moves the button up
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '8px', // Space between icon and text
+                                                transition: 'all 0.3s ease', // Smooth transition for hover effects
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.target.style.opacity = '1'; // Full opacity on hover
+                                                e.target.style.backgroundColor = '#5AA0D8'; // Slightly darker shade
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.target.style.opacity = '0.7'; // Back to "disabled-like" look
+                                                e.target.style.backgroundColor = '#6CB4EE'; // Original color
+                                            }}
+                                        >
+                                            <i className="far fa-clock" style={{ fontSize: '14px' }}></i> {/* Font Awesome clock icon */}
+                                            View Availability
+                                        </button>
+                                    </div>
+                                </div>
+                            </SwiperSlide>
                             ))
                         ) : (
                             <div className="text-center text-gray-500">No psychiatrists found.</div>
