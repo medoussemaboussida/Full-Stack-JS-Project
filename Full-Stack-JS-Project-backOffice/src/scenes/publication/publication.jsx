@@ -11,17 +11,16 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import CommentIcon from "@mui/icons-material/Comment";
 import ReportIcon from "@mui/icons-material/Report";
 import DeleteIcon from "@mui/icons-material/Delete";
+import BlockIcon from "@mui/icons-material/Block";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import NotificationsOutlinedIcon from "@mui/icons-material/NotificationsOutlined";
 import Header from "../../components/Header";
 import SearchIcon from "@mui/icons-material/Search";
 import { useTheme } from "@mui/material";
-import { tokens } from "../../theme";
 import Snackbar from '@mui/material/Snackbar';
 import html2pdf from "html2pdf.js";
 import { useNotification } from "../publication/NotificationContext";
 
-// Fonction pour supprimer les balises HTML
 const stripHtmlTags = (str) => {
   if (!str) return "";
   return str.replace(/<[^>]*>/g, "");
@@ -42,8 +41,9 @@ const Publication = () => {
   const [openReportsModal, setOpenReportsModal] = useState(false);
   const [openNotificationsModal, setOpenNotificationsModal] = useState(false);
   const [openCommentReportsModal, setOpenCommentReportsModal] = useState(false);
-  const [openDeleteConfirmModal, setOpenDeleteConfirmModal] = useState(false); // État pour la confirmation de suppression
-  const [commentToDelete, setCommentToDelete] = useState(null); // Stocker le commentaire à supprimer
+  const [openDeleteConfirmModal, setOpenDeleteConfirmModal] = useState(false);
+  const [openBanModal, setOpenBanModal] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState(null);
   const [selectedComment, setSelectedComment] = useState(null);
   const [comments, setComments] = useState([]);
   const [reports, setReports] = useState([]);
@@ -54,14 +54,14 @@ const Publication = () => {
   const [reportedPublicationsLocal, setReportedPublicationsLocal] = useState(new Set());
   const [reportedCommentsLocal, setReportedCommentsLocal] = useState(new Set());
   const [currentPublicationId, setCurrentPublicationId] = useState(null);
-  const [userRole, setUserRole] = useState(null); // Ajout de l'état pour le rôle
+  const [userRole, setUserRole] = useState(null);
+  const [banData, setBanData] = useState({ days: "", reason: "", customReason: "" });
+  const [userToBan, setUserToBan] = useState(null);
   const navigate = useNavigate();
   const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
 
   const token = localStorage.getItem("jwt-token");
 
-  // Charger le rôle de l'utilisateur au montage du composant
   useEffect(() => {
     const fetchUserRole = async () => {
       try {
@@ -82,7 +82,6 @@ const Publication = () => {
     }
   }, []);
 
-  // Charger les publications
   const fetchPublications = async (query = "") => {
     let url = query
       ? `http://localhost:5000/users/searchPublications?searchTerm=${query}`
@@ -171,7 +170,6 @@ const Publication = () => {
     }
   };
 
-  // Charger les commentaires avec leurs signalements
   const fetchComments = async (publicationId) => {
     try {
       const res = await fetch(`http://localhost:5000/users/commentaires/${publicationId}`, {
@@ -223,19 +221,16 @@ const Publication = () => {
     }
   };
 
-  // Ouvrir la boîte de dialogue de confirmation avant suppression
   const handleOpenDeleteConfirm = (commentId) => {
     setCommentToDelete(commentId);
     setOpenDeleteConfirmModal(true);
   };
 
-  // Fermer la boîte de dialogue de confirmation
   const handleCloseDeleteConfirm = () => {
     setOpenDeleteConfirmModal(false);
     setCommentToDelete(null);
   };
 
-  // Supprimer un commentaire
   const handleDeleteComment = async () => {
     if (!commentToDelete) return;
 
@@ -252,12 +247,10 @@ const Publication = () => {
         throw new Error(errorData.message || "Failed to delete comment");
       }
 
-      // Recharger les commentaires après la suppression
       if (currentPublicationId) {
         await fetchComments(currentPublicationId);
       }
 
-      // Supprimer le commentaire des notifications si nécessaire
       removeReportedComment(commentToDelete);
 
       setNotification({
@@ -266,7 +259,6 @@ const Publication = () => {
         severity: "success",
       });
 
-      // Fermer la boîte de dialogue de confirmation
       handleCloseDeleteConfirm();
     } catch (err) {
       console.error("❌ Error deleting comment:", err);
@@ -278,7 +270,71 @@ const Publication = () => {
     }
   };
 
-  // Filtrer les publications côté client
+  const handleOpenBanModal = (userId) => {
+    setUserToBan(userId);
+    setBanData({ days: "", reason: "", customReason: "" });
+    setOpenBanModal(true);
+  };
+
+  const handleCloseBanModal = () => {
+    setOpenBanModal(false);
+    setUserToBan(null);
+  };
+
+  const handleBanChange = (e) => {
+    setBanData({ ...banData, [e.target.name]: e.target.value });
+  };
+
+  const handleBanUser = async () => {
+    if (!banData.days || !banData.reason) {
+      setNotification({
+        open: true,
+        message: "Veuillez spécifier le nombre de jours et la raison du bannissement !",
+        severity: "error",
+      });
+      return;
+    }
+
+    if (banData.reason === "other" && !banData.customReason) {
+      setNotification({
+        open: true,
+        message: "Veuillez fournir une raison personnalisée !",
+        severity: "error",
+      });
+      return;
+    }
+
+    try {
+      const res = await fetch(`http://localhost:5000/users/ban/${userToBan}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(banData),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Échec du bannissement de l'utilisateur");
+      }
+
+      setNotification({
+        open: true,
+        message: "Utilisateur banni avec succès !",
+        severity: "success",
+      });
+      handleCloseBanModal();
+    } catch (err) {
+      console.error("❌ Erreur lors du bannissement:", err);
+      setNotification({
+        open: true,
+        message: err.message || "Échec du bannissement de l'utilisateur !",
+        severity: "error",
+      });
+    }
+  };
+
   const filterPublications = (pubs, status, author) => {
     let filtered = [...pubs];
     if (status !== "all") {
@@ -535,17 +591,17 @@ const Publication = () => {
             height: "40px",
             "& .MuiSelect-select": {
               padding: "8px",
-              backgroundColor: params.value === "published" ? colors.greenAccent[500] : colors.redAccent[500],
+              backgroundColor: params.value === "published" ? "#4caf50" : "#f44336",
               color: "#fff",
               borderRadius: "4px",
             },
             "& .MuiOutlinedInput-notchedOutline": { border: "none" },
           }}
         >
-          <MenuItem value="published" sx={{ backgroundColor: colors.greenAccent[500], color: "#fff" }}>
+          <MenuItem value="published" sx={{ backgroundColor: "#4caf50", color: "#fff" }}>
             Published
           </MenuItem>
-          <MenuItem value="archived" sx={{ backgroundColor: colors.redAccent[500], color: "#fff" }}>
+          <MenuItem value="archived" sx={{ backgroundColor: "#f44336", color: "#fff" }}>
             Archived
           </MenuItem>
         </Select>
@@ -568,12 +624,7 @@ const Publication = () => {
       headerName: "Actions",
       flex: 1.5,
       renderCell: (params) => (
-        <Box
-          display="flex"
-          gap={0.5}
-          flexWrap="wrap"
-          sx={{ alignItems: "center" }}
-        >
+        <Box display="flex" gap={0.5} flexWrap="wrap" sx={{ alignItems: "center" }}>
           <Button
             variant="contained"
             color="info"
@@ -602,9 +653,7 @@ const Publication = () => {
             sx={{
               backgroundColor: "#fab200",
               color: "#fff",
-              "&:hover": {
-                backgroundColor: "#ff7000",
-              },
+              "&:hover": { backgroundColor: "#ff7000" },
               padding: "4px 8px",
               fontSize: "0.75rem",
               borderRadius: "8px",
@@ -635,9 +684,7 @@ const Publication = () => {
                   transform: "scale(1)",
                   transition: "transform 0.3s ease",
                   animation: params.row.reportCount > 0 ? "pulse 1.5s infinite" : "none",
-                  "&:hover": {
-                    transform: "scale(1.1)",
-                  },
+                  "&:hover": { transform: "scale(1.1)" },
                 },
               }}
             >
@@ -647,11 +694,9 @@ const Publication = () => {
                 startIcon={<ReportIcon />}
                 onClick={() => handleViewReports(params.row.id)}
                 sx={{
-                  backgroundColor: params.row.reportCount > 0 ? colors.redAccent[500] : colors.grey[500],
+                  backgroundColor: params.row.reportCount > 0 ? "#f44336" : "#9e9e9e",
                   color: "#fff",
-                  "&:hover": {
-                    backgroundColor: params.row.reportCount > 0 ? colors.redAccent[700] : colors.grey[700],
-                  },
+                  "&:hover": { backgroundColor: params.row.reportCount > 0 ? "#d32f2f" : "#757575" },
                   padding: "4px 8px",
                   fontSize: "0.75rem",
                   borderRadius: "8px",
@@ -693,45 +738,34 @@ const Publication = () => {
       </Box>
 
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} gap={2}>
-        <Box display="flex" backgroundColor={colors.primary[400]} borderRadius="3px" p={1} width="100%" maxWidth="500px">
+        <Box display="flex" backgroundColor="#424242" borderRadius="3px" p={1} width="100%" maxWidth="500px">
           <InputBase
-            sx={{ ml: 2, flex: 1, color: colors.grey[100] }}
+            sx={{ ml: 2, flex: 1, color: "#fff" }}
             placeholder="Search for a Publication"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
-          <IconButton type="button" sx={{ p: 1, color: colors.grey[100] }}>
+          <IconButton type="button" sx={{ p: 1, color: "#fff" }}>
             <SearchIcon />
           </IconButton>
         </Box>
         <FormControl sx={{ minWidth: 200 }}>
-          <InputLabel sx={{ color: colors.grey[100], "&.Mui-focused": { color: colors.greenAccent[500] } }}>
+          <InputLabel sx={{ color: "#fff", "&.Mui-focused": { color: "#4caf50" } }}>
             Filter by Status
           </InputLabel>
           <Select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             sx={{
-              backgroundColor: colors.primary[400],
-              color: colors.grey[100],
+              backgroundColor: "#424242",
+              color: "#fff",
               borderRadius: "8px",
               height: "48px",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: colors.grey[700],
-              },
-              "&:hover .MuiOutlinedInput-notchedOutline": {
-                borderColor: colors.greenAccent[500],
-              },
-              "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                borderColor: colors.greenAccent[500],
-                boxShadow: `0 0 8px ${colors.greenAccent[500]}`,
-              },
-              "& .MuiSvgIcon-root": {
-                color: colors.grey[100],
-              },
-              "& .MuiSelect-select": {
-                padding: "12px",
-              },
+              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#616161" },
+              "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#4caf50" },
+              "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#4caf50", boxShadow: "0 0 8px #4caf50" },
+              "& .MuiSvgIcon-root": { color: "#fff" },
+              "& .MuiSelect-select": { padding: "12px" },
             }}
           >
             <MenuItem value="all">All Statuses</MenuItem>
@@ -740,33 +774,22 @@ const Publication = () => {
           </Select>
         </FormControl>
         <FormControl sx={{ minWidth: 200 }}>
-          <InputLabel sx={{ color: colors.grey[100], "&.Mui-focused": { color: colors.greenAccent[500] } }}>
+          <InputLabel sx={{ color: "#fff", "&.Mui-focused": { color: "#4caf50" } }}>
             Filter by Author
           </InputLabel>
           <Select
             value={authorFilter}
             onChange={(e) => setAuthorFilter(e.target.value)}
             sx={{
-              backgroundColor: colors.primary[400],
-              color: colors.grey[100],
+              backgroundColor: "#424242",
+              color: "#fff",
               borderRadius: "8px",
               height: "48px",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: colors.grey[700],
-              },
-              "&:hover .MuiOutlinedInput-notchedOutline": {
-                borderColor: colors.greenAccent[500],
-              },
-              "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                borderColor: colors.greenAccent[500],
-                boxShadow: `0 0 8px ${colors.greenAccent[500]}`,
-              },
-              "& .MuiSvgIcon-root": {
-                color: colors.grey[100],
-              },
-              "& .MuiSelect-select": {
-                padding: "12px",
-              },
+              "& .MuiOutlinedInput-notchedOutline": { borderColor: "#616161" },
+              "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#4caf50" },
+              "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#4caf50", boxShadow: "0 0 8px #4caf50" },
+              "& .MuiSvgIcon-root": { color: "#fff" },
+              "& .MuiSelect-select": { padding: "12px" },
             }}
           >
             <MenuItem value="all">All Authors</MenuItem>
@@ -802,11 +825,9 @@ const Publication = () => {
           startIcon={<PictureAsPdfIcon />}
           onClick={generatePDF}
           sx={{
-            backgroundColor: colors.blueAccent[700],
+            backgroundColor: "#1976d2",
             color: "#fff",
-            "&:hover": {
-              backgroundColor: colors.blueAccent[800],
-            },
+            "&:hover": { backgroundColor: "#115293" },
             height: "48px",
             padding: "0 20px",
             borderRadius: "8px",
@@ -826,7 +847,6 @@ const Publication = () => {
         <DataGrid checkboxSelection rows={filteredPublications} columns={columns} />
       </Box>
 
-      {/* Modal pour les Détails */}
       <Dialog
         open={openProfileModal}
         onClose={() => setOpenProfileModal(false)}
@@ -836,7 +856,7 @@ const Publication = () => {
           "& .MuiDialog-paper": {
             borderRadius: "12px",
             boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
-            backgroundColor: colors.primary[400],
+            backgroundColor: "#424242",
             overflow: "hidden",
             transition: "all 0.3s ease-in-out",
           },
@@ -847,10 +867,10 @@ const Publication = () => {
             fontSize: "1.8rem",
             fontWeight: "600",
             textAlign: "center",
-            backgroundColor: colors.blueAccent[700],
+            backgroundColor: "#1976d2",
             color: "#fff",
             padding: "16px 24px",
-            borderBottom: `1px solid ${colors.grey[700]}`,
+            borderBottom: "1px solid #616161",
           }}
         >
           Publication Details
@@ -858,8 +878,8 @@ const Publication = () => {
         <DialogContent
           sx={{
             padding: "24px",
-            backgroundColor: colors.primary[500],
-            color: colors.grey[100],
+            backgroundColor: "#424242",
+            color: "#fff",
           }}
         >
           {selectedPublication ? (
@@ -877,7 +897,7 @@ const Publication = () => {
                 variant="h4"
                 sx={{
                   fontWeight: "bold",
-                  color: colors.greenAccent[400],
+                  color: "#4caf50",
                   marginBottom: "10px",
                   wordWrap: "break-word",
                   maxWidth: "100%",
@@ -908,8 +928,8 @@ const Publication = () => {
                 sx={{
                   fontSize: "1.1rem",
                   lineHeight: "1.6",
-                  color: colors.grey[200],
-                  backgroundColor: colors.primary[600],
+                  color: "#e0e0e0",
+                  backgroundColor: "#616161",
                   padding: "12px 16px",
                   borderRadius: "8px",
                   boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.05)",
@@ -925,20 +945,20 @@ const Publication = () => {
                   fontSize: "1rem",
                   padding: "6px 12px",
                   backgroundColor:
-                    selectedPublication.status === "published" ? colors.greenAccent[500] :
-                    selectedPublication.status === "draft" ? colors.yellowAccent[500] :
-                    selectedPublication.status === "archived" ? colors.redAccent[500] :
-                    colors.blueAccent[500],
+                    selectedPublication.status === "published" ? "#4caf50" :
+                    selectedPublication.status === "draft" ? "#ffca28" :
+                    selectedPublication.status === "archived" ? "#f44336" :
+                    "#1976d2",
                   color: "#fff",
                   fontWeight: "500",
                   borderRadius: "16px",
                 }}
               />
               <Box sx={{ display: "flex", gap: "20px", flexWrap: "wrap", justifyContent: "center" }}>
-                <Typography sx={{ fontSize: "1rem", color: colors.grey[300] }}>
+                <Typography sx={{ fontSize: "1rem", color: "#bdbdbd" }}>
                   <strong>Author:</strong> {selectedPublication.author_id?.username || "Unknown"}
                 </Typography>
-                <Typography sx={{ fontSize: "1rem", color: colors.grey[300] }}>
+                <Typography sx={{ fontSize: "1rem", color: "#bdbdbd" }}>
                   <strong>Date:</strong> {new Date(selectedPublication.datePublication).toLocaleString()}
                 </Typography>
               </Box>
@@ -949,7 +969,7 @@ const Publication = () => {
                       key={index}
                       label={tag}
                       sx={{
-                        backgroundColor: colors.blueAccent[600],
+                        backgroundColor: "#1976d2",
                         color: "#fff",
                         fontSize: "0.9rem",
                         padding: "4px 8px",
@@ -963,8 +983,8 @@ const Publication = () => {
                 <Typography
                   sx={{
                     fontSize: "1rem",
-                    color: colors.greenAccent[300],
-                    backgroundColor: colors.primary[600],
+                    color: "#81c784",
+                    backgroundColor: "#616161",
                     padding: "6px 12px",
                     borderRadius: "8px",
                   }}
@@ -974,8 +994,8 @@ const Publication = () => {
                 <Typography
                   sx={{
                     fontSize: "1rem",
-                    color: colors.redAccent[300],
-                    backgroundColor: colors.primary[600],
+                    color: "#ef5350",
+                    backgroundColor: "#616161",
                     padding: "6px 12px",
                     borderRadius: "8px",
                   }}
@@ -983,10 +1003,10 @@ const Publication = () => {
                   Dislikes: {selectedPublication.dislikeCount || 0}
                 </Typography>
               </Box>
-              <Divider sx={{ width: "80%", borderColor: colors.grey[700], margin: "10px 0" }} />
+              <Divider sx={{ width: "80%", borderColor: "#616161", margin: "10px 0" }} />
             </Box>
           ) : (
-            <Typography sx={{ textAlign: "center", color: colors.grey[300], fontSize: "1.2rem" }}>
+            <Typography sx={{ textAlign: "center", color: "#bdbdbd", fontSize: "1.2rem" }}>
               No publication data available
             </Typography>
           )}
@@ -994,8 +1014,8 @@ const Publication = () => {
         <DialogActions
           sx={{
             padding: "16px 24px",
-            backgroundColor: colors.primary[400],
-            borderTop: `1px solid ${colors.grey[700]}`,
+            backgroundColor: "#424242",
+            borderTop: "1px solid #616161",
           }}
         >
           <Button
@@ -1003,11 +1023,11 @@ const Publication = () => {
             variant="outlined"
             sx={{
               fontSize: "1.1rem",
-              color: colors.grey[100],
-              borderColor: colors.grey[600],
+              color: "#fff",
+              borderColor: "#616161",
               padding: "8px 16px",
               borderRadius: "8px",
-              "&:hover": { backgroundColor: colors.grey[800], borderColor: colors.grey[500] },
+              "&:hover": { backgroundColor: "#616161", borderColor: "#757575" },
             }}
           >
             Close
@@ -1015,7 +1035,6 @@ const Publication = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Modal pour les Commentaires */}
       <Dialog
         open={openCommentsModal}
         onClose={() => setOpenCommentsModal(false)}
@@ -1025,7 +1044,7 @@ const Publication = () => {
           "& .MuiDialog-paper": {
             borderRadius: "12px",
             boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
-            backgroundColor: colors.primary[400],
+            backgroundColor: "#424242",
             overflow: "hidden",
             transition: "all 0.3s ease-in-out",
           },
@@ -1036,10 +1055,10 @@ const Publication = () => {
             fontSize: "1.8rem",
             fontWeight: "600",
             textAlign: "center",
-            backgroundColor: colors.blueAccent[700],
+            backgroundColor: "#1976d2",
             color: "#fff",
             padding: "16px 24px",
-            borderBottom: `1px solid ${colors.grey[700]}`,
+            borderBottom: "1px solid #616161",
           }}
         >
           Comments
@@ -1047,8 +1066,8 @@ const Publication = () => {
         <DialogContent
           sx={{
             padding: "24px",
-            backgroundColor: colors.primary[500],
-            color: colors.grey[100],
+            backgroundColor: "#424242",
+            color: "#fff",
             maxHeight: "60vh",
             overflowY: "auto",
           }}
@@ -1059,7 +1078,7 @@ const Publication = () => {
                 <Box
                   key={comment._id}
                   sx={{
-                    backgroundColor: colors.primary[600],
+                    backgroundColor: "#616161",
                     padding: "16px",
                     borderRadius: "8px",
                     boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
@@ -1071,7 +1090,7 @@ const Publication = () => {
                       alt={comment.auteur_id?.username}
                       sx={{ width: 40, height: 40 }}
                     />
-                    <Typography sx={{ fontWeight: "bold", color: colors.grey[100] }}>
+                    <Typography sx={{ fontWeight: "bold", color: "#fff" }}>
                       {comment.auteur_id?.username || "Unknown"}
                     </Typography>
                     <Tooltip title={`Voir les signalements (${comment.reportCount || 0})`}>
@@ -1097,11 +1116,9 @@ const Publication = () => {
                           startIcon={<ReportIcon />}
                           onClick={() => handleViewCommentReports(comment)}
                           sx={{
-                            backgroundColor: comment.reportCount > 0 ? colors.redAccent[500] : colors.grey[500],
+                            backgroundColor: comment.reportCount > 0 ? "#f44336" : "#9e9e9e",
                             color: "#fff",
-                            "&:hover": {
-                              backgroundColor: comment.reportCount > 0 ? colors.redAccent[700] : colors.grey[700],
-                            },
+                            "&:hover": { backgroundColor: comment.reportCount > 0 ? "#d32f2f" : "#757575" },
                             padding: "4px 8px",
                             fontSize: "0.75rem",
                             borderRadius: "8px",
@@ -1111,33 +1128,40 @@ const Publication = () => {
                         </Button>
                       </Badge>
                     </Tooltip>
-                    { ( // Afficher l'icône de suppression uniquement pour les admins
-                      <Tooltip title="Delete the comment">
-                        <IconButton
-                          onClick={() => handleOpenDeleteConfirm(comment._id)}
-                          sx={{
-                            color: colors.redAccent[500],
-                            "&:hover": {
-                              color: colors.redAccent[700],
-                            },
-                          }}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    )}
+                    <Tooltip title="Delete the comment">
+                      <IconButton
+                        onClick={() => handleOpenDeleteConfirm(comment._id)}
+                        sx={{
+                          color: "#f44336",
+                          "&:hover": { color: "#d32f2f" },
+                        }}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Ban this user">
+                      <IconButton
+                        onClick={() => handleOpenBanModal(comment.auteur_id._id)}
+                        sx={{
+                          color: "#ff9800",
+                          "&:hover": { color: "#f57c00" },
+                        }}
+                      >
+                        <BlockIcon />
+                      </IconButton>
+                    </Tooltip>
                   </Box>
-                  <Typography sx={{ fontSize: "1rem", color: colors.grey[200] }}>
+                  <Typography sx={{ fontSize: "1rem", color: "#e0e0e0" }}>
                     {comment.contenu}
                   </Typography>
-                  <Typography sx={{ fontSize: "0.9rem", color: colors.grey[400], mt: "8px" }}>
+                  <Typography sx={{ fontSize: "0.9rem", color: "#9e9e9e", mt: "8px" }}>
                     {new Date(comment.dateCreation).toLocaleString()}
                   </Typography>
                 </Box>
               ))}
             </Box>
           ) : (
-            <Typography sx={{ textAlign: "center", color: colors.grey[300], fontSize: "1.2rem" }}>
+            <Typography sx={{ textAlign: "center", color: "#bdbdbd", fontSize: "1.2rem" }}>
               No comments available for this publication.
             </Typography>
           )}
@@ -1145,8 +1169,8 @@ const Publication = () => {
         <DialogActions
           sx={{
             padding: "16px 24px",
-            backgroundColor: colors.primary[400],
-            borderTop: `1px solid ${colors.grey[700]}`,
+            backgroundColor: "#424242",
+            borderTop: "1px solid #616161",
           }}
         >
           <Button
@@ -1154,11 +1178,11 @@ const Publication = () => {
             variant="outlined"
             sx={{
               fontSize: "1.1rem",
-              color: colors.grey[100],
-              borderColor: colors.grey[600],
+              color: "#fff",
+              borderColor: "#616161",
               padding: "8px 16px",
               borderRadius: "8px",
-              "&:hover": { backgroundColor: colors.grey[800], borderColor: colors.grey[500] },
+              "&:hover": { backgroundColor: "#616161", borderColor: "#757575" },
             }}
           >
             Close
@@ -1166,7 +1190,6 @@ const Publication = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Modal de Confirmation de Suppression */}
       <Dialog
         open={openDeleteConfirmModal}
         onClose={handleCloseDeleteConfirm}
@@ -1176,7 +1199,7 @@ const Publication = () => {
           "& .MuiDialog-paper": {
             borderRadius: "12px",
             boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
-            backgroundColor: colors.primary[400],
+            backgroundColor: "#424242",
             overflow: "hidden",
             transition: "all 0.3s ease-in-out",
           },
@@ -1187,10 +1210,10 @@ const Publication = () => {
             fontSize: "1.5rem",
             fontWeight: "600",
             textAlign: "center",
-            backgroundColor: colors.redAccent[700],
+            backgroundColor: "#f44336",
             color: "#fff",
             padding: "16px 24px",
-            borderBottom: `1px solid ${colors.grey[700]}`,
+            borderBottom: "1px solid #616161",
           }}
         >
           Confirmer la Suppression
@@ -1198,19 +1221,19 @@ const Publication = () => {
         <DialogContent
           sx={{
             padding: "24px",
-            backgroundColor: colors.primary[500],
-            color: colors.grey[100],
+            backgroundColor: "#424242",
+            color: "#fff",
           }}
         >
           <Typography sx={{ fontSize: "1.2rem", textAlign: "center" }}>
-          Are you sure you want to delete this comment? This action is irreversible
+            Are you sure you want to delete this comment? This action is irreversible
           </Typography>
         </DialogContent>
         <DialogActions
           sx={{
             padding: "16px 24px",
-            backgroundColor: colors.primary[400],
-            borderTop: `1px solid ${colors.grey[700]}`,
+            backgroundColor: "#424242",
+            borderTop: "1px solid #616161",
             display: "flex",
             justifyContent: "space-between",
           }}
@@ -1220,11 +1243,11 @@ const Publication = () => {
             variant="outlined"
             sx={{
               fontSize: "1.1rem",
-              color: colors.grey[100],
-              borderColor: colors.grey[600],
+              color: "#fff",
+              borderColor: "#616161",
               padding: "8px 16px",
               borderRadius: "8px",
-              "&:hover": { backgroundColor: colors.grey[800], borderColor: colors.grey[500] },
+              "&:hover": { backgroundColor: "#616161", borderColor: "#757575" },
             }}
           >
             Cancel
@@ -1234,11 +1257,11 @@ const Publication = () => {
             variant="contained"
             sx={{
               fontSize: "1.1rem",
-              backgroundColor: colors.redAccent[500],
+              backgroundColor: "#f44336",
               color: "#fff",
               padding: "8px 16px",
               borderRadius: "8px",
-              "&:hover": { backgroundColor: colors.redAccent[700] },
+              "&:hover": { backgroundColor: "#d32f2f" },
             }}
           >
             Delete
@@ -1246,7 +1269,6 @@ const Publication = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Modal pour les Signalements de Publication */}
       <Dialog
         open={openReportsModal}
         onClose={() => setOpenReportsModal(false)}
@@ -1256,7 +1278,7 @@ const Publication = () => {
           "& .MuiDialog-paper": {
             borderRadius: "12px",
             boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
-            backgroundColor: colors.primary[400],
+            backgroundColor: "#424242",
             overflow: "hidden",
             transition: "all 0.3s ease-in-out",
           },
@@ -1267,10 +1289,10 @@ const Publication = () => {
             fontSize: "1.8rem",
             fontWeight: "600",
             textAlign: "center",
-            backgroundColor: colors.redAccent[700],
+            backgroundColor: "#f44336",
             color: "#fff",
             padding: "16px 24px",
-            borderBottom: `1px solid ${colors.grey[700]}`,
+            borderBottom: "1px solid #616161",
           }}
         >
           Reports
@@ -1278,8 +1300,8 @@ const Publication = () => {
         <DialogContent
           sx={{
             padding: "24px",
-            backgroundColor: colors.primary[500],
-            color: colors.grey[100],
+            backgroundColor: "#424242",
+            color: "#fff",
             maxHeight: "60vh",
             overflowY: "auto",
           }}
@@ -1290,7 +1312,7 @@ const Publication = () => {
                 <Box
                   key={report._id}
                   sx={{
-                    backgroundColor: colors.primary[600],
+                    backgroundColor: "#616161",
                     padding: "16px",
                     borderRadius: "8px",
                     boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
@@ -1302,26 +1324,26 @@ const Publication = () => {
                       alt={report.userId?.username}
                       sx={{ width: 40, height: 40 }}
                     />
-                    <Typography sx={{ fontWeight: "bold", color: colors.grey[100] }}>
+                    <Typography sx={{ fontWeight: "bold", color: "#fff" }}>
                       {report.userId?.username || "Unknown"}
                     </Typography>
                   </Box>
-                  <Typography sx={{ fontSize: "1rem", color: colors.grey[200] }}>
+                  <Typography sx={{ fontSize: "1rem", color: "#e0e0e0" }}>
                     <strong>Reason:</strong> {report.reason}
                   </Typography>
                   {report.customReason && (
-                    <Typography sx={{ fontSize: "1rem", color: colors.grey[200], mt: "8px" }}>
+                    <Typography sx={{ fontSize: "1rem", color: "#e0e0e0", mt: "8px" }}>
                       <strong>Details:</strong> {report.customReason}
                     </Typography>
                   )}
-                  <Typography sx={{ fontSize: "0.9rem", color: colors.grey[400], mt: "8px" }}>
+                  <Typography sx={{ fontSize: "0.9rem", color: "#9e9e9e", mt: "8px" }}>
                     Reported on: {new Date(report.dateReported).toLocaleString()}
                   </Typography>
                 </Box>
               ))}
             </Box>
           ) : (
-            <Typography sx={{ textAlign: "center", color: colors.grey[300], fontSize: "1.2rem" }}>
+            <Typography sx={{ textAlign: "center", color: "#bdbdbd", fontSize: "1.2rem" }}>
               No reports available for this publication.
             </Typography>
           )}
@@ -1329,8 +1351,8 @@ const Publication = () => {
         <DialogActions
           sx={{
             padding: "16px 24px",
-            backgroundColor: colors.primary[400],
-            borderTop: `1px solid ${colors.grey[700]}`,
+            backgroundColor: "#424242",
+            borderTop: "1px solid #616161",
           }}
         >
           <Button
@@ -1338,11 +1360,11 @@ const Publication = () => {
             variant="outlined"
             sx={{
               fontSize: "1.1rem",
-              color: colors.grey[100],
-              borderColor: colors.grey[600],
+              color: "#fff",
+              borderColor: "#616161",
               padding: "8px 16px",
               borderRadius: "8px",
-              "&:hover": { backgroundColor: colors.grey[800], borderColor: colors.grey[500] },
+              "&:hover": { backgroundColor: "#616161", borderColor: "#757575" },
             }}
           >
             Close
@@ -1350,7 +1372,6 @@ const Publication = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Modal pour les Signalements de Commentaire */}
       <Dialog
         open={openCommentReportsModal}
         onClose={() => setOpenCommentReportsModal(false)}
@@ -1360,7 +1381,7 @@ const Publication = () => {
           "& .MuiDialog-paper": {
             borderRadius: "12px",
             boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
-            backgroundColor: colors.primary[400],
+            backgroundColor: "#424242",
             overflow: "hidden",
             transition: "all 0.3s ease-in-out",
           },
@@ -1371,10 +1392,10 @@ const Publication = () => {
             fontSize: "1.8rem",
             fontWeight: "600",
             textAlign: "center",
-            backgroundColor: colors.redAccent[700],
+            backgroundColor: "#f44336",
             color: "#fff",
             padding: "16px 24px",
-            borderBottom: `1px solid ${colors.grey[700]}`,
+            borderBottom: "1px solid #616161",
           }}
         >
           Comment Reports
@@ -1382,8 +1403,8 @@ const Publication = () => {
         <DialogContent
           sx={{
             padding: "24px",
-            backgroundColor: colors.primary[500],
-            color: colors.grey[100],
+            backgroundColor: "#424242",
+            color: "#fff",
             maxHeight: "60vh",
             overflowY: "auto",
           }}
@@ -1394,7 +1415,7 @@ const Publication = () => {
                 <Box
                   key={report._id}
                   sx={{
-                    backgroundColor: colors.primary[600],
+                    backgroundColor: "#616161",
                     padding: "16px",
                     borderRadius: "8px",
                     boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
@@ -1406,26 +1427,26 @@ const Publication = () => {
                       alt={report.userId?.username}
                       sx={{ width: 40, height: 40 }}
                     />
-                    <Typography sx={{ fontWeight: "bold", color: colors.grey[100] }}>
+                    <Typography sx={{ fontWeight: "bold", color: "#fff" }}>
                       {report.userId?.username || "Unknown"}
                     </Typography>
                   </Box>
-                  <Typography sx={{ fontSize: "1rem", color: colors.grey[200] }}>
+                  <Typography sx={{ fontSize: "1rem", color: "#e0e0e0" }}>
                     <strong>Reason:</strong> {report.reason}
                   </Typography>
                   {report.customReason && (
-                    <Typography sx={{ fontSize: "1rem", color: colors.grey[200], mt: "8px" }}>
+                    <Typography sx={{ fontSize: "1rem", color: "#e0e0e0", mt: "8px" }}>
                       <strong>Details:</strong> {report.customReason}
                     </Typography>
                   )}
-                  <Typography sx={{ fontSize: "0.9rem", color: colors.grey[400], mt: "8px" }}>
+                  <Typography sx={{ fontSize: "0.9rem", color: "#9e9e9e", mt: "8px" }}>
                     Reported on: {new Date(report.dateReported).toLocaleString()}
                   </Typography>
                 </Box>
               ))}
             </Box>
           ) : (
-            <Typography sx={{ textAlign: "center", color: colors.grey[300], fontSize: "1.2rem" }}>
+            <Typography sx={{ textAlign: "center", color: "#bdbdbd", fontSize: "1.2rem" }}>
               No reports available for this comment.
             </Typography>
           )}
@@ -1433,8 +1454,8 @@ const Publication = () => {
         <DialogActions
           sx={{
             padding: "16px 24px",
-            backgroundColor: colors.primary[400],
-            borderTop: `1px solid ${colors.grey[700]}`,
+            backgroundColor: "#424242",
+            borderTop: "1px solid #616161",
           }}
         >
           <Button
@@ -1442,11 +1463,11 @@ const Publication = () => {
             variant="outlined"
             sx={{
               fontSize: "1.1rem",
-              color: colors.grey[100],
-              borderColor: colors.grey[600],
+              color: "#fff",
+              borderColor: "#616161",
               padding: "8px 16px",
               borderRadius: "8px",
-              "&:hover": { backgroundColor: colors.grey[800], borderColor: colors.grey[500] },
+              "&:hover": { backgroundColor: "#616161", borderColor: "#757575" },
             }}
           >
             Close
@@ -1454,7 +1475,6 @@ const Publication = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Modal pour les Notifications */}
       <Dialog
         open={openNotificationsModal}
         onClose={handleCloseNotifications}
@@ -1464,7 +1484,7 @@ const Publication = () => {
           "& .MuiDialog-paper": {
             borderRadius: "12px",
             boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
-            backgroundColor: colors.primary[400],
+            backgroundColor: "#424242",
             overflow: "hidden",
             transition: "all 0.3s ease-in-out",
           },
@@ -1475,10 +1495,10 @@ const Publication = () => {
             fontSize: "1.5rem",
             fontWeight: "600",
             textAlign: "center",
-            backgroundColor: colors.blueAccent[700],
+            backgroundColor: "#1976d2",
             color: "#fff",
             padding: "16px 24px",
-            borderBottom: `1px solid ${colors.grey[700]}`,
+            borderBottom: "1px solid #616161",
           }}
         >
           Notifications de Signalements
@@ -1486,8 +1506,8 @@ const Publication = () => {
         <DialogContent
           sx={{
             padding: "24px",
-            backgroundColor: colors.primary[500],
-            color: colors.grey[100],
+            backgroundColor: "#424242",
+            color: "#fff",
             maxHeight: "50vh",
             overflowY: "auto",
           }}
@@ -1500,19 +1520,17 @@ const Publication = () => {
                   button
                   onClick={() => handleViewReportedPublication(pub)}
                   sx={{
-                    backgroundColor: colors.primary[600],
+                    backgroundColor: "#616161",
                     borderRadius: "8px",
                     mb: "8px",
-                    "&:hover": {
-                      backgroundColor: colors.primary[700],
-                    },
+                    "&:hover": { backgroundColor: "#757575" },
                   }}
                 >
                   <ListItemText
                     primary={stripHtmlTags(pub.titrePublication)}
                     secondary={`Publication signalée ${pub.reportCount} fois`}
-                    primaryTypographyProps={{ color: colors.grey[100], fontWeight: "bold" }}
-                    secondaryTypographyProps={{ color: colors.grey[300] }}
+                    primaryTypographyProps={{ color: "#fff", fontWeight: "bold" }}
+                    secondaryTypographyProps={{ color: "#bdbdbd" }}
                   />
                 </ListItem>
               ))}
@@ -1522,25 +1540,23 @@ const Publication = () => {
                   button
                   onClick={() => handleViewReportedComment(comment)}
                   sx={{
-                    backgroundColor: colors.primary[600],
+                    backgroundColor: "#616161",
                     borderRadius: "8px",
                     mb: "8px",
-                    "&:hover": {
-                      backgroundColor: colors.primary[700],
-                    },
+                    "&:hover": { backgroundColor: "#757575" },
                   }}
                 >
                   <ListItemText
                     primary={`Commentaire de ${comment.auteur_id?.username || "Unknown"}`}
                     secondary={`Signalé ${comment.reportCount} fois`}
-                    primaryTypographyProps={{ color: colors.grey[100], fontWeight: "bold" }}
-                    secondaryTypographyProps={{ color: colors.grey[300] }}
+                    primaryTypographyProps={{ color: "#fff", fontWeight: "bold" }}
+                    secondaryTypographyProps={{ color: "#bdbdbd" }}
                   />
                 </ListItem>
               ))}
             </List>
           ) : (
-            <Typography sx={{ textAlign: "center", color: colors.grey[300], fontSize: "1.2rem" }}>
+            <Typography sx={{ textAlign: "center", color: "#bdbdbd", fontSize: "1.2rem" }}>
               Aucune publication ou commentaire signalé pour le moment.
             </Typography>
           )}
@@ -1548,8 +1564,8 @@ const Publication = () => {
         <DialogActions
           sx={{
             padding: "16px 24px",
-            backgroundColor: colors.primary[400],
-            borderTop: `1px solid ${colors.grey[700]}`,
+            backgroundColor: "#424242",
+            borderTop: "1px solid #616161",
           }}
         >
           <Button
@@ -1557,11 +1573,11 @@ const Publication = () => {
             variant="outlined"
             sx={{
               fontSize: "1.1rem",
-              color: colors.grey[100],
-              borderColor: colors.grey[600],
+              color: "#fff",
+              borderColor: "#616161",
               padding: "8px 16px",
               borderRadius: "8px",
-              "&:hover": { backgroundColor: colors.grey[800], borderColor: colors.grey[500] },
+              "&:hover": { backgroundColor: "#616161", borderColor: "#757575" },
             }}
           >
             Fermer
@@ -1569,7 +1585,144 @@ const Publication = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Modal Ajouter/Modifier */}
+      <Dialog
+        open={openBanModal}
+        onClose={handleCloseBanModal}
+        maxWidth="sm"
+        fullWidth
+        sx={{
+          "& .MuiDialog-paper": {
+            borderRadius: "12px",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+            backgroundColor: "#424242",
+            overflow: "hidden",
+            transition: "all 0.3s ease-in-out",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontSize: "1.5rem",
+            fontWeight: "600",
+            textAlign: "center",
+            backgroundColor: "#ff9800",
+            color: "#fff",
+            padding: "16px 24px",
+            borderBottom: "1px solid #616161",
+          }}
+        >
+          Bannir un Utilisateur
+        </DialogTitle>
+        <DialogContent
+          sx={{
+            padding: "24px",
+            backgroundColor: "#424242",
+            color: "#fff",
+          }}
+        >
+          <FormControl fullWidth margin="dense">
+            <InputLabel sx={{ color: "#fff" }}>Nombre de jours</InputLabel>
+            <Select
+              name="days"
+              value={banData.days}
+              onChange={handleBanChange}
+              sx={{
+                color: "#fff",
+                "& .MuiOutlinedInput-notchedOutline": { borderColor: "#616161" },
+                "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#ff9800" },
+                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#ff9800" },
+              }}
+            >
+              <MenuItem value="1">1 jour</MenuItem>
+              <MenuItem value="7">7 jours</MenuItem>
+              <MenuItem value="30">30 jours</MenuItem>
+              <MenuItem value="90">90 jours</MenuItem>
+              <MenuItem value="365">365 jours</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl fullWidth margin="dense">
+            <InputLabel sx={{ color: "#fff" }}>Raison</InputLabel>
+            <Select
+              name="reason"
+              value={banData.reason}
+              onChange={handleBanChange}
+              sx={{
+                color: "#fff",
+                "& .MuiOutlinedInput-notchedOutline": { borderColor: "#616161" },
+                "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#ff9800" },
+                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#ff9800" },
+              }}
+            >
+              <MenuItem value="inappropriate_content">Contenu inapproprié</MenuItem>
+              <MenuItem value="spam">Spam</MenuItem>
+              <MenuItem value="harassment">Harcèlement</MenuItem>
+              <MenuItem value="offensive_language">Langage offensant</MenuItem>
+              <MenuItem value="misinformation">Désinformation</MenuItem>
+              <MenuItem value="other">Autre</MenuItem>
+            </Select>
+          </FormControl>
+          {banData.reason === "other" && (
+            <TextField
+              fullWidth
+              margin="dense"
+              label="Raison personnalisée"
+              name="customReason"
+              value={banData.customReason}
+              onChange={handleBanChange}
+              multiline
+              rows={2}
+              sx={{
+                "& .MuiInputLabel-root": { color: "#fff" },
+                "& .MuiOutlinedInput-root": {
+                  color: "#fff",
+                  "& fieldset": { borderColor: "#616161" },
+                  "&:hover fieldset": { borderColor: "#ff9800" },
+                  "&.Mui-focused fieldset": { borderColor: "#ff9800" },
+                },
+              }}
+            />
+          )}
+        </DialogContent>
+        <DialogActions
+          sx={{
+            padding: "16px 24px",
+            backgroundColor: "#424242",
+            borderTop: "1px solid #616161",
+            display: "flex",
+            justifyContent: "space-between",
+          }}
+        >
+          <Button
+            onClick={handleCloseBanModal}
+            variant="outlined"
+            sx={{
+              fontSize: "1.1rem",
+              color: "#fff",
+              borderColor: "#616161",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              "&:hover": { backgroundColor: "#616161", borderColor: "#757575" },
+            }}
+          >
+            Annuler
+          </Button>
+          <Button
+            onClick={handleBanUser}
+            variant="contained"
+            sx={{
+              fontSize: "1.1rem",
+              backgroundColor: "#ff9800",
+              color: "#fff",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              "&:hover": { backgroundColor: "#f57c00" },
+            }}
+          >
+            Bannir
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={open} onClose={handleClose}>
         <DialogTitle>{formData.id ? "Update Publication" : "Add Publication"}</DialogTitle>
         <DialogContent>
@@ -1623,7 +1776,6 @@ const Publication = () => {
 
 export default Publication;
 
-// Animation CSS pour l'effet fade-in et le badge
 const styles = `
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }

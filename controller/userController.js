@@ -23,8 +23,8 @@ dotenv.config();
 
 // JWT config
 const maxAge = 1 * 60 * 60; // 1 heure
-const createtoken = (id, role) => {
-    return jwt.sign({ id, role }, 'randa', { expiresIn: maxAge });
+const createtoken = (id, role,username) => {
+    return jwt.sign({ id, role, username }, 'randa', { expiresIn: maxAge });
 };
 
 // Middleware pour vérifier le token JWT
@@ -105,7 +105,7 @@ module.exports.login = async (req, res) => {
             return res.status(401).json({ message: "Password or Email incorrect" });
         }
 
-        const token = createtoken(user._id, user.role);
+        const token = createtoken(user._id, user.role,user.username);
         res.status(200).json({ user, token });
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -722,17 +722,110 @@ module.exports.updatePublication = (req, res) => {
 };
 
 
-// Ajouter un commentaire
+//ban
+module.exports.banUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { days, reason, customReason } = req.body;
+
+        // Vérification des permissions
+        if (req.userRole !== "admin" && req.userRole !== "psychiatrist") {
+            return res.status(403).json({ message: "Permission refusée" });
+        }
+
+        // Validation des champs requis
+        if (!userId || !days || !reason) {
+            return res.status(400).json({ message: "L'ID utilisateur, le nombre de jours et la raison sont requis" });
+        }
+
+        if (reason === "other" && !customReason) {
+            return res.status(400).json({ message: "Une raison personnalisée est requise pour 'other'" });
+        }
+
+        // Trouver l'utilisateur
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "Utilisateur non trouvé" });
+        }
+
+        // Calculer la date d'expiration du bannissement
+        const daysInt = parseInt(days);
+        if (isNaN(daysInt) || daysInt <= 0) {
+            return res.status(400).json({ message: "Le nombre de jours doit être un entier positif" });
+        }
+
+        const banExpiration = new Date();
+        banExpiration.setDate(banExpiration.getDate() + daysInt);
+
+        // Déterminer la raison finale
+        const finalReason = reason === "other" && customReason ? customReason : reason;
+
+        // Mettre à jour l'utilisateur
+        user.isBanned = true;
+        user.banExpiration = banExpiration;
+        user.banReason = finalReason;
+
+        const updatedUser = await user.save();
+
+        // Envoyer un email à l'utilisateur banni
+        const subject = "Vous avez été banni d'EspritCare";
+        const htmlContent = `
+            <h2>Notification de bannissement</h2>
+            <p>Bonjour ${user.username},</p>
+            <p>Votre compte sur EspritCare a été banni pour la raison suivante :</p>
+            <ul>
+                <li><strong>Raison :</strong> ${finalReason}</li>
+                <li><strong>Durée :</strong> ${daysInt} jour${daysInt > 1 ? 's' : ''}</li>
+                <li><strong>Expiration :</strong> ${banExpiration.toLocaleString()}</li>
+            </ul>
+            <p>Si vous pensez qu'il s'agit d'une erreur, veuillez contacter notre support à support@espritcare.com.</p>
+            <p>Cordialement,<br>L'équipe EspritCare</p>
+        `;
+
+        try {
+            await sendEmail(user.email, subject, htmlContent);
+            console.log(`Email de bannissement envoyé à ${user.email}`);
+        } catch (emailErr) {
+            console.error(`Erreur lors de l'envoi de l'email à ${user.email} :`, emailErr);
+            // Ne pas bloquer la réponse en cas d'échec d'email
+        }
+
+        // Réponse au client
+        res.status(200).json({
+            message: "Utilisateur banni avec succès",
+            user: {
+                _id: updatedUser._id,
+                username: updatedUser.username,
+                isBanned: updatedUser.isBanned,
+                banExpiration: updatedUser.banExpiration,
+                banReason: updatedUser.banReason,
+            },
+        });
+    } catch (err) {
+        console.error("Erreur lors du bannissement de l'utilisateur:", err);
+        res.status(500).json({ message: "Erreur serveur", error: err.message });
+    }
+};
+
+// Vérifier le statut de bannissement avant d'ajouter un commentaire
 module.exports.addCommentaire = async (req, res) => {
     try {
         const token = req.headers.authorization.split(' ')[1];
         const decoded = jwt.verify(token, 'randa');
         const userId = decoded.id;
 
+        // Vérifier si l'utilisateur est banni
+        const user = await User.findById(userId);
+        if (user.isBanned && user.banExpiration && new Date() < user.banExpiration) {
+            return res.status(403).json({
+                message: `Vous êtes banni jusqu'au ${user.banExpiration.toLocaleString()} pour la raison suivante : ${user.banReason}`,
+            });
+        }
+
         const { contenu, publication_id, isAnonymous } = req.body;
 
         if (!contenu || !publication_id) {
-            return res.status(400).json({ message: 'Le contenu et l\'ID de la publication sont requis' });
+            return res.status(400).json({ message: "Le contenu et l'ID de la publication sont requis" });
         }
 
         const commentaire = new Commentaire({
@@ -750,20 +843,20 @@ module.exports.addCommentaire = async (req, res) => {
             ? {
                 ...populatedCommentaire.toObject(),
                 auteur_id: {
-                    _id: populatedCommentaire.auteur_id._id, // Conserver l'_id
+                    _id: populatedCommentaire.auteur_id._id,
                     username: 'Anonyme',
-                    user_photo: null
-                }
+                    user_photo: null,
+                },
             }
             : populatedCommentaire;
 
-        res.status(201).json({ 
-            message: 'Commentaire ajouté avec succès', 
-            commentaire: responseCommentaire 
+        res.status(201).json({
+            message: "Commentaire ajouté avec succès",
+            commentaire: responseCommentaire,
         });
     } catch (error) {
-        console.error('Erreur lors de l\'ajout du commentaire:', error);
-        res.status(500).json({ message: 'Erreur serveur', error: error.message });
+        console.error("Erreur lors de l'ajout du commentaire:", error);
+        res.status(500).json({ message: "Erreur serveur", error: error.message });
     }
 };
 
@@ -1820,118 +1913,200 @@ module.exports.deleteAvailability = async (req, res) => {
 
   
   module.exports.bookappointment = async (req, res) => {
-      const { psychiatristId, day, startTime, endTime } = req.body; // Changed from "date" to "day"
-      const studentId = req.userId; // Changed from req.user.id to req.userId
-  
-      console.log('Requête reçue:', { psychiatristId, day, startTime, endTime, studentId }); // Débogage
-  
-      try {
-          // Vérifier si les champs obligatoires sont présents
-          if (!psychiatristId || !day || !startTime || !endTime) {
-              return res.status(400).json({ message: 'Tous les champs (psychiatristId, day, startTime, endTime) sont requis' });
-          }
-  
-          const psychiatrist = await User.findById(psychiatristId);
-          if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
-              return res.status(404).json({ message: "Psychiatrist not found" });
-          }
-  
-          console.log('Disponibilités du psychiatre:', psychiatrist.availability); // Débogage
-  
-          // Vérifier si le créneau est disponible
-          const isAvailable = psychiatrist.availability.some(slot =>
-              slot.day === day &&
-              slot.startTime === startTime &&
-              slot.endTime === endTime
-          );
-          if (!isAvailable) {
-              return res.status(400).json({ message: "This slot is not available" });
-          }
-  
-          // Vérifier s'il existe déjà une réservation pour ce créneau (éviter les doublons globaux)
-          const existingAppointment = await Appointment.findOne({
-              psychiatrist: psychiatristId,
-              day,
-              startTime,
-              endTime,
-          });
-          if (existingAppointment) {
-              return res.status(400).json({ message: 'This slot is already booked by another user.' });
-          }
-  
-          // Créer une nouvelle réservation
-          const appointment = new Appointment({
-              psychiatrist: psychiatristId,
-              student: studentId,
-              date: new Date().toISOString().split('T')[0], // Date par défaut si nécessaire
-              startTime,
-              endTime,
-          });
-          await appointment.save();
-  
-          // Mettre à jour la disponibilité du psychiatre en supprimant le créneau réservé
-          await User.updateOne(
-              { _id: psychiatristId },
-              {
-                  $pull: {
-                      availability: {
-                          day,
-                          startTime,
-                          endTime,
-                      },
-                  },
-              }
-          );
-  
-          res.status(201).json({ message: "Appointment booked successfully", appointment });
-      } catch (error) {
-          console.error('Erreur dans bookAppointment:', error);
-          res.status(500).json({ message: "Server error", error: error.message });
-      }
-  };
+    const { psychiatristId, day, startTime, endTime } = req.body;
+    const studentId = req.userId;
 
+    console.log('Requête reçue:', { psychiatristId, day, startTime, endTime, studentId });
 
+    try {
+        // Vérifier si les champs obligatoires sont présents
+        if (!psychiatristId || !day || !startTime || !endTime) {
+            return res.status(400).json({ message: 'Tous les champs (psychiatristId, day, startTime, endTime) sont requis' });
+        }
+
+        const psychiatrist = await User.findById(psychiatristId);
+        if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
+            return res.status(404).json({ message: "Psychiatrist not found" });
+        }
+
+        console.log('Disponibilités du psychiatre:', psychiatrist.availability);
+
+        // Convertir les temps en minutes pour comparaison
+        const requestedStartMinutes = parseInt(startTime.split(':')[0]) * 60 + parseInt(startTime.split(':')[1]);
+        const requestedEndMinutes = parseInt(endTime.split(':')[0]) * 60 + parseInt(endTime.split(':')[1]);
+
+        // Vérifier si le créneau demandé est inclus dans une disponibilité existante
+        const availabilitySlotIndex = psychiatrist.availability.findIndex(slot => {
+            if (slot.day !== day) return false;
+            const slotStartMinutes = parseInt(slot.startTime.split(':')[0]) * 60 + parseInt(slot.startTime.split(':')[1]);
+            const slotEndMinutes = parseInt(slot.endTime.split(':')[0]) * 60 + parseInt(slot.endTime.split(':')[1]);
+            return requestedStartMinutes >= slotStartMinutes && requestedEndMinutes <= slotEndMinutes;
+        });
+
+        if (availabilitySlotIndex === -1) {
+            return res.status(400).json({ message: "This slot is not available" });
+        }
+
+        // Vérifier s'il existe déjà une réservation pour ce créneau
+        const existingAppointment = await Appointment.findOne({
+            psychiatrist: psychiatristId,
+            date: new Date().toISOString().split('T')[0], // Adjust date logic if needed
+            startTime,
+            endTime,
+        });
+        if (existingAppointment) {
+            return res.status(400).json({ message: 'This slot is already booked by another user.' });
+        }
+
+        // Créer une nouvelle réservation
+        const appointment = new Appointment({
+            psychiatrist: psychiatristId,
+            student: studentId,
+            date: new Date().toISOString().split('T')[0], // Use current date or adjust based on your logic
+            startTime,
+            endTime,
+        });
+        await appointment.save();
+
+        // Ajuster la disponibilité du psychiatre
+        const availabilitySlot = psychiatrist.availability[availabilitySlotIndex];
+        const slotStartMinutes = parseInt(availabilitySlot.startTime.split(':')[0]) * 60 + parseInt(availabilitySlot.startTime.split(':')[1]);
+        const slotEndMinutes = parseInt(availabilitySlot.endTime.split(':')[0]) * 60 + parseInt(availabilitySlot.endTime.split(':')[1]);
+
+        // Supprimer l'ancien créneau
+        psychiatrist.availability.splice(availabilitySlotIndex, 1);
+
+        // Ajouter les créneaux restants si nécessaire
+        if (slotStartMinutes < requestedStartMinutes) {
+            psychiatrist.availability.push({
+                day,
+                startTime: availabilitySlot.startTime,
+                endTime: startTime,
+                date: availabilitySlot.date,
+                title: availabilitySlot.title,
+            });
+        }
+        if (requestedEndMinutes < slotEndMinutes) {
+            psychiatrist.availability.push({
+                day,
+                startTime: endTime,
+                endTime: availabilitySlot.endTime,
+                date: availabilitySlot.date,
+                title: availabilitySlot.title,
+            });
+        }
+
+        // Sauvegarder les modifications
+        await psychiatrist.save();
+
+        res.status(201).json({
+            message: "Appointment booked successfully",
+            appointment,
+            updatedAvailability: psychiatrist.availability, // Retourner les nouvelles disponibilités
+        });
+    } catch (error) {
+        console.error('Erreur dans bookAppointment:', error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
 
 // Récupérer l'historique des rendez-vous pour un étudiant
 module.exports.getAppointmentHistory = async (req, res) => {
     try {
-        const userId = req.userId; // ID de l'utilisateur connecté, défini par verifyToken
+        // Ensure req.userId and req.userRole are set by verifyToken
+        if (!req.userId || !req.userRole) {
+            console.error('Missing userId or userRole:', { userId: req.userId, userRole: req.userRole });
+            return res.status(401).json({ message: 'User authentication failed' });
+        }
 
-        // Récupérer l'utilisateur pour vérifier son rôle
-        const user = await User.findById(userId);
+        const userId = req.userId;
+        const userRole = req.userRole;
+        console.log('User ID:', userId, 'Role:', userRole); // Debug
+
+        // Fetch user
+        let user;
+        try {
+            user = await User.findById(userId);
+            console.log('Fetched User:', user); // Debug
+        } catch (err) {
+            console.error('Error fetching user:', err);
+            return res.status(500).json({ message: 'Error querying user database', error: err.message });
+        }
         if (!user) {
-            return res.status(404).json({ message: "Utilisateur non trouvé" });
+            return res.status(404).json({ message: 'User not found' });
         }
 
-        let appointments;
-        if (user.role === "student") {
-            // Pour un étudiant, récupérer les rendez-vous où il est le student
-            appointments = await Appointment.find({ student: userId })
-                .populate('psychiatrist', 'username email')
-                .sort({ date: -1 })
-                .exec();
-        } else if (user.role === "psychiatrist") {
-            // Pour un psychiatre, récupérer les rendez-vous où il est le psychiatrist
-            appointments = await Appointment.find({ psychiatrist: userId })
-                .populate('student', 'username email')
-                .sort({ date: -1 })
-                .exec();
+        // Build query based on role
+        let query = {};
+        if (userRole === 'student') {
+            query.student = userId;
+        } else if (userRole === 'psychiatrist') {
+            query.psychiatrist = userId;
         } else {
-            return res.status(403).json({ message: "Rôle non autorisé pour voir l'historique des rendez-vous" });
+            return res.status(403).json({ message: 'Invalid role' });
         }
 
-        if (!appointments.length) {
-            return res.status(404).json({ message: "Aucun rendez-vous trouvé" });
+        // Extract filter parameters
+        const { statusFilter, searchName } = req.query;
+        console.log('Filter Params:', { statusFilter, searchName }); // Debug
+
+        // Apply status filter
+        if (statusFilter && statusFilter !== 'all') {
+            if (!['pending', 'confirmed', 'canceled', 'completed'].includes(statusFilter)) {
+                return res.status(400).json({ message: 'Invalid status value' });
+            }
+            query.status = statusFilter;
         }
 
-        res.status(200).json({ message: "Historique des rendez-vous récupéré avec succès", appointments, role: user.role });
+        // Apply name search filter
+        if (searchName && searchName.trim() !== '') {
+            const nameRegex = new RegExp(searchName, 'i'); // Case-insensitive
+            try {
+                if (userRole === 'student') {
+                    const psychiatrists = await User.find({ username: nameRegex, role: 'psychiatrist' });
+                    console.log('Found Psychiatrists:', psychiatrists); // Debug
+                    if (psychiatrists.length > 0) {
+                        query.psychiatrist = { $in: psychiatrists.map(p => p._id) };
+                    } else {
+                        query.psychiatrist = null; // Force empty result if no matches
+                    }
+                } else if (userRole === 'psychiatrist') {
+                    const students = await User.find({ username: nameRegex, role: 'student' });
+                    console.log('Found Students:', students); // Debug
+                    if (students.length > 0) {
+                        query.student = { $in: students.map(s => s._id) };
+                    } else {
+                        query.student = null; // Force empty result if no matches
+                    }
+                }
+            } catch (err) {
+                console.error('Error searching users by name:', err);
+                return res.status(500).json({ message: 'Error searching by name', error: err.message });
+            }
+        }
+
+        // Fetch appointments
+        console.log('Query:', query); // Debug
+        let appointments;
+        try {
+            appointments = await Appointment.find(query)
+                .populate('student', 'username email')
+                .populate('psychiatrist', 'username email');
+            console.log('Fetched Appointments:', appointments); // Debug
+        } catch (err) {
+            console.error('Error fetching appointments:', err);
+            return res.status(500).json({ message: 'Error querying appointments database', error: err.message });
+        }
+
+        res.status(200).json({
+            appointments,
+            role: userRole,
+        });
     } catch (error) {
-        console.error('Erreur dans getAppointmentHistory:', error);
-        res.status(500).json({ message: "Erreur serveur", error: error.message });
+        console.error('Error in getAppointmentHistory:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
-
-
 
 
 module.exports.updateAppointmentStatus = async (req, res) => {
@@ -2019,6 +2194,42 @@ module.exports.updateAppointmentStatus = async (req, res) => {
     } catch (error) {
         console.error('Erreur dans updateAppointmentStatus:', error);
         res.status(500).json({ message: "Erreur serveur", error: error.message });
+    }
+};
+
+// controllers/userController.js
+module.exports.getPsychiatristById = async (req, res) => {
+    try {
+        const psychiatrist = await User.findById(req.params.id);
+        if (!psychiatrist || psychiatrist.role !== 'psychiatrist') {
+            return res.status(404).json({ message: 'Psychiatrist not found' });
+        }
+        res.status(200).json(psychiatrist);
+    } catch (error) {
+        console.error('Error fetching psychiatrist:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+
+module.exports.updateAppointment = async (req, res) => {
+    try {
+        const { date, startTime, endTime } = req.body;
+        const appointment = await Appointment.findById(req.params.id);
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
+        }
+        if (appointment.student.toString() !== req.userId) {
+            return res.status(403).json({ message: 'Unauthorized' });
+        }
+        appointment.date = date;
+        appointment.startTime = startTime;
+        appointment.endTime = endTime;
+        await appointment.save();
+        res.status(200).json(appointment);
+    } catch (error) {
+        console.error('Error updating appointment:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
 
@@ -2565,3 +2776,131 @@ module.exports.markAttendance = async (req, res) => {
         res.status(500).json({ message: "Erreur lors du marquage de la présence", error: error.message });
     }
 };
+
+// Participer à un événement
+module.exports.participate = async (req, res) => {
+    console.time("participate");
+    try {
+      const { eventId } = req.params;
+      const userId = req.userId;
+  
+      console.log(`Tentative de participation de l'utilisateur ${userId} à l'événement ${eventId}`);
+  
+      // Validation des IDs
+      if (!mongoose.Types.ObjectId.isValid(eventId) || !mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({ message: "ID invalide" });
+      }
+  
+      // Récupérer l'utilisateur et l'événement en parallèle
+      const [user, event] = await Promise.all([
+        User.findById(userId).select("role username participatedEvents"),
+        Event.findById(eventId),
+      ]);
+  
+      // Vérifications de base
+      if (!user) {
+        console.log(`Utilisateur ${userId} non trouvé`);
+        return res.status(404).json({ message: "Utilisateur non trouvé" });
+      }
+      if (user.role !== "student") {
+        console.log(`Utilisateur ${userId} n'est pas un étudiant`);
+        return res.status(403).json({ message: "Seuls les étudiants peuvent participer aux événements" });
+      }
+      if (!event) {
+        console.log(`Événement ${eventId} non trouvé`);
+        return res.status(404).json({ message: "Événement non trouvé" });
+      }
+  
+      // Vérifier le statut de l'événement
+      if (event.status === "canceled" || event.status === "past") {
+        console.log(`Événement ${eventId} annulé ou terminé`);
+        return res.status(400).json({ message: "Impossible de participer à un événement annulé ou terminé" });
+      }
+  
+      // Vérifier si l'utilisateur participe déjà
+      if (event.participants.includes(userId)) {
+        console.log(`Utilisateur ${userId} participe déjà à l'événement ${eventId}`);
+        return res.status(400).json({ message: "Vous participez déjà à cet événement" });
+      }
+  
+      // Vérifier la limite de participants
+      if (event.max_participants && event.participants.length >= event.max_participants) {
+        console.log(`Limite de participants atteinte pour l'événement ${eventId}`);
+        return res.status(400).json({ message: "Cet événement a atteint sa limite de participants" });
+      }
+  
+      // Ajouter l'utilisateur aux participants et l'événement aux participations
+      event.participants.push(userId);
+      if (!user.participatedEvents.includes(eventId)) user.participatedEvents.push(eventId);
+  
+      // Sauvegarder les deux documents en parallèle
+      await Promise.all([event.save(), user.save()]);
+  
+      console.log(`✅ ${user.username} a rejoint l'événement "${event.title}". Participants: ${event.participants.length}`);
+      res.status(200).json({
+        message: "Participation enregistrée avec succès",
+        event: event.title,
+        participantsCount: event.participants.length,
+      });
+    } catch (error) {
+      console.error("Erreur lors de la participation à l'événement:", error.stack);
+      res.status(500).json({ message: "Erreur serveur interne", error: error.message });
+    } finally {
+      console.timeEnd("participate");
+    }
+  };
+  
+  // Vérifier la participation
+  module.exports.checkParticipation = async (req, res) => {
+    console.time("checkParticipation");
+    try {
+      const { eventId } = req.params;
+      const userId = req.userId;
+  
+      console.log(`Vérification de la participation de ${userId} à l'événement ${eventId}`);
+  
+      // Validation des IDs
+      if (!mongoose.Types.ObjectId.isValid(eventId) || !mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({ message: "ID invalide" });
+      }
+  
+      // Récupérer l'utilisateur et l'événement
+      const [user, event] = await Promise.all([
+        User.findById(userId).select("role participatedEvents"),
+        Event.findById(eventId).select("participants"),
+      ]);
+  
+      // Vérifications de base
+      if (!user) {
+        console.log(`Utilisateur ${userId} non trouvé`);
+        return res.status(404).json({ message: "Utilisateur non trouvé" });
+      }
+      if (user.role !== "student") {
+        console.log(`Utilisateur ${userId} n'est pas un étudiant`);
+        return res.status(403).json({ message: "Seuls les étudiants peuvent vérifier leur participation" });
+      }
+      if (!event) {
+        console.log(`Événement ${eventId} non trouvé`);
+        return res.status(404).json({ message: "Événement non trouvé" });
+      }
+  
+      // Vérifier la participation dans les deux sens pour cohérence
+      const isParticipatingInEvent = event.participants.includes(userId);
+      const isParticipatingInUser = user.participatedEvents.some((id) => id.toString() === eventId);
+  
+      // Si incohérence détectée, loguer pour investigation
+      if (isParticipatingInEvent !== isParticipatingInUser) {
+        console.warn(`Incohérence détectée: event.participants=${isParticipatingInEvent}, user.participatedEvents=${isParticipatingInUser}`);
+      }
+  
+      // Priorité à event.participants comme source de vérité
+      const isParticipating = isParticipatingInEvent;
+      console.log(`Résultat de la vérification: ${isParticipating}`);
+      res.status(200).json({ isParticipating });
+    } catch (error) {
+      console.error("Erreur lors de la vérification de la participation:", error.stack);
+      res.status(500).json({ message: "Erreur serveur interne", error: error.message });
+    } finally {
+      console.timeEnd("checkParticipation");
+    }
+  };

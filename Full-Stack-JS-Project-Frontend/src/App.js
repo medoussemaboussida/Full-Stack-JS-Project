@@ -109,6 +109,20 @@ function App(){
         <Route path="/add-Problem" element={<Problem />} />
         <Route path="/List-problems" element={<ProblemList />} />
 
+        <Route path="/add-association" element={<AddAssociation />} />
+        <Route path="/Associations" element={<Associations />} />
+        <Route path="/AssociationDetails/:id" element={<AssociationDetails />} />
+        <Route path="/add-event" element={<AddEvent />} />
+        <Route path="/Events" element={<Events />} />
+        <Route path="/event/:id" element={<EventDetails />} /> 
+
+
+
+
+
+
+
+
 
         </Routes>
             </Layout>

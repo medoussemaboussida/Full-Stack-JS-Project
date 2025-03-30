@@ -382,4 +382,47 @@ exports.banUser = async (req, res) => {
       console.error("Error fetching banned user:", err); // Log cohérent avec les autres méthodes
       res.status(500).json({ message: err.message });
     }
+
   };
+  // Méthode pour épingler ou désépingler un forum (toggle)
+module.exports.togglePinForum = async (req, res) => {
+  try {
+    const { forum_id, user_id } = req.params; // Récupérer forum_id et user_id depuis les paramètres
+
+    // Vérifier si l'utilisateur existe
+    const user = await User.findById(user_id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+
+    // Vérifier si le forum existe
+    const forum = await Forum.findById(forum_id);
+    if (!forum) {
+      return res.status(404).json({ message: "Forum not found!" });
+    }
+
+    // Vérifier si l'utilisateur a déjà épinglé le forum
+    const isPinned = forum.pinned.includes(user_id);
+
+    if (isPinned) {
+      // Si déjà épinglé, retirer l'utilisateur de la liste pinned (unpin)
+      forum.pinned = forum.pinned.filter((id) => id.toString() !== user_id.toString());
+      const updatedForum = await forum.save();
+      res.status(200).json({
+        message: "Forum unpinned successfully!",
+        forum: updatedForum,
+      });
+    } else {
+      // Si pas épinglé, ajouter l'utilisateur à la liste pinned (pin)
+      forum.pinned.push(user_id);
+      const updatedForum = await forum.save();
+      res.status(200).json({
+        message: "Forum pinned successfully!",
+        forum: updatedForum,
+      });
+    }
+  } catch (err) {
+    console.error("Error toggling pin status:", err);
+    res.status(500).json({ message: err.message });
+  }
+};

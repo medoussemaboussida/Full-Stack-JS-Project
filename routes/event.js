@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const eventController = require('../controller/eventController'); // Assurez-vous que le chemin est correct
-const userController = require('../controller/userController'); // Middleware pour vérifier le token JWT
+const eventController = require('../controller/eventController'); // Chemin correct supposé
+const userController = require('../controller/userController'); // Middleware pour JWT
 
+console.log('Event controller loaded:', eventController.getEvents); // Vérifiez ceci
 // Ajouter un événement (authentification requise)
 router.post('/addEvent', userController.verifyToken, eventController.addEvent);
-
 // Récupérer tous les événements (accessible publiquement)
 router.get('/getEvents', eventController.getEvents);
 
@@ -13,7 +13,12 @@ router.get('/getEvents', eventController.getEvents);
 router.get('/getEvent/:id', eventController.getEventById);
 
 // Mettre à jour un événement (authentification requise)
-router.put('/:id', userController.verifyToken, eventController.updateEvent);// Supprimer un événement (authentification requise)
+router.put('/:id', userController.verifyToken, eventController.updateEvent);
+
+// Supprimer un événement (authentification requise)
 router.delete('/:id', userController.verifyToken, eventController.deleteEvent);
-router.get("/generatePDF/:id", eventController.generateEventPDF);
+
+// Générer un PDF pour un événement (accessible publiquement)
+router.get('/generatePDF/:id', eventController.generateEventPDF);
+
 module.exports = router;

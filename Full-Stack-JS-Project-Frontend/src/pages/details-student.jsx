@@ -2,11 +2,11 @@ import React, { useState, useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
-import { useNavigate } from 'react-router-dom';
+import FullCalendar from "@fullcalendar/react";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import interactionPlugin from "@fullcalendar/interaction";
+import { useNavigate } from "react-router-dom";
 
 function DetailsStudents() {
   const [user, setUser] = useState(null);
@@ -24,7 +24,7 @@ function DetailsStudents() {
     role: "",
     etat: "",
     user_photo: "",
-    receiveEmails: true
+    receiveEmails: true,
   });
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
@@ -39,6 +39,8 @@ function DetailsStudents() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
   const [availabilityTitle, setAvailabilityTitle] = useState("");
+  const [selectedStartTime, setSelectedStartTime] = useState("08:00"); // Default start time
+  const [selectedEndTime, setSelectedEndTime] = useState("17:00"); // Default end time
   const [selectedDateInfo, setSelectedDateInfo] = useState(null);
 
   const BASE_URL = "http://localhost:5000";
@@ -70,25 +72,25 @@ function DetailsStudents() {
 
       if (slot.date) {
         startDate = new Date(slot.date);
-        startDate.setHours(parseInt(slot.startTime.split(':')[0]), parseInt(slot.startTime.split(':')[1]), 0, 0);
+        startDate.setHours(parseInt(slot.startTime.split(":")[0]), parseInt(slot.startTime.split(":")[1]), 0, 0);
         endDate = new Date(slot.date);
-        endDate.setHours(parseInt(slot.endTime.split(':')[0]), parseInt(slot.endTime.split(':')[1]), 0, 0);
+        endDate.setHours(parseInt(slot.endTime.split(":")[0]), parseInt(slot.endTime.split(":")[1]), 0, 0);
       } else if (selectedStartDate) {
         startDate = new Date(selectedStartDate);
-        startDate.setHours(parseInt(slot.startTime.split(':')[0]), parseInt(slot.startTime.split(':')[1]), 0, 0);
+        startDate.setHours(parseInt(slot.startTime.split(":")[0]), parseInt(slot.startTime.split(":")[1]), 0, 0);
         endDate = new Date(selectedStartDate);
-        endDate.setHours(parseInt(slot.endTime.split(':')[0]), parseInt(slot.endTime.split(':')[1]), 0, 0);
+        endDate.setHours(parseInt(slot.endTime.split(":")[0]), parseInt(slot.endTime.split(":")[1]), 0, 0);
       } else {
-        const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
         const dayIndex = daysOfWeek.indexOf(slot.day);
         if (dayIndex === -1) return null;
         const currentDate = new Date();
         startDate = new Date(currentDate);
         const daysToAdd = (dayIndex - currentDate.getDay() + 7) % 7;
         startDate.setDate(currentDate.getDate() + daysToAdd);
-        startDate.setHours(parseInt(slot.startTime.split(':')[0]), parseInt(slot.startTime.split(':')[1]), 0, 0);
+        startDate.setHours(parseInt(slot.startTime.split(":")[0]), parseInt(slot.startTime.split(":")[1]), 0, 0);
         endDate = new Date(startDate);
-        endDate.setHours(parseInt(slot.endTime.split(':')[0]), parseInt(slot.endTime.split(':')[1]), 0, 0);
+        endDate.setHours(parseInt(slot.endTime.split(":")[0]), parseInt(slot.endTime.split(":")[1]), 0, 0);
       }
 
       return {
@@ -122,7 +124,7 @@ function DetailsStudents() {
                 role: data.role,
                 etat: data.etat,
                 user_photo: data.user_photo || "",
-                receiveEmails: data.receiveEmails
+                receiveEmails: data.receiveEmails,
               });
               setPreviewPhoto(data.user_photo ? `${BASE_URL}${data.user_photo}` : "assets/img/user.png");
               if (data.availability) {
@@ -156,7 +158,7 @@ function DetailsStudents() {
       role: user.role,
       etat: user.etat,
       user_photo: user.user_photo || "",
-      receiveEmails: user.receiveEmails
+      receiveEmails: user.receiveEmails,
     });
   };
 
@@ -338,10 +340,10 @@ function DetailsStudents() {
 
     if (slotIndex !== -1) {
       const updatedAvailability = {
-        day: new Date(info.event.start).toLocaleString('en-us', { weekday: 'long' }),
+        day: new Date(info.event.start).toLocaleString("en-us", { weekday: "long" }),
         startTime: info.event.start.toTimeString().slice(0, 5),
         endTime: info.event.end.toTimeString().slice(0, 5),
-        date: info.event.start.toISOString().split('T')[0],
+        date: info.event.start.toISOString().split("T")[0],
       };
       try {
         const response = await fetch(`${BASE_URL}/users/psychiatrists/update-availability/${decoded.id}/${slotIndex}`, {
@@ -388,7 +390,6 @@ function DetailsStudents() {
   };
 
   const handleDateSelect = (selectInfo) => {
-    console.log("Selected date:", selectInfo.start);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const selectedDate = new Date(selectInfo.start);
@@ -400,13 +401,22 @@ function DetailsStudents() {
     }
 
     setSelectedDateInfo(selectInfo);
-    setAvailabilityTitle("");
+    setAvailabilityTitle(`Available - ${new Date(selectInfo.start).toLocaleString("en-us", { weekday: "long" })}`);
+    setSelectedStartTime(selectInfo.startStr.slice(11, 16) || "08:00"); // Extract start time or default to 8 AM
+    setSelectedEndTime(selectInfo.endStr.slice(11, 16) || "17:00"); // Extract end time or default to 5 PM
     setShowAvailabilityModal(true);
   };
 
   const handleAvailabilityConfirm = async () => {
     if (!availabilityTitle) {
       toast.error("Please enter a title");
+      return;
+    }
+
+    const [startHour, startMinute] = selectedStartTime.split(":").map(Number);
+    const [endHour, endMinute] = selectedEndTime.split(":").map(Number);
+    if (startHour > endHour || (startHour === endHour && startMinute >= endMinute)) {
+      toast.error("End time must be after start time!");
       return;
     }
 
@@ -424,13 +434,13 @@ function DetailsStudents() {
     const token = localStorage.getItem("jwt-token");
     const decoded = jwtDecode(token);
     const newAvailability = {
-      day: new Date(selectedDateInfo.start).toLocaleString('en-us', { weekday: 'long' }),
-      startTime: selectedDateInfo.start.toTimeString().slice(0, 5),
-      endTime: selectedDateInfo.end.toTimeString().slice(0, 5),
+      day: new Date(selectedDateInfo.start).toLocaleString("en-us", { weekday: "long" }),
+      startTime: selectedStartTime,
+      endTime: selectedEndTime,
       title: availabilityTitle,
-      date: selectedDateInfo.start.toISOString().split('T')[0],
+      date: selectedDateInfo.start.toISOString().split("T")[0],
     };
-    console.log("Sending to server:", newAvailability);
+
     try {
       const response = await fetch(`${BASE_URL}/users/psychiatrists/add-availability/${decoded.id}`, {
         method: "PUT",
@@ -442,7 +452,6 @@ function DetailsStudents() {
       });
       if (response.ok) {
         const data = await response.json();
-        console.log("Server response:", data.user.availability);
         setEvents(formatAvailabilitiesToEvents(data.user.availability));
         toast.success("Availability added successfully");
         setShowAvailabilityModal(false);
@@ -457,11 +466,11 @@ function DetailsStudents() {
   };
 
   const handleAddAssociation = () => {
-    navigate('/add-association');
+    navigate("/add-association");
   };
 
   const handleAddEvent = () => {
-    navigate('/add-event');
+    navigate("/add-event");
   };
 
   if (!user) {
@@ -496,65 +505,65 @@ function DetailsStudents() {
       )}
 
       {showAvailabilityModal && (
-        <div style={{ 
-          position: "fixed", 
-          top: 0, 
-          left: 0, 
-          right: 0, 
-          bottom: 0, 
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
           backgroundColor: "rgba(0,0,0,0.5)",
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          zIndex: 2000
+          zIndex: 2000,
         }}>
-          <div style={{ 
+          <div style={{
             backgroundColor: "white",
             padding: "20px",
             borderRadius: "5px",
-            width: "300px",
-            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+            width: "350px",
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
           }}>
-            <h3 style={{ textAlign: "center", marginBottom: "15px" }}>
-              Add Availability
-            </h3>
+            <h3 style={{ textAlign: "center", marginBottom: "15px" }}>Add Availability</h3>
             <input
               type="text"
               value={availabilityTitle}
               onChange={(e) => setAvailabilityTitle(e.target.value)}
               placeholder="e.g., Available - Sunday"
-              style={{ 
-                width: "100%", 
-                padding: "8px", 
-                marginBottom: "15px", 
-                borderRadius: "3px", 
-                border: "1px solid #ccc" 
-              }}
+              style={{ width: "100%", padding: "8px", marginBottom: "15px", borderRadius: "3px", border: "1px solid #ccc" }}
             />
+            <div style={{ marginBottom: "15px" }}>
+              <label style={{ display: "block", marginBottom: "5px" }}>Start Time</label>
+              <input
+                type="time"
+                value={selectedStartTime}
+                onChange={(e) => setSelectedStartTime(e.target.value)}
+                min="08:00"
+                max="20:00"
+                style={{ width: "100%", padding: "8px", borderRadius: "3px", border: "1px solid #ccc" }}
+              />
+            </div>
+            <div style={{ marginBottom: "15px" }}>
+              <label style={{ display: "block", marginBottom: "5px" }}>End Time</label>
+              <input
+                type="time"
+                value={selectedEndTime}
+                onChange={(e) => setSelectedEndTime(e.target.value)}
+                min={selectedStartTime}
+                max="20:00"
+                style={{ width: "100%", padding: "8px", borderRadius: "3px", border: "1px solid #ccc" }}
+              />
+            </div>
             <div style={{ display: "flex", justifyContent: "space-around" }}>
               <button
                 onClick={handleAvailabilityConfirm}
-                style={{ 
-                  backgroundColor: "#4CAF50",
-                  color: "white",
-                  padding: "8px 16px",
-                  border: "none",
-                  borderRadius: "3px",
-                  cursor: "pointer"
-                }}
+                style={{ backgroundColor: "#4CAF50", color: "white", padding: "8px 16px", border: "none", borderRadius: "3px", cursor: "pointer" }}
               >
                 Confirm
               </button>
               <button
                 onClick={() => setShowAvailabilityModal(false)}
-                style={{ 
-                  backgroundColor: "#f44336",
-                  color: "white",
-                  padding: "8px 16px",
-                  border: "none",
-                  borderRadius: "3px",
-                  cursor: "pointer"
-                }}
+                style={{ backgroundColor: "#f44336", color: "white", padding: "8px 16px", border: "none", borderRadius: "3px", cursor: "pointer" }}
               >
                 Cancel
               </button>
@@ -655,64 +664,16 @@ function DetailsStudents() {
                     ))}
                   </div>
 
-                  {/* Section "Receive Email Notifications" améliorée */}
                   {user.role === "student" && (
-                    <div style={{
-                      marginTop: "20px",
-                      background: "#ffffff",
-                      borderRadius: "12px",
-                      padding: "20px",
-                      boxShadow: "0 2px 10px rgba(0, 0, 0, 0.05)",
-                    }}>
-                      <h6 style={{
-                        fontSize: "1rem",
-                        color: "#2d3748",
-                        marginBottom: "15px",
-                        fontWeight: "600",
-                      }}>
-                        Receive Email Notifications
-                      </h6>
+                    <div style={{ marginTop: "20px", background: "#ffffff", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 10px rgba(0, 0, 0, 0.05)" }}>
+                      <h6 style={{ fontSize: "1rem", color: "#2d3748", marginBottom: "15px", fontWeight: "600" }}>Receive Email Notifications</h6>
                       <div style={{ display: "flex", gap: "25px" }}>
-                        <label style={{
-                          display: "flex",
-                          alignItems: "center",
-                          cursor: "pointer",
-                          padding: "8px 16px",
-                          borderRadius: "20px",
-                          backgroundColor: formData.receiveEmails === true ? "#4CAF50" : "#f1f5f9",
-                          color: formData.receiveEmails === true ? "#ffffff" : "#2d3748",
-                          transition: "all 0.3s ease",
-                          boxShadow: formData.receiveEmails === true ? "0 2px 5px rgba(0, 0, 0, 0.1)" : "none",
-                        }}>
-                          <input
-                            type="radio"
-                            name="receiveEmails"
-                            value="yes"
-                            checked={formData.receiveEmails === true}
-                            onChange={handleReceiveEmailsChange}
-                            style={{ display: "none" }}
-                          />
+                        <label style={{ display: "flex", alignItems: "center", cursor: "pointer", padding: "8px 16px", borderRadius: "20px", backgroundColor: formData.receiveEmails === true ? "#4CAF50" : "#f1f5f9", color: formData.receiveEmails === true ? "#ffffff" : "#2d3748", transition: "all 0.3s ease", boxShadow: formData.receiveEmails === true ? "0 2px 5px rgba(0, 0, 0, 0.1)" : "none" }}>
+                          <input type="radio" name="receiveEmails" value="yes" checked={formData.receiveEmails === true} onChange={handleReceiveEmailsChange} style={{ display: "none" }} />
                           <span style={{ marginLeft: "8px", fontWeight: "500" }}>Yes</span>
                         </label>
-                        <label style={{
-                          display: "flex",
-                          alignItems: "center",
-                          cursor: "pointer",
-                          padding: "8px 16px",
-                          borderRadius: "20px",
-                          backgroundColor: formData.receiveEmails === false ? "#f44336" : "#f1f5f9",
-                          color: formData.receiveEmails === false ? "#ffffff" : "#2d3748",
-                          transition: "all 0.3s ease",
-                          boxShadow: formData.receiveEmails === false ? "0 2px 5px rgba(0, 0, 0, 0.1)" : "none",
-                        }}>
-                          <input
-                            type="radio"
-                            name="receiveEmails"
-                            value="no"
-                            checked={formData.receiveEmails === false}
-                            onChange={handleReceiveEmailsChange}
-                            style={{ display: "none" }}
-                          />
+                        <label style={{ display: "flex", alignItems: "center", cursor: "pointer", padding: "8px 16px", borderRadius: "20px", backgroundColor: formData.receiveEmails === false ? "#f44336" : "#f1f5f9", color: formData.receiveEmails === false ? "#ffffff" : "#2d3748", transition: "all 0.3s ease", boxShadow: formData.receiveEmails === false ? "0 2px 5px rgba(0, 0, 0, 0.1)" : "none" }}>
+                          <input type="radio" name="receiveEmails" value="no" checked={formData.receiveEmails === false} onChange={handleReceiveEmailsChange} style={{ display: "none" }} />
                           <span style={{ marginLeft: "8px", fontWeight: "500" }}>No</span>
                         </label>
                       </div>
@@ -848,9 +809,9 @@ function DetailsStudents() {
                 slotMinTime="08:00:00"
                 slotMaxTime="20:00:00"
                 headerToolbar={{
-                  left: 'prev,next today',
-                  center: 'title',
-                  right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                  left: "prev,next today",
+                  center: "title",
+                  right: "dayGridMonth,timeGridWeek,timeGridDay",
                 }}
               />
               <button onClick={() => setShowCalendar(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "5px", marginTop: "20px", display: "block", marginLeft: "auto" }}>Close</button>
