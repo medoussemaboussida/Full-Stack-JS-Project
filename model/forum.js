@@ -15,6 +15,12 @@ const forumSchema = new mongoose.Schema({
           "loneliness", "motivation", "support", "insomnia", "pressure"
         ],
       },
+      pinned: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User", // Référence aux utilisateurs qui ont épinglé ce forum
+        },
+      ],
 },
 {
     timestamps:true
