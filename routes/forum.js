@@ -13,4 +13,6 @@ router.put('/changeStatus/:forum_id', forumController.changeForumStatus);
 router.post("/ban", forumController.banUser); 
 router.get("/banned-users", forumController.getBannedUsers); 
 router.get("/checkBan/:userId", forumController.checkBan);
+router.post("/togglePinForum/:forum_id/:user_id", forumController.togglePinForum); 
+
 module.exports = router;
