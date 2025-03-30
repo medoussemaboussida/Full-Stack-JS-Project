@@ -11,6 +11,7 @@ import {
   faTrash,
   faCalendarPlus,
   faStickyNote,
+  faHistory, // Ajouté pour le bouton Mood History
 } from "@fortawesome/free-solid-svg-icons";
 
 // Function to generate a list of dates for the specified month
@@ -66,6 +67,7 @@ function ActivitySchedule() {
   const [currentNoteDate, setCurrentNoteDate] = useState(null);
   const [currentNote, setCurrentNote] = useState("");
   const [isLoadingNotes, setIsLoadingNotes] = useState(true); // New state for notes loading
+  const [showMoodHistoryModal, setShowMoodHistoryModal] = useState(false); // Nouvel état pour le modal Mood History
   const dates = generateDatesForMonth(currentDate);
   const navigate = useNavigate();
 
@@ -207,14 +209,7 @@ function ActivitySchedule() {
     }
   };
 
-
-  console.log("Current notes state:", JSON.stringify(notes, null, 2));
-  // OR add this in the JSX for visual debugging:
-  <div style={{ margin: "20px", padding: "10px", backgroundColor: "#f0f0f0" }}>
-    <h4>Debug Notes State:</h4>
-    <pre>{JSON.stringify(notes, null, 2)}</pre>
-  </div>
-  // Save scheduled activities (Corrected version)
+  // Save scheduled activities
   const saveScheduledActivities = async (date, activities) => {
     try {
       const token = localStorage.getItem("jwt-token");
@@ -232,7 +227,7 @@ function ActivitySchedule() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ date, activities }), // Fixed syntax error here
+        body: JSON.stringify({ date, activities }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Failed to save schedule");
@@ -478,6 +473,16 @@ function ActivitySchedule() {
     closeNoteModal();
   };
 
+  // Open mood history modal
+  const handleOpenMoodHistoryModal = () => {
+    setShowMoodHistoryModal(true);
+  };
+
+  // Close mood history modal
+  const closeMoodHistoryModal = () => {
+    setShowMoodHistoryModal(false);
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
     if (token) {
@@ -570,10 +575,6 @@ function ActivitySchedule() {
       setShowMoodModal(true);
     }
   };
-
-  if (isLoading) {
-    return <div style={{ textAlign: "center", padding: "20px", fontSize: "18px" }}>Loading...</div>;
-  }
 
   const firstDay = getFirstDayOfMonth(currentDate);
   const daysInMonth = getDaysInMonth(currentDate);
@@ -1165,7 +1166,7 @@ function ActivitySchedule() {
           </p>
         ) : (
           <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
-            {/* Calendar Header with Pagination */}
+            {/* Calendar Header with Pagination and Mood History Button */}
             <div
               style={{
                 marginBottom: "20px",
@@ -1193,22 +1194,44 @@ function ActivitySchedule() {
               <h3 style={{ fontSize: "24px", color: "#333" }}>
                 {monthName} {year}
               </h3>
-              <button
-                onClick={handleNextMonth}
-                style={{
-                  backgroundColor: "#0ea5e6",
-                  color: "white",
-                  padding: "8px 16px",
-                  borderRadius: "5px",
-                  border: "none",
-                  cursor: "pointer",
-                  transition: "background-color 0.3s ease",
-                }}
-                onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
-                onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
-              >
-                Next
-              </button>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  onClick={handleOpenMoodHistoryModal}
+                  style={{
+                    backgroundColor: "#ff9500",
+                    color: "white",
+                    padding: "8px 16px",
+                    borderRadius: "5px",
+                    border: "none",
+                    cursor: "pointer",
+                    transition: "background-color 0.3s ease",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "5px",
+                  }}
+                  onMouseEnter={(e) => (e.target.style.backgroundColor = "#e68600")}
+                  onMouseLeave={(e) => (e.target.style.backgroundColor = "#ff9500")}
+                >
+                  <FontAwesomeIcon icon={faHistory} />
+                  Mood History
+                </button>
+                <button
+                  onClick={handleNextMonth}
+                  style={{
+                    backgroundColor: "#0ea5e6",
+                    color: "white",
+                    padding: "8px 16px",
+                    borderRadius: "5px",
+                    border: "none",
+                    cursor: "pointer",
+                    transition: "background-color 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
+                  onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
+                >
+                  Next
+                </button>
+              </div>
             </div>
 
             {/* Calendar Grid */}
@@ -1369,11 +1392,13 @@ function ActivitySchedule() {
                           </ul>
                         )}
                         {notes[dateStr] && (
-                            <div style={{ fontSize: "10px", color: "#666", marginTop: "5px" }}>
-                              <FontAwesomeIcon icon={faStickyNote} />{" "}
-                              <span title={notes[dateStr]}>{notes[dateStr].length > 20 ? `${notes[dateStr].slice(0, 20)}...` : notes[dateStr]}</span>
-                            </div>
-                          )}
+                          <div style={{ fontSize: "10px", color: "#666", marginTop: "5px" }}>
+                            <FontAwesomeIcon icon={faStickyNote} />{" "}
+                            <span title={notes[dateStr]}>
+                              {notes[dateStr].length > 20 ? `${notes[dateStr].slice(0, 20)}...` : notes[dateStr]}
+                            </span>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -1384,70 +1409,99 @@ function ActivitySchedule() {
         )}
       </div>
 
-      {/* Mood History Section */}
-      <div style={{ padding: "40px", backgroundColor: "#f9f9f9", textAlign: "center" }}>
-        <h2 style={{ fontSize: "24px", fontWeight: "700", marginBottom: "20px" }}>Your Mood History</h2>
-        {moods.length === 0 ? (
-          <p style={{ textAlign: "center", color: "#666" }}>
-            No moods recorded yet. Complete some activities to record your mood!
-          </p>
-        ) : (
+      {/* Mood History Modal */}
+      {showMoodHistoryModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
           <div
             style={{
-              maxWidth: "800px",
-              margin: "0 auto",
-              backgroundColor: "#fff",
-              borderRadius: "10px",
-              boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
+              backgroundColor: "white",
               padding: "20px",
+              borderRadius: "8px",
+              width: "500px",
+              maxWidth: "90%",
+              maxHeight: "80vh",
+              overflowY: "auto",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              textAlign: "center",
             }}
           >
-            <ul style={{ listStyle: "none", padding: "0" }}>
-            {moods.map((mood, index) => {
-  // Extract the activity ID from the populated object
-  const activityId = mood.activityId && typeof mood.activityId === "object"
-    ? mood.activityId._id
-    : mood.activityId;
-  
-  const activity = activities.find((act) => act._id === activityId);
-  console.log(`Mood ${index}:`, {
-    rawMood: mood,
-    activityId: activityId,
-    foundActivity: activity,
-  });
-  return (
-    <li
-      key={index}
-      style={{
-        padding: "10px 0",
-        borderBottom: index < moods.length - 1 ? "1px solid #ddd" : "none",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        fontSize: "14px",
-      }}
-    >
-      <span>
-        <strong>{activity ? activity.title : "Unknown Activity"}</strong> -{" "}
-        {moodIcons[mood.mood]} {mood.mood}
-      </span>
-      <span style={{ color: "#666", fontSize: "12px" }}>
-        {new Date(mood.date).toLocaleDateString("en-US", {
-          month: "long",
-          day: "numeric",
-
-          year: "numeric",
-        })}
-      </span>
-    </li>
-  );
-})}
-
-            </ul>
+            <h3 style={{ fontSize: "24px", marginBottom: "20px" }}>Mood History</h3>
+            {moods.length === 0 ? (
+              <p style={{ color: "#666" }}>
+                No moods recorded yet. Complete some activities to record your mood!
+              </p>
+            ) : (
+              <ul style={{ listStyle: "none", padding: "0" }}>
+                {moods.map((mood, index) => {
+                  const activityId =
+                    mood.activityId && typeof mood.activityId === "object"
+                      ? mood.activityId._id
+                      : mood.activityId;
+                  const activity = activities.find((act) => act._id === activityId);
+                  return (
+                    <li
+                      key={index}
+                      style={{
+                        padding: "10px 0",
+                        borderBottom: index < moods.length - 1 ? "1px solid #ddd" : "none",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        fontSize: "14px",
+                      }}
+                    >
+                      <span>
+                        <strong>{activity ? activity.title : "Unknown Activity"}</strong> -{" "}
+                        {moodIcons[mood.mood]} {mood.mood}
+                      </span>
+                      <span style={{ color: "#666", fontSize: "12px" }}>
+                        {new Date(mood.date).toLocaleDateString("en-US", {
+                          month: "long",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <button
+              onClick={closeMoodHistoryModal}
+              style={{
+                backgroundColor: "#0ea5e6",
+                color: "white",
+                padding: "10px 20px",
+                borderRadius: "5px",
+                marginTop: "20px",
+                fontWeight: "bold",
+                border: "none",
+                cursor: "pointer",
+                transition: "background-color 0.3s ease",
+              }}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
+            >
+              Close
+            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
+     
       {/* Modal for scheduling activities */}
       {showScheduleModal && (
         <div
