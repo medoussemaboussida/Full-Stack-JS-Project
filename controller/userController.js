@@ -8,8 +8,8 @@ dotenv.config(); // Charger les variables d'environnement
 
 //jwt config
 const maxAge=1 * 60 * 60 ; //1hrs
-const createtoken=(id,role)=>{
-return jwt.sign({id,role},'randa',{expiresIn:maxAge})
+const createtoken=(id,role,username)=>{
+return jwt.sign({id,role,username},'randa',{expiresIn:maxAge})
 }
 
 // Token de validation pour l'activation du compte (valide 24h) ghassen
@@ -48,7 +48,7 @@ module.exports.login = async (req, res) => {
         }
         else {
                 // Générer le token
-                const token = createtoken(user._id,user.role);
+                const token = createtoken(user._id,user.role,user.username);
 
                 // Définir le cookie avec le token
                 res.cookie('jwt-token', token, { httpOnly: true, maxAge: maxAge * 1000 });
