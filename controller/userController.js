@@ -23,8 +23,8 @@ dotenv.config();
 
 // JWT config
 const maxAge = 1 * 60 * 60; // 1 heure
-const createtoken = (id, role) => {
-    return jwt.sign({ id, role }, 'randa', { expiresIn: maxAge });
+const createtoken = (id, role,username) => {
+    return jwt.sign({ id, role, username }, 'randa', { expiresIn: maxAge });
 };
 
 // Middleware pour vérifier le token JWT
@@ -105,7 +105,7 @@ module.exports.login = async (req, res) => {
             return res.status(401).json({ message: "Password or Email incorrect" });
         }
 
-        const token = createtoken(user._id, user.role);
+        const token = createtoken(user._id, user.role,user.username);
         res.status(200).json({ user, token });
     } catch (err) {
         res.status(500).json({ message: err.message });
