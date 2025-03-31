@@ -114,8 +114,8 @@ module.exports.addActivity = (req, res) => {
             const imageUrl = req.file ? `/uploads/activities/${req.file.filename}` : "assets/img/activity/03.jpg";
 
             // Vérifier si l'utilisateur est un psychiatre
-            const psychiatrist = await User.findById(id);
-            if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
+            const user = await User.findById(id);
+            if (!user || (user.role !== "psychiatrist" && user.role !== "admin")) {
                 console.error("❌ Non autorisé: utilisateur n'est pas un psychiatre");
                 return res.status(403).json({ message: "Only psychiatrists can add activities" });
             }
@@ -189,8 +189,8 @@ module.exports.updateActivity = (req, res) => {
             const imageUrl = req.file ? `/uploads/activities/${req.file.filename}` : null;
 
             // Vérifier si l'utilisateur est psychiatre
-            const psychiatrist = await User.findById(id);
-            if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
+            const user = await User.findById(id);
+         if (!user || (user.role !== "psychiatrist" && user.role !== "admin")) {
                 return res.status(403).json({ message: "Seuls les psychiatres peuvent modifier des activités" });
             }
 
@@ -222,8 +222,8 @@ module.exports.deleteActivity = async (req, res) => {
     try {
         const { id, activityId } = req.params;
 
-        const psychiatrist = await User.findById(id);
-        if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
+        const user = await User.findById(id);
+        if (!user || (user.role !== "psychiatrist" && user.role !== "admin")) {
             return res.status(403).json({ message: "Seuls les psychiatres peuvent supprimer des activités" });
         }
 
