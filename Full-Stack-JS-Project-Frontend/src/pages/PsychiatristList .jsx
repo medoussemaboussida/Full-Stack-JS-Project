@@ -21,7 +21,11 @@ const PsychiatristList = () => {
     const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
-        axios.get('http://localhost:5000/users/psychiatrists')
+        axios.get('http://localhost:5000/users/psychiatrists', {
+            headers: {
+                Authorization: `Bearer ${localStorage.getItem('jwt-token')}`, // Added for authentication
+            },
+        })
             .then(response => {
                 const filteredPsychiatrists = response.data.filter(user =>
                     user.role === 'psychiatrist' && user.availability && user.availability.length > 0
@@ -85,6 +89,7 @@ const PsychiatristList = () => {
                     title: slot.title || `Available - ${slot.day}`,
                     start: eventStart.toISOString(),
                     end: eventEnd.toISOString(),
+                    extendedProps: { slotIndex, originalSlot: slot }, // Added slotIndex for booking
                 });
             }
         });
@@ -111,16 +116,27 @@ const PsychiatristList = () => {
             return;
         }
 
+        const eventStart = new Date(eventInfo.start);
+        const eventEnd = new Date(eventInfo.end);
+
+        // Format date as DD/MM/YYYY (e.g., "01/08/2024")
+        const formatDate = (date) => {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
+        };
+
         const bookingData = {
             psychiatristId: selectedPsychiatrist._id,
-            day: new Date(eventInfo.start).toLocaleString('en-us', { weekday: 'long' }),
-            startTime: eventInfo.start.toTimeString().slice(0, 5),
-            endTime: eventInfo.end.toTimeString().slice(0, 5),
+            date: formatDate(eventStart), // Full date like "01/08/2024"
+            startTime: eventStart.toTimeString().slice(0, 5), // e.g., "10:00"
+            endTime: eventEnd.toTimeString().slice(0, 5),     // e.g., "10:30"
         };
 
         try {
             const response = await axios.post(
-                'http://localhost:5000/users/appointments/book',
+                'http://localhost:5000/users/appointments/book', // Updated endpoint
                 bookingData,
                 {
                     headers: {
@@ -132,12 +148,10 @@ const PsychiatristList = () => {
 
             toast.success('Appointment booked successfully!');
 
-            // Mettre à jour les événements avec les nouvelles disponibilités
-            const updatedAvailability = response.data.updatedAvailability;
-            const updatedEvents = formatAvailabilitiesToEvents(updatedAvailability);
-            setEvents(updatedEvents);
-
-            // Mettre à jour la liste des psychiatres localement
+            // Update local state with new availability
+            const updatedAvailability = selectedPsychiatrist.availability.filter(
+                (_, index) => index !== eventInfo.extendedProps.slotIndex
+            );
             setPsychiatrists(prev =>
                 prev.map(psy =>
                     psy._id === selectedPsychiatrist._id
@@ -145,9 +159,7 @@ const PsychiatristList = () => {
                         : psy
                 )
             );
-
-            // Optionnel : Fermer le modal après la réservation
-            // setShowCalendarModal(false);
+            setEvents(formatAvailabilitiesToEvents(updatedAvailability));
         } catch (error) {
             toast.error(`Error booking appointment: ${error.response?.data?.message || error.message}`);
         }
@@ -207,54 +219,54 @@ const PsychiatristList = () => {
                         {filterPsychiatrists().length > 0 ? (
                             filterPsychiatrists().map((psychiatrist) => (
                                 <SwiperSlide key={psychiatrist._id}>
-                                <div className="psychiatrist-card">
-                                    <div className="psychiatrist-img">
-                                        {psychiatrist.user_photo ? (
-                                            <img
-                                                src={`http://localhost:5000${psychiatrist.user_photo}`}
-                                                alt={psychiatrist.username}
-                                            />
-                                        ) : (
-                                            <div className="no-image">No Image</div>
-                                        )}
+                                    <div className="psychiatrist-card">
+                                        <div className="psychiatrist-img">
+                                            {psychiatrist.user_photo ? (
+                                                <img
+                                                    src={`http://localhost:5000${psychiatrist.user_photo}`}
+                                                    alt={psychiatrist.username}
+                                                />
+                                            ) : (
+                                                <div className="no-image">No Image</div>
+                                            )}
+                                        </div>
+                                        <div className="psychiatrist-info">
+                                            <h4>{psychiatrist.username}</h4>
+                                            <p>Psychiatrist</p>
+                                            <button
+                                                className="view-availability-btn"
+                                                onClick={() => handleViewAvailability(psychiatrist)}
+                                                style={{
+                                                    backgroundColor: '#6CB4EE',
+                                                    color: 'white',
+                                                    padding: '8px 18px',
+                                                    border: 'none',
+                                                    borderRadius: '5px',
+                                                    cursor: 'pointer',
+                                                    opacity: 0.7,
+                                                    position: 'relative',
+                                                    top: '-10px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '8px',
+                                                    transition: 'all 0.3s ease',
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.target.style.opacity = '1';
+                                                    e.target.style.backgroundColor = '#5AA0D8';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.target.style.opacity = '0.7';
+                                                    e.target.style.backgroundColor = '#6CB4EE';
+                                                }}
+                                            >
+                                                <i className="far fa-clock" style={{ fontSize: '14px' }}></i>
+                                                View Availability
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="psychiatrist-info">
-                                        <h4>{psychiatrist.username}</h4>
-                                        <p>Psychiatrist</p>
-                                        <button
-                                            className="view-availability-btn"
-                                            onClick={() => handleViewAvailability(psychiatrist)}
-                                            style={{
-                                                backgroundColor: '#6CB4EE',
-                                                color: 'white',
-                                                padding: '8px 18px', // Slightly reduced padding for a compact look
-                                                border: 'none',
-                                                borderRadius: '5px',
-                                                cursor: 'pointer',
-                                                opacity: 0.7, // Gives a "disabled-like" look
-                                                position: 'relative',
-                                                top: '-10px', // Moves the button up
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                gap: '8px', // Space between icon and text
-                                                transition: 'all 0.3s ease', // Smooth transition for hover effects
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                e.target.style.opacity = '1'; // Full opacity on hover
-                                                e.target.style.backgroundColor = '#5AA0D8'; // Slightly darker shade
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.target.style.opacity = '0.7'; // Back to "disabled-like" look
-                                                e.target.style.backgroundColor = '#6CB4EE'; // Original color
-                                            }}
-                                        >
-                                            <i className="far fa-clock" style={{ fontSize: '14px' }}></i> {/* Font Awesome clock icon */}
-                                            View Availability
-                                        </button>
-                                    </div>
-                                </div>
-                            </SwiperSlide>
+                                </SwiperSlide>
                             ))
                         ) : (
                             <div className="text-center text-gray-500">No psychiatrists found.</div>
