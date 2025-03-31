@@ -10,6 +10,7 @@ import {
   faFlag,
   faSmile,
   faBell,
+  faHeart
 } from "@fortawesome/free-regular-svg-icons";
 import {
   faSearch,
@@ -68,6 +69,8 @@ function Forum() {
   const [notifications, setNotifications] = useState([]);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [username, setUsername] = useState(null);
+  const [likedTopics, setLikedTopics] = useState(new Set());
+  const [likedComments, setLikedComments] = useState(new Set());
   const navigate = useNavigate();
 
   // Fonction pour basculer l'état d'expansion
@@ -85,7 +88,18 @@ function Forum() {
       setSearchQuery("");
     }
   };
-
+  useEffect(() => {
+    if (userId && comments.length > 0) {
+      const liked = new Set(
+        comments
+          .filter((comment) =>
+            comment.likes.some((id) => id.toString() === userId.toString())
+          )
+          .map((comment) => comment._id)
+      );
+      setLikedComments(liked);
+    }
+  }, [userId, comments]);
   // Fonction pour basculer l'affichage du sélecteur d'emojis
   const toggleEmojiPicker = (forumId) => {
     if (isBanned) {
@@ -169,6 +183,7 @@ function Forum() {
           setUserRole(null);
           setUsername(null);
           setPinnedTopics(new Set());
+          setLikedTopics(new Set());
           setIsBanned(false);
           setNotifications([]);
           return;
@@ -222,6 +237,7 @@ function Forum() {
         setUserRole(null);
         setUsername(null);
         setPinnedTopics(new Set());
+        setLikedTopics(new Set());
         setIsBanned(false);
         setNotifications([]);
       }
@@ -232,12 +248,13 @@ function Forum() {
       setUserRole(null);
       setUsername(null);
       setPinnedTopics(new Set());
+      setLikedTopics(new Set());
       setIsBanned(false);
       setNotifications([]);
     }
   }, [token]);
 
-  // Charger les forums et initialiser pinnedTopics avec les données du backend
+  // Charger les forums et initialiser pinnedTopics et likedTopics avec les données du backend
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -255,6 +272,16 @@ function Forum() {
               .map((forum) => forum._id)
           );
           setPinnedTopics(pinned);
+
+          // Initialiser likedTopics avec les forums aimés par l'utilisateur
+          const liked = new Set(
+            forumsData
+              .filter((forum) =>
+                forum.likes.some((id) => id.toString() === userId.toString())
+              )
+              .map((forum) => forum._id)
+          );
+          setLikedTopics(liked);
         }
       } catch (error) {
         console.error("Erreur lors de la récupération des données:", error);
@@ -661,6 +688,123 @@ function Forum() {
     [isBanned, userId, token]
   );
 
+  // Fonction pour basculer l'état "liked/unliked" avec le backend
+  const toggleLike = useCallback(
+    async (forumId) => {
+      if (isBanned) {
+        toast.error("You are banned and cannot like topics!");
+        return;
+      }
+
+      if (!userId || !token) {
+        toast.error("You must be logged in to like topics!");
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `http://localhost:5000/forum/toggleLikeForum/${forumId}/${userId}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setLikedTopics((prevLikedTopics) => {
+            const newLikedTopics = new Set(prevLikedTopics);
+            const isLiked = data.forum.likes.some(
+              (id) => id.toString() === userId.toString()
+            );
+            if (isLiked) {
+              newLikedTopics.add(forumId);
+              toast.success("Topic liked!", { toastId: `like-${forumId}` });
+            } else {
+              newLikedTopics.delete(forumId);
+              toast.success("Topic unliked!", { toastId: `like-${forumId}` });
+            }
+            return newLikedTopics;
+          });
+
+          // Mettre à jour les forums avec les nouvelles données du backend
+          setForums((prevForums) =>
+            prevForums.map((forum) =>
+              forum._id === forumId ? { ...forum, likes: data.forum.likes } : forum
+            )
+          );
+        } else {
+          toast.error("Failed to toggle like: " + data.message);
+        }
+      } catch (error) {
+        console.error("Error toggling like:", error);
+        toast.error("Error toggling like status!");
+      }
+    },
+    [isBanned, userId, token]
+  );
+  const toggleLikeComment = useCallback(
+    async (commentId) => {
+      if (isBanned) {
+        toast.error("You are banned and cannot like comments!");
+        return;
+      }
+  
+      if (!userId || !token) {
+        toast.error("You must be logged in to like comments!");
+        return;
+      }
+  
+      try {
+        const response = await fetch(
+          `http://localhost:5000/forumComment/toggleLikeComment/${commentId}/${userId}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+  
+        const data = await response.json();
+  
+        if (response.ok) {
+          setLikedComments((prevLikedComments) => {
+            const newLikedComments = new Set(prevLikedComments);
+            const isLiked = data.comment.likes.some(
+              (id) => id.toString() === userId.toString()
+            );
+            if (isLiked) {
+              newLikedComments.add(commentId);
+              toast.success("Comment liked!", { toastId: `like-comment-${commentId}` });
+            } else {
+              newLikedComments.delete(commentId);
+              toast.success("Comment unliked!", { toastId: `like-comment-${commentId}` });
+            }
+            return newLikedComments;
+          });
+  
+          // Mettre à jour les commentaires avec les nouvelles données du backend
+          setComments((prevComments) =>
+            prevComments.map((comment) =>
+              comment._id === commentId ? { ...comment, likes: data.comment.likes } : comment
+            )
+          );
+        } else {
+          toast.error("Failed to toggle like: " + data.message);
+        }
+      } catch (error) {
+        console.error("Error toggling like:", error);
+        toast.error("Error toggling like status!");
+      }
+    },
+    [isBanned, userId, token]
+  );
   // Calculer le nombre de notifications non lues
   const unreadNotificationsCount = notifications.filter((notif) => !notif.read).length;
 
@@ -1013,11 +1157,38 @@ function Forum() {
                                 : "none",
                               transition: "transform 0.3s ease",
                               opacity: isBanned ? 0.5 : 1,
+                              marginRight: "15px",
                             }}
                             onClick={() => togglePin(forum._id)}
                           >
                             <FontAwesomeIcon icon={faThumbtack} />
                           </span>
+                        )}
+                        {userId && forum.status === "actif" && (
+                          <div className="d-flex align-items-center">
+                            <span
+                              className="icon"
+                              style={{
+                                cursor: isBanned ? "not-allowed" : "pointer",
+                                fontSize: "20px",
+                                color: likedTopics.has(forum._id) ? "red" : "gray",
+                                opacity: isBanned ? 0.5 : 1,
+                                marginRight: "5px",
+                              }}
+                              onClick={() => toggleLike(forum._id)}
+                            >
+                              <FontAwesomeIcon icon={faHeart} />
+                            </span>
+                            <span
+                              style={{
+                                fontSize: "12px",
+                                color: "black",
+                                marginTop: "5px",
+                              }}
+                            >
+                              {forum.likes.length}
+                            </span>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1843,6 +2014,33 @@ function Forum() {
                           <FontAwesomeIcon icon={faFlag} />
                         </span>
                       )}
+                        {userId && (
+                      <div className="d-flex align-items-center">
+                        <span
+                          className="icon"
+                          style={{
+                            cursor: isBanned ? "not-allowed" : "pointer",
+                            fontSize: "18px",
+                            color: likedComments.has(comment._id)
+                              ? "red"
+                              : "gray",
+                            opacity: isBanned ? 0.5 : 1,
+                            marginRight: "5px",
+                          }}
+                          onClick={() => toggleLikeComment(comment._id)}
+                        >
+                          <FontAwesomeIcon icon={faHeart} />
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "12px",
+                            color: "black",
+                          }}
+                        >
+                          {comment.likes.length}
+                        </span>
+                      </div>
+                    )}
                     </div>
                   </div>
                 ))

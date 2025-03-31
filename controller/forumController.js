@@ -37,26 +37,48 @@ module.exports.addForum = async (req, res) => {
 
 //get forum topics list
 module.exports.getForum = async (req, res) => {
-    try {
-        const forums = await Forum.find()
-            .populate("user_id", "username user_photo speciality level") // Récupère les infos de l'utilisateur
-            .sort({ createdAt: -1 }); // Trie les forums du plus récent au plus ancien
+  try {
+    const forums = await Forum.find()
+      .populate("user_id", "username user_photo speciality level") // Récupère les infos de l'utilisateur
+      .sort({ createdAt: -1 }); // Trie les forums du plus récent au plus ancien
 
-            const forumsWithImageUrl = forums.map(forum => {
-                if (forum.forum_photo && forum.forum_photo.trim().toLowerCase() !== "null" && forum.forum_photo.trim() !== "") {
-                    forum.forum_photo = `http://localhost:5000/uploads/${forum.forum_photo}`;
-                } else {
-                    forum.forum_photo = null; // Définir forum_photo sur null si elle est invalide
-                }
-                return forum;
-            });
+    // Ajouter les compteurs de commentaires et signalements sans modifier la structure principale
+    const forumsWithImageUrl = await Promise.all(
+      forums.map(async (forum) => {
+        // Compter les commentaires pour ce forum
+        const commentCount = await ForumComment.countDocuments({ forum_id: forum._id });
 
-        res.status(200).json(forumsWithImageUrl);
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
+        // Compter les signalements pour ce forum
+        const reportCount = await Report.countDocuments({ forum_id: forum._id });
+
+        // Transformer forum en objet simple pour ajouter les nouveaux champs
+        const forumObj = forum.toObject();
+
+        // Ajouter les compteurs au forum
+        forumObj.commentCount = commentCount;
+        forumObj.reportCount = reportCount;
+
+        // Appliquer la logique existante pour forum_photo
+        if (
+          forumObj.forum_photo &&
+          forumObj.forum_photo.trim().toLowerCase() !== "null" &&
+          forumObj.forum_photo.trim() !== ""
+        ) {
+          forumObj.forum_photo = `http://localhost:5000/uploads/${forumObj.forum_photo}`;
+        } else {
+          forumObj.forum_photo = null; // Définir forum_photo sur null si elle est invalide
+        }
+
+        return forumObj;
+      })
+    );
+
+    res.status(200).json(forumsWithImageUrl);
+  } catch (err) {
+    console.error("Error fetching forums:", err);
+    res.status(500).json({ message: err.message });
+  }
 };
-
 
 //update forum 
 module.exports.updateForum = async (req, res) => {
@@ -460,10 +482,189 @@ exports.getForumStats = async (req, res) => {
           uniquePublishers,
           totalComments,
           totalReports,
-          bannedUsers, // Changé "bannedForums" en "bannedUsers" pour refléter les bans d'utilisateurs
+          bannedUsers, 
       });
   } catch (err) {
       console.error("Error fetching forum stats:", err);
       res.status(500).json({ message: err.message });
+  }
+};
+
+//like and dislike
+module.exports.toggleLikeForum = async (req, res) => {
+  try {
+    const { forum_id, user_id } = req.params;
+
+    // Vérifier si l'utilisateur existe
+    const user = await User.findById(user_id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+
+    // Vérifier si le forum existe
+    const forum = await Forum.findById(forum_id);
+    if (!forum) {
+      return res.status(404).json({ message: "Forum not found!" });
+    }
+
+    // Vérifier si l'utilisateur a déjà aimé le forum
+    const isLiked = forum.likes.includes(user_id);
+
+    if (isLiked) {
+      // Si déjà aimé, retirer l'utilisateur de la liste des likes
+      forum.likes = forum.likes.filter((id) => id.toString() !== user_id.toString());
+      const updatedForum = await forum.save();
+      res.status(200).json({
+        message: "Forum unliked successfully!",
+        forum: updatedForum,
+      });
+    } else {
+      // Si pas encore aimé, ajouter l'utilisateur à la liste des likes
+      forum.likes.push(user_id);
+      const updatedForum = await forum.save();
+      res.status(200).json({
+        message: "Forum liked successfully!",
+        forum: updatedForum,
+      });
+    }
+  } catch (err) {
+    console.error("Error toggling like status:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
+//pdf reports stats
+// Nombre de forums publiés par mois
+module.exports.getMonthlyStats = async (req, res) => {
+  try {
+    const monthlyStats = await Forum.aggregate([
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { "_id.year": -1, "_id.month": -1 }, // Trier par année et mois décroissant
+      },
+      {
+        $project: {
+          month: {
+            $concat: [
+              { $toString: "$_id.year" },
+              "-",
+              {
+                $cond: [
+                  { $lt: ["$_id.month", 10] },
+                  { $concat: ["0", { $toString: "$_id.month" }] },
+                  { $toString: "$_id.month" },
+                ],
+              },
+            ],
+          },
+          count: 1,
+          _id: 0,
+        },
+      },
+    ]);
+
+    const result = monthlyStats.reduce((acc, curr) => {
+      acc[curr.month] = curr.count;
+      return acc;
+    }, {});
+
+    res.status(200).json(result);
+  } catch (err) {
+    console.error("Error fetching monthly stats:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Utilisateur avec le plus de publications
+module.exports.getTopPublisher = async (req, res) => {
+  try {
+    const topPublisher = await Forum.aggregate([
+      {
+        $group: {
+          _id: "$user_id",
+          postCount: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { postCount: -1 },
+      },
+      {
+        $limit: 1,
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      {
+        $unwind: "$user",
+      },
+      {
+        $project: {
+          username: "$user.username",
+          postCount: 1,
+          _id: 0,
+        },
+      },
+    ]);
+
+    res.status(200).json(topPublisher[0] || { username: "N/A", postCount: 0 });
+  } catch (err) {
+    console.error("Error fetching top publisher:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+// Utilisateur le plus banni
+module.exports.getMostBannedUser = async (req, res) => {
+  try {
+    const mostBannedUser = await ForumBan.aggregate([
+      {
+        $group: {
+          _id: "$user_id",
+          banCount: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { banCount: -1 },
+      },
+      {
+        $limit: 1,
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      {
+        $unwind: "$user",
+      },
+      {
+        $project: {
+          username: "$user.username",
+          banCount: 1,
+          _id: 0,
+        },
+      },
+    ]);
+
+    res.status(200).json(mostBannedUser[0] || { username: "N/A", banCount: 0 });
+  } catch (err) {
+    console.error("Error fetching most banned user:", err);
+    res.status(500).json({ message: err.message });
   }
 };

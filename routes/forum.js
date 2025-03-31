@@ -14,6 +14,9 @@ router.post("/ban", forumController.banUser);
 router.get("/banned-users", forumController.getBannedUsers); 
 router.get("/checkBan/:userId", forumController.checkBan);
 router.post("/togglePinForum/:forum_id/:user_id", forumController.togglePinForum); 
+router.post("/toggleLikeForum/:forum_id/:user_id", forumController.toggleLikeForum); 
 router.get("/stats", forumController.getForumStats);
-
+router.get("/monthlyStats", forumController.getMonthlyStats);
+router.get("/topPublisher", forumController.getTopPublisher);
+router.get("/mostBannedUser", forumController.getMostBannedUser);
 module.exports = router;
