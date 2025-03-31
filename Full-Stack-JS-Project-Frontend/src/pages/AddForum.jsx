@@ -3,6 +3,7 @@ import { jwtDecode } from 'jwt-decode';
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
 import debounce from 'lodash/debounce';
+import { Filter } from 'bad-words'; // Importer Filter depuis bad-words
 
 const AddForum = () => {
   const [title, setTitle] = useState("");
@@ -17,6 +18,9 @@ const AddForum = () => {
   const [isToxic, setIsToxic] = useState(false);
   const [titleToxicityScore, setTitleToxicityScore] = useState(0);
   const [descriptionToxicityScore, setDescriptionToxicityScore] = useState(0);
+
+  // Initialiser le filtre de bad-words
+  const badWordsFilter = new Filter();
 
   // Liste des tags prédéfinis
   const tagOptions = [
@@ -60,19 +64,16 @@ const AddForum = () => {
   const detectToxicPatterns = (text) => {
     let score = 0;
 
-    // 1. Usage excessif de majuscules (signe de "cri")
     const uppercaseWords = text.split(/\s+/).filter(word => word === word.toUpperCase() && word.length > 3);
     if (uppercaseWords.length > 0) {
       score += 0.2 * (uppercaseWords.length / text.split(/\s+/).length);
     }
 
-    // 2. Répétition de caractères (ex. "nullllll", "hahaahahaha")
     const repeatedChars = text.split(/\s+/).filter(word => /(.)\1{3,}/.test(word));
     if (repeatedChars.length > 0) {
       score += 0.15 * (repeatedChars.length / text.split(/\s+/).length);
     }
 
-    // 3. Présence de phrases négatives ou agressives
     const aggressivePhrases = ["je vais te", "tu es", "va te faire"];
     aggressivePhrases.forEach(phrase => {
       if (text.toLowerCase().includes(phrase)) {
@@ -93,11 +94,9 @@ const AddForum = () => {
     let toxicWordsFound = [];
     let toxicScore = 0;
 
-    // Vérifier chaque mot ou expression toxique
     toxicWordsList.forEach(toxicWord => {
       if (text.toLowerCase().includes(toxicWord)) {
-        // Ajouter le mot toxique tel qu'il apparaît dans le texte (pour l'afficher dans le message d'erreur)
-        const regex = new RegExp(toxicWord, 'gi'); // 'gi' pour insensible à la casse
+        const regex = new RegExp(toxicWord, 'gi');
         const matches = text.match(regex);
         if (matches) {
           toxicWordsFound.push(...matches);
@@ -131,9 +130,8 @@ const AddForum = () => {
     const text = (title || "") + " " + (description || "");
     let toxicWordsFound = [];
 
-    // Vérifier chaque mot ou expression toxique
     toxicWordsList.forEach(toxicWord => {
-      const regex = new RegExp(`\\b${toxicWord}\\b`, 'gi'); // 'gi' pour insensible à la casse, \b pour les limites de mots
+      const regex = new RegExp(`\\b${toxicWord}\\b`, 'gi');
       const matches = text.match(regex);
       if (matches) {
         toxicWordsFound.push(...matches);
@@ -148,6 +146,19 @@ const AddForum = () => {
       setToxicWords([]);
     }
   };
+
+  // Fonction pour vérifier les bad words avec la bibliothèque bad-words
+  const checkBadWords = debounce((text, field) => {
+    const words = text.split(/\s+/);
+    const foundBadWords = words.filter(word => badWordsFilter.isProfane(word));
+    
+    if (foundBadWords.length > 0) {
+      toast.error(`Contenu inapproprié détecté dans ${field} : ${foundBadWords.join(", ")}. Veuillez modifier votre texte.`, {
+        position: "top-right",
+        autoClose: 5000,
+      });
+    }
+  }, 500);
 
   const handlePhotoChange = (event) => {
     setForumPhoto(event.target.files[0]);
@@ -173,6 +184,22 @@ const AddForum = () => {
     }
 
     setIsToxic(false);
+
+    // Vérification des bad words avant soumission
+    const titleHasBadWords = badWordsFilter.isProfane(title);
+    const descriptionHasBadWords = badWordsFilter.isProfane(description);
+
+    if (titleHasBadWords || descriptionHasBadWords) {
+      const foundBadWords = [
+        ...title.split(/\s+/).filter(word => badWordsFilter.isProfane(word)),
+        ...description.split(/\s+/).filter(word => badWordsFilter.isProfane(word))
+      ];
+      toast.error(`Contenu inapproprié détecté : ${foundBadWords.join(", ")}. Publication impossible.`, {
+        position: "top-right",
+        autoClose: 5000,
+      });
+      return;
+    }
 
     const formData = new FormData();
     formData.append("title", title);
@@ -218,11 +245,11 @@ const AddForum = () => {
   // Fonction pour déterminer le dégradé de couleur en fonction du score
   const getGradientColor = (score) => {
     if (score > 0.5) {
-      return "linear-gradient(to right, #ff4d4d, #ff1a1a)"; // Rouge pour toxicité > 50%
+      return "linear-gradient(to right, #ff4d4d, #ff1a1a)";
     } else if (score > 0.3) {
-      return "linear-gradient(to right, #ffa500, #ff7f00)"; // Orange pour toxicité entre 30% et 50%
+      return "linear-gradient(to right, #ffa500, #ff7f00)";
     } else {
-      return "linear-gradient(to right, #28a745, #218838)"; // Vert pour toxicité < 30%
+      return "linear-gradient(to right, #28a745, #218838)";
     }
   };
 
@@ -279,6 +306,7 @@ const AddForum = () => {
                           setTitle(newTitle);
                           checkToxicContent(newTitle, description);
                           debouncedCalculateToxicity(newTitle, "title");
+                          checkBadWords(newTitle, "le titre"); // Ajout de la vérification des bad words
                         }}
                         required
                       />
@@ -363,6 +391,7 @@ const AddForum = () => {
                           setDescription(newDescription);
                           checkToxicContent(title, newDescription);
                           debouncedCalculateToxicity(newDescription, "description");
+                          checkBadWords(newDescription, "la description"); // Ajout de la vérification des bad words
                         }}
                         required
                       ></textarea>

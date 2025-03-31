@@ -10,6 +10,26 @@ import {
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import { Bar } from "react-chartjs-2"; // Importer le composant Bar
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
+
+// Enregistrer les composants nécessaires pour Chart.js
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 const Forum = () => {
   const theme = useTheme();
@@ -18,11 +38,19 @@ const Forum = () => {
   const [openModal, setOpenModal] = useState(false);
   const [selectedForum, setSelectedForum] = useState(null);
   const [comments, setComments] = useState([]);
-  const [openReportModal, setOpenReportModal] = useState(false); // Nouvel état pour le modal des rapports
-  const [reports, setReports] = useState([]); // Stocke les rapports
-  const [openCommentReportModal, setOpenCommentReportModal] = useState(false); // Nouvel état pour le modal des signalements des commentaires
-  const [selectedComment, setSelectedComment] = useState(null); // Commentaire sélectionné pour afficher ses signalements
-  const [commentReports, setCommentReports] = useState([]); // Stocke les signalements des commentaires
+  const [openReportModal, setOpenReportModal] = useState(false);
+  const [reports, setReports] = useState([]);
+  const [openCommentReportModal, setOpenCommentReportModal] = useState(false);
+  const [selectedComment, setSelectedComment] = useState(null);
+  const [commentReports, setCommentReports] = useState([]);
+  const [stats, setStats] = useState({
+    uniquePublishers: 0,
+    totalComments: 0,
+    totalReports: 0,
+    bannedUsers: 0,
+  });
+
+  // Récupérer les forums
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -35,6 +63,26 @@ const Forum = () => {
     };
 
     fetchData();
+  }, []);
+
+  // Récupérer les statistiques
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/forum/stats");
+        const data = await response.json();
+        setStats({
+          uniquePublishers: data.uniquePublishers || 0,
+          totalComments: data.totalComments || 0,
+          totalReports: data.totalReports || 0,
+          bannedUsers: data.bannedUsers || 0,
+        });
+      } catch (error) {
+        console.error("Erreur lors de la récupération des stats:", error);
+      }
+    };
+
+    fetchStats();
   }, []);
 
   const handleViewComments = async (forumId) => {
@@ -56,7 +104,7 @@ const Forum = () => {
     setSelectedForum(null);
     setComments([]);
   };
-  //affichage de reports de forum
+
   const handleViewReports = async (forumId) => {
     try {
       const response = await fetch(
@@ -68,15 +116,13 @@ const Forum = () => {
         setSelectedForum(forumId);
         setOpenReportModal(true);
       } else {
-        console.error(
-          "Erreur lors de la récupération des rapports:",
-          data.message
-        );
+        console.error("Erreur lors de la récupération des rapports:", data.message);
       }
     } catch (error) {
       console.error("Erreur lors de l'appel API:", error);
     }
   };
+
   const handleViewCommentReports = async (commentId) => {
     try {
       const response = await fetch(
@@ -88,10 +134,7 @@ const Forum = () => {
         setSelectedComment(commentId);
         setOpenCommentReportModal(true);
       } else {
-        console.error(
-          "Erreur lors de la récupération des signalements:",
-          data.message
-        );
+        console.error("Erreur lors de la récupération des signalements:", data.message);
       }
     } catch (error) {
       console.error("Erreur lors de l'appel API:", error);
@@ -103,11 +146,87 @@ const Forum = () => {
     setSelectedComment(null);
     setCommentReports([]);
   };
+
   const handleCloseReportModal = () => {
     setOpenReportModal(false);
     setSelectedForum(null);
     setReports([]);
   };
+
+  // Configuration des données pour le graphique
+  const chartData = {
+    labels: [
+      "Unique Publishers",
+      "Total Comments",
+      "Total Reports",
+      "Banned Users",
+    ],
+    datasets: [
+      {
+        label: "Forum Statistics",
+        data: [
+          stats.uniquePublishers,
+          stats.totalComments,
+          stats.totalReports,
+          stats.bannedUsers,
+        ],
+        backgroundColor: [
+          colors.greenAccent[500],
+          colors.blueAccent[500],
+          colors.redAccent[500],
+          colors.grey[500],
+        ],
+        borderColor: [
+          colors.greenAccent[700],
+          colors.blueAccent[700],
+          colors.redAccent[700],
+          colors.grey[700],
+        ],
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  // Options du graphique
+  const chartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: "top",
+        labels: {
+          color: colors.grey[100],
+        },
+      },
+      title: {
+        display: true,
+        text: "Forum Statistics Overview",
+        color: colors.grey[100],
+        font: {
+          size: 18,
+        },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          color: colors.grey[100],
+        },
+        grid: {
+          color: colors.grey[700],
+        },
+      },
+      x: {
+        ticks: {
+          color: colors.grey[100],
+        },
+        grid: {
+          color: colors.grey[700],
+        },
+      },
+    },
+  };
+
   return (
     <Box m="20px">
       <Header
@@ -145,37 +264,34 @@ const Forum = () => {
                 <Typography variant="h4">
                   <strong>Forum topic : </strong> {forum.title}
                 </Typography>
-                {/* Badge pour les tags */}
                 {forum.tags && forum.tags.length > 0 && (
                   <span
                     style={{
                       backgroundColor: "transparent",
-                      border: "1px solid #FF0000", // Cadre rouge
-                      color: "#FF0000", // Texte rouge
+                      border: "1px solid #FF0000",
+                      color: "#FF0000",
                       padding: "2px 8px",
                       borderRadius: "20px",
-                      boxShadow: "0 0 10px rgba(255, 0, 0, 0.5)", // Lueur rouge
-                      fontSize: "0.875rem", // Petit texte
+                      boxShadow: "0 0 10px rgba(255, 0, 0, 0.5)",
+                      fontSize: "0.875rem",
                     }}
                   >
-                    {forum.tags.join(", ")}{" "}
-                    {/* Affiche les tags séparés par une virgule */}
+                    {forum.tags.join(", ")}
                   </span>
                 )}
               </Box>
               <br />
               <Typography variant="h5">
-                <strong>Posted By :</strong>{" "}
-                {forum.user_id?.username || "Unknown"} &nbsp; &nbsp;
+                <strong>Posted By :</strong> {forum.user_id?.username || "Unknown"} {" "}
                 <span
                   style={{
                     backgroundColor: "transparent",
-                    border: "1px solid #00BFFF", // Cadre bleu
-                    color: "#00BFFF", // Texte bleu
+                    border: "1px solid #00BFFF",
+                    color: "#00BFFF",
                     padding: "2px 8px",
                     borderRadius: "20px",
-                    boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)", // Lueur bleue
-                    fontSize: "0.875rem", // Petit texte
+                    boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
+                    fontSize: "0.875rem",
                   }}
                 >
                   {forum.user_id?.level} {forum.user_id?.speciality}
@@ -203,7 +319,6 @@ const Forum = () => {
               >
                 View comments
               </Button>{" "}
-              &nbsp;
               <Button
                 variant="contained"
                 color="warning"
@@ -216,6 +331,16 @@ const Forum = () => {
             </Box>
           </Box>
         ))}
+      </Box>
+
+      {/* Charte de statistiques */}
+      <Box mt={4} p={2} bgcolor={colors.primary[400]} borderRadius={2} boxShadow={3}>
+        <Typography variant="h4" mb={2}>
+          Forum Statistics
+        </Typography>
+        <Box sx={{ maxWidth: "600px", margin: "0 auto" }}>
+          <Bar data={chartData} options={chartOptions} />
+        </Box>
       </Box>
 
       {/* Modal des commentaires */}
@@ -238,8 +363,6 @@ const Forum = () => {
             Comments for Forum Topic:{" "}
             {forums.find((forum) => forum._id === selectedForum)?.title}
           </Typography>
-
-          {/* Affichage des commentaires dans un modal */}
           {comments.length > 0 ? (
             comments.map((comment, index) => (
               <Box key={index} mb={2}>
@@ -247,27 +370,22 @@ const Forum = () => {
                   <Avatar
                     src={`http://localhost:5000${comment.user_id?.user_photo}`}
                     alt="User Avatar"
-                    sx={{
-                      width: 40,
-                      height: 40,
-                      objectFit: "cover",
-                    }}
+                    sx={{ width: 40, height: 40, objectFit: "cover" }}
                   />
                   <Box display="flex" flexDirection="row" alignItems="center">
                     <Typography variant="body1">
                       {comment.user_id?.username}
                     </Typography>
-                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                     <Typography variant="body2" sx={{ color: "#00BFFF" }}>
                       <span
                         style={{
                           backgroundColor: "transparent",
-                          border: "1px solid #00BFFF", // Cadre bleu
-                          color: "#00BFFF", // Texte bleu
+                          border: "1px solid #00BFFF",
+                          color: "#00BFFF",
                           padding: "2px 8px",
                           borderRadius: "20px",
-                          boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)", // Lueur bleue
-                          fontSize: "0.875rem", // Petit texte
+                          boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
+                          fontSize: "0.875rem",
                         }}
                       >
                         {comment.user_id?.level} {comment.user_id?.speciality}
@@ -287,7 +405,7 @@ const Forum = () => {
                   sx={{ maxHeight: 100, overflowY: "auto" }}
                 >
                   <Typography variant="h6">{comment.content}</Typography>
-                </Box>{" "}
+                </Box>
                 <Box display="flex" gap={2}>
                   <Button
                     variant="contained"
@@ -304,7 +422,6 @@ const Forum = () => {
           ) : (
             <Typography variant="body2">No comments available.</Typography>
           )}
-
           <Box display="flex" justifyContent="center" mt={2}>
             <Button
               variant="contained"
@@ -316,6 +433,7 @@ const Forum = () => {
           </Box>
         </Box>
       </Modal>
+
       {/* Modal des rapports */}
       <Modal open={openReportModal} onClose={handleCloseReportModal}>
         <Box
@@ -336,8 +454,6 @@ const Forum = () => {
             Reports for Forum Topic:{" "}
             {forums.find((forum) => forum._id === selectedForum)?.title}
           </Typography>
-
-          {/* Affichage des rapports */}
           {reports.length > 0 ? (
             reports.map((report, index) => (
               <Box
@@ -351,25 +467,22 @@ const Forum = () => {
                 <Typography variant="h6">
                   <strong>Reported By :</strong>{" "}
                   <Box display="flex" alignItems="center" gap={1}>
-                    {report.user_id?.username ||
-                      "Unknown User (ID: " + report.user_id + ")"}
-                    {report.user_id &&
-                      report.user_id.level &&
-                      report.user_id.speciality && (
-                        <span
-                          style={{
-                            backgroundColor: "transparent",
-                            border: "1px solid #00BFFF",
-                            color: "#00BFFF",
-                            padding: "2px 8px",
-                            borderRadius: "20px",
-                            boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
-                            fontSize: "0.875rem",
-                          }}
-                        >
-                          {report.user_id.level} {report.user_id.speciality}
-                        </span>
-                      )}
+                    {report.user_id?.username || "Unknown User (ID: " + report.user_id + ")"}
+                    {report.user_id && report.user_id.level && report.user_id.speciality && (
+                      <span
+                        style={{
+                          backgroundColor: "transparent",
+                          border: "1px solid #00BFFF",
+                          color: "#00BFFF",
+                          padding: "2px 8px",
+                          borderRadius: "20px",
+                          boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
+                          fontSize: "0.875rem",
+                        }}
+                      >
+                        {report.user_id.level} {report.user_id.speciality}
+                      </span>
+                    )}
                   </Box>
                 </Typography>
                 <Typography variant="body1">
@@ -390,7 +503,6 @@ const Forum = () => {
           ) : (
             <Typography variant="body2">No reports available.</Typography>
           )}
-
           <Box display="flex" justifyContent="center" mt={2}>
             <Button
               variant="contained"
@@ -402,11 +514,9 @@ const Forum = () => {
           </Box>
         </Box>
       </Modal>
+
       {/* Modal des signalements des commentaires */}
-      <Modal
-        open={openCommentReportModal}
-        onClose={handleCloseCommentReportModal}
-      >
+      <Modal open={openCommentReportModal} onClose={handleCloseCommentReportModal}>
         <Box
           sx={{
             position: "fixed",
@@ -424,8 +534,6 @@ const Forum = () => {
           <Typography variant="h5" mb={2}>
             Reports for Comment
           </Typography>
-
-          {/* Affichage des signalements */}
           {commentReports.length > 0 ? (
             commentReports.map((report, index) => (
               <Box
@@ -439,25 +547,22 @@ const Forum = () => {
                 <Typography variant="h6">
                   <strong>Posted By :</strong>{" "}
                   <Box display="flex" alignItems="center" gap={1}>
-                    {report.user_id?.username ||
-                      "Unknown User (ID: " + report.user_id + ")"}
-                    {report.user_id &&
-                      report.user_id.level &&
-                      report.user_id.speciality && (
-                        <span
-                          style={{
-                            backgroundColor: "transparent",
-                            border: "1px solid #00BFFF",
-                            color: "#00BFFF",
-                            padding: "2px 8px",
-                            borderRadius: "20px",
-                            boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
-                            fontSize: "0.875rem",
-                          }}
-                        >
-                          {report.user_id.level} {report.user_id.speciality}
-                        </span>
-                      )}
+                    {report.user_id?.username || "Unknown User (ID: " + report.user_id + ")"}
+                    {report.user_id && report.user_id.level && report.user_id.speciality && (
+                      <span
+                        style={{
+                          backgroundColor: "transparent",
+                          border: "1px solid #00BFFF",
+                          color: "#00BFFF",
+                          padding: "2px 8px",
+                          borderRadius: "20px",
+                          boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
+                          fontSize: "0.875rem",
+                        }}
+                      >
+                        {report.user_id.level} {report.user_id.speciality}
+                      </span>
+                    )}
                   </Box>
                 </Typography>
                 <Typography variant="body1">
@@ -478,7 +583,6 @@ const Forum = () => {
           ) : (
             <Typography variant="body2">No reports available.</Typography>
           )}
-
           <Box display="flex" justifyContent="center" mt={2}>
             <Button
               variant="contained"
