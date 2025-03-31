@@ -10,7 +10,7 @@ import {
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
 import VisibilityIcon from "@mui/icons-material/Visibility";
-import { Bar } from "react-chartjs-2"; // Importer le composant Bar
+import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -20,7 +20,8 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 // Enregistrer les composants nécessaires pour Chart.js
 ChartJS.register(
   CategoryScale,
@@ -49,6 +50,10 @@ const Forum = () => {
     totalReports: 0,
     bannedUsers: 0,
   });
+  const [monthlyForumPosts, setMonthlyForumPosts] = useState({});
+  const [topPublisher, setTopPublisher] = useState(null);
+  const [topCommenter, setTopCommenter] = useState(null);
+  const [mostBannedUser, setMostBannedUser] = useState(null);
 
   // Récupérer les forums
   useEffect(() => {
@@ -83,6 +88,33 @@ const Forum = () => {
     };
 
     fetchStats();
+  }, []);
+
+  // Récupérer les données pour le rapport PDF
+  useEffect(() => {
+    const fetchReportData = async () => {
+      try {
+        const monthlyResponse = await fetch("http://localhost:5000/forum/monthlyStats");
+        const monthlyData = await monthlyResponse.json();
+        setMonthlyForumPosts(monthlyData);
+
+        const publisherResponse = await fetch("http://localhost:5000/forum/topPublisher");
+        const publisherData = await publisherResponse.json();
+        setTopPublisher(publisherData);
+
+        const commenterResponse = await fetch("http://localhost:5000/forumComment/topCommenter");
+        const commenterData = await commenterResponse.json();
+        setTopCommenter(commenterData);
+
+        const bannedResponse = await fetch("http://localhost:5000/forum/mostBannedUser");
+        const bannedData = await bannedResponse.json();
+        setMostBannedUser(bannedData);
+      } catch (error) {
+        console.error("Erreur lors de la récupération des données du rapport:", error);
+      }
+    };
+
+    fetchReportData();
   }, []);
 
   const handleViewComments = async (forumId) => {
@@ -152,8 +184,98 @@ const Forum = () => {
     setSelectedForum(null);
     setReports([]);
   };
+  const generatePDF = () => {
+    const doc = new jsPDF();
+  
+    console.log("generatePDF appelé");
+  
+    try {
+      // Ajouter le logo
+      const logo = `../../assets/logo.png`; // Ajuste si nécessaire
+    const imgWidth = 40; // Largeur du logo en mm (ajuste selon tes besoins)
+    const imgHeight = 10; // Hauteur du logo en mm (ajuste selon tes besoins)
+    doc.addImage(logo, "PNG", 160, 13, imgWidth, imgHeight); // Position (x: 14, y: 10)
 
-  // Configuration des données pour le graphique
+      doc.setFontSize(18);
+      doc.text("Rapport Détaillé du Forum", 14, 20);
+  
+      doc.setFontSize(14);
+      doc.text("Forums publiés par mois", 14, 30);
+      const monthlyData = Object.entries(monthlyForumPosts).map(([month, count]) => [
+        month,
+        count,
+      ]);
+      console.log("monthlyData:", monthlyData);
+      autoTable(doc, {
+        startY: 35,
+        head: [["Mois", "Nombre de publications"]],
+        body: monthlyData,
+      });
+  
+      let currentY = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(14);
+      doc.text("Nombre de commentaires par forum", 14, currentY);
+      const commentData = forums.map((forum) => [
+        forum.title,
+        forum.commentCount || 0,
+      ]);
+      console.log("commentData:", commentData);
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [["Forum", "Nombre de commentaires"]],
+        body: commentData,
+      });
+  
+      currentY = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(14);
+      doc.text("Top Utilisateurs", 14, currentY);
+      const topUsersData = [
+        ["Top Publisher", topPublisher?.username || "N/A", topPublisher?.postCount || 0],
+        ["Top Commenter", topCommenter?.username || "N/A", topCommenter?.commentCount || 0],
+        ["Most Banned", mostBannedUser?.username || "N/A", mostBannedUser?.banCount || 0],
+      ];
+      console.log("topUsersData:", topUsersData);
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [["Catégorie", "Utilisateur", "Nombre"]],
+        body: topUsersData,
+      });
+  
+      currentY = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(14);
+      doc.text("Signalements par forum", 14, currentY);
+      const reportData = forums.map((forum) => [
+        forum.title,
+        forum.reportCount || 0,
+      ]);
+      console.log("reportData:", reportData);
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [["Forum", "Nombre de signalements"]],
+        body: reportData,
+      });
+  
+      currentY = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(14);
+      doc.text("Signalements des commentaires", 14, currentY);
+      const commentReportData = comments.map((comment) => [
+        comment.content.substring(0, 30) + "...",
+        comment.reportCount || 0,
+      ]);
+      console.log("commentReportData:", commentReportData);
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [["Commentaire", "Nombre de signalements"]],
+        body: commentReportData,
+      });
+  
+      console.log("PDF prêt à être sauvegardé");
+      doc.save(`rapport_forum_${new Date().toLocaleDateString("fr-FR")}.pdf`);
+    } catch (error) {
+      console.error("Erreur dans generatePDF:", error);
+    }
+  };
+
   const chartData = {
     labels: [
       "Unique Publishers",
@@ -187,7 +309,6 @@ const Forum = () => {
     ],
   };
 
-  // Options du graphique
   const chartOptions = {
     responsive: true,
     plugins: {
@@ -233,6 +354,15 @@ const Forum = () => {
         title="FORUM MANAGEMENT"
         subtitle="List of forum topics and their comments"
       />
+      <Box display="flex" justifyContent="flex-end" mb={2}>
+        <Button
+          variant="contained"
+          color="warning"
+          onClick={generatePDF}
+        >
+          Download report
+        </Button>
+      </Box>
       <Box mt={4}>
         {forums.map((forum, index) => (
           <Box
@@ -333,7 +463,6 @@ const Forum = () => {
         ))}
       </Box>
 
-      {/* Charte de statistiques */}
       <Box mt={4} p={2} bgcolor={colors.primary[400]} borderRadius={2} boxShadow={3}>
         <Typography variant="h4" mb={2}>
           Forum Statistics
@@ -343,7 +472,6 @@ const Forum = () => {
         </Box>
       </Box>
 
-      {/* Modal des commentaires */}
       <Modal open={openModal} onClose={handleCloseModal}>
         <Box
           sx={{
@@ -434,7 +562,6 @@ const Forum = () => {
         </Box>
       </Modal>
 
-      {/* Modal des rapports */}
       <Modal open={openReportModal} onClose={handleCloseReportModal}>
         <Box
           sx={{
@@ -515,7 +642,6 @@ const Forum = () => {
         </Box>
       </Modal>
 
-      {/* Modal des signalements des commentaires */}
       <Modal open={openCommentReportModal} onClose={handleCloseCommentReportModal}>
         <Box
           sx={{
@@ -535,7 +661,7 @@ const Forum = () => {
             Reports for Comment
           </Typography>
           {commentReports.length > 0 ? (
-            commentReports.map((report, index) => (
+            comments.map((report, index) => (
               <Box
                 key={index}
                 mb={2}
