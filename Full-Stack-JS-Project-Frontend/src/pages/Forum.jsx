@@ -9,7 +9,7 @@ import {
   faEye,
   faFlag,
   faSmile,
-  faBell, // Ajout de l'icône pour la bulle de notification
+  faBell,
 } from "@fortawesome/free-regular-svg-icons";
 import {
   faSearch,
@@ -18,7 +18,8 @@ import {
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
 import EmojiPicker from "emoji-picker-react";
-import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "../utils/notificationUtils"; // Import des fonctions de notificationsUtils
+import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead, addNotification } from "../utils/notificationUtils";
+
 // Fonction pour couper la description à 3 lignes
 const truncateDescription = (text, isExpanded) => {
   if (!isExpanded) {
@@ -32,7 +33,7 @@ function Forum() {
   const [token, setToken] = useState(null);
   const [userId, setUserId] = useState(null);
   const [userRole, setUserRole] = useState(null);
-  const [isBanned, setIsBanned] = useState(false); // État pour vérifier si l'utilisateur est banni
+  const [isBanned, setIsBanned] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [forumToDelete, setForumToDelete] = useState(null);
@@ -64,8 +65,9 @@ function Forum() {
   const [commentReportReason, setCommentReportReason] = useState("");
   const [pinnedTopics, setPinnedTopics] = useState(new Set());
   const [showEmojiPicker, setShowEmojiPicker] = useState({});
-  const [notifications, setNotifications] = useState([]); // État pour les notifications
-  const [showNotificationsModal, setShowNotificationsModal] = useState(false); // État pour le modal de notifications
+  const [notifications, setNotifications] = useState([]);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [username, setUsername] = useState(null);
   const navigate = useNavigate();
 
   // Fonction pour basculer l'état d'expansion
@@ -151,7 +153,7 @@ function Forum() {
     "pressure",
   ];
 
-  // Charger le token, l'ID utilisateur, le rôle, les topics épinglés, vérifier si l'utilisateur est banni et charger les notifications
+  // Charger le token, l'ID utilisateur, le rôle, vérifier si l'utilisateur est banni et charger les notifications
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
     if (token) {
@@ -165,15 +167,17 @@ function Forum() {
           setToken(null);
           setUserId(null);
           setUserRole(null);
+          setUsername(null);
           setPinnedTopics(new Set());
           setIsBanned(false);
-          setNotifications([]); // Réinitialiser les notifications
+          setNotifications([]);
           return;
         }
 
         setToken(token);
         setUserId(decoded.id);
         setUserRole(decoded.role);
+        setUsername(decoded.username);
         console.log("User role:", decoded.role);
 
         // Vérifier si l'utilisateur est banni
@@ -192,12 +196,12 @@ function Forum() {
               const currentDate = new Date();
               const expiresAt = new Date(data.ban.expiresAt);
               if (expiresAt > currentDate) {
-                setIsBanned(true); // L'utilisateur est banni et le ban est actif
+                setIsBanned(true);
               } else {
-                setIsBanned(false); // Le ban est expiré
+                setIsBanned(false);
               }
             } else {
-              setIsBanned(false); // Pas de ban ou erreur
+              setIsBanned(false);
             }
           } catch (error) {
             console.error("Erreur lors de la vérification du ban:", error);
@@ -206,13 +210,6 @@ function Forum() {
         };
 
         checkBanStatus();
-
-        const storedPinnedTopics = localStorage.getItem(`pinnedTopics_${decoded.id}`);
-        if (storedPinnedTopics) {
-          setPinnedTopics(new Set(JSON.parse(storedPinnedTopics)));
-        } else {
-          setPinnedTopics(new Set());
-        }
 
         // Charger les notifications pour l'utilisateur
         const userNotifications = getNotifications(decoded.id);
@@ -223,60 +220,63 @@ function Forum() {
         setToken(null);
         setUserId(null);
         setUserRole(null);
+        setUsername(null);
         setPinnedTopics(new Set());
         setIsBanned(false);
-        setNotifications([]); // Réinitialiser les notifications
+        setNotifications([]);
       }
     } else {
       console.log("Aucun token trouvé.");
       setToken(null);
       setUserId(null);
       setUserRole(null);
+      setUsername(null);
       setPinnedTopics(new Set());
       setIsBanned(false);
-      setNotifications([]); // Réinitialiser les notifications
+      setNotifications([]);
     }
   }, [token]);
 
-  // Surveiller les changements de userId pour recharger les topics épinglés et les notifications
-  useEffect(() => {
-    if (userId) {
-      const storedPinnedTopics = localStorage.getItem(`pinnedTopics_${userId}`);
-      if (storedPinnedTopics) {
-        setPinnedTopics(new Set(JSON.parse(storedPinnedTopics)));
-      } else {
-        setPinnedTopics(new Set());
-      }
-      // Recharger les notifications lorsque userId change
-      const userNotifications = getNotifications(userId);
-      setNotifications(userNotifications);
-    } else {
-      setPinnedTopics(new Set());
-      setNotifications([]); // Réinitialiser les notifications
-    }
-  }, [userId]);
-
-  // Sauvegarder les topics épinglés dans le localStorage à chaque modification
-  useEffect(() => {
-    if (userId) {
-      localStorage.setItem(`pinnedTopics_${userId}`, JSON.stringify([...pinnedTopics]));
-    }
-  }, [pinnedTopics, userId]);
-
-  // Affichage des forums
+  // Charger les forums et initialiser pinnedTopics avec les données du backend
   useEffect(() => {
     const fetchData = async () => {
       try {
         const forumsResponse = await fetch("http://localhost:5000/forum/getForum");
         const forumsData = await forumsResponse.json();
         setForums(forumsData);
+
+        // Initialiser pinnedTopics avec les forums épinglés par l'utilisateur
+        if (userId) {
+          const pinned = new Set(
+            forumsData
+              .filter((forum) =>
+                forum.pinned.some((id) => id.toString() === userId.toString())
+              )
+              .map((forum) => forum._id)
+          );
+          setPinnedTopics(pinned);
+        }
       } catch (error) {
         console.error("Erreur lors de la récupération des données:", error);
       }
     };
 
     fetchData();
-  }, []);
+  }, [userId]);
+
+  // Vérifier périodiquement les notifications pour des mises à jour
+  useEffect(() => {
+    if (!userId) return;
+
+    const interval = setInterval(() => {
+      const updatedNotifications = getNotifications(userId);
+      if (JSON.stringify(updatedNotifications) !== JSON.stringify(notifications)) {
+        setNotifications(updatedNotifications);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [userId, notifications]);
 
   // Ajouter un commentaire à un forum
   const handleAddComment = async (forumId, content, anonymous) => {
@@ -312,6 +312,13 @@ function Forum() {
           ...prev,
           [forumId]: "",
         }));
+        const forum = forums.find((f) => f._id === forumId);
+        if (forum && forum.user_id && forum.user_id._id !== userId) {
+          const creatorId = forum.user_id._id;
+          const commenterName = anonymous ? "Anonymous" : username || "Someone";
+          const message = `${commenterName} commented on your forum: "${forum.title}"`;
+          addNotification(creatorId, message, "comment");
+        }
       } else {
         console.error("Error adding comment:", data.message || data);
         toast.error("Failed to add your comment");
@@ -527,6 +534,13 @@ function Forum() {
         toast.success("Forum reported successfully!");
         setShowReportForumModal(false);
         setReportReason("");
+        const forum = forums.find((f) => f._id === forumToReport);
+        if (forum && forum.user_id && forum.user_id._id !== userId) {
+          const creatorId = forum.user_id._id;
+          const reporterName = username || "Someone";
+          const message = `${reporterName} reported your forum "${forum.title}" for: ${reportReason}`;
+          addNotification(creatorId, message, "report_forum");
+        }
       } else {
         toast.error("Failed to report forum: " + data.message);
       }
@@ -569,6 +583,16 @@ function Forum() {
         toast.success("Comment reported successfully!");
         setShowReportCommentModal(false);
         setCommentReportReason("");
+        const comment = comments.find((c) => c._id === commentToReport);
+        if (comment && comment.user_id && comment.user_id._id !== userId) {
+          const authorId = comment.user_id._id;
+          const reporterName = username || "Someone";
+          const message = `${reporterName} reported your comment "${comment.content.substring(
+            0,
+            11
+          )}..." for: ${commentReportReason}`;
+          addNotification(authorId, message, "report_comment");
+        }
       } else {
         toast.error("Failed to report comment: " + data.message);
       }
@@ -577,32 +601,64 @@ function Forum() {
     }
   };
 
-  // Fonction pour basculer l'état "pinned/unpinned" avec useCallback
+  // Fonction pour basculer l'état "pinned/unpinned" avec le backend
   const togglePin = useCallback(
-    (forumId) => {
+    async (forumId) => {
       if (isBanned) {
         toast.error("You are banned and cannot pin topics!");
         return;
       }
 
-      setPinnedTopics((prevPinnedTopics) => {
-        const newPinnedTopics = new Set(prevPinnedTopics);
-        const isPinned = newPinnedTopics.has(forumId);
-        if (isPinned) {
-          newPinnedTopics.delete(forumId);
-          toast.success("Topic unpinned!", {
-            toastId: `pin-${forumId}`,
+      if (!userId || !token) {
+        toast.error("You must be logged in to pin topics!");
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `http://localhost:5000/forum/togglePinForum/${forumId}/${userId}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setPinnedTopics((prevPinnedTopics) => {
+            const newPinnedTopics = new Set(prevPinnedTopics);
+            const isPinned = data.forum.pinned.some(
+              (id) => id.toString() === userId.toString()
+            );
+            if (isPinned) {
+              newPinnedTopics.add(forumId);
+              toast.success("Topic pinned!", { toastId: `pin-${forumId}` });
+            } else {
+              newPinnedTopics.delete(forumId);
+              toast.success("Topic unpinned!", { toastId: `pin-${forumId}` });
+            }
+            return newPinnedTopics;
           });
+
+          // Mettre à jour les forums avec les nouvelles données du backend
+          setForums((prevForums) =>
+            prevForums.map((forum) =>
+              forum._id === forumId ? { ...forum, pinned: data.forum.pinned } : forum
+            )
+          );
         } else {
-          newPinnedTopics.add(forumId);
-          toast.success("Topic pinned!", {
-            toastId: `pin-${forumId}`,
-          });
+          toast.error("Failed to toggle pin: " + data.message);
         }
-        return newPinnedTopics;
-      });
+      } catch (error) {
+        console.error("Error toggling pin:", error);
+        toast.error("Error toggling pin status!");
+      }
     },
-    [isBanned]
+    [isBanned, userId, token]
   );
 
   // Calculer le nombre de notifications non lues
@@ -616,13 +672,13 @@ function Forum() {
   // Fonction pour marquer une notification comme lue
   const handleMarkAsRead = (notificationId) => {
     markNotificationAsRead(userId, notificationId);
-    setNotifications(getNotifications(userId)); // Mettre à jour l'état
+    setNotifications(getNotifications(userId));
   };
 
   // Fonction pour marquer toutes les notifications comme lues
   const handleMarkAllAsRead = () => {
     markAllNotificationsAsRead(userId);
-    setNotifications(getNotifications(userId)); // Mettre à jour l'état
+    setNotifications(getNotifications(userId));
   };
 
   return (
@@ -657,10 +713,7 @@ function Forum() {
 
         {/* Forum Section */}
         <div className="forum-area py-100">
-          <div
-            className="container"
-            style={{ maxWidth: "800px", margin: "0 auto" }}
-          >
+          <div className="container" style={{ maxWidth: "800px", margin: "0 auto" }}>
             <div className="forum-header d-flex justify-content-between align-items-center mb-4">
               {/* Champ de recherche à gauche avec icône et animation */}
               <div
@@ -805,8 +858,8 @@ function Forum() {
                     key={forum._id}
                     className="forum-item p-4 border rounded mb-4"
                     style={{
-                      opacity: forum.status === "inactif" ? 0.5 : 1, // Réduire l'opacité si inactif
-                      filter: forum.status === "inactif" ? "grayscale(50%)" : "none", // Appliquer un effet gris
+                      opacity: forum.status === "inactif" ? 0.5 : 1,
+                      filter: forum.status === "inactif" ? "grayscale(50%)" : "none",
                     }}
                   >
                     <div className="d-flex justify-content-between align-items-center mb-2">
@@ -948,8 +1001,16 @@ function Forum() {
                             style={{
                               cursor: isBanned ? "not-allowed" : "pointer",
                               fontSize: "20px",
-                              color: pinnedTopics.has(forum._id) ? "#007bff" : "gray",
-                              transform: pinnedTopics.has(forum._id) ? "rotate(-45deg)" : "none",
+                              color: forum.pinned.some(
+                                (id) => id.toString() === userId?.toString()
+                              )
+                                ? "#007bff"
+                                : "gray",
+                              transform: forum.pinned.some(
+                                (id) => id.toString() === userId?.toString()
+                              )
+                                ? "rotate(-45deg)"
+                                : "none",
                               transition: "transform 0.3s ease",
                               opacity: isBanned ? 0.5 : 1,
                             }}
@@ -1269,7 +1330,7 @@ function Forum() {
               backgroundColor: "white",
               padding: "20px",
               borderRadius: "8px",
-              width: "500px",
+              width: "600px",
               maxWidth: "100%",
               boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
             }}
@@ -1328,6 +1389,7 @@ function Forum() {
                             margin: 0,
                             fontWeight: notif.read ? "normal" : "bold",
                             color: notif.read ? "#666" : "#000",
+                            fontSize: "12px",
                           }}
                         >
                           {notif.message}

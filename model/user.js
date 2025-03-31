@@ -99,10 +99,14 @@ const userSchema = new mongoose.Schema({
     banExpiration: { type: Date, default: null },
     banReason: { type: String, default: "" },
 
-},
+// Nouveau champ pour les événements auxquels l'étudiant participe
+participatedEvents: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Event', // Assurez-vous que 'Event' correspond au nom de votre modèle d'événements
+}],
+}, { timestamps: true });
 
 
-{ timestamps: true });
 
 
 // ✅ Middleware pour hacher le mot de passe avant de sauvegarder
