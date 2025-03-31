@@ -2,6 +2,7 @@ const User = require('../model/user');
 const Forum = require('../model/forum');
 const Report = require("../model/ForumReport");
 const ForumBan = require("../model/ForumBan");
+const ForumComment = require("../model/forumComment"); 
 //add forum topic
 module.exports.addForum = async (req, res) => {
     try {
@@ -110,22 +111,35 @@ module.exports.updateForum = async (req, res) => {
 
 //delete forum topic
 module.exports.deleteForum = async (req, res) => {
-    try {
-        const { forum_id } = req.params; // ID du forum à supprimer
+  try {
+    const { forum_id } = req.params; // ID du forum à supprimer
+    const { user_id } = req.body; // Récupérer l'ID de l'utilisateur qui demande la suppression (optionnel, pour vérification)
 
-        // Vérifier si le forum existe
-        const forum = await Forum.findById(forum_id);
-        if (!forum) {
-            return res.status(404).json({ message: "Forum not found !" });
-        }
-
-        // Supprimer le forum
-        await Forum.findByIdAndDelete(forum_id);
-
-        res.status(200).json({ message: "Forum deleted successfully" });
-    } catch (err) {
-        res.status(500).json({ message: err.message });
+    // Vérifier si le forum existe
+    const forum = await Forum.findById(forum_id);
+    if (!forum) {
+        return res.status(404).json({ message: "Forum not found!" });
     }
+
+    // Optionnel : Vérifier si l'utilisateur est le créateur du forum
+    if (user_id && forum.user_id.toString() !== user_id.toString()) {
+        return res.status(403).json({ message: "You are not authorized to delete this forum!" });
+    }
+
+    // Supprimer les commentaires associés au forum
+    await ForumComment.deleteMany({ forum_id: forum_id });
+
+    // Supprimer les signalements associés au forum
+    await Report.deleteMany({ forum_id: forum_id });
+
+    // Supprimer le forum lui-même
+    await Forum.findByIdAndDelete(forum_id);
+
+    res.status(200).json({ message: "Forum, its comments, and reports deleted successfully" });
+} catch (err) {
+    console.error("Error deleting forum:", err);
+    res.status(500).json({ message: err.message });
+}
 };
 //report forum content
 exports.addReportForum = async (req, res) => {
@@ -424,5 +438,32 @@ module.exports.togglePinForum = async (req, res) => {
   } catch (err) {
     console.error("Error toggling pin status:", err);
     res.status(500).json({ message: err.message });
+  }
+};
+
+//stat
+exports.getForumStats = async (req, res) => {
+  try {
+      // Nombre de personnes ayant publié dans le forum (utilisateurs uniques)
+      const uniquePublishers = await Forum.distinct("user_id").then(users => users.length);
+
+      // Nombre total de commentaires
+      const totalComments = await ForumComment.countDocuments();
+
+      // Nombre total de signalements sur les forums
+      const totalReports = await Report.countDocuments({ forum_id: { $exists: true } });
+
+      // Nombre de bans actifs (utilisateurs bannis)
+      const bannedUsers = await ForumBan.countDocuments({ expiresAt: { $gt: new Date() } });
+
+      res.status(200).json({
+          uniquePublishers,
+          totalComments,
+          totalReports,
+          bannedUsers, // Changé "bannedForums" en "bannedUsers" pour refléter les bans d'utilisateurs
+      });
+  } catch (err) {
+      console.error("Error fetching forum stats:", err);
+      res.status(500).json({ message: err.message });
   }
 };
