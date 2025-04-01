@@ -70,70 +70,68 @@ const Activities = () => {
   }, [navigate]);
 
   // Fetch activities with search, filter, and pagination
-  const fetchActivities = useCallback(
-    (query = "", category = "", pageNum = 0, limit = 20) => {
-      if (!adminId) return;
-
-      let url = `http://localhost:5000/users/list/activities?page=${pageNum + 1}&limit=${limit}&createdBy=${adminId}`;
-      const queryParams = [];
-      if (query) queryParams.push(`title=${query}&description=${query}`);
-      if (category) queryParams.push(`category=${category}`);
-      if (queryParams.length > 0) {
-        url += `&${queryParams.join("&")}`;
-      }
-
-      console.log("Fetching URL:", url);
-
-      fetch(url, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("jwt-token")}`,
-        },
+  const fetchActivities = useCallback(() => {
+    if (!adminId) return;
+  
+    const url = `http://localhost:5000/users/list/activities?createdBy=${adminId}`;
+  
+    fetch(url, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("jwt-token")}`,
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        let activitiesArray = [];
+  
+        if (Array.isArray(data)) {
+          activitiesArray = data;
+        } else if (Array.isArray(data.activities)) {
+          activitiesArray = data.activities;
+        } else {
+          console.error("Unexpected data format:", data);
+          return;
+        }
+  
+        // ✅ Appliquer recherche locale et filtre
+        let filteredActivities = activitiesArray.filter((activity) => {
+          const matchesSearch =
+            activity.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            activity.description.toLowerCase().includes(searchQuery.toLowerCase());
+        
+          const matchesCategory =
+            !selectedCategory || activity.category === selectedCategory;
+        
+          return matchesSearch && matchesCategory;
+        });
+        
+        const mappedActivities = filteredActivities.map((activity) => ({
+          id: activity._id, // Important pour MUI DataGrid
+          ...activity,
+        }));
+        
+        const start = page * pageSize;
+        const end = start + pageSize;
+        const paginatedActivities = mappedActivities.slice(start, end);
+        
+        setActivities(paginatedActivities);
+        setTotalActivities(filteredActivities.length);
+        
       })
-        .then((res) => {
-          if (!res.ok) {
-            return res.text().then((text) => {
-              throw new Error(`Server returned ${res.status}: ${text}`);
-            });
-          }
-          return res.json();
-        })
-        .then((data) => {
-          console.log("Raw response data:", data);
-          let activitiesArray = [];
-          if (Array.isArray(data)) {
-            // Cas où le backend renvoie directement un tableau
-            activitiesArray = data;
-          } else if (Array.isArray(data.activities)) {
-            // Cas où le backend renvoie un objet avec une propriété "activities"
-            activitiesArray = data.activities;
-          } else {
-            console.error("Unexpected data format:", data);
-            return;
-          }
-
-          const mappedActivities = activitiesArray.map((activity) => ({
-            id: activity._id,
-            ...activity,
-          }));
-          setActivities(mappedActivities);
-          // Si totalActivities n'est pas fourni, utiliser la longueur du tableau
-          setTotalActivities(data.totalActivities || activitiesArray.length);
-        })
-        .catch((err) => console.error("❌ Error fetching activities:", err));
-    },
-    [adminId]
-  );
+      .catch((err) => console.error("❌ Error fetching activities:", err));
+  }, [adminId, searchQuery, selectedCategory, page, pageSize]);
+  
 
   // Re-fetch activities on search, filter, or pagination change
   useEffect(() => {
     if (adminId) {
       const delayDebounceFn = setTimeout(() => {
-        fetchActivities(searchQuery, selectedCategory, page, pageSize);
+        fetchActivities();
       }, 500);
-
       return () => clearTimeout(delayDebounceFn);
     }
   }, [searchQuery, selectedCategory, page, pageSize, adminId, fetchActivities]);
+  
 
   // Open modal for adding/editing
   const handleOpen = (activity = null) => {
