@@ -3,7 +3,7 @@ import { jwtDecode } from 'jwt-decode';
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
 import debounce from 'lodash/debounce';
-import { Filter } from 'bad-words'; // Importer Filter depuis bad-words
+import { Filter } from 'bad-words';
 
 const AddForum = () => {
   const [title, setTitle] = useState("");
@@ -18,11 +18,12 @@ const AddForum = () => {
   const [isToxic, setIsToxic] = useState(false);
   const [titleToxicityScore, setTitleToxicityScore] = useState(0);
   const [descriptionToxicityScore, setDescriptionToxicityScore] = useState(0);
+  const [titleError, setTitleError] = useState("");
+  const [descriptionError, setDescriptionError] = useState("");
+  const [tagsError, setTagsError] = useState("");
 
-  // Initialiser le filtre de bad-words
   const badWordsFilter = new Filter();
 
-  // Liste des tags prédéfinis
   const tagOptions = [
     "anxiety", "stress", "depression", "burnout", "studies",
     "loneliness", "motivation", "support", "insomnia", "pressure"
@@ -52,7 +53,6 @@ const AddForum = () => {
     }
   }, []);
 
-  // Liste manuelle de mots et expressions toxiques (en minuscules)
   const toxicWordsList = [
     "idiot", "stupide", "nul", "débile", "crétin", "imbécile",
     "je déteste", "tu es nul", "je vais te", "frapper", "insulter",
@@ -60,34 +60,25 @@ const AddForum = () => {
     "dégage", "ta gueule", "ferme-la", "va te faire"
   ];
 
-  // Fonction pour détecter des motifs toxiques (majuscules, répétitions, etc.)
   const detectToxicPatterns = (text) => {
     let score = 0;
-
     const uppercaseWords = text.split(/\s+/).filter(word => word === word.toUpperCase() && word.length > 3);
     if (uppercaseWords.length > 0) {
       score += 0.2 * (uppercaseWords.length / text.split(/\s+/).length);
     }
-
     const repeatedChars = text.split(/\s+/).filter(word => /(.)\1{3,}/.test(word));
     if (repeatedChars.length > 0) {
       score += 0.15 * (repeatedChars.length / text.split(/\s+/).length);
     }
-
     const aggressivePhrases = ["je vais te", "tu es", "va te faire"];
     aggressivePhrases.forEach(phrase => {
-      if (text.toLowerCase().includes(phrase)) {
-        score += 0.3;
-      }
+      if (text.toLowerCase().includes(phrase)) score += 0.3;
     });
-
     return Math.min(score, 1);
   };
 
-  // Fonction pour calculer un score de toxicité
   const calculateToxicityScore = (text) => {
     if (!text) return 0;
-
     const words = text.toLowerCase().split(/\s+/).filter(word => word.length > 0);
     if (words.length === 0) return 0;
 
@@ -98,9 +89,7 @@ const AddForum = () => {
       if (text.toLowerCase().includes(toxicWord)) {
         const regex = new RegExp(toxicWord, 'gi');
         const matches = text.match(regex);
-        if (matches) {
-          toxicWordsFound.push(...matches);
-        }
+        if (matches) toxicWordsFound.push(...matches);
         toxicScore += 0.2;
       }
     });
@@ -112,10 +101,8 @@ const AddForum = () => {
     return Math.min(toxicScore, 1);
   };
 
-  // Fonction debounce pour calculer la toxicité en temps réel
   const debouncedCalculateToxicity = debounce((text, type) => {
     const score = calculateToxicityScore(text);
-
     if (type === "title") {
       setTitleToxicityScore(score);
       setIsToxic(score > 0.5);
@@ -125,7 +112,6 @@ const AddForum = () => {
     }
   }, 500);
 
-  // Fonction pour vérifier la présence de contenu toxique
   const checkToxicContent = (title, description) => {
     const text = (title || "") + " " + (description || "");
     let toxicWordsFound = [];
@@ -133,9 +119,7 @@ const AddForum = () => {
     toxicWordsList.forEach(toxicWord => {
       const regex = new RegExp(`\\b${toxicWord}\\b`, 'gi');
       const matches = text.match(regex);
-      if (matches) {
-        toxicWordsFound.push(...matches);
-      }
+      if (matches) toxicWordsFound.push(...matches);
     });
 
     if (toxicWordsFound.length > 0 || detectToxicPatterns(title) > 0 || detectToxicPatterns(description) > 0) {
@@ -147,18 +131,60 @@ const AddForum = () => {
     }
   };
 
-  // Fonction pour vérifier les bad words avec la bibliothèque bad-words
   const checkBadWords = debounce((text, field) => {
     const words = text.split(/\s+/);
     const foundBadWords = words.filter(word => badWordsFilter.isProfane(word));
-    
     if (foundBadWords.length > 0) {
-      toast.error(`Contenu inapproprié détecté dans ${field} : ${foundBadWords.join(", ")}. Veuillez modifier votre texte.`, {
+      toast.error(`Inappropriate content detected in ${field}: ${foundBadWords.join(", ")}. Please revise your text.`, {
         position: "top-right",
         autoClose: 5000,
       });
     }
   }, 500);
+
+  const validateForm = (field, value) => {
+    const titleRegex = /^[A-Za-z0-9\s.,!?]+$/;
+    const tagsAllowed = ["anxiety", "stress", "depression", "burnout", "studies", "loneliness", "motivation", "support", "insomnia", "pressure"];
+    let error = "";
+
+    if (field === "title" || field === "all") {
+      if (!value) {
+        error = "Title is required.";
+      } else if (value.length < 5) {
+        error = "Title must be at least 5 characters long.";
+      } else if (value.length > 100) {
+        error = "Title cannot exceed 100 characters.";
+      } else if (!titleRegex.test(value)) {
+        error = "Title can only contain letters, numbers, spaces, and some characters (.,!?).";
+      }
+      setTitleError(error);
+      if (error) return false;
+    }
+
+    if (field === "description" || field === "all") {
+      if (!value) {
+        error = "Description is required.";
+      } else if (value.length < 10) {
+        error = "Description must be at least 10 characters long.";
+      } else if (value.length > 1000) {
+        error = "Description cannot exceed 1000 characters.";
+      } else if (!titleRegex.test(value)) {
+        error = "Description can only contain letters, numbers, spaces, and some characters (.,!?).";
+      }
+      setDescriptionError(error);
+      if (error) return false;
+    }
+
+    if (field === "tags" || field === "all") {
+      if (value && !tagsAllowed.includes(value)) {
+        error = "Invalid tag. Choose from the allowed tags.";
+      }
+      setTagsError(error);
+      if (error) return false;
+    }
+
+    return true;
+  };
 
   const handlePhotoChange = (event) => {
     setForumPhoto(event.target.files[0]);
@@ -168,7 +194,15 @@ const AddForum = () => {
     event.preventDefault();
 
     if (!userId || !token) {
-      toast.error("Vous devez être connecté pour ajouter un forum.");
+      toast.error("You must be logged in to add a forum.");
+      return;
+    }
+
+    const isTitleValid = validateForm("title", title);
+    const isDescriptionValid = validateForm("description", description);
+    const isTagsValid = validateForm("tags", tags);
+
+    if (!isTitleValid || !isDescriptionValid || !isTagsValid) {
       return;
     }
 
@@ -180,12 +214,15 @@ const AddForum = () => {
 
     if (titleToxicityScore > 0.5 || descriptionToxicityScore > 0.5) {
       setIsToxic(true);
+      toast.error("Toxicity level too high! Please revise your content (must be below 50%).", {
+        position: "top-right",
+        autoClose: 5000,
+      });
       return;
     }
 
     setIsToxic(false);
 
-    // Vérification des bad words avant soumission
     const titleHasBadWords = badWordsFilter.isProfane(title);
     const descriptionHasBadWords = badWordsFilter.isProfane(description);
 
@@ -194,7 +231,7 @@ const AddForum = () => {
         ...title.split(/\s+/).filter(word => badWordsFilter.isProfane(word)),
         ...description.split(/\s+/).filter(word => badWordsFilter.isProfane(word))
       ];
-      toast.error(`Contenu inapproprié détecté : ${foundBadWords.join(", ")}. Publication impossible.`, {
+      toast.error(`Inappropriate content detected: ${foundBadWords.join(", ")}. Cannot post.`, {
         position: "top-right",
         autoClose: 5000,
       });
@@ -205,22 +242,21 @@ const AddForum = () => {
     formData.append("title", title);
     formData.append("description", description);
     formData.append("anonymous", anonymous);
-    formData.append("tags", JSON.stringify(tags ? [tags] : []));
-    if (forumPhoto) {
-      formData.append("forum_photo", forumPhoto);
-    }
+    // Envoyer les tags comme un tableau en utilisant la notation tags[]
+    const tagsArray = tags ? [tags] : [];
+    tagsArray.forEach(tag => formData.append("tags[]", tag));
+    if (forumPhoto) formData.append("forum_photo", forumPhoto);
 
     try {
       const response = await fetch(`http://localhost:5000/forum/addForum/${userId}`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error("Erreur lors de l'ajout du forum.");
+        const errorData = await response.json();
+        throw new Error(errorData.errors ? errorData.errors.join(", ") : "Error adding forum.");
       }
 
       const data = await response.json();
@@ -235,22 +271,20 @@ const AddForum = () => {
       setIsToxic(false);
       setTitleToxicityScore(0);
       setDescriptionToxicityScore(0);
-      toast.success('Votre sujet a été ajouté avec succès !');
+      setTitleError("");
+      setDescriptionError("");
+      setTagsError("");
+      toast.success('Your topic has been successfully added!');
     } catch (error) {
       console.error("Erreur:", error);
-      toast.error("Erreur lors de l'ajout du sujet.");
+      toast.error(error.message || "Error adding the topic.");
     }
   };
 
-  // Fonction pour déterminer le dégradé de couleur en fonction du score
   const getGradientColor = (score) => {
-    if (score > 0.5) {
-      return "linear-gradient(to right, #ff4d4d, #ff1a1a)";
-    } else if (score > 0.3) {
-      return "linear-gradient(to right, #ffa500, #ff7f00)";
-    } else {
-      return "linear-gradient(to right, #28a745, #218838)";
-    }
+    if (score > 0.5) return "linear-gradient(to right, #ff4d4d, #ff1a1a)";
+    else if (score > 0.3) return "linear-gradient(to right, #ffa500, #ff7f00)";
+    else return "linear-gradient(to right, #28a745, #218838)";
   };
 
   return (
@@ -267,20 +301,13 @@ const AddForum = () => {
         pauseOnHover
       />
       <main className="main">
-        <div
-          className="site-breadcrumb"
-          style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}
-        >
+        <div className="site-breadcrumb" style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}>
           <div className="container">
-            <h2 className="breadcrumb-title text-white">Ajouter un Forum</h2>
+            <h2 className="breadcrumb-title text-white">Add a Forum</h2>
             <ul className="breadcrumb-menu">
-              <li>
-                <a href="/Home">Home</a>
-              </li>
-              <li>
-                <a href="/forum">Forum</a>
-              </li>
-              <li className="active">add new topic</li>
+              <li><a href="/Home">Home</a></li>
+              <li><a href="/forum">Forum</a></li>
+              <li className="active">Add new topic</li>
             </ul>
           </div>
         </div>
@@ -306,73 +333,64 @@ const AddForum = () => {
                           setTitle(newTitle);
                           checkToxicContent(newTitle, description);
                           debouncedCalculateToxicity(newTitle, "title");
-                          checkBadWords(newTitle, "le titre"); // Ajout de la vérification des bad words
+                          checkBadWords(newTitle, "title");
+                          validateForm("title", newTitle);
                         }}
                         required
                       />
                     </div>
+                    {titleError && (
+                      <p className="text-red-500 text-xs mt-1">{titleError}</p>
+                    )}
                     <div className="mt-2">
                       <label className="text-sm font-semibold text-gray-700">
-                        Toxicity level :{" "}
-                        <span
-                          style={{
-                            color:
-                              titleToxicityScore > 0.5
-                                ? "#ff4d4d"
-                                : titleToxicityScore > 0.3
-                                ? "#ffa500"
-                                : "#28a745",
-                            fontWeight: "bold",
-                            backgroundColor: "#f0f0f0",
-                            padding: "2px 6px",
-                            borderRadius: "12px",
-                            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                          }}
-                        >
+                        Toxicity level:{" "}
+                        <span style={{
+                          color: titleToxicityScore > 0.5 ? "#ff4d4d" : titleToxicityScore > 0.3 ? "#ffa500" : "#28a745",
+                          fontWeight: "bold",
+                          backgroundColor: "#f0f0f0",
+                          padding: "2px 6px",
+                          borderRadius: "12px",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                        }}>
                           {(titleToxicityScore * 100).toFixed(2)}%
                         </span>
                       </label>
-                      <div
-                        style={{
-                          width: "100%",
-                          height: "12px",
-                          backgroundColor: "#e0e0e0",
+                      <div style={{
+                        width: "100%",
+                        height: "12px",
+                        backgroundColor: "#e0e0e0",
+                        borderRadius: "20px",
+                        overflow: "hidden",
+                        boxShadow: "inset 0 2px 4px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.05)",
+                        position: "relative",
+                        marginTop: "4px",
+                      }}>
+                        <div style={{
+                          width: `${titleToxicityScore * 100}%`,
+                          height: "100%",
+                          backgroundImage: getGradientColor(titleToxicityScore),
                           borderRadius: "20px",
-                          overflow: "hidden",
-                          boxShadow: "inset 0 2px 4px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.05)",
+                          transition: "width 0.5s ease-in-out",
                           position: "relative",
-                          marginTop: "4px",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: `${titleToxicityScore * 100}%`,
+                          boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+                        }}>
+                          <div style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: "100%",
                             height: "100%",
-                            backgroundImage: getGradientColor(titleToxicityScore),
-                            borderRadius: "20px",
-                            transition: "width 0.5s ease-in-out",
-                            position: "relative",
-                            boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
-                          }}
-                        >
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: 0,
-                              left: 0,
-                              width: "100%",
-                              height: "100%",
-                              background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)",
-                              animation: "shine 2s infinite",
-                            }}
-                          />
+                            background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)",
+                            animation: "shine 2s infinite",
+                          }} />
                         </div>
                       </div>
                       {titleToxicityScore > 0.5 && (
                         <p className="text-red-500 text-xs mt-1">
-                          Toxicité trop élevée ! Modifiez votre titre (doit être inférieur à 50%).{" "}
+                          Toxicity too high! Please revise your title (must be below 50%).{" "}
                           {toxicWords.length > 0 && (
-                            <span>Mots problématiques : {toxicWords.join(", ")}</span>
+                            <span>Problematic words: {toxicWords.join(", ")}</span>
                           )}
                         </p>
                       )}
@@ -391,73 +409,64 @@ const AddForum = () => {
                           setDescription(newDescription);
                           checkToxicContent(title, newDescription);
                           debouncedCalculateToxicity(newDescription, "description");
-                          checkBadWords(newDescription, "la description"); // Ajout de la vérification des bad words
+                          checkBadWords(newDescription, "description");
+                          validateForm("description", newDescription);
                         }}
                         required
                       ></textarea>
                     </div>
+                    {descriptionError && (
+                      <p className="text-red-500 text-xs mt-1">{descriptionError}</p>
+                    )}
                     <div className="mt-2">
                       <label className="text-sm font-semibold text-gray-700">
-                        Toxicity level :{" "}
-                        <span
-                          style={{
-                            color:
-                              descriptionToxicityScore > 0.5
-                                ? "#ff4d4d"
-                                : descriptionToxicityScore > 0.3
-                                ? "#ffa500"
-                                : "#28a745",
-                            fontWeight: "bold",
-                            backgroundColor: "#f0f0f0",
-                            padding: "2px 6px",
-                            borderRadius: "12px",
-                            boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                          }}
-                        >
+                        Toxicity level:{" "}
+                        <span style={{
+                          color: descriptionToxicityScore > 0.5 ? "#ff4d4d" : descriptionToxicityScore > 0.3 ? "#ffa500" : "#28a745",
+                          fontWeight: "bold",
+                          backgroundColor: "#f0f0f0",
+                          padding: "2px 6px",
+                          borderRadius: "12px",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                        }}>
                           {(descriptionToxicityScore * 100).toFixed(2)}%
                         </span>
                       </label>
-                      <div
-                        style={{
-                          width: "100%",
-                          height: "12px",
-                          backgroundColor: "#e0e0e0",
+                      <div style={{
+                        width: "100%",
+                        height: "12px",
+                        backgroundColor: "#e0e0e0",
+                        borderRadius: "20px",
+                        overflow: "hidden",
+                        boxShadow: "inset 0 2px 4px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.05)",
+                        position: "relative",
+                        marginTop: "4px",
+                      }}>
+                        <div style={{
+                          width: `${descriptionToxicityScore * 100}%`,
+                          height: "100%",
+                          backgroundImage: getGradientColor(descriptionToxicityScore),
                           borderRadius: "20px",
-                          overflow: "hidden",
-                          boxShadow: "inset 0 2px 4px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.05)",
+                          transition: "width 0.5s ease-in-out",
                           position: "relative",
-                          marginTop: "4px",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: `${descriptionToxicityScore * 100}%`,
+                          boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+                        }}>
+                          <div style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: "100%",
                             height: "100%",
-                            backgroundImage: getGradientColor(descriptionToxicityScore),
-                            borderRadius: "20px",
-                            transition: "width 0.5s ease-in-out",
-                            position: "relative",
-                            boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
-                          }}
-                        >
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: 0,
-                              left: 0,
-                              width: "100%",
-                              height: "100%",
-                              background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)",
-                              animation: "shine 2s infinite",
-                            }}
-                          />
+                            background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)",
+                            animation: "shine 2s infinite",
+                          }} />
                         </div>
                       </div>
                       {descriptionToxicityScore > 0.5 && (
                         <p className="text-red-500 text-xs mt-1">
-                          Toxicité trop élevée ! Modifiez votre description (doit être inférieur à 50%).{" "}
+                          Toxicity too high! Please revise your description (must be below 50%).{" "}
                           {toxicWords.length > 0 && (
-                            <span>Mots problématiques : {toxicWords.join(", ")}</span>
+                            <span>Problematic words: {toxicWords.join(", ")}</span>
                           )}
                         </p>
                       )}
@@ -498,7 +507,11 @@ const AddForum = () => {
                     <select
                       id="tag"
                       value={tags}
-                      onChange={(e) => setTags(e.target.value)}
+                      onChange={(e) => {
+                        const newTag = e.target.value;
+                        setTags(newTag);
+                        validateForm("tags", newTag);
+                      }}
                       className="form-control"
                     >
                       <option value="">Select a tag</option>
@@ -508,6 +521,9 @@ const AddForum = () => {
                         </option>
                       ))}
                     </select>
+                    {tagsError && (
+                      <p className="text-red-500 text-xs mt-1">{tagsError}</p>
+                    )}
                   </div>
 
                   <div className="auth-group text-center">
@@ -529,12 +545,8 @@ const AddForum = () => {
       <style>
         {`
           @keyframes shine {
-            0% {
-              transform: translateX(-100%);
-            }
-            100% {
-              transform: translateX(100%);
-            }
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
           }
         `}
       </style>

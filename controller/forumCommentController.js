@@ -153,6 +153,30 @@ exports.getCommentReports = async (req, res) => {
       res.status(500).json({ message: err.message });
     }
   };
+  // Supprimer un signalement de commentaire
+exports.deleteCommentReport = async (req, res) => {
+  try {
+    const reportId = req.params.reportId;
+
+    // Vérifier si le signalement existe
+    const report = await Report.findById(reportId);
+    if (!report) {
+      return res.status(404).json({ message: "Report not found!" });
+    }
+
+    // Vérifier si le signalement est bien lié à un commentaire
+    if (!report.comment_id) {
+      return res.status(400).json({ message: "This report is not associated with a comment!" });
+    }
+
+    // Supprimer le signalement
+    await Report.findByIdAndDelete(reportId);
+
+    res.status(200).json({ message: "Comment report deleted successfully!" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
   //like comment
   exports.toggleLikeComment = async (req, res) => {
     try {
