@@ -1,12 +1,12 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTrashAlt, faToggleOn, faToggleOff, faFlag, faBan } from "@fortawesome/free-solid-svg-icons";
-import { faSearch, faHeart } from "@fortawesome/free-solid-svg-icons";
+import { faTrashAlt, faToggleOn, faToggleOff, faFlag, faBan, faUserSlash } from "@fortawesome/free-solid-svg-icons"; // Ajout de faUserSlash pour l'icône unban
+import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
-import { addNotification } from "../utils/notificationUtils"; // Importer l'utilitaire
+import { addNotification } from "../utils/notificationUtils";
 
 // Fonction pour couper la description à 3 lignes
 const truncateDescription = (text, isExpanded) => {
@@ -15,6 +15,7 @@ const truncateDescription = (text, isExpanded) => {
   }
   return text;
 };
+
 // Fonction pour générer l'URL du QR code avec les informations de ban
 const generateQRCodeUrl = (user) => {
   const qrData = `Username: ${user.user_id.username}\nLevel and Speciality: ${user.user_id.level || 'N/A'} ${user.user_id.speciality || 'N/A'}\nReason of ban: ${user.reason}\nBan expires: ${new Date(user.expiresAt).toLocaleString("fr-FR")}`;
@@ -37,7 +38,6 @@ function ForumModerate() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [sortOption, setSortOption] = useState("newest");
-  const [favoriteTopics, setFavoriteTopics] = useState(new Set());
   const [expanded, setExpanded] = useState({});
   const [showPertinentOnly, setShowPertinentOnly] = useState(false);
   const [commentsCountMap, setCommentsCountMap] = useState({});
@@ -67,7 +67,6 @@ function ForumModerate() {
     }
   };
 
-  // Fonction pour récupérer le nombre de commentaires pour chaque topic
   const fetchCommentsCount = async (forumId) => {
     try {
       const response = await fetch(
@@ -89,7 +88,6 @@ function ForumModerate() {
     }
   };
 
-  // Fonction pour récupérer la liste des utilisateurs bannis
   const fetchBannedUsers = async () => {
     try {
       console.log("Token used for fetchBannedUsers:", token);
@@ -103,7 +101,7 @@ function ForumModerate() {
 
       if (response.ok) {
         console.log("Setting bannedUsers to:", data.bannedUsers);
-        setBannedUsers(data.bannedUsers); // Extraire la propriété bannedUsers
+        setBannedUsers(data.bannedUsers);
         setShowBannedListModal(true);
       } else {
         console.error("Erreur lors de la récupération des utilisateurs bannis:", data.message || data);
@@ -115,7 +113,28 @@ function ForumModerate() {
     }
   };
 
-  // Charger les topics et le nombre de commentaires
+  const handleUnbanUser = async (banId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/forum/unban/${banId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success(data.message || "User unbanned successfully!");
+        setBannedUsers(bannedUsers.filter((user) => user._id !== banId));
+      } else {
+        toast.error(data.message || "Failed to unban user!");
+      }
+    } catch (error) {
+      console.error("Erreur lors de la suppression du ban:", error);
+      toast.error("Error unbanning user!");
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -137,7 +156,6 @@ function ForumModerate() {
     fetchData();
   }, []);
 
-  // Gérer le token et les favoris
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
     console.log("Token from localStorage:", token);
@@ -159,13 +177,6 @@ function ForumModerate() {
         setToken(token);
         setUserId(decoded.id);
         console.log("Set userId to:", decoded.id);
-
-        const storedFavoriteTopics = localStorage.getItem(`favoriteTopics_${decoded.id}`);
-        if (storedFavoriteTopics) {
-          setFavoriteTopics(new Set(JSON.parse(storedFavoriteTopics)));
-        } else {
-          setFavoriteTopics(new Set());
-        }
       } catch (error) {
         console.error("Erreur de décodage du token:", error);
         localStorage.removeItem("jwt-token");
@@ -180,32 +191,15 @@ function ForumModerate() {
       setUserId(null);
       setIsLoading(false);
     }
-  }, []); // Retirer [token] pour éviter des exécutions multiples
-
-  useEffect(() => {
-    if (userId) {
-      const storedFavoriteTopics = localStorage.getItem(`favoriteTopics_${userId}`);
-      if (storedFavoriteTopics) {
-        setFavoriteTopics(new Set(JSON.parse(storedFavoriteTopics)));
-      } else {
-        setFavoriteTopics(new Set());
-      }
-    } else {
-      setFavoriteTopics(new Set());
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    if (userId) {
-      localStorage.setItem(`favoriteTopics_${userId}`, JSON.stringify([...favoriteTopics]));
-    }
-  }, [favoriteTopics, userId]);
+  }, []);
 
   const filterPertinentForums = (forums) => {
     return forums.filter((forum) => {
       const commentsCount = commentsCountMap[forum._id] || 0;
-      const favoritesCount = favoriteTopics.has(forum._id) ? 1 : 0;
-      const isPertinent = commentsCount > 5 || favoritesCount > 3;
+      const pinnedCount = forum.pinned && Array.isArray(forum.pinned) ? forum.pinned.length : forum.pinned || 0;
+      const likesCount = forum.likes && Array.isArray(forum.likes) ? forum.likes.length : forum.likes || 0;
+
+      const isPertinent = commentsCount > 5 || pinnedCount > 5 || likesCount > 5;
       return showPertinentOnly ? isPertinent : true;
     });
   };
@@ -222,21 +216,9 @@ function ForumModerate() {
         return titleMatch || descriptionMatch || tagsMatch;
       })
       .sort((a, b) => {
-        if (sortOption === "favorites") {
-          const aIsFavorite = favoriteTopics.has(a._id);
-          const bIsFavorite = favoriteTopics.has(b._id);
-
-          if (aIsFavorite && !bIsFavorite) return -1;
-          if (!aIsFavorite && bIsFavorite) return 1;
-
-          const dateA = new Date(a.createdAt);
-          const dateB = new Date(b.createdAt);
-          return dateB - dateA;
-        } else {
-          const dateA = new Date(a.createdAt);
-          const dateB = new Date(b.createdAt);
-          return sortOption === "newest" ? dateB - dateA : dateA - dateB;
-        }
+        const dateA = new Date(a.createdAt);
+        const dateB = new Date(b.createdAt);
+        return sortOption === "newest" ? dateB - dateA : dateA - dateB;
       })
   );
 
@@ -270,7 +252,6 @@ function ForumModerate() {
   };
 
   const handleDeleteComment = (commentId) => {
-    // Trouver le commentaire pour récupérer l'user_id et le contenu
     const comment = comments.find((c) => c._id === commentId);
     if (!comment) return;
 
@@ -288,7 +269,6 @@ function ForumModerate() {
         setShowDeleteCommentModal(false);
         toast.success("Comment deleted successfully!");
 
-        // Ajouter une notification pour l'utilisateur
         const message = `Your comment "${comment.content}" has been deleted by a moderator.`;
         addNotification(comment.user_id._id, message, "comment_deleted");
       })
@@ -321,7 +301,6 @@ function ForumModerate() {
   };
 
   const handleDelete = (forumId) => {
-    // Trouver le forum pour récupérer l'user_id et le titre
     const forum = forums.find((f) => f._id === forumId);
     if (!forum) return;
 
@@ -339,7 +318,6 @@ function ForumModerate() {
         setShowDeleteModal(false);
         toast.success("Topic deleted successfully!");
 
-        // Ajouter une notification pour l'utilisateur
         const message = `Your post "${forum.title}" has been deleted by a moderator.`;
         addNotification(forum.user_id._id, message, "post_deleted");
       })
@@ -405,6 +383,50 @@ function ForumModerate() {
     }
   };
 
+  const handleDeleteForumReport = async (reportId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/forum/reports/${reportId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success(data.message);
+        setReports(reports.filter((report) => report._id !== reportId));
+      } else {
+        toast.error(data.message || "Failed to delete report!");
+      }
+    } catch (error) {
+      console.error("Erreur lors de la suppression du signalement:", error);
+      toast.error("Error deleting report!");
+    }
+  };
+
+  const handleDeleteCommentReport = async (reportId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/forumComment/reports/${reportId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success(data.message);
+        setCommentReports(commentReports.filter((report) => report._id !== reportId));
+      } else {
+        toast.error(data.message || "Failed to delete comment report!");
+      }
+    } catch (error) {
+      console.error("Erreur lors de la suppression du signalement de commentaire:", error);
+      toast.error("Error deleting comment report!");
+    }
+  };
+
   const handleOpenBanModal = (userId) => {
     setUserToBan(userId);
     setBanDuration("");
@@ -442,7 +464,6 @@ function ForumModerate() {
         toast.success(data.message || "User banned successfully!");
         setShowBanModal(false);
 
-        // Ajouter une notification pour l'utilisateur banni
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + parseInt(banDuration));
         const message = `You have been banned for ${banReason}. Ban expires on ${expiresAt.toLocaleString("fr-FR")}.`;
@@ -455,28 +476,6 @@ function ForumModerate() {
       toast.error("Error banning user: " + error.message);
     }
   };
-
-  const toggleFavorite = useCallback(
-    (forumId) => {
-      setFavoriteTopics((prevFavoriteTopics) => {
-        const newFavoriteTopics = new Set(prevFavoriteTopics);
-        const isFavorite = newFavoriteTopics.has(forumId);
-        if (isFavorite) {
-          newFavoriteTopics.delete(forumId);
-          toast.success("Topic removed from favorites!", {
-            toastId: `favorite-${forumId}`,
-          });
-        } else {
-          newFavoriteTopics.add(forumId);
-          toast.success("Topic added to favorites!", {
-            toastId: `favorite-${forumId}`,
-          });
-        }
-        return newFavoriteTopics;
-      });
-    },
-    []
-  );
 
   if (isLoading) {
     return (
@@ -679,7 +678,6 @@ function ForumModerate() {
                 >
                   <option value="newest">Newest Topics</option>
                   <option value="oldest">Oldest Topics</option>
-                  <option value="favorites">Favorite Topics</option>
                 </select>
               </div>
             </div>
@@ -784,18 +782,6 @@ function ForumModerate() {
                           }}
                         >
                           <FontAwesomeIcon icon={faTrashAlt} />
-                        </span>
-                        <span
-                          className="icon"
-                          style={{
-                            cursor: "pointer",
-                            fontSize: "20px",
-                            color: favoriteTopics.has(forum._id) ? "red" : "gray",
-                            marginRight: "15px",
-                          }}
-                          onClick={() => toggleFavorite(forum._id)}
-                        >
-                          <FontAwesomeIcon icon={faHeart} />
                         </span>
                         <button
                           onClick={() => handleViewReports(forum._id)}
@@ -1086,6 +1072,16 @@ function ForumModerate() {
                           Reported at: {new Date(report.createdAt).toLocaleString("fr-FR")}
                         </p>
                       </div>
+                    </div>
+                    <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                      <span
+                        className="icon"
+                        style={{ cursor: "pointer", fontSize: "18px", color: "red" }}
+                        onClick={() => handleDeleteForumReport(report._id)}
+                        title="Delete Report"
+                      >
+                        <FontAwesomeIcon icon={faTrashAlt} />
+                      </span>
                     </div>
                   </div>
                 ))
@@ -1383,6 +1379,16 @@ function ForumModerate() {
                         </p>
                       </div>
                     </div>
+                    <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                      <span
+                        className="icon"
+                        style={{ cursor: "pointer", fontSize: "18px", color: "red" }}
+                        onClick={() => handleDeleteCommentReport(report._id)}
+                        title="Delete Report"
+                      >
+                        <FontAwesomeIcon icon={faTrashAlt} />
+                      </span>
+                    </div>
                   </div>
                 ))
               ) : (
@@ -1592,9 +1598,20 @@ function ForumModerate() {
                         <p style={{ margin: 0, fontWeight: "bold" }}>
                           {user.user_id.username}
                         </p>
+                        <p style={{ margin: 0, fontSize: "12px", color: "#666" }}>
+                          Reason: {user.reason} | Expires: {new Date(user.expiresAt).toLocaleString("fr-FR")}
+                        </p>
                       </div>
                     </div>
-                    <div style={{ flexShrink: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <span
+                        className="icon"
+                        style={{ cursor: "pointer", fontSize: "18px", color: "#4CAF50" }}
+                        onClick={() => handleUnbanUser(user._id)}
+                        title="Unban User"
+                      >
+                        <FontAwesomeIcon icon={faUserSlash} />
+                      </span>
                       <img
                         src={generateQRCodeUrl(user)}
                         alt="QR Code for ban info"
