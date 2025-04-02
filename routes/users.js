@@ -87,6 +87,7 @@ router.put('/chat/:messageId', userController.verifyToken, userController.update
 router.get("/categories" , userController.verifyToken, activitiesController.getAllCategories);
 router.post("/categories/:id" , userController.verifyToken, activitiesController.createCategory);
 router.put("/categories/:id", userController.verifyToken, activitiesController.updateCategory);
+router.delete('/categories/:id',userController.verifyToken,  activitiesController.deleteCategory);  // Supprimer tous les utilisateurs
 
 router.delete('/deleteAll', userController.deleteAllUsers);  // Supprimer tous les utilisateurs
 router.get('/search', userController.searchUsers);  //Recherche User
