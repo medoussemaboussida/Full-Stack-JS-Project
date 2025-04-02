@@ -23,10 +23,12 @@ import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SearchIcon from "@mui/icons-material/Search";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import Header from "../../components/Header";
 import { useTheme } from "@mui/material";
 import { tokens } from "../../theme";
 import { jwtDecode } from "jwt-decode";
+import jsPDF from "jspdf";
 
 const Activities = () => {
   const [activities, setActivities] = useState([]);
@@ -34,7 +36,7 @@ const Activities = () => {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [categories, setCategories] = useState([]);
   const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState({ title: "", description: "", category: "", imageUrl: "" });
+  const [formData, setFormData] = useState({ title: "", description: "", category: "", image: null });
   const [error, setError] = useState("");
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [openViewModal, setOpenViewModal] = useState(false);
@@ -45,12 +47,10 @@ const Activities = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
 
-  // Pagination states
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [totalActivities, setTotalActivities] = useState(0);
 
-  // Fetch admin ID from JWT token
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
     if (token) {
@@ -81,12 +81,11 @@ const Activities = () => {
       .catch((err) => console.error("❌ Error loading categories", err));
   }, []);
 
-  // Fetch activities with search, filter, and pagination
   const fetchActivities = useCallback(() => {
     if (!adminId) return;
-  
+
     const url = `http://localhost:5000/users/list/activities?createdBy=${adminId}`;
-  
+
     fetch(url, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("jwt-token")}`,
@@ -95,7 +94,7 @@ const Activities = () => {
       .then((res) => res.json())
       .then((data) => {
         let activitiesArray = [];
-  
+
         if (Array.isArray(data)) {
           activitiesArray = data;
         } else if (Array.isArray(data.activities)) {
@@ -104,41 +103,34 @@ const Activities = () => {
           console.error("Unexpected data format:", data);
           return;
         }
-  
-        // ✅ Appliquer recherche locale et filtre
+
         let filteredActivities = activitiesArray.filter((activity) => {
           const matchesSearch =
             activity.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
             activity.description.toLowerCase().includes(searchQuery.toLowerCase());
-        
-            const matchesCategory =
+          const matchesCategory =
             !selectedCategory ||
             String(activity.category) === selectedCategory ||
             String(activity.category?._id) === selectedCategory;
 
-          
-        
           return matchesSearch && matchesCategory;
         });
-        
+
         const mappedActivities = filteredActivities.map((activity) => ({
-          id: activity._id, // Important pour MUI DataGrid
+          id: activity._id,
           ...activity,
         }));
-        
+
         const start = page * pageSize;
         const end = start + pageSize;
         const paginatedActivities = mappedActivities.slice(start, end);
-        
+
         setActivities(paginatedActivities);
         setTotalActivities(filteredActivities.length);
-        
       })
       .catch((err) => console.error("❌ Error fetching activities:", err));
   }, [adminId, searchQuery, selectedCategory, page, pageSize]);
-  
 
-  // Re-fetch activities on search, filter, or pagination change
   useEffect(() => {
     if (adminId) {
       const delayDebounceFn = setTimeout(() => {
@@ -147,17 +139,92 @@ const Activities = () => {
       return () => clearTimeout(delayDebounceFn);
     }
   }, [searchQuery, selectedCategory, page, pageSize, adminId, fetchActivities]);
-  
 
-  // Open modal for adding/editing
+  const toBase64 = async (url) => {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("jwt-token")}`,
+      },
+    });
+    const blob = await res.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  const generatePDF = async () => {
+    const doc = new jsPDF();
+    let y = 20;
+    let pageNumber = 1;
+
+    // Titre du document
+    doc.setFontSize(18);
+    doc.text("Liste des Activités", 10, 10);
+
+    for (let i = 0; i < activities.length; i++) {
+      const activity = activities[i];
+      const boxHeight = 50; // Hauteur totale de l'activité (texte + image)
+      const imageWidth = 40;
+      const imageHeight = 30;
+
+      // Vérifier si l'activité peut tenir sur la page actuelle
+      if (y + boxHeight > 260) {
+        // Ajouter le numéro de page avant de passer à la nouvelle page
+        doc.setFontSize(10);
+        doc.text(`Page ${pageNumber}`, 190, 290, { align: "right" });
+        doc.addPage();
+        pageNumber++;
+        y = 20; // Réinitialiser y pour la nouvelle page
+      }
+
+      // Cadre autour de chaque activité
+      doc.setDrawColor(180);
+      doc.setLineWidth(0.3);
+      doc.rect(10, y - 5, 190, boxHeight, "S");
+
+      // Numérotation des activités (ex: "Activity 1: Titre")
+      doc.setFontSize(12);
+      doc.text(`Activity ${i + 1}: ${activity.title}`, 15, y);
+
+      doc.setFontSize(10);
+      doc.text(`Catégorie: ${activity.category?.name || "N/A"}`, 15, y + 6);
+
+      // Description avec wrap si nécessaire
+      const descriptionLines = doc.splitTextToSize(`Description: ${activity.description}`, 130);
+      doc.text(descriptionLines, 15, y + 12);
+
+      // Image si présente
+      if (activity.imageUrl) {
+        try {
+          const base64Image = await toBase64(`http://localhost:5000${activity.imageUrl}`);
+          doc.addImage(base64Image, "JPEG", 160, y, imageWidth, imageHeight);
+        } catch (err) {
+          console.error("⚠️ Erreur lors du chargement de l'image:", err);
+        }
+      }
+
+      y += boxHeight + 10; // Espacement après chaque activité
+    }
+
+    // Ajouter le numéro de la dernière page
+    doc.setFontSize(10);
+    doc.text(`Page ${pageNumber}`, 190, 290, { align: "right" });
+
+    doc.save("activities-with-images.pdf");
+  };
+
   const handleOpen = (activity = null) => {
     if (activity) {
       setFormData({
         id: activity.id,
         title: activity.title,
         description: activity.description,
-        category: activity.category?._id || activity.category, // 🟢 Gère les deux cas
+        category: activity.category?._id || activity.category,
         imageUrl: activity.imageUrl || "",
+        image: null,
       });
     } else {
       setFormData({ title: "", description: "", category: "", imageUrl: "" });
@@ -165,34 +232,35 @@ const Activities = () => {
     setOpen(true);
     setError("");
   };
-  
 
   const handleClose = () => setOpen(false);
 
-  // Handle form input changes
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Add or update an activity
   const handleSubmit = () => {
     if (!formData.title || !formData.description || !formData.category) {
       setError("All fields are required!");
       return;
     }
-  
+
     const url = formData.id
       ? `http://localhost:5000/users/psychiatrist/${adminId}/update-activity/${formData.id}`
       : `http://localhost:5000/users/psychiatrist/${adminId}/add-activity`;
-  
+
     const method = formData.id ? "PUT" : "POST";
-  
+
     const form = new FormData();
     form.append("title", formData.title);
     form.append("description", formData.description);
-    form.append("category", formData.category); // ← envoie directement l’ID
-    form.append("imageUrl", formData.imageUrl || "");
-  
+    form.append("category", formData.category);
+    if (formData.image) {
+      form.append("image", formData.image);
+    } else {
+      form.append("imageUrl", formData.imageUrl);
+    }
+
     fetch(url, {
       method,
       headers: {
@@ -217,14 +285,12 @@ const Activities = () => {
         setError(err.message);
       });
   };
-  
-  // 🔎 Trouver le nom de catégorie à partir de son _id
+
   const getCategoryNameById = (id) => {
     const category = categories.find((cat) => cat._id === id);
     return category ? category.name : "";
   };
-  
-  // View activity details
+
   const handleViewActivity = (id) => {
     fetch(`http://localhost:5000/users/activity/${id}`, {
       headers: {
@@ -239,7 +305,6 @@ const Activities = () => {
       .catch((err) => console.error("❌ Error retrieving activity:", err));
   };
 
-  // Delete activity
   const handleDelete = (id) => {
     setActivityToDelete(id);
     setOpenDeleteModal(true);
@@ -254,14 +319,13 @@ const Activities = () => {
     })
       .then((res) => res.json())
       .then(() => {
-        fetchActivities(searchQuery, selectedCategory, page, pageSize);
+        fetchActivities();
         setOpenDeleteModal(false);
         setActivityToDelete(null);
       })
       .catch((err) => console.error("❌ Error deleting activity:", err));
   };
 
-  // DataGrid columns
   const columns = [
     { field: "id", headerName: "ID", flex: 1 },
     { field: "title", headerName: "Title", flex: 1 },
@@ -271,10 +335,10 @@ const Activities = () => {
       headerName: "Category",
       flex: 1,
       valueGetter: (params) => {
-        return params.row.category?.name ;
+        return params.row.category?.name;
       },
     },
-        {
+    {
       field: "actions",
       headerName: "Actions",
       flex: 1,
@@ -314,10 +378,8 @@ const Activities = () => {
 
   return (
     <Box m="20px">
-      {/* Header */}
       <Header title="Activity Management" subtitle="Manage Activities (Admin)" />
 
-      {/* Top Bar - Search, Filter, Add Activity, et Manage Categories */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} gap={2}>
         <Box display="flex" gap={2}>
           <Button
@@ -331,13 +393,20 @@ const Activities = () => {
           <Button
             variant="contained"
             color="primary"
-            onClick={() => navigate("/categories")} // Navigation vers la page des catégories
+            onClick={() => navigate("/categories")}
           >
             Manage Categories
           </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<PictureAsPdfIcon />}
+            onClick={generatePDF}
+          >
+            Generate PDF
+          </Button>
         </Box>
 
-        {/* Search Bar */}
         <Box
           display="flex"
           backgroundColor={colors.primary[400]}
@@ -357,7 +426,6 @@ const Activities = () => {
           </IconButton>
         </Box>
 
-        {/* Filter by Category */}
         <FormControl sx={{ minWidth: 200 }}>
           <Select
             value={selectedCategory}
@@ -374,7 +442,6 @@ const Activities = () => {
         </FormControl>
       </Box>
 
-      {/* Activities Table */}
       <Box sx={{ height: 500, width: "100%" }}>
         <DataGrid
           rows={activities}
@@ -388,7 +455,6 @@ const Activities = () => {
         />
       </Box>
 
-      {/* Add/Edit Modal */}
       <Dialog open={open} onClose={handleClose}>
         <DialogTitle>{formData.id ? "Edit Activity" : "Add Activity"}</DialogTitle>
         <DialogContent>
@@ -410,23 +476,37 @@ const Activities = () => {
             multiline
             rows={4}
           />
-            <FormControl fullWidth margin="dense">
-          <InputLabel>Category</InputLabel>
-          <Select name="category" value={formData.category} onChange={handleChange}>
-            {categories.map((cat) => (
-              <MenuItem key={cat._id} value={cat._id}>
-                {cat.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+          <FormControl fullWidth margin="dense">
+            <InputLabel>Category</InputLabel>
+            <Select name="category" value={formData.category} onChange={handleChange}>
+              {categories.map((cat) => (
+                <MenuItem key={cat._id} value={cat._id}>
+                  {cat.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          {formData.image ? (
+            <img
+              src={URL.createObjectURL(formData.image)}
+              alt="Preview"
+              style={{ width: "100%", marginBottom: "10px", borderRadius: "8px" }}
+            />
+          ) : formData.imageUrl ? (
+            <img
+              src={`http://localhost:5000${formData.imageUrl}`}
+              alt="Current"
+              style={{ width: "100%", marginBottom: "10px", borderRadius: "8px" }}
+            />
+          ) : null}
           <TextField
             fullWidth
             margin="dense"
-            label="Image URL (optional)"
-            name="imageUrl"
-            value={formData.imageUrl}
-            onChange={handleChange}
+            type="file"
+            inputProps={{ accept: "image/*" }}
+            onChange={(e) => {
+              setFormData({ ...formData, image: e.target.files[0] });
+            }}
           />
           {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
         </DialogContent>
@@ -438,7 +518,6 @@ const Activities = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Modal */}
       <Dialog open={openViewModal} onClose={() => setOpenViewModal(false)}>
         <DialogTitle>Activity Details</DialogTitle>
         <DialogContent>
@@ -451,9 +530,8 @@ const Activities = () => {
                 <strong>Description:</strong> {selectedActivity.description}
               </Typography>
               <Typography>
-                <strong>Category:</strong> {selectedActivity.category?.name }
+                <strong>Category:</strong> {selectedActivity.category?.name}
               </Typography>
-
               {selectedActivity.imageUrl && (
                 <img
                   src={`http://localhost:5000${selectedActivity.imageUrl}`}
@@ -471,7 +549,6 @@ const Activities = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation Modal */}
       <Dialog open={openDeleteModal} onClose={() => setOpenDeleteModal(false)}>
         <DialogTitle>Confirm Deletion</DialogTitle>
         <DialogContent>
