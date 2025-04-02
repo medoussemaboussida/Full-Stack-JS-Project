@@ -12,21 +12,34 @@ function EditActivity() {
     imageUrl: null,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [categories, setCategories] = useState([]);
   const [previewImage, setPreviewImage] = useState(null);
   const navigate = useNavigate();
   const { id } = useParams();
 
-  const categories = [
-    "Professional and Intellectual",
-    "Wellness and Relaxation",
-    "Social and Relationship",
-    "Physical and Sports",
-    "Leisure and Cultural",
-    "Consumption and Shopping",
-    "Domestic and Organizational",
-    "Nature and Animal-Related",
-  ];
-
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const token = localStorage.getItem("jwt-token");
+      if (!token) return;
+  
+      try {
+        const response = await fetch("http://localhost:5000/users/categories", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await response.json();
+        if (response.ok) {
+          setCategories(data); // [{ _id, name }]
+        } else {
+          toast.error("Error loading categories");
+        }
+      } catch (error) {
+        toast.error("Network error while loading categories");
+      }
+    };
+  
+    fetchCategories();
+  }, []);
+  
   useEffect(() => {
     const fetchActivity = async () => {
       try {
@@ -231,20 +244,21 @@ function EditActivity() {
 
                     <div className="col-md-12">
                       <div className="form-group">
-                        <select
-                          className="form-control"
-                          name="category"
-                          value={formData.category}
-                          onChange={handleChange}
-                          required
-                        >
-                          <option value="">Select a Category</option>
-                          {categories.map((cat, index) => (
-                            <option key={index} value={cat}>
-                              {cat}
-                            </option>
-                          ))}
-                        </select>
+                      <select
+                        className="form-control"
+                        name="category"
+                        value={formData.category}
+                        onChange={handleChange}
+                        required
+                      >
+                        <option value="">Select a Category</option>
+                        {categories.map((cat) => (
+                          <option key={cat._id} value={cat._id}>
+                            {cat.name}
+                          </option>
+                        ))}
+                      </select>
+
                       </div>
                     </div>
 

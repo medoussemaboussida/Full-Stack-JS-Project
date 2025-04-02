@@ -45,6 +45,7 @@ function Activities() {
   const [userRole, setUserRole] = useState(null);
   const [userId, setUserId] = useState(null);
   const [activities, setActivities] = useState([]);
+  const [categories, setCategories] = useState([]); // Initialize as empty array
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("*");
   const [activityToDelete, setActivityToDelete] = useState(null);
@@ -62,18 +63,6 @@ function Activities() {
   const itemsPerPage = 8;
   const navigate = useNavigate();
 
-  const categories = [
-    { label: "All", value: "*" },
-    { label: "Professional and Intellectual", value: "Professional and Intellectual" },
-    { label: "Wellness and Relaxation", value: "Wellness and Relaxation" },
-    { label: "Social and Relationship", value: "Social and Relationship" },
-    { label: "Physical and Sports", value: "Physical and Sports" },
-    { label: "Leisure and Cultural", value: "Leisure and Cultural" },
-    { label: "Consumption and Shopping", value: "Consumption and Shopping" },
-    { label: "Domestic and Organizational", value: "Domestic and Organizational" },
-    { label: "Nature and Animal-Related", value: "Nature and Animal-Related" },
-  ];
-
   const moodValues = { "Very Sad": 1, Sad: 2, Neutral: 3, Happy: 4, "Very Happy": 5 };
   const moodColors = {
     "Very Sad": "#ff4d4f",
@@ -88,10 +77,48 @@ function Activities() {
     NeutralOrUnspecified: "#d3d3d3",
   };
 
+  // Fetch categories with proper mapping
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const token = localStorage.getItem("jwt-token");
+        const response = await fetch("http://localhost:5000/users/categories", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await response.json();
+        if (response.ok) {
+          // Ensure data is an array and map it to { label, value }
+          const mappedCategories = Array.isArray(data)
+            ? [
+                { label: "All", value: "*" },
+                ...data.map((cat) => ({
+                  label: cat.name || "Unnamed Category",
+                  value: cat._id || cat.id,
+                })),
+              ]
+            : [{ label: "All", value: "*" }]; // Fallback if data isn't an array
+          setCategories(mappedCategories);
+        } else {
+          console.error("Failed to fetch categories:", data.message);
+          setCategories([{ label: "All", value: "*" }]); // Fallback to "All" option
+          toast.error("Failed to load categories");
+        }
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+        setCategories([{ label: "All", value: "*" }]); // Fallback on error
+        toast.error("Error connecting to server while fetching categories");
+      }
+    };
+    fetchCategories();
+  }, []);
+
   const fetchActivities = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("http://localhost:5000/users/list/activities");
+      const token = localStorage.getItem("jwt-token");
+      const response = await fetch("http://localhost:5000/users/list/activities", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await response.json();
       if (response.ok) setActivities(data);
       else console.error("Failed to fetch activities:", data.message);
@@ -177,7 +204,7 @@ function Activities() {
       const data = await response.json();
       if (response.ok) {
         const isFavorite = favoriteActivities.includes(activityId);
-        setFavoriteActivities((prev) => isFavorite ? prev.filter((id) => id !== activityId) : [...prev, activityId]);
+        setFavoriteActivities((prev) => (isFavorite ? prev.filter((id) => id !== activityId) : [...prev, activityId]));
         toast.success(`Activity ${isFavorite ? "removed from" : "added to"} favorites!`);
       } else {
         toast.error(`Failed to toggle favorite: ${data.message}`);
@@ -203,7 +230,7 @@ function Activities() {
       const data = await response.json();
       if (response.ok) {
         const isPinned = pinnedActivities.includes(activityId);
-        setPinnedActivities((prev) => isPinned ? prev.filter((id) => id !== activityId) : [...prev, activityId]);
+        setPinnedActivities((prev) => (isPinned ? prev.filter((id) => id !== activityId) : [...prev, activityId]));
         toast.success(`Activity ${isPinned ? "unpinned" : "pinned"} successfully!`);
       } else {
         toast.error(`Failed to toggle pin: ${data.message}`);
@@ -263,20 +290,28 @@ function Activities() {
     setSelectedActivity(null);
   };
 
-  const fetchActivitiesByCategory = async (category) => {
+  const fetchActivitiesByCategory = async (categoryId) => {
     setIsLoading(true);
     setCurrentPage(1);
-    if (category === "*") {
-      fetchActivities();
-      return;
-    }
     try {
-      const response = await fetch(`http://localhost:5000/users/activities/category?category=${encodeURIComponent(category)}`);
+      const token = localStorage.getItem("jwt-token");
+      let url = "http://localhost:5000/users/list/activities";
+      if (categoryId !== "*") {
+        url = `http://localhost:5000/users/activities/category?category=${encodeURIComponent(categoryId)}`;
+      }
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await response.json();
-      if (response.ok) setActivities(data);
-      else console.error("Error:", data.message);
+      if (response.ok) {
+        setActivities(data);
+      } else {
+        console.error("Error fetching activities by category:", data.message);
+        toast.error("Failed to fetch activities for this category");
+      }
     } catch (error) {
       console.error("Connection error:", error);
+      toast.error("Error connecting to server");
     } finally {
       setIsLoading(false);
     }
@@ -458,7 +493,8 @@ function Activities() {
 
   const filteredActivities = activities
     .filter((activity) => {
-      const matchesCategory = selectedCategory === "*" || activity.category === selectedCategory;
+      const matchesCategory = selectedCategory === "*" || 
+        (activity.category && activity.category._id === selectedCategory);
       const matchesSearch = !searchTerm ||
         stripHtmlTags(activity.title).toLowerCase().includes(searchTerm.toLowerCase()) ||
         stripHtmlTags(activity.description).toLowerCase().includes(searchTerm.toLowerCase());
@@ -691,7 +727,27 @@ function Activities() {
             )}
           </div>
 
-           <div style={{ display: "flex", gap: "15px" }}>
+          <div style={{ display: "flex", gap: "15px" }}>
+            
+            {userRole === "student" && (
+              <button
+                onClick={handleOpenStatsModal}
+                style={{
+                  backgroundColor: "#0ea5e6",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  fontWeight: "bold",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s ease",
+                }}
+                onMouseEnter={(e) => (e.target.style.backgroundColor = "#164da6")}
+                onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
+              >
+                Statistics
+              </button>
+            )}
             {userRole === "student" && (
               <button
                 onClick={navigateToActivitySchedule}
@@ -711,29 +767,7 @@ function Activities() {
                 Activity Schedule
               </button>
             )}
-            {userRole == "student" && (
-              <>
-                <button
-                  onClick={handleOpenStatsModal}
-                  style={{
-                    backgroundColor: "#0ea5e6",
-                    color: "white",
-                    padding: "10px 20px",
-                    borderRadius: "5px",
-                    fontWeight: "bold",
-                    border: "none",
-                    cursor: "pointer",
-                    transition: "background-color 0.3s ease",
-                  }}
-                  onMouseEnter={(e) => (e.target.style.backgroundColor = "#164da6")}
-                  onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
-                >
-                  Statistics
-                </button>
-              
-              </>
-              
-            )} {userRole === "psychiatrist" && (
+            {userRole === "psychiatrist" && (
               <button
                 onClick={handleAddActivity}
                 style={{
@@ -785,7 +819,7 @@ function Activities() {
                 <div style={{ padding: "20px" }}>
                   <h4>{stripHtmlTags(activity.title)}</h4>
                   <p style={{ color: "#00aaff", fontStyle: "italic", margin: 0 }}>
-                    ** {activity.category || "Uncategorized"} **
+                    ** {activity.category?.name || "Uncategorized"} **
                   </p>
                   <p>{stripHtmlTags(activity.description)}</p>
                 </div>
@@ -1034,7 +1068,7 @@ function Activities() {
               style={{ width: "100%", height: "300px", objectFit: "cover", borderRadius: "8px", marginBottom: "15px" }}
             />
             <p style={{ color: "#00aaff", fontStyle: "italic", marginBottom: "10px" }}>
-              ** {selectedActivity.category || "Uncategorized"} **
+              ** {selectedActivity.category?.name || "Uncategorized"} **
             </p>
             <p style={{ fontSize: "14px", marginBottom: "15px", maxHeight: "100px", overflowY: "auto", padding: "0 5px" }}>
               {stripHtmlTags(selectedActivity.description)}

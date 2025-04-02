@@ -733,7 +733,7 @@ function ActivitySchedule() {
                   <div style={{ padding: "20px" }}>
                     <h4>{activity.title}</h4>
                     <p style={{ color: "#00aaff", fontStyle: "italic", margin: 0 }}>
-                      ** {activity.category || "Uncategorized"} **
+                    ** {activity.category?.name || "Uncategorized"} **
                     </p>
                     <p>{activity.description}</p>
                     <button

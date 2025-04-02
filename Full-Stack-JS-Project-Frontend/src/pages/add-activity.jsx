@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -14,23 +14,42 @@ function AddActivity() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [categories, setCategories] = useState([]); // Dynamic categories from backend
   const navigate = useNavigate();
-
-  const categories = [
-    "Professional and Intellectual",
-    "Wellness and Relaxation",
-    "Social and Relationship",
-    "Physical and Sports",
-    "Leisure and Cultural",
-    "Consumption and Shopping",
-    "Domestic and Organizational",
-    "Nature and Animal-Related",
-  ];
 
   // Récupérer le token depuis localStorage
   const getToken = () => {
-    return localStorage.getItem("jwt-token"); // Assurez-vous que c'est la clé correcte utilisée dans votre app
+    return localStorage.getItem("jwt-token");
   };
+
+  // Fetch categories from backend
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const token = getToken();
+      if (!token) {
+        toast.error("Vous devez être connecté pour charger les catégories");
+        return;
+      }
+      try {
+        const response = await fetch("http://localhost:5000/users/categories", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await response.json();
+        if (response.ok) {
+          // Assuming the response is an array of { _id, name }
+          setCategories(data);
+        } else {
+          toast.error("Erreur lors du chargement des catégories");
+        }
+      } catch (error) {
+        toast.error("Erreur réseau lors du chargement des catégories");
+        console.error("Error fetching categories:", error);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   // Fonction pour générer une description à partir du titre
   const generateDescription = async () => {
@@ -47,11 +66,11 @@ function AddActivity() {
 
     setIsGenerating(true);
     try {
-      const response = await fetch("http://localhost:5000/users/generate-description", { // Corrigez l'URL si nécessaire
+      const response = await fetch("http://localhost:5000/users/generate-description", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`, // Ajout du token JWT
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ title: formData.title }),
       });
@@ -95,11 +114,11 @@ function AddActivity() {
 
     setIsGenerating(true);
     try {
-      const response = await fetch("http://localhost:5000/users/generate-title", { // Corrigez l'URL si nécessaire
+      const response = await fetch("http://localhost:5000/users/generate-title", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`, // Ajout du token JWT
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ description: formData.description }),
       });
@@ -172,18 +191,19 @@ function AddActivity() {
     const data = new FormData();
     data.append("title", formData.title);
     data.append("description", formData.description);
-    data.append("category", formData.category);
+    data.append("category", formData.category); // Now sending category ID
     if (formData.image) {
       data.append("image", formData.image);
     }
 
     try {
+      const decodedToken = jwtDecode(token);
       const response = await fetch(
-        `http://localhost:5000/users/psychiatrist/${jwtDecode(token).id}/add-activity`,
+        `http://localhost:5000/users/psychiatrist/${decodedToken.id}/add-activity`,
         {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
           },
           body: data,
         }
@@ -288,9 +308,9 @@ function AddActivity() {
                           onChange={handleChange}
                         >
                           <option value="">Select a Category</option>
-                          {categories.map((cat, index) => (
-                            <option key={index} value={cat}>
-                              {cat}
+                          {categories.map((cat) => (
+                            <option key={cat._id} value={cat._id}>
+                              {cat.name}
                             </option>
                           ))}
                         </select>
@@ -337,16 +357,6 @@ function AddActivity() {
           </div>
         </div>
       </div>
-
-      <footer className="footer-area">
-        <div className="container">
-          <div className="copyright text-center">
-            <p>
-              © {new Date().getFullYear()} <a href="#">Lovcare</a> - All Rights Reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

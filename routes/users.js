@@ -5,6 +5,8 @@ const activitiesController = require('../controller/activitiesController');
 const validate = require('../middleware/validate')
 const { updateStudentProfile, updateStudentPhoto } = require('../controller/userController');
 
+
+
 router.put('/students/update/:id', updateStudentProfile);
 router.put('/students/update-photo/:id', updateStudentPhoto);
 router.post('/addStudent',validate,userController.addStudent);
@@ -82,6 +84,10 @@ router.put('/chat/:messageId', userController.verifyToken, userController.update
 
 
 //ghassen
+router.get("/categories" , userController.verifyToken, activitiesController.getAllCategories);
+router.post("/categories/:id" , userController.verifyToken, activitiesController.createCategory);
+router.put("/categories/:id", userController.verifyToken, activitiesController.updateCategory);
+
 router.delete('/deleteAll', userController.deleteAllUsers);  // Supprimer tous les utilisateurs
 router.get('/search', userController.searchUsers);  //Recherche User
 router.post('/create', userController.createUser);  // Ajouter un utilisateur
@@ -195,3 +201,4 @@ router.delete(
 );
 
 module.exports = router;
+

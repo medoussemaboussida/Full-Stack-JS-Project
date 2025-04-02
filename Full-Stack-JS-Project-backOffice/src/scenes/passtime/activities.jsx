@@ -32,6 +32,7 @@ const Activities = () => {
   const [activities, setActivities] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [categories, setCategories] = useState([]);
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({ title: "", description: "", category: "", imageUrl: "" });
   const [error, setError] = useState("");
@@ -69,6 +70,17 @@ const Activities = () => {
     }
   }, [navigate]);
 
+  useEffect(() => {
+    fetch("http://localhost:5000/users/categories", {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("jwt-token")}`,
+      },
+    })
+      .then((res) => res.json())
+      .then(setCategories)
+      .catch((err) => console.error("❌ Error loading categories", err));
+  }, []);
+
   // Fetch activities with search, filter, and pagination
   const fetchActivities = useCallback(() => {
     if (!adminId) return;
@@ -99,8 +111,12 @@ const Activities = () => {
             activity.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
             activity.description.toLowerCase().includes(searchQuery.toLowerCase());
         
-          const matchesCategory =
-            !selectedCategory || activity.category === selectedCategory;
+            const matchesCategory =
+            !selectedCategory ||
+            String(activity.category) === selectedCategory ||
+            String(activity.category?._id) === selectedCategory;
+
+          
         
           return matchesSearch && matchesCategory;
         });
@@ -135,10 +151,21 @@ const Activities = () => {
 
   // Open modal for adding/editing
   const handleOpen = (activity = null) => {
-    setFormData(activity || { title: "", description: "", category: "", imageUrl: "" });
+    if (activity) {
+      setFormData({
+        id: activity.id,
+        title: activity.title,
+        description: activity.description,
+        category: activity.category?._id || activity.category, // 🟢 Gère les deux cas
+        imageUrl: activity.imageUrl || "",
+      });
+    } else {
+      setFormData({ title: "", description: "", category: "", imageUrl: "" });
+    }
     setOpen(true);
     setError("");
   };
+  
 
   const handleClose = () => setOpen(false);
 
@@ -153,31 +180,50 @@ const Activities = () => {
       setError("All fields are required!");
       return;
     }
-
-    const method = formData.id ? "PUT" : "POST";
+  
     const url = formData.id
       ? `http://localhost:5000/users/psychiatrist/${adminId}/update-activity/${formData.id}`
       : `http://localhost:5000/users/psychiatrist/${adminId}/add-activity`;
-
+  
+    const method = formData.id ? "PUT" : "POST";
+  
+    const form = new FormData();
+    form.append("title", formData.title);
+    form.append("description", formData.description);
+    form.append("category", formData.category); // ← envoie directement l’ID
+    form.append("imageUrl", formData.imageUrl || "");
+  
     fetch(url, {
       method,
       headers: {
-        "Content-Type": "application/json",
         Authorization: `Bearer ${localStorage.getItem("jwt-token")}`,
       },
-      body: JSON.stringify({ ...formData, createdBy: adminId }),
+      body: form,
     })
-      .then((res) => res.json())
-      .then((data) => {
-        fetchActivities(searchQuery, selectedCategory, page, pageSize);
+      .then((res) => {
+        if (!res.ok) {
+          return res.json().then((data) => {
+            throw new Error(data.message || "Failed to save activity");
+          });
+        }
+        return res.json();
+      })
+      .then(() => {
+        fetchActivities();
         handleClose();
       })
       .catch((err) => {
         console.error("❌ Error:", err);
-        setError("Failed to save activity!");
+        setError(err.message);
       });
   };
-
+  
+  // 🔎 Trouver le nom de catégorie à partir de son _id
+  const getCategoryNameById = (id) => {
+    const category = categories.find((cat) => cat._id === id);
+    return category ? category.name : "";
+  };
+  
   // View activity details
   const handleViewActivity = (id) => {
     fetch(`http://localhost:5000/users/activity/${id}`, {
@@ -220,8 +266,15 @@ const Activities = () => {
     { field: "id", headerName: "ID", flex: 1 },
     { field: "title", headerName: "Title", flex: 1 },
     { field: "description", headerName: "Description", flex: 1.5 },
-    { field: "category", headerName: "Category", flex: 1 },
     {
+      field: "category",
+      headerName: "Category",
+      flex: 1,
+      valueGetter: (params) => {
+        return params.row.category?.name ;
+      },
+    },
+        {
       field: "actions",
       headerName: "Actions",
       flex: 1,
@@ -264,16 +317,25 @@ const Activities = () => {
       {/* Header */}
       <Header title="Activity Management" subtitle="Manage Activities (Admin)" />
 
-      {/* Top Bar - Search, Filter, and Add Activity */}
+      {/* Top Bar - Search, Filter, Add Activity, et Manage Categories */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} gap={2}>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpen()}
-        >
-          Add Activity
-        </Button>
+        <Box display="flex" gap={2}>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpen()}
+          >
+            Add Activity
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => navigate("/categories")} // Navigation vers la page des catégories
+          >
+            Manage Categories
+          </Button>
+        </Box>
 
         {/* Search Bar */}
         <Box
@@ -297,20 +359,17 @@ const Activities = () => {
 
         {/* Filter by Category */}
         <FormControl sx={{ minWidth: 200 }}>
-          <InputLabel>Filter by Category</InputLabel>
           <Select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
+            displayEmpty
           >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="Professional and Intellectual">Professional and Intellectual</MenuItem>
-            <MenuItem value="Wellness and Relaxation">Wellness and Relaxation</MenuItem>
-            <MenuItem value="Social and Relationship">Social and Relationship</MenuItem>
-            <MenuItem value="Physical and Sports">Physical and Sports</MenuItem>
-            <MenuItem value="Leisure and Cultural">Leisure and Cultural</MenuItem>
-            <MenuItem value="Consumption and Shopping">Consumption and Shopping</MenuItem>
-            <MenuItem value="Domestic and Organizational">Domestic and Organizational</MenuItem>
-            <MenuItem value="Nature and Animal-Related">Nature and Animal-Related</MenuItem>
+            <MenuItem value="">All Categories</MenuItem>
+            {categories.map((cat) => (
+              <MenuItem key={cat._id} value={cat._id}>
+                {cat.name}
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
       </Box>
@@ -351,19 +410,16 @@ const Activities = () => {
             multiline
             rows={4}
           />
-          <FormControl fullWidth margin="dense">
-            <InputLabel>Category</InputLabel>
-            <Select name="category" value={formData.category} onChange={handleChange}>
-              <MenuItem value="Professional and Intellectual">Professional and Intellectual</MenuItem>
-              <MenuItem value="Wellness and Relaxation">Wellness and Relaxation</MenuItem>
-              <MenuItem value="Social and Relationship">Social and Relationship</MenuItem>
-              <MenuItem value="Physical and Sports">Physical and Sports</MenuItem>
-              <MenuItem value="Leisure and Cultural">Leisure and Cultural</MenuItem>
-              <MenuItem value="Consumption and Shopping">Consumption and Shopping</MenuItem>
-              <MenuItem value="Domestic and Organizational">Domestic and Organizational</MenuItem>
-              <MenuItem value="Nature and Animal-Related">Nature and Animal-Related</MenuItem>
-            </Select>
-          </FormControl>
+            <FormControl fullWidth margin="dense">
+          <InputLabel>Category</InputLabel>
+          <Select name="category" value={formData.category} onChange={handleChange}>
+            {categories.map((cat) => (
+              <MenuItem key={cat._id} value={cat._id}>
+                {cat.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
           <TextField
             fullWidth
             margin="dense"
@@ -395,8 +451,9 @@ const Activities = () => {
                 <strong>Description:</strong> {selectedActivity.description}
               </Typography>
               <Typography>
-                <strong>Category:</strong> {selectedActivity.category}
+                <strong>Category:</strong> {selectedActivity.category?.name }
               </Typography>
+
               {selectedActivity.imageUrl && (
                 <img
                   src={`http://localhost:5000${selectedActivity.imageUrl}`}
