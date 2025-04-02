@@ -18,7 +18,13 @@ const forumSchema = new mongoose.Schema({
       pinned: [
         {
           type: mongoose.Schema.Types.ObjectId,
-          ref: "User", // Référence aux utilisateurs qui ont épinglé ce forum
+          ref: "User", 
+        },
+      ],
+      likes: [ 
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
         },
       ],
 },

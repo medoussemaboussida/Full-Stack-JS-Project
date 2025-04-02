@@ -55,11 +55,11 @@ router.post('/ban/:userId', userController.verifyToken, userController.banUser);
 
 
 
-router.get('/psychiatrists', userController.getPsychiatrists);
-router.put('/psychiatrists/add-availability/:id', userController.addAvailability);
-router.delete('/psychiatrists/delete-availability/:id/:index', userController.deleteAvailability);
-router.put('/psychiatrists/update-availability/:id/:index', userController.updateAvailability);
-router.post("/appointments/book", userController.verifyToken, userController.bookappointment);
+router.get('/psychiatrists', userController.verifyToken, userController.getPsychiatrists);
+router.put('/psychiatrists/add-availability/:id', userController.verifyToken, userController.addAvailability);
+router.delete('/psychiatrists/delete-availability/:id/:index', userController.verifyToken, userController.deleteAvailability);
+router.put('/psychiatrists/update-availability/:id/:index', userController.verifyToken, userController.updateAvailability);
+router.post("/appointments/book", userController.verifyToken, userController.bookAppointment);
 router.get('/appointments/history', userController.verifyToken, userController.getAppointmentHistory);
 router.put('/appointments/:id', userController.verifyToken, userController.updateAppointment);
 router.get('/psychiatrists/:id', userController.verifyToken, userController.getPsychiatristById);

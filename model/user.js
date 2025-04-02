@@ -77,14 +77,11 @@ const userSchema = new mongoose.Schema({
 
     favoriteActivities: [{ type: String ,required: false}], // Liste des activités favorites
     pinnedActivities: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Activity' }],
-availability: [
-        {
-            day: { type: String, required: true },
-            startTime: { type: String, required: true },
-            endTime: { type: String, required: true },
-            date: { type: String, required: false } // Ajouté pour compatibilité avec les dates exactes
-        },
-    ],
+    availability: [{
+        date: { type: Date, required: true }, // Full date (e.g., "2025-04-04")
+        startTime: { type: String, required: true }, // e.g., "10:00"
+        endTime: { type: String, required: true }, // e.g., "10:30"
+      }],
 
     favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Publication' }],
 

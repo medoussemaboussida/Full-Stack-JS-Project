@@ -153,3 +153,102 @@ exports.getCommentReports = async (req, res) => {
       res.status(500).json({ message: err.message });
     }
   };
+  // Supprimer un signalement de commentaire
+exports.deleteCommentReport = async (req, res) => {
+  try {
+    const reportId = req.params.reportId;
+
+    // Vérifier si le signalement existe
+    const report = await Report.findById(reportId);
+    if (!report) {
+      return res.status(404).json({ message: "Report not found!" });
+    }
+
+    // Vérifier si le signalement est bien lié à un commentaire
+    if (!report.comment_id) {
+      return res.status(400).json({ message: "This report is not associated with a comment!" });
+    }
+
+    // Supprimer le signalement
+    await Report.findByIdAndDelete(reportId);
+
+    res.status(200).json({ message: "Comment report deleted successfully!" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+  //like comment
+  exports.toggleLikeComment = async (req, res) => {
+    try {
+      const { comment_id, user_id } = req.params;
+  
+      const comment = await ForumComment.findById(comment_id);
+      if (!comment) {
+        return res.status(404).json({ message: "Comment not found!" });
+      }
+  
+      const user = await User.findById(user_id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found!" });
+      }
+  
+      const userIdStr = user_id.toString();
+      const hasLiked = comment.likes.some((id) => id.toString() === userIdStr);
+  
+      if (hasLiked) {
+        // Retirer le like
+        comment.likes = comment.likes.filter((id) => id.toString() !== userIdStr);
+      } else {
+        // Ajouter le like
+        comment.likes.push(user_id);
+      }
+  
+      const updatedComment = await comment.save();
+      res.status(200).json({ comment: updatedComment });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  };
+
+  //pdf report
+  module.exports.getTopCommenter = async (req, res) => {
+    try {
+      const topCommenter = await ForumComment.aggregate([
+        {
+          $group: {
+            _id: "$user_id",
+            commentCount: { $sum: 1 },
+          },
+        },
+        {
+          $sort: { commentCount: -1 },
+        },
+        {
+          $limit: 1,
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "_id",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        {
+          $unwind: "$user",
+        },
+        {
+          $project: {
+            username: "$user.username",
+            commentCount: 1,
+            _id: 0,
+          },
+        },
+      ]);
+  
+      res.status(200).json(topCommenter[0] || { username: "N/A", commentCount: 0 });
+    } catch (err) {
+      console.error("Error fetching top commenter:", err);
+      res.status(500).json({ message: err.message });
+    }
+  };
