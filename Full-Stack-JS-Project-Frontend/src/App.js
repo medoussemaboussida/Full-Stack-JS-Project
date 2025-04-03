@@ -37,6 +37,8 @@ import SleepCalculator from './pages/SleepCalculator';
 import Exercises from './pages/Exercices';
 import Problem from './pages/Problem';
 import ProblemList from './pages/ProblemList';
+import AddReclamation from './pages/AddComplaint';
+import Complaint from './pages/Complaint';
 
 
 const Layout = ({ children }) => {
@@ -117,6 +119,8 @@ function App(){
         <Route path="/event/:id" element={<EventDetails />} /> 
 
 
+        <Route path="/complaint" element={<Complaint/>} />
+        <Route path="/addcomplaint" element={<AddReclamation/>} />
 
 
 

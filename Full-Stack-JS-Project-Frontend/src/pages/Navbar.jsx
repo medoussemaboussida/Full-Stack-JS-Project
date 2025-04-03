@@ -114,6 +114,7 @@ const Navbar = () => {
                                             <li><a className="dropdown-item" href="/team">Our Team</a></li>
                                             <li><a className="dropdown-item" href="/AddAvailabilityForm">Add Availability</a></li>
                                             <li><a className="dropdown-item" href="/Forum">Forum</a></li>
+                                            <li><a className="dropdown-item" href="/Complaint">Complaint</a></li>
                                             <li><a className="dropdown-item" href="/Associations">Our Associations</a></li>
                                             <li><a className="dropdown-item" href="/events">Our Events</a></li>
 
@@ -129,11 +130,9 @@ const Navbar = () => {
                                         </a>
                                         <ul className="dropdown-menu fade-down">
                                             <li><a className="dropdown-item" href="/Activities">Activities</a></li>
-                                            <li><a className="dropdown-item" href="/activity-schedule">Activity Schedule</a></li>
                                             <li><a className="dropdown-item" href="/Exercices">Exercices</a></li>
                                             <li><a className="dropdown-item" href="/SleepCalculator">Sleep Calculator</a></li>
                                             <li><a className="dropdown-item" href="/list-problems">problem management </a></li>
-                                            <li><a className="dropdown-item" href="/StudentDashboard">Student Dashboard</a></li>
 
                                         </ul>
                                     </li>

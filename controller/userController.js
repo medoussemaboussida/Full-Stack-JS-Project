@@ -23,8 +23,8 @@ dotenv.config();
 
 // JWT config
 const maxAge = 1 * 60 * 60; // 1 heure
-const createtoken = (id, role) => {
-    return jwt.sign({ id, role }, 'randa', { expiresIn: maxAge });
+const createtoken = (id, role,username) => {
+    return jwt.sign({ id, role, username }, 'randa', { expiresIn: maxAge });
 };
 
 // Middleware pour vérifier le token JWT
@@ -105,7 +105,7 @@ module.exports.login = async (req, res) => {
             return res.status(401).json({ message: "Password or Email incorrect" });
         }
 
-        const token = createtoken(user._id, user.role);
+        const token = createtoken(user._id, user.role,user.username);
         res.status(200).json({ user, token });
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -1840,88 +1840,156 @@ module.exports.getPsychiatrists = async (req, res) => {
 
 
 // Ajouter une disponibilité pour un psychiatre
+
 module.exports.addAvailability = async (req, res) => {
-    const { day, startTime, endTime } = req.body;
+    const { date, startTime, endTime } = req.body;
     const userId = req.params.id;
-
-    try {
-        // Vérifier que l'utilisateur existe et est un psychiatre
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-        if (user.role !== 'psychiatrist') {
-            return res.status(403).json({ message: 'This action is only allowed for psychiatrists' });
-        }
-
-        // Vérifier que tous les champs nécessaires sont fournis
-        if (!day || !startTime || !endTime) {
-            return res.status(400).json({ message: 'Day, start time, and end time are required' });
-        }
-
-        // Ajouter la nouvelle disponibilité au tableau availability
-        user.availability.push({ day, startTime, endTime });
-        const updatedUser = await user.save();
-
-        res.status(200).json({ message: 'Availability added successfully', user: updatedUser });
-    } catch (error) {
-        console.error('Error adding availability:', error);
-        res.status(500).json({ message: 'Server error' });
+  
+    if (req.userId !== userId) {
+      return res.status(403).json({ message: 'Unauthorized: You can only modify your own availability' });
     }
-};
-
-
+  
+    try {
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      if (user.role !== 'psychiatrist') {
+        return res.status(403).json({ message: 'This action is only allowed for psychiatrists' });
+      }
+  
+      if (!date || !startTime || !endTime) {
+        return res.status(400).json({ message: 'Date, startTime, and endTime are required' });
+      }
+  
+      const availabilityDate = new Date(date);
+      if (isNaN(availabilityDate.getTime())) {
+        return res.status(400).json({ message: 'Invalid date format. Use YYYY-MM-DD' });
+      }
+  
+      const [startHour, startMinute] = startTime.split(':').map(Number);
+      const [endHour, endMinute] = endTime.split(':').map(Number);
+      if (isNaN(startHour) || isNaN(startMinute) || isNaN(endHour) || isNaN(endMinute) ||
+          startHour < 0 || startHour > 23 || startMinute < 0 || startMinute > 59 ||
+          endHour < 0 || endHour > 23 || endMinute < 0 || endMinute > 59) {
+        return res.status(400).json({ message: 'Invalid time format. Use HH:MM' });
+      }
+  
+      if (startHour > endHour || (startHour === endHour && startMinute >= endMinute)) {
+        return res.status(400).json({ message: 'End time must be after start time' });
+      }
+  
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      availabilityDate.setHours(0, 0, 0, 0); // Normalize for comparison
+      if (availabilityDate < today) {
+        return res.status(400).json({ message: 'Cannot set availability for a past date' });
+      }
+  
+      user.availability.push({ date: availabilityDate, startTime, endTime });
+      const updatedUser = await user.save();
+  
+      res.status(200).json({ message: 'Availability added successfully', user: updatedUser });
+    } catch (error) {
+      console.error('Error adding availability:', error); // Log the error
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  };
 
 module.exports.deleteAvailability = async (req, res) => {
     const userId = req.params.id;
-    const index = req.params.index;
+    const slotIndex = parseInt(req.params.index, 10);
+  
+    if (req.userId !== userId) {
+      return res.status(403).json({ message: 'Unauthorized: You can only modify your own availability' });
+    }
   
     try {
       const user = await User.findById(userId);
-      if (!user) return res.status(404).json({ message: "User not found" });
-      if (user.role !== "psychiatrist") return res.status(403).json({ message: "Action restricted to psychiatrists" });
-      if (index < 0 || index >= user.availability.length) return res.status(400).json({ message: "Invalid index" });
+      if (!user || user.role !== 'psychiatrist') {
+        return res.status(404).json({ message: 'Psychiatrist not found' });
+      }
   
-      user.availability.splice(index, 1); // Supprime l'élément à l'index spécifié
+      if (isNaN(slotIndex) || slotIndex < 0 || slotIndex >= user.availability.length) {
+        return res.status(400).json({ message: 'Invalid availability slot index' });
+      }
+  
+      user.availability.splice(slotIndex, 1);
       const updatedUser = await user.save();
-      res.status(200).json({ user: updatedUser });
+  
+      res.status(200).json({ message: 'Availability deleted successfully', user: updatedUser });
     } catch (error) {
-      res.status(500).json({ message: "Server error", error });
+      console.error('Error deleting availability:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
     }
-  };
-
+  };  
   module.exports.updateAvailability = async (req, res) => {
-    const { day, startTime, endTime } = req.body;
+    const { date, startTime, endTime } = req.body;
     const userId = req.params.id;
-    const index = req.params.index;
+    const slotIndex = parseInt(req.params.index, 10);
+  
+    if (req.userId !== userId) {
+      return res.status(403).json({ message: 'Unauthorized: You can only modify your own availability' });
+    }
   
     try {
       const user = await User.findById(userId);
-      if (!user) return res.status(404).json({ message: "User not found" });
-      if (user.role !== "psychiatrist") return res.status(403).json({ message: "Action restricted to psychiatrists" });
-      if (index < 0 || index >= user.availability.length) return res.status(400).json({ message: "Invalid index" });
+      if (!user || user.role !== 'psychiatrist') {
+        return res.status(404).json({ message: 'Psychiatrist not found' });
+      }
   
-      user.availability[index] = { day, startTime, endTime };
+      if (isNaN(slotIndex) || slotIndex < 0 || slotIndex >= user.availability.length) {
+        return res.status(400).json({ message: 'Invalid availability slot index' });
+      }
+  
+      if (!date || !startTime || !endTime) {
+        return res.status(400).json({ message: 'Date, startTime, and endTime are required' });
+      }
+  
+      const availabilityDate = new Date(date);
+      if (isNaN(availabilityDate.getTime())) {
+        return res.status(400).json({ message: 'Invalid date format' });
+      }
+  
+      const [startHour, startMinute] = startTime.split(':').map(Number);
+      const [endHour, endMinute] = endTime.split(':').map(Number);
+      if (isNaN(startHour) || isNaN(startMinute) || isNaN(endHour) || isNaN(endMinute) ||
+          startHour < 0 || startHour > 23 || startMinute < 0 || startMinute > 59 ||
+          endHour < 0 || endHour > 23 || endMinute < 0 || endMinute > 59) {
+        return res.status(400).json({ message: 'Invalid time format' });
+      }
+  
+      if (startHour > endHour || (startHour === endHour && startMinute >= endMinute)) {
+        return res.status(400).json({ message: 'End time must be after start time' });
+      }
+  
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (availabilityDate < today) {
+        return res.status(400).json({ message: 'Cannot set availability for a past date' });
+      }
+  
+      user.availability[slotIndex] = { date: availabilityDate, startTime, endTime };
       const updatedUser = await user.save();
-      res.status(200).json({ user: updatedUser });
+  
+      res.status(200).json({ message: 'Availability updated successfully', user: updatedUser });
     } catch (error) {
-      res.status(500).json({ message: "Server error", error });
+      console.error('Error updating availability:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
     }
   };
 
 
-
   
-  module.exports.bookappointment = async (req, res) => {
-    const { psychiatristId, day, startTime, endTime } = req.body;
+  module.exports.bookAppointment = async (req, res) => {
+    const { psychiatristId, date, startTime, endTime } = req.body;
     const studentId = req.userId;
 
-    console.log('Requête reçue:', { psychiatristId, day, startTime, endTime, studentId });
+    console.log('Request received:', { psychiatristId, date, startTime, endTime, studentId });
 
     try {
-        // Vérifier si les champs obligatoires sont présents
-        if (!psychiatristId || !day || !startTime || !endTime) {
-            return res.status(400).json({ message: 'Tous les champs (psychiatristId, day, startTime, endTime) sont requis' });
+        if (!psychiatristId || !date || !startTime || !endTime) {
+            return res.status(400).json({ message: 'All fields (psychiatristId, date, startTime, endTime) are required' });
         }
 
         const psychiatrist = await User.findById(psychiatristId);
@@ -1929,87 +1997,95 @@ module.exports.deleteAvailability = async (req, res) => {
             return res.status(404).json({ message: "Psychiatrist not found" });
         }
 
-        console.log('Disponibilités du psychiatre:', psychiatrist.availability);
+        // Parse the date (assuming "DD/MM/YYYY" format from frontend)
+        const [day, month, year] = date.split('/').map(Number);
+        const parsedDate = new Date(year, month - 1, day);
+        if (isNaN(parsedDate.getTime())) {
+            return res.status(400).json({ message: "Invalid date format. Use DD/MM/YYYY" });
+        }
 
-        // Convertir les temps en minutes pour comparaison
-        const requestedStartMinutes = parseInt(startTime.split(':')[0]) * 60 + parseInt(startTime.split(':')[1]);
-        const requestedEndMinutes = parseInt(endTime.split(':')[0]) * 60 + parseInt(endTime.split(':')[1]);
+        // Convert requested times to minutes for comparison
+        const [startHour, startMinute] = startTime.split(':').map(Number);
+        const [endHour, endMinute] = endTime.split(':').map(Number);
+        const requestedStartMinutes = startHour * 60 + startMinute;
+        const requestedEndMinutes = endHour * 60 + endMinute;
 
-        // Vérifier si le créneau demandé est inclus dans une disponibilité existante
-        const availabilitySlotIndex = psychiatrist.availability.findIndex(slot => {
-            if (slot.day !== day) return false;
-            const slotStartMinutes = parseInt(slot.startTime.split(':')[0]) * 60 + parseInt(slot.startTime.split(':')[1]);
-            const slotEndMinutes = parseInt(slot.endTime.split(':')[0]) * 60 + parseInt(slot.endTime.split(':')[1]);
-            return requestedStartMinutes >= slotStartMinutes && requestedEndMinutes <= slotEndMinutes;
+        // Check if the requested slot falls within an available slot
+        const slotIndex = psychiatrist.availability.findIndex(slot => {
+            const slotDate = new Date(slot.date || slot.day);
+            const [slotStartHour, slotStartMinute] = slot.startTime.split(':').map(Number);
+            const [slotEndHour, slotEndMinute] = slot.endTime.split(':').map(Number);
+            const slotStartMinutes = slotStartHour * 60 + slotStartMinute;
+            const slotEndMinutes = slotEndHour * 60 + slotEndMinute;
+
+            return (
+                slotDate.toDateString() === parsedDate.toDateString() &&
+                requestedStartMinutes >= slotStartMinutes &&
+                requestedEndMinutes <= slotEndMinutes
+            );
         });
 
-        if (availabilitySlotIndex === -1) {
+        if (slotIndex === -1) {
             return res.status(400).json({ message: "This slot is not available" });
         }
 
-        // Vérifier s'il existe déjà une réservation pour ce créneau
+        // Check for existing appointment
         const existingAppointment = await Appointment.findOne({
             psychiatrist: psychiatristId,
-            date: new Date().toISOString().split('T')[0], // Adjust date logic if needed
+            date: parsedDate,
             startTime,
             endTime,
         });
         if (existingAppointment) {
-            return res.status(400).json({ message: 'This slot is already booked by another user.' });
+            return res.status(400).json({ message: 'This slot is already booked' });
         }
 
-        // Créer une nouvelle réservation
+        // Create new appointment
         const appointment = new Appointment({
             psychiatrist: psychiatristId,
             student: studentId,
-            date: new Date().toISOString().split('T')[0], // Use current date or adjust based on your logic
+            date: parsedDate,
             startTime,
             endTime,
         });
-        await appointment.save();
 
-        // Ajuster la disponibilité du psychiatre
-        const availabilitySlot = psychiatrist.availability[availabilitySlotIndex];
-        const slotStartMinutes = parseInt(availabilitySlot.startTime.split(':')[0]) * 60 + parseInt(availabilitySlot.startTime.split(':')[1]);
-        const slotEndMinutes = parseInt(availabilitySlot.endTime.split(':')[0]) * 60 + parseInt(availabilitySlot.endTime.split(':')[1]);
+        // Update the availability: split the original slot if necessary
+        const originalSlot = psychiatrist.availability[slotIndex];
+        const [slotStartHour, slotStartMinute] = originalSlot.startTime.split(':').map(Number);
+        const [slotEndHour, slotEndMinute] = originalSlot.endTime.split(':').map(Number);
+        const slotStartMinutes = slotStartHour * 60 + slotStartMinute;
+        const slotEndMinutes = slotEndHour * 60 + slotEndMinute;
 
-        // Supprimer l'ancien créneau
-        psychiatrist.availability.splice(availabilitySlotIndex, 1);
+        // Remove the original slot
+        psychiatrist.availability.splice(slotIndex, 1);
 
-        // Ajouter les créneaux restants si nécessaire
-        if (slotStartMinutes < requestedStartMinutes) {
+        // Add new slots before and after the booked slot, if applicable
+        if (requestedStartMinutes > slotStartMinutes) {
             psychiatrist.availability.push({
-                day,
-                startTime: availabilitySlot.startTime,
+                date: originalSlot.date,
+                startTime: originalSlot.startTime,
                 endTime: startTime,
-                date: availabilitySlot.date,
-                title: availabilitySlot.title,
             });
         }
         if (requestedEndMinutes < slotEndMinutes) {
             psychiatrist.availability.push({
-                day,
+                date: originalSlot.date,
                 startTime: endTime,
-                endTime: availabilitySlot.endTime,
-                date: availabilitySlot.date,
-                title: availabilitySlot.title,
+                endTime: originalSlot.endTime,
             });
         }
 
-        // Sauvegarder les modifications
-        await psychiatrist.save();
+        await Promise.all([appointment.save(), psychiatrist.save()]);
 
         res.status(201).json({
             message: "Appointment booked successfully",
             appointment,
-            updatedAvailability: psychiatrist.availability, // Retourner les nouvelles disponibilités
         });
     } catch (error) {
-        console.error('Erreur dans bookAppointment:', error);
+        console.error('Error in bookAppointment:', error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
-
 // Récupérer l'historique des rendez-vous pour un étudiant
 module.exports.getAppointmentHistory = async (req, res) => {
     try {

@@ -16,40 +16,49 @@ import {
   Alert,
   IconButton,
   InputBase,
+  Snackbar,
 } from "@mui/material";
-import { DataGrid } from "@mui/x-data-grid";
-import AddIcon from "@mui/icons-material/Add";
+import { DataGrid } from "@mui/x-data-grid"; // Added missing import
 import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
-import DeleteIcon from "@mui/icons-material/Delete";
+import ArchiveIcon from "@mui/icons-material/Archive";
+import UnarchiveIcon from "@mui/icons-material/Unarchive";
 import SearchIcon from "@mui/icons-material/Search";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import DeleteIcon from "@mui/icons-material/Delete";
 import Header from "../../components/Header";
 import { useTheme } from "@mui/material";
 import { tokens } from "../../theme";
 import { jwtDecode } from "jwt-decode";
+import jsPDF from "jspdf";
 
 const Activities = () => {
   const [activities, setActivities] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [categories, setCategories] = useState([]);
   const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState({ title: "", description: "", category: "", imageUrl: "" });
+  const [formData, setFormData] = useState({ title: "", description: "", category: "", image: null });
   const [error, setError] = useState("");
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [openViewModal, setOpenViewModal] = useState(false);
-  const [openDeleteModal, setOpenDeleteModal] = useState(false);
-  const [activityToDelete, setActivityToDelete] = useState(null);
+  const [openArchiveModal, setOpenArchiveModal] = useState(false);
+  const [activityToToggleArchive, setActivityToToggleArchive] = useState(null);
   const [adminId, setAdminId] = useState(null);
+  const [openCategoriesModal, setOpenCategoriesModal] = useState(false);
+  const [categorySearchQuery, setCategorySearchQuery] = useState("");
+  const [editedCategory, setEditedCategory] = useState(null);
+  const [editedName, setEditedName] = useState("");
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [successMessage, setSuccessMessage] = useState("");
   const navigate = useNavigate();
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
 
-  // Pagination states
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [totalActivities, setTotalActivities] = useState(0);
 
-  // Fetch admin ID from JWT token
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
     if (token) {
@@ -69,118 +78,205 @@ const Activities = () => {
     }
   }, [navigate]);
 
-  // Fetch activities with search, filter, and pagination
-  const fetchActivities = useCallback(
-    (query = "", category = "", pageNum = 0, limit = 20) => {
-      if (!adminId) return;
+  useEffect(() => {
+    fetch("http://localhost:5000/users/categories", {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("jwt-token")}`,
+      },
+    })
+      .then((res) => res.json())
+      .then(setCategories)
+      .catch((err) => console.error("❌ Error loading categories", err));
+  }, []);
 
-      let url = `http://localhost:5000/users/list/activities?page=${pageNum + 1}&limit=${limit}&createdBy=${adminId}`;
-      const queryParams = [];
-      if (query) queryParams.push(`title=${query}&description=${query}`);
-      if (category) queryParams.push(`category=${category}`);
-      if (queryParams.length > 0) {
-        url += `&${queryParams.join("&")}`;
-      }
+  const fetchActivities = useCallback(() => {
+    if (!adminId) return;
 
-      console.log("Fetching URL:", url);
+    const url = `http://localhost:5000/users/list/activities?createdBy=${adminId}`;
 
-      fetch(url, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("jwt-token")}`,
-        },
+    fetch(url, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("jwt-token")}`,
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        let activitiesArray = Array.isArray(data) ? data : data.activities || [];
+        let filteredActivities = activitiesArray.filter((activity) => {
+          const matchesSearch =
+            activity.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            activity.description.toLowerCase().includes(searchQuery.toLowerCase());
+          const matchesCategory =
+            !selectedCategory ||
+            String(activity.category) === selectedCategory ||
+            String(activity.category?._id) === selectedCategory;
+
+          return matchesSearch && matchesCategory;
+        });
+
+        const mappedActivities = filteredActivities.map((activity) => ({
+          id: activity._id,
+          ...activity,
+        }));
+
+        const start = page * pageSize;
+        const end = start + pageSize;
+        const paginatedActivities = mappedActivities.slice(start, end);
+
+        setActivities(paginatedActivities);
+        setTotalActivities(filteredActivities.length);
       })
-        .then((res) => {
-          if (!res.ok) {
-            return res.text().then((text) => {
-              throw new Error(`Server returned ${res.status}: ${text}`);
-            });
-          }
-          return res.json();
-        })
-        .then((data) => {
-          console.log("Raw response data:", data);
-          let activitiesArray = [];
-          if (Array.isArray(data)) {
-            // Cas où le backend renvoie directement un tableau
-            activitiesArray = data;
-          } else if (Array.isArray(data.activities)) {
-            // Cas où le backend renvoie un objet avec une propriété "activities"
-            activitiesArray = data.activities;
-          } else {
-            console.error("Unexpected data format:", data);
-            return;
-          }
+      .catch((err) => console.error("❌ Error fetching activities:", err));
+  }, [adminId, searchQuery, selectedCategory, page, pageSize]);
 
-          const mappedActivities = activitiesArray.map((activity) => ({
-            id: activity._id,
-            ...activity,
-          }));
-          setActivities(mappedActivities);
-          // Si totalActivities n'est pas fourni, utiliser la longueur du tableau
-          setTotalActivities(data.totalActivities || activitiesArray.length);
-        })
-        .catch((err) => console.error("❌ Error fetching activities:", err));
-    },
-    [adminId]
-  );
-
-  // Re-fetch activities on search, filter, or pagination change
   useEffect(() => {
     if (adminId) {
       const delayDebounceFn = setTimeout(() => {
-        fetchActivities(searchQuery, selectedCategory, page, pageSize);
+        fetchActivities();
       }, 500);
-
       return () => clearTimeout(delayDebounceFn);
     }
   }, [searchQuery, selectedCategory, page, pageSize, adminId, fetchActivities]);
 
-  // Open modal for adding/editing
+  const toBase64 = async (url) => {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("jwt-token")}`,
+      },
+    });
+    const blob = await res.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  const generatePDF = async () => {
+    const doc = new jsPDF();
+    let y = 20;
+    let pageNumber = 1;
+
+    doc.setFontSize(18);
+    doc.text("Liste des Activités", 10, 10);
+
+    for (let i = 0; i < activities.length; i++) {
+      const activity = activities[i];
+      const boxHeight = 50;
+      const imageWidth = 40;
+      const imageHeight = 30;
+
+      if (y + boxHeight > 260) {
+        doc.setFontSize(10);
+        doc.text(`Page ${pageNumber}`, 190, 290, { align: "right" });
+        doc.addPage();
+        pageNumber++;
+        y = 20;
+      }
+
+      doc.setDrawColor(180);
+      doc.setLineWidth(0.3);
+      doc.rect(10, y - 5, 190, boxHeight, "S");
+
+      doc.setFontSize(12);
+      doc.text(`Activity ${i + 1}: ${activity.title}`, 15, y);
+
+      doc.setFontSize(10);
+      doc.text(`Catégorie: ${activity.category?.name || "N/A"}`, 15, y + 6);
+      doc.text(`Statut: ${activity.isArchived ? "Archived" : "Published"}`, 15, y + 12);
+
+      const descriptionLines = doc.splitTextToSize(`Description: ${activity.description}`, 130);
+      doc.text(descriptionLines, 15, y + 18);
+
+      if (activity.imageUrl) {
+        try {
+          const base64Image = await toBase64(`http://localhost:5000${activity.imageUrl}`);
+          doc.addImage(base64Image, "JPEG", 160, y, imageWidth, imageHeight);
+        } catch (err) {
+          console.error("⚠️ Erreur lors du chargement de l'image:", err);
+        }
+      }
+
+      y += boxHeight + 10;
+    }
+
+    doc.setFontSize(10);
+    doc.text(`Page ${pageNumber}`, 190, 290, { align: "right" });
+
+    doc.save("activities-with-images.pdf");
+  };
+
   const handleOpen = (activity = null) => {
-    setFormData(activity || { title: "", description: "", category: "", imageUrl: "" });
+    if (activity) {
+      setFormData({
+        id: activity.id,
+        title: activity.title,
+        description: activity.description,
+        category: activity.category?._id || activity.category,
+        imageUrl: activity.imageUrl || "",
+        image: null,
+      });
+    } else {
+      setFormData({ title: "", description: "", category: "", imageUrl: "" });
+    }
     setOpen(true);
     setError("");
   };
 
   const handleClose = () => setOpen(false);
 
-  // Handle form input changes
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Add or update an activity
   const handleSubmit = () => {
     if (!formData.title || !formData.description || !formData.category) {
       setError("All fields are required!");
       return;
     }
 
-    const method = formData.id ? "PUT" : "POST";
     const url = formData.id
       ? `http://localhost:5000/users/psychiatrist/${adminId}/update-activity/${formData.id}`
       : `http://localhost:5000/users/psychiatrist/${adminId}/add-activity`;
 
+    const method = formData.id ? "PUT" : "POST";
+
+    const form = new FormData();
+    form.append("title", formData.title);
+    form.append("description", formData.description);
+    form.append("category", formData.category);
+    if (formData.image) {
+      form.append("image", formData.image);
+    } else {
+      form.append("imageUrl", formData.imageUrl);
+    }
+
     fetch(url, {
       method,
       headers: {
-        "Content-Type": "application/json",
         Authorization: `Bearer ${localStorage.getItem("jwt-token")}`,
       },
-      body: JSON.stringify({ ...formData, createdBy: adminId }),
+      body: form,
     })
-      .then((res) => res.json())
-      .then((data) => {
-        fetchActivities(searchQuery, selectedCategory, page, pageSize);
+      .then((res) => {
+        if (!res.ok) {
+          return res.json().then((data) => {
+            throw new Error(data.message || "Failed to save activity");
+          });
+        }
+        return res.json();
+      })
+      .then(() => {
+        fetchActivities();
         handleClose();
       })
       .catch((err) => {
         console.error("❌ Error:", err);
-        setError("Failed to save activity!");
+        setError(err.message);
       });
   };
 
-  // View activity details
   const handleViewActivity = (id) => {
     fetch(`http://localhost:5000/users/activity/${id}`, {
       headers: {
@@ -195,34 +291,134 @@ const Activities = () => {
       .catch((err) => console.error("❌ Error retrieving activity:", err));
   };
 
-  // Delete activity
-  const handleDelete = (id) => {
-    setActivityToDelete(id);
-    setOpenDeleteModal(true);
+  const handleToggleArchive = (id) => {
+    setActivityToToggleArchive(id);
+    setOpenArchiveModal(true);
   };
 
-  const confirmDelete = () => {
-    fetch(`http://localhost:5000/users/psychiatrist/${adminId}/delete-activity/${activityToDelete}`, {
-      method: "DELETE",
+  const confirmToggleArchive = () => {
+    const activity = activities.find((a) => a.id === activityToToggleArchive);
+    const newArchiveStatus = !activity.isArchived;
+
+    fetch(`http://localhost:5000/users/psychiatrist/${adminId}/archive-activity/${activityToToggleArchive}`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("jwt-token")}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ isArchived: newArchiveStatus }),
+    })
+      .then((res) => res.json())
+      .then(() => {
+        fetchActivities();
+        setOpenArchiveModal(false);
+        setActivityToToggleArchive(null);
+      })
+      .catch((err) => console.error("❌ Error toggling archive status:", err));
+  };
+
+  // Categories Modal Handlers
+  const fetchCategories = () => {
+    fetch("http://localhost:5000/users/categories", {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("jwt-token")}`,
       },
     })
       .then((res) => res.json())
-      .then(() => {
-        fetchActivities(searchQuery, selectedCategory, page, pageSize);
-        setOpenDeleteModal(false);
-        setActivityToDelete(null);
-      })
-      .catch((err) => console.error("❌ Error deleting activity:", err));
+      .then(setCategories)
+      .catch((err) => console.error("❌ Error loading categories", err));
   };
 
-  // DataGrid columns
+  const openEditModalFunc = (category) => {
+    setEditedCategory(category);
+    setEditedName(category.name);
+    setError("");
+  };
+
+  const handleUpdateCategory = () => {
+    if (!editedName) {
+      setError("Name cannot be empty");
+      return;
+    }
+
+    fetch(`http://localhost:5000/users/categories/${editedCategory.id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("jwt-token")}`,
+      },
+      body: JSON.stringify({ name: editedName }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to update");
+        return res.json();
+      })
+      .then(() => {
+        setSuccessMessage("Category updated successfully!");
+        setEditedCategory(null);
+        setEditedName("");
+        fetchCategories();
+      })
+      .catch((err) => {
+        console.error("❌ Update error:", err);
+        setError("Failed to update category");
+      });
+  };
+
+  const handleDelete = (id) => {
+    setCategoryToDelete(id);
+  };
+
+  const confirmDelete = () => {
+    fetch(`http://localhost:5000/users/categories/${categoryToDelete}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("jwt-token")}`,
+      },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to delete category");
+        return res.json();
+      })
+      .then(() => {
+        setSuccessMessage("Category deleted successfully!");
+        setCategoryToDelete(null);
+        fetchCategories();
+      })
+      .catch((err) => {
+        console.error("❌ Delete error:", err);
+        setError("Failed to delete category");
+      });
+  };
+
+  // Filter categories based on search query
+  const filteredCategories = categories.filter((cat) =>
+    cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase())
+  );
+
   const columns = [
     { field: "id", headerName: "ID", flex: 1 },
     { field: "title", headerName: "Title", flex: 1 },
     { field: "description", headerName: "Description", flex: 1.5 },
-    { field: "category", headerName: "Category", flex: 1 },
+    {
+      field: "category",
+      headerName: "Category",
+      flex: 1,
+      valueGetter: (params) => params.row.category?.name,
+    },
+    {
+      field: "status",
+      headerName: "Status",
+      flex: 1,
+      valueGetter: (params) => (params.row.isArchived ? "Archived" : "Published"),
+      renderCell: (params) => (
+        <Typography
+          color={params.row.isArchived ? colors.redAccent[500] : colors.greenAccent[500]}
+        >
+          {params.row.isArchived ? "Archived" : "Published"}
+        </Typography>
+      ),
+    },
     {
       field: "actions",
       headerName: "Actions",
@@ -249,12 +445,12 @@ const Activities = () => {
           </Button>
           <Button
             variant="contained"
-            color="error"
+            color="warning"
             size="small"
-            startIcon={<DeleteIcon />}
-            onClick={() => handleDelete(params.row.id)}
+            startIcon={params.row.isArchived ? <UnarchiveIcon /> : <ArchiveIcon />}
+            onClick={() => handleToggleArchive(params.row.id)}
           >
-            Delete
+            {params.row.isArchived ? "Unarchive" : "Archive"}
           </Button>
         </Box>
       ),
@@ -263,21 +459,27 @@ const Activities = () => {
 
   return (
     <Box m="20px">
-      {/* Header */}
       <Header title="Activity Management" subtitle="Manage Activities (Admin)" />
 
-      {/* Top Bar - Search, Filter, and Add Activity */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} gap={2}>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpen()}
-        >
-          Add Activity
-        </Button>
+        <Box display="flex" gap={2}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => setOpenCategoriesModal(true)}
+          >
+            Manage Categories
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<PictureAsPdfIcon />}
+            onClick={generatePDF}
+          >
+            Generate PDF
+          </Button>
+        </Box>
 
-        {/* Search Bar */}
         <Box
           display="flex"
           backgroundColor={colors.primary[400]}
@@ -297,27 +499,22 @@ const Activities = () => {
           </IconButton>
         </Box>
 
-        {/* Filter by Category */}
         <FormControl sx={{ minWidth: 200 }}>
-          <InputLabel>Filter by Category</InputLabel>
           <Select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
+            displayEmpty
           >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="Professional and Intellectual">Professional and Intellectual</MenuItem>
-            <MenuItem value="Wellness and Relaxation">Wellness and Relaxation</MenuItem>
-            <MenuItem value="Social and Relationship">Social and Relationship</MenuItem>
-            <MenuItem value="Physical and Sports">Physical and Sports</MenuItem>
-            <MenuItem value="Leisure and Cultural">Leisure and Cultural</MenuItem>
-            <MenuItem value="Consumption and Shopping">Consumption and Shopping</MenuItem>
-            <MenuItem value="Domestic and Organizational">Domestic and Organizational</MenuItem>
-            <MenuItem value="Nature and Animal-Related">Nature and Animal-Related</MenuItem>
+            <MenuItem value="">All Categories</MenuItem>
+            {categories.map((cat) => (
+              <MenuItem key={cat._id} value={cat._id}>
+                {cat.name}
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
       </Box>
 
-      {/* Activities Table */}
       <Box sx={{ height: 500, width: "100%" }}>
         <DataGrid
           rows={activities}
@@ -331,7 +528,7 @@ const Activities = () => {
         />
       </Box>
 
-      {/* Add/Edit Modal */}
+      {/* Activity Edit Modal */}
       <Dialog open={open} onClose={handleClose}>
         <DialogTitle>{formData.id ? "Edit Activity" : "Add Activity"}</DialogTitle>
         <DialogContent>
@@ -356,23 +553,34 @@ const Activities = () => {
           <FormControl fullWidth margin="dense">
             <InputLabel>Category</InputLabel>
             <Select name="category" value={formData.category} onChange={handleChange}>
-              <MenuItem value="Professional and Intellectual">Professional and Intellectual</MenuItem>
-              <MenuItem value="Wellness and Relaxation">Wellness and Relaxation</MenuItem>
-              <MenuItem value="Social and Relationship">Social and Relationship</MenuItem>
-              <MenuItem value="Physical and Sports">Physical and Sports</MenuItem>
-              <MenuItem value="Leisure and Cultural">Leisure and Cultural</MenuItem>
-              <MenuItem value="Consumption and Shopping">Consumption and Shopping</MenuItem>
-              <MenuItem value="Domestic and Organizational">Domestic and Organizational</MenuItem>
-              <MenuItem value="Nature and Animal-Related">Nature and Animal-Related</MenuItem>
+              {categories.map((cat) => (
+                <MenuItem key={cat._id} value={cat._id}>
+                  {cat.name}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
+          {formData.image ? (
+            <img
+              src={URL.createObjectURL(formData.image)}
+              alt="Preview"
+              style={{ width: "100%", marginBottom: "10px", borderRadius: "8px" }}
+            />
+          ) : formData.imageUrl ? (
+            <img
+              src={`http://localhost:5000${formData.imageUrl}`}
+              alt="Current"
+              style={{ width: "100%", marginBottom: "10px", borderRadius: "8px" }}
+            />
+          ) : null}
           <TextField
             fullWidth
             margin="dense"
-            label="Image URL (optional)"
-            name="imageUrl"
-            value={formData.imageUrl}
-            onChange={handleChange}
+            type="file"
+            inputProps={{ accept: "image/*" }}
+            onChange={(e) => {
+              setFormData({ ...formData, image: e.target.files[0] });
+            }}
           />
           {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
         </DialogContent>
@@ -384,21 +592,16 @@ const Activities = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Modal */}
+      {/* Activity View Modal */}
       <Dialog open={openViewModal} onClose={() => setOpenViewModal(false)}>
         <DialogTitle>Activity Details</DialogTitle>
         <DialogContent>
           {selectedActivity ? (
             <Box sx={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <Typography>
-                <strong>Title:</strong> {selectedActivity.title}
-              </Typography>
-              <Typography>
-                <strong>Description:</strong> {selectedActivity.description}
-              </Typography>
-              <Typography>
-                <strong>Category:</strong> {selectedActivity.category}
-              </Typography>
+              <Typography><strong>Title:</strong> {selectedActivity.title}</Typography>
+              <Typography><strong>Description:</strong> {selectedActivity.description}</Typography>
+              <Typography><strong>Category:</strong> {selectedActivity.category?.name}</Typography>
+              <Typography><strong>Status:</strong> {selectedActivity.isArchived ? "Archived" : "Published"}</Typography>
               {selectedActivity.imageUrl && (
                 <img
                   src={`http://localhost:5000${selectedActivity.imageUrl}`}
@@ -416,19 +619,150 @@ const Activities = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation Modal */}
-      <Dialog open={openDeleteModal} onClose={() => setOpenDeleteModal(false)}>
-        <DialogTitle>Confirm Deletion</DialogTitle>
+      {/* Archive Confirmation Modal */}
+      <Dialog open={openArchiveModal} onClose={() => setOpenArchiveModal(false)}>
+        <DialogTitle>
+          {activities.find((a) => a.id === activityToToggleArchive)?.isArchived ? "Confirm Unarchiving" : "Confirm Archiving"}
+        </DialogTitle>
         <DialogContent>
-          <Typography>Are you sure you want to delete this activity?</Typography>
+          <Typography>
+            Are you sure you want to {activities.find((a) => a.id === activityToToggleArchive)?.isArchived ? "unarchive" : "archive"} this activity?
+          </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenDeleteModal(false)}>Cancel</Button>
-          <Button onClick={confirmDelete} variant="contained" color="error">
-            Delete
+          <Button onClick={() => setOpenArchiveModal(false)}>Cancel</Button>
+          <Button onClick={confirmToggleArchive} variant="contained" color="warning">
+            {activities.find((a) => a.id === activityToToggleArchive)?.isArchived ? "Unarchive" : "Archive"}
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Manage Categories Modal */}
+      <Dialog open={openCategoriesModal} onClose={() => setOpenCategoriesModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Manage Categories</DialogTitle>
+        <DialogContent>
+          <Box
+            display="flex"
+            backgroundColor={colors.primary[400]}
+            borderRadius="3px"
+            p={1}
+            mb={2}
+          >
+            <InputBase
+              sx={{ ml: 2, flex: 1, color: colors.grey[100] }}
+              placeholder="Search categories"
+              value={categorySearchQuery}
+              onChange={(e) => setCategorySearchQuery(e.target.value)}
+            />
+            <IconButton type="button" sx={{ p: 1, color: colors.grey[100] }}>
+              <SearchIcon />
+            </IconButton>
+          </Box>
+
+          <Box sx={{ maxHeight: 300, overflowY: "auto" }}>
+            {filteredCategories.length > 0 ? (
+              filteredCategories.map((cat) => (
+                <Box
+                  key={cat._id}
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  p={1}
+                  mb={1}
+                  bgcolor={colors.primary[500]}
+                  borderRadius="4px"
+                >
+                  <Typography sx={{ color: colors.grey[100] }}>{cat.name}</Typography>
+                  <Box>
+                    <IconButton
+                      color="secondary"
+                      onClick={() => openEditModalFunc({ id: cat._id, name: cat.name })}
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton
+                      color="error"
+                      onClick={() => handleDelete(cat._id)}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Box>
+                </Box>
+              ))
+            ) : (
+              <Typography sx={{ color: colors.grey[100] }}>No categories found</Typography>
+            )}
+          </Box>
+
+          {editedCategory && (
+            <Box mt={2}>
+              <TextField
+                fullWidth
+                label="Edit Category Name"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+              />
+              <Box display="flex" gap={1} mt={1}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleUpdateCategory}
+                >
+                  Save
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => setEditedCategory(null)}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            </Box>
+          )}
+
+          {categoryToDelete && (
+            <Box mt={2}>
+              <Typography>Are you sure you want to delete this category?</Typography>
+              <Box display="flex" gap={1} mt={1}>
+                <Button
+                  variant="contained"
+                  color="error"
+                  onClick={confirmDelete}
+                >
+                  Delete
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => setCategoryToDelete(null)}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            </Box>
+          )}
+
+          {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenCategoriesModal(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Success Snackbar */}
+      <Snackbar
+        open={!!successMessage}
+        autoHideDuration={3000}
+        onClose={() => setSuccessMessage("")}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setSuccessMessage("")}
+          severity="success"
+          sx={{ width: "100%" }}
+        >
+          {successMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

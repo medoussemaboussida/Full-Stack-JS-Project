@@ -5,6 +5,8 @@ const activitiesController = require('../controller/activitiesController');
 const validate = require('../middleware/validate')
 const { updateStudentProfile, updateStudentPhoto } = require('../controller/userController');
 
+
+
 router.put('/students/update/:id', updateStudentProfile);
 router.put('/students/update-photo/:id', updateStudentPhoto);
 router.post('/addStudent',validate,userController.addStudent);
@@ -53,11 +55,11 @@ router.post('/ban/:userId', userController.verifyToken, userController.banUser);
 
 
 
-router.get('/psychiatrists', userController.getPsychiatrists);
-router.put('/psychiatrists/add-availability/:id', userController.addAvailability);
-router.delete('/psychiatrists/delete-availability/:id/:index', userController.deleteAvailability);
-router.put('/psychiatrists/update-availability/:id/:index', userController.updateAvailability);
-router.post("/appointments/book", userController.verifyToken, userController.bookappointment);
+router.get('/psychiatrists', userController.verifyToken, userController.getPsychiatrists);
+router.put('/psychiatrists/add-availability/:id', userController.verifyToken, userController.addAvailability);
+router.delete('/psychiatrists/delete-availability/:id/:index', userController.verifyToken, userController.deleteAvailability);
+router.put('/psychiatrists/update-availability/:id/:index', userController.verifyToken, userController.updateAvailability);
+router.post("/appointments/book", userController.verifyToken, userController.bookAppointment);
 router.get('/appointments/history', userController.verifyToken, userController.getAppointmentHistory);
 router.put('/appointments/:id', userController.verifyToken, userController.updateAppointment);
 router.get('/psychiatrists/:id', userController.verifyToken, userController.getPsychiatristById);
@@ -82,6 +84,11 @@ router.put('/chat/:messageId', userController.verifyToken, userController.update
 
 
 //ghassen
+router.get("/categories" , userController.verifyToken, activitiesController.getAllCategories);
+router.post("/categories/:id" , userController.verifyToken, activitiesController.createCategory);
+router.put("/categories/:id", userController.verifyToken, activitiesController.updateCategory);
+router.delete('/categories/:id',userController.verifyToken,  activitiesController.deleteCategory);  // Supprimer tous les utilisateurs
+
 router.delete('/deleteAll', userController.deleteAllUsers);  // Supprimer tous les utilisateurs
 router.get('/search', userController.searchUsers);  //Recherche User
 router.post('/create', userController.createUser);  // Ajouter un utilisateur
@@ -119,6 +126,7 @@ router.get("/activities/category", activitiesController.getActivitiesByCategory)
 // ✅ Supprimer une activité (psychiatre et admin uniquement)
 router.delete("/psychiatrist/:id/delete-activity/:activityId", activitiesController.deleteActivity);
 
+router.put("/psychiatrist/:id/archive-activity/:activityId", activitiesController.archiveActivity);
 
 // ✅ Récupérer les activités favorites d'un utilisateur
 router.get("/favorite-activities/:id", activitiesController.getFavoriteActivities);
@@ -195,3 +203,4 @@ router.delete(
 );
 
 module.exports = router;
+

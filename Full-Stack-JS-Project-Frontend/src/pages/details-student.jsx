@@ -38,7 +38,7 @@ function DetailsStudents() {
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
-  const [availabilityTitle, setAvailabilityTitle] = useState("");
+  const [selectedDate, setSelectedDate] = useState(""); // Full date (YYYY-MM-DD)
   const [selectedStartTime, setSelectedStartTime] = useState("08:00"); // Default start time
   const [selectedEndTime, setSelectedEndTime] = useState("17:00"); // Default end time
   const [selectedDateInfo, setSelectedDateInfo] = useState(null);
@@ -66,40 +66,68 @@ function DetailsStudents() {
     return age;
   };
 
-  const formatAvailabilitiesToEvents = (availabilities, selectedStartDate = null) => {
-    return availabilities.map((slot, index) => {
-      let startDate, endDate;
-
-      if (slot.date) {
-        startDate = new Date(slot.date);
-        startDate.setHours(parseInt(slot.startTime.split(":")[0]), parseInt(slot.startTime.split(":")[1]), 0, 0);
-        endDate = new Date(slot.date);
-        endDate.setHours(parseInt(slot.endTime.split(":")[0]), parseInt(slot.endTime.split(":")[1]), 0, 0);
-      } else if (selectedStartDate) {
-        startDate = new Date(selectedStartDate);
-        startDate.setHours(parseInt(slot.startTime.split(":")[0]), parseInt(slot.startTime.split(":")[1]), 0, 0);
-        endDate = new Date(selectedStartDate);
-        endDate.setHours(parseInt(slot.endTime.split(":")[0]), parseInt(slot.endTime.split(":")[1]), 0, 0);
-      } else {
-        const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-        const dayIndex = daysOfWeek.indexOf(slot.day);
-        if (dayIndex === -1) return null;
-        const currentDate = new Date();
-        startDate = new Date(currentDate);
-        const daysToAdd = (dayIndex - currentDate.getDay() + 7) % 7;
-        startDate.setDate(currentDate.getDate() + daysToAdd);
-        startDate.setHours(parseInt(slot.startTime.split(":")[0]), parseInt(slot.startTime.split(":")[1]), 0, 0);
-        endDate = new Date(startDate);
-        endDate.setHours(parseInt(slot.endTime.split(":")[0]), parseInt(slot.endTime.split(":")[1]), 0, 0);
-      }
-
-      return {
-        id: index,
-        title: slot.title || `Available - ${slot.day}`,
-        start: startDate.toISOString(),
-        end: endDate.toISOString(),
-      };
-    }).filter(Boolean);
+  const formatAvailabilitiesToEvents = (availabilities) => {
+    if (!availabilities || !Array.isArray(availabilities)) return [];
+  
+    return availabilities
+      .map((slot, index) => {
+        let date;
+  
+        // New schema with date
+        if (slot.date) {
+          date = new Date(slot.date);
+          if (isNaN(date.getTime())) {
+            console.error(`Invalid date in slot ${index}:`, slot);
+            return null;
+          }
+        }
+        // Old schema with day
+        else if (slot.day) {
+          const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          const dayIndex = daysOfWeek.indexOf(slot.day);
+          if (dayIndex === -1) {
+            console.error(`Invalid day in slot ${index}:`, slot);
+            return null;
+          }
+          const now = new Date();
+          const currentDayIndex = now.getDay();
+          const daysToAdd = (dayIndex - currentDayIndex + 7) % 7;
+          date = new Date(now);
+          date.setDate(now.getDate() + daysToAdd);
+          date.setHours(0, 0, 0, 0);
+        } else {
+          console.error(`Missing required fields in slot ${index}:`, slot);
+          return null;
+        }
+  
+        if (!slot.startTime || !slot.endTime) {
+          console.error(`Missing time fields in slot ${index}:`, slot);
+          return null;
+        }
+  
+        const [startHour, startMinute] = slot.startTime.split(':').map(Number);
+        const [endHour, endMinute] = slot.endTime.split(':').map(Number);
+  
+        const startDate = new Date(date);
+        startDate.setHours(startHour, startMinute, 0, 0);
+  
+        const endDate = new Date(date);
+        endDate.setHours(endHour, endMinute, 0, 0);
+  
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          console.error(`Invalid time in slot ${index}:`, slot);
+          return null;
+        }
+  
+        return {
+          id: index,
+          title: `Available - ${startDate.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`,
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+          extendedProps: { originalSlot: slot },
+        };
+      })
+      .filter(Boolean);
   };
 
   useEffect(() => {
@@ -131,19 +159,28 @@ function DetailsStudents() {
                 const formattedEvents = formatAvailabilitiesToEvents(data.availability);
                 setEvents(formattedEvents);
               }
+            } else {
+              toast.error(`Error: ${data.message || "Failed to fetch user data"}`);
+              if (response.status === 401 || response.status === 403) {
+                localStorage.removeItem("jwt-token");
+                navigate("/login");
+              }
             }
           } catch (error) {
             console.error("Error fetching user:", error);
+            toast.error("Failed to load user data");
           }
         };
         fetchUser();
       } catch (error) {
         console.error("Invalid token:", error);
         localStorage.removeItem("jwt-token");
-        window.location.href = "/login";
+        navigate("/login");
       }
+    } else {
+      navigate("/login");
     }
-  }, []);
+  }, [navigate]);
 
   const handleEdit = () => setIsEditing(true);
 
@@ -322,7 +359,7 @@ function DetailsStudents() {
         toast.success("Account deleted successfully");
         localStorage.removeItem("jwt-token");
         setTimeout(() => {
-          window.location.href = "/login";
+          navigate("/login");
         }, 2000);
       } else {
         const data = await response.json();
@@ -339,12 +376,14 @@ function DetailsStudents() {
     const slotIndex = events.findIndex((event) => event.id === parseInt(info.event.id));
 
     if (slotIndex !== -1) {
+      const startDate = new Date(info.event.start);
+      const endDate = new Date(info.event.end);
       const updatedAvailability = {
-        day: new Date(info.event.start).toLocaleString("en-us", { weekday: "long" }),
-        startTime: info.event.start.toTimeString().slice(0, 5),
-        endTime: info.event.end.toTimeString().slice(0, 5),
-        date: info.event.start.toISOString().split("T")[0],
+        date: formatDateForInput(startDate), // YYYY-MM-DD
+        startTime: `${String(startDate.getHours()).padStart(2, "0")}:${String(startDate.getMinutes()).padStart(2, "0")}`,
+        endTime: `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`,
       };
+
       try {
         const response = await fetch(`${BASE_URL}/users/psychiatrists/update-availability/${decoded.id}/${slotIndex}`, {
           method: "PUT",
@@ -358,6 +397,9 @@ function DetailsStudents() {
           const data = await response.json();
           setEvents(formatAvailabilitiesToEvents(data.user.availability));
           toast.success("Availability updated successfully");
+        } else {
+          const errorData = await response.json();
+          toast.error(`Error: ${errorData.message}`);
         }
       } catch (error) {
         toast.error("Error updating availability");
@@ -381,6 +423,9 @@ function DetailsStudents() {
           const data = await response.json();
           setEvents(formatAvailabilitiesToEvents(data.user.availability));
           toast.success("Availability deleted successfully");
+        } else {
+          const errorData = await response.json();
+          toast.error(`Error: ${errorData.message}`);
         }
       } catch (error) {
         toast.error("Error deleting availability");
@@ -400,19 +445,14 @@ function DetailsStudents() {
       return;
     }
 
+    setSelectedDate(formatDateForInput(selectInfo.start));
     setSelectedDateInfo(selectInfo);
-    setAvailabilityTitle(`Available - ${new Date(selectInfo.start).toLocaleString("en-us", { weekday: "long" })}`);
-    setSelectedStartTime(selectInfo.startStr.slice(11, 16) || "08:00"); // Extract start time or default to 8 AM
-    setSelectedEndTime(selectInfo.endStr.slice(11, 16) || "17:00"); // Extract end time or default to 5 PM
+    setSelectedStartTime(selectInfo.startStr.slice(11, 16) || "08:00");
+    setSelectedEndTime(selectInfo.endStr.slice(11, 16) || "17:00");
     setShowAvailabilityModal(true);
   };
 
   const handleAvailabilityConfirm = async () => {
-    if (!availabilityTitle) {
-      toast.error("Please enter a title");
-      return;
-    }
-
     const [startHour, startMinute] = selectedStartTime.split(":").map(Number);
     const [endHour, endMinute] = selectedEndTime.split(":").map(Number);
     if (startHour > endHour || (startHour === endHour && startMinute >= endMinute)) {
@@ -422,10 +462,8 @@ function DetailsStudents() {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const selectedDate = new Date(selectedDateInfo.start);
-    selectedDate.setHours(0, 0, 0, 0);
-
-    if (selectedDate < today) {
+    const availabilityDate = new Date(selectedDate);
+    if (availabilityDate < today) {
       toast.error("Cannot save availability for a past date!");
       setShowAvailabilityModal(false);
       return;
@@ -434,11 +472,9 @@ function DetailsStudents() {
     const token = localStorage.getItem("jwt-token");
     const decoded = jwtDecode(token);
     const newAvailability = {
-      day: new Date(selectedDateInfo.start).toLocaleString("en-us", { weekday: "long" }),
+      date: selectedDate, // YYYY-MM-DD
       startTime: selectedStartTime,
       endTime: selectedEndTime,
-      title: availabilityTitle,
-      date: selectedDateInfo.start.toISOString().split("T")[0],
     };
 
     try {
@@ -525,13 +561,16 @@ function DetailsStudents() {
             boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
           }}>
             <h3 style={{ textAlign: "center", marginBottom: "15px" }}>Add Availability</h3>
-            <input
-              type="text"
-              value={availabilityTitle}
-              onChange={(e) => setAvailabilityTitle(e.target.value)}
-              placeholder="e.g., Available - Sunday"
-              style={{ width: "100%", padding: "8px", marginBottom: "15px", borderRadius: "3px", border: "1px solid #ccc" }}
-            />
+            <div style={{ marginBottom: "15px" }}>
+              <label style={{ display: "block", marginBottom: "5px" }}>Date</label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                min={formatDateForInput(new Date())} // Prevent past dates
+                style={{ width: "100%", padding: "8px", borderRadius: "3px", border: "1px solid #ccc" }}
+              />
+            </div>
             <div style={{ marginBottom: "15px" }}>
               <label style={{ display: "block", marginBottom: "5px" }}>Start Time</label>
               <input

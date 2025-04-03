@@ -1,5 +1,6 @@
 const User = require("../model/user");
 const Complaint = require('../model/complaint');
+const sendEmail = require('../utils/emailSender');
 
 //add reclamation
 module.exports.addComplaint = async (req, res) => {
@@ -27,7 +28,7 @@ module.exports.getComplaints = async (req, res) => {
     try {
         // Récupérer toutes les réclamations
         const complaints = await Complaint.find()
-            .populate('user_id', 'username email') 
+            .populate('user_id', 'username email user_photo level speciality') 
             .exec();
 
         // Si aucune réclamation n'est trouvée
@@ -109,3 +110,65 @@ module.exports.deleteComplaint = async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 };
+
+
+// Mettre à jour le statut d'une réclamation
+module.exports.updateComplaintStatus = async (req, res) => {
+    try {
+      const complaintId = req.params.complaint_id; // ID de la réclamation
+      const { status } = req.body; // Nouveau statut
+  
+      // Vérifier si le statut est valide
+      const validStatuses = ["pending", "resolved", "rejected"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid status value" });
+      }
+  
+      // Vérifier si la réclamation existe et récupérer les informations de l'utilisateur
+      const existingComplaint = await Complaint.findById(complaintId).populate(
+        "user_id",
+        "username email"
+      );
+      if (!existingComplaint) {
+        return res.status(404).json({ message: "Complaint not found" });
+      }
+  
+      // Mettre à jour le statut
+      existingComplaint.status = status;
+      const updatedComplaint = await existingComplaint.save();
+  
+      // Déterminer le message en fonction du nouveau statut
+      let statusMessage;
+      switch (status) {
+        case "pending":
+          statusMessage = "Your complaint is currently being processed.";
+          break;
+        case "resolved":
+          statusMessage = "Your complaint has been resolved.";
+          break;
+        case "rejected":
+          statusMessage = "Your complaint has been rejected.";
+          break;
+        default:
+          statusMessage = "The status of your complaint has been updated.";
+      }
+  
+      // Préparer le contenu de l'email en anglais avec un message dynamique
+      const emailSubject = "Update on Your Complaint Status - EspritCare";
+      const emailContent = `
+        <h2>Hello ${existingComplaint.user_id.username},</h2>
+        <p>We are writing to inform you that the status of your complaint has been updated.</p>
+        <p><strong>Complaint Subject:</strong> ${existingComplaint.subject}</p>
+        <p><strong>Status Update:</strong> ${statusMessage}</p>
+        <p>If you have any questions, feel free to contact us through our website.</p>
+        <p>Thank you for trusting EspritCare!</p>
+      `;
+  
+      // Envoyer l'email à l'utilisateur
+      await sendEmail(existingComplaint.user_id.email, emailSubject, emailContent);
+  
+      res.status(200).json({ message: "Complaint status updated successfully", complaint: updatedComplaint });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  };
