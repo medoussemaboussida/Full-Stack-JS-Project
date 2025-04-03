@@ -191,6 +191,13 @@ const Sidebar = () => {
               selected={selected}
               setSelected={setSelected}
             />
+             <Item
+              title="Claim management"
+              to="/complaint"
+              icon={<ReceiptOutlinedIcon />}
+              selected={selected}
+              setSelected={setSelected}
+            />
             <Typography
               variant="h6"
               color={colors.grey[300]}

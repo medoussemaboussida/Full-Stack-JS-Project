@@ -79,7 +79,6 @@ function Complaint() {
           setComplaints(data);
         } else {
           console.error("Erreur lors de la récupération des réclamations:", data);
-          toast.error("Failed to load complaints.");
         }
       } catch (error) {
         console.error("Erreur lors de l'appel API:", error);
