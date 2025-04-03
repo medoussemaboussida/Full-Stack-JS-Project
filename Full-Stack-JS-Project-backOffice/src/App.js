@@ -18,6 +18,7 @@ import { ColorModeContext, useMode } from "./theme";
 import Calendar from "./scenes/calendar/calendar";
 import Forum from "./scenes/forum/forum";
 import Appointment from "./scenes/Appointment/Appointment";
+import Events from "./scenes/events/events"; 
 import { NotificationProvider } from "./scenes/publication/NotificationContext"; // Importer le NotificationProvider
 import Activities from "./scenes/passtime/activities";
 import AdminComplaints from "./scenes/complaint/complaint";
