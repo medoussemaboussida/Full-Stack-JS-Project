@@ -49,8 +49,16 @@ module.exports.getComments = async (req, res) => {
         }
 
         // Récupérer tous les commentaires du forum
-        const comments = await ForumComment.find({ forum_id }).populate("user_id", "username speciality level user_photo"); // Peupler les informations de l'utilisateur (username, speciality, level, user_photo)
-
+        const comments = await ForumComment.find({ forum_id })
+        .populate("user_id", "username speciality level user_photo") // Peupler les informations de l'utilisateur qui a posté le commentaire
+        .populate({
+          path: "replies.user_id", // Peupler les informations de l'utilisateur qui a posté la réponse
+          select: "username speciality level user_photo",
+        })
+        .populate({
+          path: "replies.mentions", // Peupler les informations des utilisateurs mentionnés dans les réponses
+          select: "username",
+        });
 
         // Retourner les commentaires
         res.status(200).json(comments);
@@ -252,3 +260,67 @@ exports.deleteCommentReport = async (req, res) => {
       res.status(500).json({ message: err.message });
     }
   };
+  // Ajouter une réponse à un commentaire
+module.exports.addReply = async (req, res) => {
+  try {
+    const { comment_id, user_id } = req.params;
+    const { content, anonymous } = req.body;
+
+    // Vérifier si le commentaire existe
+    const comment = await ForumComment.findById(comment_id);
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found" });
+    }
+
+    // Vérifier si l'utilisateur existe
+    const user = await User.findById(user_id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Extraire les mentions (@username) du contenu
+    const mentionRegex = /@(\w+)/g;
+    const mentions = [];
+    let match;
+    while ((match = mentionRegex.exec(content)) !== null) {
+      const username = match[1];
+      const mentionedUser = await User.findOne({ username });
+      if (mentionedUser) {
+        mentions.push(mentionedUser._id);
+      }
+    }
+
+    // Créer la réponse
+    const reply = {
+      user_id,
+      content,
+      anonymous,
+      mentions,
+      createdAt: new Date(),
+    };
+
+    // Ajouter la réponse au commentaire
+    comment.replies.push(reply);
+    await comment.save();
+
+    // Envoyer une notification à chaque utilisateur mentionné
+    for (const mentionedUserId of mentions) {
+      if (mentionedUserId.toString() !== user_id.toString()) {
+        const commenterName = anonymous ? "Anonymous" : user.username;
+        const message = `${commenterName} mentioned you in a reply: "${content.substring(0, 20)}..."`;
+        addNotification(mentionedUserId, message, "mention");
+      }
+    }
+
+    // Envoyer une notification à l'auteur du commentaire parent (s'il n'est pas l'auteur de la réponse)
+    if (comment.user_id.toString() !== user_id.toString()) {
+      const commenterName = anonymous ? "Anonymous" : user.username;
+      const message = `${commenterName} replied to your comment: "${comment.content.substring(0, 20)}..."`;
+      addNotification(comment.user_id, message, "reply");
+    }
+
+    res.status(201).json(reply);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
