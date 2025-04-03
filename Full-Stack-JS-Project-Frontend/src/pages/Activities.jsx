@@ -98,11 +98,11 @@ function Activities() {
           // Get unique category IDs from activities
           const usedCategoryIds = new Set(
             activitiesData
-              .filter((activity) => activity.category && activity.category._id)
+              .filter((activity) => activity.category && activity.category._id && !activity.isArchived) // Filter non-archived here
               .map((activity) => activity.category._id)
           );
 
-          // Filter categories to only include those used by at least one activity
+          // Filter categories to only include those used by at least one non-archived activity
           const mappedCategories = Array.isArray(categoriesData)
             ? [
                 { label: "All", value: "*" },
@@ -271,7 +271,7 @@ function Activities() {
         // Update categories after deletion
         const usedCategoryIds = new Set(
           activities
-            .filter((activity) => activity._id !== activityId)
+            .filter((activity) => activity._id !== activityId && !activity.isArchived) // Ensure non-archived here
             .filter((activity) => activity.category && activity.category._id)
             .map((activity) => activity.category._id)
         );
@@ -321,7 +321,7 @@ function Activities() {
       });
       const data = await response.json();
       if (response.ok) {
-        setActivities(data);
+        setActivities(data.filter(activity => !activity.isArchived)); // Filter non-archived activities here
       } else {
         console.error("Error fetching activities by category:", data.message);
         toast.error("Failed to fetch activities for this category");
@@ -361,7 +361,7 @@ function Activities() {
 
   const calculateMoodImpact = () => {
     const moodImpact = {};
-    activities.forEach((activity) => {
+    activities.filter(activity => !activity.isArchived).forEach((activity) => { // Filter non-archived for stats
       moodImpact[activity._id] = { title: activity.title, moods: [], average: 0 };
     });
     moods.forEach((mood) => {
@@ -383,7 +383,7 @@ function Activities() {
 
   const calculateSatisfactionDistribution = () => {
     const satisfactionData = {};
-    activities.forEach((activity) => {
+    activities.filter(activity => !activity.isArchived).forEach((activity) => { // Filter non-archived for stats
       satisfactionData[activity._id] = {
         title: activity.title,
         satisfied: 0,
@@ -514,7 +514,8 @@ function Activities() {
       const matchesSearch = !searchTerm ||
         stripHtmlTags(activity.title).toLowerCase().includes(searchTerm.toLowerCase()) ||
         stripHtmlTags(activity.description).toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesCategory && matchesSearch;
+      const isNotArchived = !activity.isArchived; // Added condition to filter only non-archived activities
+      return matchesCategory && matchesSearch && isNotArchived;
     })
     .sort((a, b) => (pinnedActivities.includes(a._id) === pinnedActivities.includes(b._id) ? 0 : pinnedActivities.includes(a._id) ? -1 : 1));
 

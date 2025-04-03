@@ -20,7 +20,6 @@ import Forum from "./scenes/forum/forum";
 import Appointment from "./scenes/Appointment/Appointment";
 import { NotificationProvider } from "./scenes/publication/NotificationContext"; // Importer le NotificationProvider
 import Activities from "./scenes/passtime/activities";
-import Categories from "./scenes/passtime/Categories";
 
 function App() {
   const [theme, colorMode] = useMode();
@@ -74,7 +73,6 @@ function App() {
                 <Route path="/forum" element={<Forum />} />
                 <Route path="/appointment" element={<Appointment />} />
                 <Route path="/activities" element={<Activities />} />
-                <Route path="/categories" element={<Categories />} />
 
               </Routes>
             </main>

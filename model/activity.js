@@ -8,7 +8,10 @@ const activitySchema = new mongoose.Schema({
         ref: "Category",
         required: true
       },
-      
+      isArchived: {
+        type: Boolean,
+        default: false
+    },
     imageUrl: { type: String},
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     createdAt: { type: Date, default: Date.now }

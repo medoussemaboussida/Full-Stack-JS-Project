@@ -266,6 +266,40 @@ module.exports.deleteActivity = async (req, res) => {
         res.status(500).json({ message: "Erreur serveur", error });
     }
 };
+module.exports.archiveActivity = async (req, res) => {
+    try {
+        const { id, activityId } = req.params;
+        const { isArchived } = req.body;
+
+        const user = await User.findById(id);
+        if (!user || (user.role !== "psychiatrist" && user.role !== "admin")) {
+            return res.status(403).json({ message: "Seuls les psychiatres peuvent archiver des activités" });
+        }
+
+        const activity = await Activity.findById(activityId);
+        if (!activity) {
+            return res.status(404).json({ message: "Activité non trouvée" });
+        }
+
+        /*if (activity.createdBy.toString() !== id) {
+            return res.status(403).json({ message: "Vous ne pouvez archiver que vos propres activités" });
+        }*/
+
+        // Update the activity to mark it as archived
+        const updatedActivity = await Activity.findByIdAndUpdate(
+            activityId,
+            { isArchived: isArchived !== undefined ? isArchived : true }, // Default to true if not provided
+            { new: true } // Return the updated document
+        );
+
+        res.status(200).json({ 
+            message: "Activité archivée avec succès",
+            activity: updatedActivity 
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur serveur", error });
+    }
+};
 
 // ✅ Récupérer toutes les activités
 module.exports.getAllActivities = async (req, res) => {
