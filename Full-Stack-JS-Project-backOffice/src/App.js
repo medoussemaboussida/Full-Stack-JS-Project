@@ -74,7 +74,6 @@ function App() {
                 <Route path="/forum" element={<Forum />} />
                 <Route path="/appointment" element={<Appointment />} />
                 <Route path="/activities" element={<Activities />} />
-                <Route path="/categories" element={<Categories />} />
                 <Route path="/complaint" element={<AdminComplaints />} />
 
               </Routes>

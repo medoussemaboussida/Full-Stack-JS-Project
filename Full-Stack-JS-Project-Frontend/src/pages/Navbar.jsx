@@ -46,6 +46,7 @@ const Navbar = () => {
                 console.error('Erreur lors de la déconnexion:', error);
             });
     };
+    console.log('Rôle utilisateur :', user?.role);
 
     return (
         <header className="header">
@@ -124,18 +125,23 @@ const Navbar = () => {
 
 
                                     
-                                    <li className="nav-item dropdown">
-                                        <a className="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-                                        Pastime
-                                        </a>
-                                        <ul className="dropdown-menu fade-down">
-                                            <li><a className="dropdown-item" href="/Activities">Activities</a></li>
-                                            <li><a className="dropdown-item" href="/Exercices">Exercices</a></li>
-                                            <li><a className="dropdown-item" href="/SleepCalculator">Sleep Calculator</a></li>
-                                            <li><a className="dropdown-item" href="/list-problems">problem management </a></li>
-
-                                        </ul>
-                                    </li>
+                                    {user?.role === 'student' ? (
+                                        <li className="nav-item dropdown">
+                                            <a className="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                                                Pastime
+                                            </a>
+                                            <ul className="dropdown-menu fade-down">
+                                                <li><a className="dropdown-item" href="/Activities">Activities</a></li>
+                                                <li><a className="dropdown-item" href="/Exercices">Breathing Exercises</a></li>
+                                                <li><a className="dropdown-item" href="/SleepCalculator">Sleep Calculator</a></li>
+                                                <li><a className="dropdown-item" href="/list-problems">problem management</a></li>
+                                            </ul>
+                                        </li>
+                                    ) : (
+                                        <li className="nav-item">
+                                            <a className="nav-link" href="/Activities">Activities</a>
+                                        </li>
+                                    )}
                                     <li className="nav-item dropdown">
                                         <a className="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
                                             Appointment

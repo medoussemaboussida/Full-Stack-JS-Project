@@ -24,8 +24,7 @@ const fetchBreathingExercise = async (type) => {
   }
 };
 
-// Composant pour l'exercice de respiration (à afficher dans un modal)
-function BreathingExerciseModal({ isOpen, onClose }) {
+function Exercises() {
   const [exerciseType, setExerciseType] = useState("");
   const [exerciseData, setExerciseData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -33,7 +32,7 @@ function BreathingExerciseModal({ isOpen, onClose }) {
   const [currentPhase, setCurrentPhase] = useState("inhale");
   const [cycleCount, setCycleCount] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [phaseTimeLeft, setPhaseTimeLeft] = useState(0); // Temps restant dans la phase actuelle
+  const [phaseTimeLeft, setPhaseTimeLeft] = useState(0);
 
   // Charger les données de l'exercice
   const handleStartExercise = async (type) => {
@@ -47,7 +46,7 @@ function BreathingExerciseModal({ isOpen, onClose }) {
       const data = await fetchBreathingExercise(type);
       setExerciseData(data);
       setTimeLeft(data.totalDuration);
-      setPhaseTimeLeft(data.inhale); // Initialiser avec la durée de l'inhale
+      setPhaseTimeLeft(data.inhale);
       toast.success(`Starting ${type} breathing exercise!`);
     } catch (error) {
       console.error("Error fetching breathing exercise:", error);
@@ -122,8 +121,8 @@ function BreathingExerciseModal({ isOpen, onClose }) {
 
   // Gérer le minuteur global
   useEffect(() => {
-    if (!isBreathing || timeLeft <= 0) {
-      if (timeLeft <= 0) {
+    if (!isBreathing || !exerciseData || timeLeft <= 0) {
+      if (isBreathing && timeLeft <= 0) { // Vérifier si l'exercice était en cours
         setIsBreathing(false);
         setCycleCount(exerciseData?.cycles || 0);
         stopAllSounds();
@@ -137,7 +136,7 @@ function BreathingExerciseModal({ isOpen, onClose }) {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isBreathing, timeLeft]);
+  }, [isBreathing, timeLeft, exerciseData]);
 
   // Gérer le temps restant dans la phase actuelle
   useEffect(() => {
@@ -171,20 +170,6 @@ function BreathingExerciseModal({ isOpen, onClose }) {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Réinitialiser les sons et l'état lors de la fermeture du modal
-  useEffect(() => {
-    if (!isOpen) {
-      setIsBreathing(false);
-      setExerciseType("");
-      setExerciseData(null);
-      setCycleCount(0);
-      setCurrentPhase("inhale");
-      setTimeLeft(0);
-      setPhaseTimeLeft(0);
-      stopAllSounds();
-    }
-  }, [isOpen]);
-
   // Calculer la progression du cercle
   const getProgress = () => {
     if (!exerciseData) return 0;
@@ -196,186 +181,6 @@ function BreathingExerciseModal({ isOpen, onClose }) {
         : exerciseData.exhale;
     return (phaseTimeLeft / phaseDuration) * 100;
   };
-
-  if (!isOpen) return null;
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 1000,
-      }}
-    >
-      <div
-        style={{
-          backgroundColor: "#fff",
-          borderRadius: "10px",
-          padding: "30px",
-          width: "500px",
-          maxWidth: "90%",
-          position: "relative",
-          boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
-        }}
-      >
-        {/* Bouton de fermeture */}
-        <button
-          onClick={onClose}
-          style={{
-            position: "absolute",
-            top: "10px",
-            right: "10px",
-            backgroundColor: "#ff5a5f",
-            color: "white",
-            border: "none",
-            borderRadius: "50%",
-            width: "30px",
-            height: "30px",
-            cursor: "pointer",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            fontSize: "16px",
-          }}
-        >
-          ✕
-        </button>
-
-        <h3 style={{ fontSize: "24px", color: "#333", marginBottom: "20px", textAlign: "center" }}>
-          Breathing Exercise
-        </h3>
-
-        {/* Sélection du type d'exercice */}
-        <div style={{ marginBottom: "20px" }}>
-          <h4 style={{ fontSize: "18px", color: "#333", marginBottom: "10px" }}>
-            Choose Your Breathing Exercise
-          </h4>
-          <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-            {["relaxation", "focus", "sleep"].map((type) => (
-              <button
-                key={type}
-                onClick={() => handleStartExercise(type)}
-                disabled={isLoading || isBreathing}
-                style={{
-                  backgroundColor: exerciseType === type ? "#ff5a5f" : "#0ea5e6",
-                  color: "white",
-                  padding: "8px 16px",
-                  borderRadius: "5px",
-                  border: "none",
-                  cursor: "pointer",
-                  transition: "background-color 0.3s ease",
-                }}
-                onMouseEnter={(e) =>
-                  (e.target.style.backgroundColor =
-                    exerciseType === type ? "#e04f54" : "#0d8bc2")
-                }
-                onMouseLeave={(e) =>
-                  (e.target.style.backgroundColor =
-                    exerciseType === type ? "#ff5a5f" : "#0ea5e6")
-                }
-              >
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Animation de Respiration avec Cercle de Progression */}
-        {exerciseData && (
-          <div style={{ marginBottom: "20px" }}>
-            <div style={{ position: "relative", width: "150px", height: "150px", margin: "0 auto" }}>
-              <svg width="150" height="150" style={{ position: "absolute", top: 0, left: 0 }}>
-                {/* Cercle de fond */}
-                <circle
-                  cx="75"
-                  cy="75"
-                  r="70"
-                  fill="none"
-                  stroke="#e0e0e0"
-                  strokeWidth="10"
-                />
-                {/* Cercle de progression */}
-                <circle
-                  cx="75"
-                  cy="75"
-                  r="70"
-                  fill="none"
-                  stroke="#0ea5e6"
-                  strokeWidth="10"
-                  strokeDasharray="439.6" // Circonférence du cercle (2 * π * r)
-                  strokeDashoffset={(439.6 * (100 - getProgress())) / 100} // Ajuster la progression
-                  transform="rotate(-90 75 75)" // Commencer à 12h
-                />
-              </svg>
-              <div
-                style={{
-                  position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  fontSize: "24px",
-                  color: "#333",
-                }}
-              >
-                {phaseTimeLeft}s
-              </div>
-            </div>
-            <h4 style={{ fontSize: "18px", color: "#333", marginTop: "20px", textAlign: "center" }}>
-              {currentPhase === "inhale"
-                ? "inhale"
-                : currentPhase === "hold"
-                ? "hold"
-                : "exhale"}
-            </h4>
-            <p style={{ color: "#666", fontSize: "14px", marginTop: "10px", textAlign: "center" }}>
-              Cycle {cycleCount} of {exerciseData.cycles}
-            </p>
-            <p style={{ color: "#666", fontSize: "14px", textAlign: "center" }}>
-              Time Left: {formatTime(timeLeft)}
-            </p>
-          </div>
-        )}
-
-        {/* Bouton Start/Stop */}
-        {exerciseData && (
-          <button
-            onClick={toggleBreathing}
-            disabled={isLoading}
-            style={{
-              backgroundColor: isBreathing ? "#ff5a5f" : "#0ea5e6",
-              color: "white",
-              padding: "10px 20px",
-              borderRadius: "5px",
-              border: "none",
-              cursor: "pointer",
-              transition: "background-color 0.3s ease",
-              display: "block",
-              margin: "0 auto",
-            }}
-            onMouseEnter={(e) =>
-              (e.target.style.backgroundColor = isBreathing ? "#e04f54" : "#0d8bc2")
-            }
-            onMouseLeave={(e) =>
-              (e.target.style.backgroundColor = isBreathing ? "#ff5a5f" : "#0ea5e6")
-            }
-          >
-            {isBreathing ? "Stop" : "Start"}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Exercises() {
-  const [isBreathingModalOpen, setIsBreathingModalOpen] = useState(false);
 
   return (
     <div style={{ padding: "40px", backgroundColor: "#f9f9f9" }}>
@@ -394,7 +199,7 @@ function Exercises() {
         }}
       >
         <div className="container">
-          <h2 className="breadcrumb-title">Wellness Exercises</h2>
+          <h2 className="breadcrumb-title">Explore Breathing Exercises</h2>
           <ul
             className="breadcrumb-menu"
             style={{
@@ -419,13 +224,7 @@ function Exercises() {
 
       {/* Exercises Section */}
       <div style={{ maxWidth: "800px", margin: "0 auto", textAlign: "center" }}>
-        <h2 style={{ fontSize: "32px", fontWeight: "700", marginBottom: "20px" }}>
-          Explore <span style={{ color: "#ff5a5f" }}>Wellness Exercises</span>
-        </h2>
-
-        <p style={{ textAlign: "center", color: "#666", marginBottom: "30px" }}>
-          Choose an exercise to improve your mental and physical well-being. Practice regularly to reduce stress and enhance focus.
-        </p>
+        <h2 style={{ fontSize: "32px", fontWeight: "700", marginBottom: "20px" }}></h2>
 
         <div
           style={{
@@ -436,39 +235,123 @@ function Exercises() {
             marginBottom: "40px",
           }}
         >
-          {/* Liste des exercices */}
-          <div style={{ display: "flex", justifyContent: "center", gap: "20px" }}>
-            <div
-              style={{
-                backgroundColor: "#f0f0f0",
-                borderRadius: "10px",
-                padding: "20px",
-                width: "200px",
-                textAlign: "center",
-                cursor: "pointer",
-                transition: "background-color 0.3s ease",
-              }}
-              onClick={() => setIsBreathingModalOpen(true)}
-              onMouseEnter={(e) => (e.target.style.backgroundColor = "#e0e0e0")}
-              onMouseLeave={(e) => (e.target.style.backgroundColor = "#f0f0f0")}
-            >
-              <h3 style={{ fontSize: "18px", color: "#333", marginBottom: "10px" }}>
-                Breathing Exercise
-              </h3>
-              <p style={{ color: "#666", fontSize: "14px" }}>
-                Reduce stress and improve focus with guided breathing.
+          {/* Sélection du type d'exercice */}
+          <div style={{ marginBottom: "20px" }}>
+            <h4 style={{ fontSize: "18px", color: "#333", marginBottom: "10px" }}>
+              Choose Your Breathing Exercise
+            </h4>
+            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+              {["relaxation", "focus", "sleep"].map((type) => (
+                <button
+                  key={type}
+                  onClick={() => handleStartExercise(type)}
+                  disabled={isLoading || isBreathing}
+                  style={{
+                    backgroundColor: exerciseType === type ? "#ff5a5f" : "#0ea5e6",
+                    color: "white",
+                    padding: "8px 16px",
+                    borderRadius: "5px",
+                    border: "none",
+                    cursor: "pointer",
+                    transition: "background-color 0.3s ease",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.target.style.backgroundColor =
+                      exerciseType === type ? "#e04f54" : "#0d8bc2")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.target.style.backgroundColor =
+                      exerciseType === type ? "#ff5a5f" : "#0ea5e6")
+                  }
+                >
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Animation de Respiration avec Cercle de Progression */}
+          {exerciseData && (
+            <div style={{ marginBottom: "20px" }}>
+              <div style={{ position: "relative", width: "150px", height: "150px", margin: "0 auto" }}>
+                <svg width="150" height="150" style={{ position: "absolute", top: 0, left: 0 }}>
+                  <circle
+                    cx="75"
+                    cy="75"
+                    r="70"
+                    fill="none"
+                    stroke="#e0e0e0"
+                    strokeWidth="10"
+                  />
+                  <circle
+                    cx="75"
+                    cy="75"
+                    r="70"
+                    fill="none"
+                    stroke="#0ea5e6"
+                    strokeWidth="10"
+                    strokeDasharray="439.6"
+                    strokeDashoffset={(439.6 * (100 - getProgress())) / 100}
+                    transform="rotate(-90 75 75)"
+                  />
+                </svg>
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    fontSize: "24px",
+                    color: "#333",
+                  }}
+                >
+                  {phaseTimeLeft}s
+                </div>
+              </div>
+              <h4 style={{ fontSize: "18px", color: "#333", marginTop: "20px", textAlign: "center" }}>
+                {currentPhase === "inhale"
+                  ? "inhale"
+                  : currentPhase === "hold"
+                  ? "hold"
+                  : "exhale"}
+              </h4>
+              <p style={{ color: "#666", fontSize: "14px", marginTop: "10px", textAlign: "center" }}>
+                Cycle {cycleCount} of {exerciseData.cycles}
+              </p>
+              <p style={{ color: "#666", fontSize: "14px", textAlign: "center" }}>
+                Time Left: {formatTime(timeLeft)}
               </p>
             </div>
-            {/* Vous pouvez ajouter d'autres exercices ici */}
-          </div>
+          )}
+
+          {/* Bouton Start/Stop */}
+          {exerciseData && (
+            <button
+              onClick={toggleBreathing}
+              disabled={isLoading}
+              style={{
+                backgroundColor: isBreathing ? "#ff5a5f" : "#0ea5e6",
+                color: "white",
+                padding: "10px 20px",
+                borderRadius: "5px",
+                border: "none",
+                cursor: "pointer",
+                transition: "background-color 0.3s ease",
+                display: "block",
+                margin: "0 auto",
+              }}
+              onMouseEnter={(e) =>
+                (e.target.style.backgroundColor = isBreathing ? "#e04f54" : "#0d8bc2")
+              }
+              onMouseLeave={(e) =>
+                (e.target.style.backgroundColor = isBreathing ? "#ff5a5f" : "#0ea5e6")
+              }
+            >
+              {isBreathing ? "Stop" : "Start"}
+            </button>
+          )}
         </div>
       </div>
-
-      {/* Modal pour l'exercice de respiration */}
-      <BreathingExerciseModal
-        isOpen={isBreathingModalOpen}
-        onClose={() => setIsBreathingModalOpen(false)}
-      />
     </div>
   );
 }

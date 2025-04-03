@@ -102,8 +102,7 @@ app.use('/complaintResponse',complaintResponseRouter);
 app.use('/association', associationRoutes);
 app.use('/events', eventRoutes);
 
-
-
+//mailing
 // Email transporter configuration
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -115,20 +114,48 @@ const transporter = nodemailer.createTransport({
 
 // Function to send reminder email
 const sendReminderEmail = async (userEmail, activities, date) => {
+  
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: `"UnmindCare" <${process.env.EMAIL_USER}>`,
     to: userEmail,
     subject: `Your Activity Schedule Reminder for ${date}`,
     html: `
-      <h2>Your Schedule for ${date}</h2>
-      <p>Here are your scheduled activities for today:</p>
-      <ul>
-        ${activities.map((activity) => `<li>${activity.title} ${activity.completed ? '(Completed)' : ''}</li>`).join('')}
-      </ul>
-      <p>Have a great day!</p>
+      <div style="
+        background-image: url('http://localhost:5000/uploads/mailActivity.jpg');
+        background-size: cover;
+        background-position: center;
+        padding: 50px 0;
+      ">
+        <div style="
+          max-width: 600px;
+          margin: 0 auto;
+          background-color: rgba(255, 255, 255, 0.94);
+          padding: 30px;
+          border-radius: 12px;
+          font-family: Arial, sans-serif;
+          box-shadow: 0 0 10px rgba(0,0,0,0.15);
+        ">
+          <h2 style="color:#007bff; text-align:center;">Your Schedule for ${date}</h2>
+          <p style="font-size:16px;color:#333;">Here are your scheduled activities for today:</p>
+          <ul style="font-size:15px;color:#333;line-height:1.6;">
+            ${activities.map((activity) => `<li>${activity.title} ${activity.completed ? '(✅ Completed)' : ''}</li>`).join('')}
+          </ul>
+          <p style="font-size:16px;color:#333;">Have a great day!</p>
+  
+          <hr style="margin:30px 0;">
+          <p style="font-size:14px;text-align:center;">
+            Cordialement,<br>
+            <strong>UnmindCare Team</strong><br>
+            <a href="http://unmindcare.com" style="color:#007bff;text-decoration:none;">www.unmindcare.com</a>
+          </p>
+          <div style="text-align:center; margin-top:10px;">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/f/ff/Logo_ESPRIT_Ariana.jpg" alt="UnmindCare Logo" width="120">
+          </div>
+        </div>
+      </div>
     `,
   };
-
+  
   try {
     await transporter.sendMail(mailOptions);
     console.log(`Reminder email sent to ${userEmail}`);
@@ -167,8 +194,7 @@ const sendDailyReminders = async () => {
     console.error('Error in sendDailyReminders:', error);
   }
 };
-
-// Schedule the reminder task to run every day at 3:20 AM
+// Schedule the reminder task to run every day at 3:20 AM // 0 8 
 cron.schedule('0 8 * * *', () => { // Keep as is for testing, change to '20 3 * * *' for 3:20 AM
   console.log('Running daily reminder task at 3:20 AM...');
   sendDailyReminders();

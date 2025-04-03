@@ -2571,14 +2571,17 @@ module.exports.updatechat = async (req, res) => {
     module.exports.photo = async (req, res) => {
  
         try {
-            const user = await User.findById(req.userId).select('username user_photo');
-            if (!user) return res.status(404).json({ message: 'User not found' });
-            res.status(200).json(user);
-        } catch (err) {
-            console.error('Error fetching user:', err);
-            res.status(500).json({ message: 'Server error' });
+        console.log("req.userId:", req.userId); // Ajout pour debug
+        const user = await User.findById(req.userId).select('username role user_photo');
+        if (!user) {
+            return res.status(404).json({ message: "Utilisateur non trouvé" });
         }
-    };
+        res.status(200).json(user);
+    } catch (error) {
+        console.error("Erreur dans /users/me :", error);
+        res.status(500).json({ message: "Erreur serveur" });
+    }
+};
 
     module.exports.getAllAppoint = async (req, res) => {
         try {

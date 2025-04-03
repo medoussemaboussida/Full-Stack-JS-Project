@@ -127,7 +127,6 @@ router.get("/activities/category", activitiesController.getActivitiesByCategory)
 router.delete("/psychiatrist/:id/delete-activity/:activityId", activitiesController.deleteActivity);
 
 router.put("/psychiatrist/:id/archive-activity/:activityId", activitiesController.archiveActivity);
-
 // ✅ Récupérer les activités favorites d'un utilisateur
 router.get("/favorite-activities/:id", activitiesController.getFavoriteActivities);
 

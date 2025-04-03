@@ -227,10 +227,10 @@ const ProblemList = () => {
         style={{ background: 'url(assets/img/breadcrumb/01.jpg)', backgroundSize: 'cover', backgroundPosition: 'center', padding: '60px 0', textAlign: 'center', color: '#fff' }}
       >
         <div className="container">
-          <h2 className="breadcrumb-title">Your Problems</h2>
+          <h2 className="breadcrumb-title">Manage Your Problems</h2>
           <ul className="breadcrumb-menu" style={{ display: 'flex', justifyContent: 'center', listStyle: 'none', padding: '0', marginTop: '10px' }}>
             <li style={{ marginRight: '10px' }}><a href="/Home" style={{ color: '#fff', textDecoration: 'none', fontWeight: 'bold' }}>Home</a></li>
-            <li style={{ color: '#ff5a5f', textDecoration: 'none', fontWeight: 'bold' }}>Problems</li>
+            <li style={{ color: '#ff5a5f', textDecoration: 'none', fontWeight: 'bold' }}>problems List</li>
           </ul>
         </div>
       </div>
@@ -238,7 +238,7 @@ const ProblemList = () => {
       <div className="py-120">
         <div className="container">
           <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px', backgroundColor: '#fff', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ fontSize: '28px', color: '#2A5B84', marginBottom: '20px', textAlign: 'center' }}>Your Problems</h2>
+            <h2 style={{ fontSize: '28px', color: '#2A5B84', marginBottom: '20px', textAlign: 'center' }}>Manage Your Problems</h2>
             <div style={{ marginBottom: '20px' }}>
               <input
                 type="text"
