@@ -77,57 +77,61 @@ function Activities() {
     NeutralOrUnspecified: "#d3d3d3",
   };
 
-  // Fetch categories with proper mapping
+  // Fetch categories and filter based on activities
   useEffect(() => {
-    const fetchCategories = async () => {
+    const fetchCategoriesAndFilter = async () => {
       try {
         const token = localStorage.getItem("jwt-token");
-        const response = await fetch("http://localhost:5000/users/categories", {
+        // Fetch categories
+        const categoriesResponse = await fetch("http://localhost:5000/users/categories", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const data = await response.json();
-        if (response.ok) {
-          // Ensure data is an array and map it to { label, value }
-          const mappedCategories = Array.isArray(data)
+        const categoriesData = await categoriesResponse.json();
+
+        // Fetch activities to determine which categories are used
+        const activitiesResponse = await fetch("http://localhost:5000/users/list/activities", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const activitiesData = await activitiesResponse.json();
+
+        if (categoriesResponse.ok && activitiesResponse.ok) {
+          // Get unique category IDs from activities
+          const usedCategoryIds = new Set(
+            activitiesData
+              .filter((activity) => activity.category && activity.category._id)
+              .map((activity) => activity.category._id)
+          );
+
+          // Filter categories to only include those used by at least one activity
+          const mappedCategories = Array.isArray(categoriesData)
             ? [
                 { label: "All", value: "*" },
-                ...data.map((cat) => ({
-                  label: cat.name || "Unnamed Category",
-                  value: cat._id || cat.id,
-                })),
+                ...categoriesData
+                  .filter((cat) => usedCategoryIds.has(cat._id))
+                  .map((cat) => ({
+                    label: cat.name || "Unnamed Category",
+                    value: cat._id || cat.id,
+                  })),
               ]
-            : [{ label: "All", value: "*" }]; // Fallback if data isn't an array
+            : [{ label: "All", value: "*" }];
+
           setCategories(mappedCategories);
+          setActivities(activitiesData); // Set activities here to avoid extra fetch
         } else {
-          console.error("Failed to fetch categories:", data.message);
-          setCategories([{ label: "All", value: "*" }]); // Fallback to "All" option
-          toast.error("Failed to load categories");
+          console.error("Failed to fetch data:", categoriesData.message || activitiesData.message);
+          setCategories([{ label: "All", value: "*" }]);
+          toast.error("Failed to load categories or activities");
         }
       } catch (error) {
-        console.error("Error fetching categories:", error);
-        setCategories([{ label: "All", value: "*" }]); // Fallback on error
-        toast.error("Error connecting to server while fetching categories");
+        console.error("Error fetching categories or activities:", error);
+        setCategories([{ label: "All", value: "*" }]);
+        toast.error("Error connecting to server while fetching data");
+      } finally {
+        setIsLoading(false);
       }
     };
-    fetchCategories();
+    fetchCategoriesAndFilter();
   }, []);
-
-  const fetchActivities = async () => {
-    setIsLoading(true);
-    try {
-      const token = localStorage.getItem("jwt-token");
-      const response = await fetch("http://localhost:5000/users/list/activities", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (response.ok) setActivities(data);
-      else console.error("Failed to fetch activities:", data.message);
-    } catch (error) {
-      console.error("Error fetching activities:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const fetchFavoriteActivities = async (userId) => {
     try {
@@ -264,6 +268,19 @@ function Activities() {
       const data = await response.json();
       if (response.ok) {
         setActivities(activities.filter((activity) => activity._id !== activityId));
+        // Update categories after deletion
+        const usedCategoryIds = new Set(
+          activities
+            .filter((activity) => activity._id !== activityId)
+            .filter((activity) => activity.category && activity.category._id)
+            .map((activity) => activity.category._id)
+        );
+        setCategories((prev) => [
+          { label: "All", value: "*" },
+          ...prev
+            .filter((cat) => cat.value !== "*" && usedCategoryIds.has(cat.value))
+            .map((cat) => ({ label: cat.label, value: cat.value })),
+        ]);
         toast.success("Activity deleted successfully!");
       } else {
         toast.error(`Failed to delete activity: ${data.message}`);
@@ -480,7 +497,6 @@ function Activities() {
         console.error("Invalid token:", error);
       }
     }
-    fetchActivities();
   }, []);
 
   useEffect(() => {
@@ -728,7 +744,6 @@ function Activities() {
           </div>
 
           <div style={{ display: "flex", gap: "15px" }}>
-            
             {userRole === "student" && (
               <button
                 onClick={handleOpenStatsModal}

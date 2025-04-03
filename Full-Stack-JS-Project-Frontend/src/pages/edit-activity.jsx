@@ -10,18 +10,24 @@ function EditActivity() {
     description: "",
     category: "",
     imageUrl: null,
+    newCategory: "", // Nouveau champ pour la nouvelle catégorie
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categories, setCategories] = useState([]);
   const [previewImage, setPreviewImage] = useState(null);
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false); // Contrôle l'affichage du champ nouvelle catégorie
   const navigate = useNavigate();
   const { id } = useParams();
 
+  // Récupérer le token
+  const getToken = () => localStorage.getItem("jwt-token");
+
+  // Fetch des catégories
   useEffect(() => {
     const fetchCategories = async () => {
-      const token = localStorage.getItem("jwt-token");
+      const token = getToken();
       if (!token) return;
-  
+
       try {
         const response = await fetch("http://localhost:5000/users/categories", {
           headers: { Authorization: `Bearer ${token}` },
@@ -30,22 +36,23 @@ function EditActivity() {
         if (response.ok) {
           setCategories(data); // [{ _id, name }]
         } else {
-          toast.error("Error loading categories");
+          toast.error("Erreur lors du chargement des catégories");
         }
       } catch (error) {
-        toast.error("Network error while loading categories");
+        toast.error("Erreur réseau lors du chargement des catégories");
       }
     };
-  
+
     fetchCategories();
   }, []);
-  
+
+  // Fetch des détails de l'activité
   useEffect(() => {
     const fetchActivity = async () => {
       try {
-        const token = localStorage.getItem("jwt-token");
+        const token = getToken();
         if (!token) {
-          toast.error("You must be logged in to edit an activity.");
+          toast.error("Vous devez être connecté pour modifier une activité.");
           return;
         }
 
@@ -64,26 +71,27 @@ function EditActivity() {
               ? result.imageUrl
               : `http://localhost:5000${result.imageUrl}`
             : null;
-          console.log("Computed image URL:", imageUrl);
           setFormData({
             title: result.title || "",
             description: result.description || "",
-            category: result.category || "",
+            category: result.category?._id || "", // Récupère l'ID de la catégorie existante
             imageUrl: result.imageUrl || null,
+            newCategory: "",
           });
           setPreviewImage(imageUrl);
         } else {
-          toast.error(result.message || "Error fetching activity details.");
+          toast.error(result.message || "Erreur lors de la récupération des détails de l'activité.");
         }
       } catch (error) {
         console.error("Fetch error:", error);
-        toast.error("Network error while fetching activity details.");
+        toast.error("Erreur réseau lors de la récupération des détails de l'activité.");
       }
     };
 
     fetchActivity();
   }, [id]);
 
+  // Gestion des changements dans le formulaire
   const handleChange = (e) => {
     const { name, value, files } = e.target;
     if (name === "image") {
@@ -102,16 +110,45 @@ function EditActivity() {
       }
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
+      if (name === "category" && value === "new") {
+        setShowNewCategoryInput(true);
+      } else if (name === "category" && value !== "new") {
+        setShowNewCategoryInput(false);
+      }
     }
   };
 
+  // Création d'une nouvelle catégorie
+  const createNewCategory = async (token, userId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/users/categories/${userId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: formData.newCategory }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        return data._id; // Retourne l'ID de la nouvelle catégorie créée
+      } else {
+        throw new Error(data.message || "Erreur lors de la création de la catégorie");
+      }
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  // Soumission du formulaire
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const token = localStorage.getItem("jwt-token");
+    const token = getToken();
     if (!token) {
-      toast.error("You must be logged in to edit an activity.");
+      toast.error("Vous devez être connecté pour modifier une activité.");
       setIsSubmitting(false);
       return;
     }
@@ -119,10 +156,29 @@ function EditActivity() {
     const decoded = jwtDecode(token);
     const userId = decoded.id;
 
+    let categoryId = formData.category;
+
+    // Si une nouvelle catégorie est ajoutée
+    if (formData.category === "new") {
+      if (!formData.newCategory.trim()) {
+        toast.error("Veuillez entrer un nom pour la nouvelle catégorie.");
+        setIsSubmitting(false);
+        return;
+      }
+      try {
+        categoryId = await createNewCategory(token, userId);
+        setCategories((prev) => [...prev, { _id: categoryId, name: formData.newCategory }]);
+      } catch (error) {
+        toast.error(error.message || "Erreur lors de la création de la catégorie");
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     const data = new FormData();
     data.append("title", formData.title);
     data.append("description", formData.description);
-    data.append("category", formData.category);
+    data.append("category", categoryId); // Utilise l'ID de la catégorie (existante ou nouvelle)
 
     if (formData.imageUrl && formData.imageUrl instanceof File) {
       data.append("image", formData.imageUrl);
@@ -142,20 +198,20 @@ function EditActivity() {
 
       const result = await response.json();
       if (response.ok) {
-        toast.success("Activity successfully updated!");
+        toast.success("Activité mise à jour avec succès !");
         setTimeout(() => navigate("/Activities"), 2000);
       } else {
-        toast.error(result.message || "Error while updating the activity.");
+        toast.error(result.message || "Erreur lors de la mise à jour de l'activité.");
       }
     } catch (error) {
       console.error("Submit error:", error);
-      toast.error("Network error while updating the activity.");
+      toast.error("Erreur réseau lors de la mise à jour de l'activité.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Handle Cancel Edit
+  // Annulation de la modification
   const handleCancel = () => {
     navigate("/Activities");
   };
@@ -203,16 +259,16 @@ function EditActivity() {
             </div>
             <div className="col-lg-6">
               <div className="become-volunteer-form">
-              <h2
-                    style={{
-                      fontSize: "32px",
-                      fontWeight: "700",
-                      marginBottom: "40px",
-                    }}
-                  >
-                    Edit an <span style={{ color: "#ff5a5f" }}>Activity</span>
-                  </h2>               
-                   <form onSubmit={handleSubmit}>
+                <h2
+                  style={{
+                    fontSize: "32px",
+                    fontWeight: "700",
+                    marginBottom: "40px",
+                  }}
+                >
+                  Edit an <span style={{ color: "#ff5a5f" }}>Activity</span>
+                </h2>
+                <form onSubmit={handleSubmit}>
                   <div className="row">
                     <div className="col-md-12">
                       <div className="form-group">
@@ -244,22 +300,35 @@ function EditActivity() {
 
                     <div className="col-md-12">
                       <div className="form-group">
-                      <select
-                        className="form-control"
-                        name="category"
-                        value={formData.category}
-                        onChange={handleChange}
-                        required
-                      >
-                        <option value="">Select a Category</option>
-                        {categories.map((cat) => (
-                          <option key={cat._id} value={cat._id}>
-                            {cat.name}
-                          </option>
-                        ))}
-                      </select>
-
+                        <select
+                          className="form-control"
+                          name="category"
+                          value={formData.category}
+                          onChange={handleChange}
+                          required
+                        >
+                          <option value="">Select a Category</option>
+                          {categories.map((cat) => (
+                            <option key={cat._id} value={cat._id}>
+                              {cat.name}
+                            </option>
+                          ))}
+                          <option value="new">Ajouter une nouvelle catégorie</option>
+                        </select>
                       </div>
+                      {showNewCategoryInput && (
+                        <div className="form-group mt-2">
+                          <input
+                            type="text"
+                            className="form-control"
+                            name="newCategory"
+                            value={formData.newCategory}
+                            onChange={handleChange}
+                            placeholder="Nom de la nouvelle catégorie"
+                            required
+                          />
+                        </div>
+                      )}
                     </div>
 
                     <div className="col-md-12">
@@ -289,7 +358,7 @@ function EditActivity() {
                           className="theme-btn mt-2"
                           onClick={handleCancel}
                           disabled={isSubmitting}
-                          style={{ backgroundColor: "#f44336" }} // Red to indicate cancellation
+                          style={{ backgroundColor: "#f44336" }}
                         >
                           Cancel Edit <i className="fas fa-times"></i>
                         </button>
