@@ -37,8 +37,8 @@ import SleepCalculator from './pages/SleepCalculator';
 import Exercises from './pages/Exercices';
 import Problem from './pages/Problem';
 import ProblemList from './pages/ProblemList';
-import Complaint from '../../model/complaint';
 import AddReclamation from './pages/AddComplaint';
+import Complaint from './pages/Complaint';
 
 
 const Layout = ({ children }) => {
