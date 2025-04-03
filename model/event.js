@@ -113,6 +113,20 @@ const eventSchema = new mongoose.Schema({
         type: String,
         enum: ['upcoming', 'ongoing', 'past', 'canceled'],
         default: 'upcoming'
+    },
+    isApproved: {
+        type: Boolean,
+        default: false // Par défaut, un événement n'est pas approuvé
+    },
+    coordinates: {
+        lat: {
+            type: Number,
+            default: null // Latitude, null par défaut si non géocodée
+        },
+        lng: {
+            type: Number,
+            default: null // Longitude, null par défaut si non géocodée
+        }
     }
 }, {
     timestamps: true // Ajoute createdAt et updatedAt automatiquement

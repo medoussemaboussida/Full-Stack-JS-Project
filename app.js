@@ -34,9 +34,9 @@ const app = express();
 
 const maxAge=1 * 60 * 60 ; //1hrs
 
-const createtoken=(id,username)=>{
-return jwt.sign({id,username},'tokenGoogle')
-}
+const createtoken = (id, username) => {
+  return jwt.sign({ id, username }, 'randa', { expiresIn: maxAge });
+};
 
 const createTokenGoogle = (id) => {
   return jwt.sign({ id }, "token", { expiresIn: maxAge });};

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -8,7 +8,7 @@ import "../App.css";
 
 const BASE_URL = "http://localhost:5000";
 
-// Composant Countdown personnalisé
+// Composant Countdown (inchangé)
 const Countdown = ({ targetDate }) => {
   const [timeLeft, setTimeLeft] = useState({});
 
@@ -65,8 +65,10 @@ const Events = () => {
   const [sortOrder, setSortOrder] = useState("title-asc");
   const [isParticipatingNearest, setIsParticipatingNearest] = useState(false);
   const [participationStatus, setParticipationStatus] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState({}); // État de soumission pour chaque événement
+  const [isSubmitting, setIsSubmitting] = useState({});
   const eventsPerPage = 6;
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -77,7 +79,7 @@ const Events = () => {
         const eventsData = response.data;
         setEvents(eventsData);
 
-        const currentDate = new Date("2025-03-28");
+        const currentDate = new Date();
         const futureEvents = eventsData.filter((event) => new Date(event.start_date) > currentDate);
         if (futureEvents.length > 0) {
           const nearest = futureEvents.reduce((prev, curr) =>
@@ -87,13 +89,15 @@ const Events = () => {
           await checkParticipation(nearest._id, setIsParticipatingNearest);
         }
 
-        // Vérification batchée de la participation
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("jwt-token");
         if (token) {
           const participationPromises = eventsData.map((event) =>
-            axios.get(`${BASE_URL}/events/events/${event._id}/check-participation`, {
-              headers: { Authorization: `Bearer ${token}` },
-            }).then((res) => ({ id: event._id, status: res.data.isParticipating }))
+            axios
+              .get(`${BASE_URL}/events/checkParticipation/${event._id}`, {
+                headers: { Authorization: `Bearer ${token}` },
+              })
+              .then((res) => ({ id: event._id, status: res.data.isParticipating }))
+              .catch((err) => ({ id: event._id, status: false }))
           );
           const results = await Promise.allSettled(participationPromises);
           const newParticipationStatus = {};
@@ -118,10 +122,10 @@ const Events = () => {
 
   const checkParticipation = async (eventId, setStatusCallback) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("jwt-token");
       if (!token) return;
 
-      const response = await axios.get(`${BASE_URL}/events/events/${eventId}/check-participation`, {
+      const response = await axios.get(`${BASE_URL}/events/checkParticipation/${eventId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setStatusCallback(response.data.isParticipating);
@@ -130,29 +134,76 @@ const Events = () => {
     }
   };
 
-  const handleParticipate = async (eventId, setStatusCallback) => {
-    if (isSubmitting[eventId]) return; // Éviter les clics multiples
+  const handleParticipationToggle = async (eventId, setStatusCallback) => {
+    if (isSubmitting[eventId]) return;
 
     setIsSubmitting((prev) => ({ ...prev, [eventId]: true }));
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("jwt-token");
+      console.log("Token envoyé dans Authorization :", token);
+      console.log("ID de l'événement envoyé :", eventId);
+
       if (!token) {
         toast.error("Please log in to participate");
+        setTimeout(() => navigate("/login"), 2000);
         return;
       }
 
-      console.log(`Participating in event ${eventId}`);
-      const response = await axios.post(`${BASE_URL}/events/events/${eventId}/participate`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const isParticipating = participationStatus[eventId];
+      const url = isParticipating
+        ? `${BASE_URL}/events/cancelParticipation/${eventId}`
+        : `${BASE_URL}/events/participate/${eventId}`;
+      console.log("URL complète :", url);
 
-      setStatusCallback(true);
-      setParticipationStatus((prev) => ({ ...prev, [eventId]: true }));
-      if (eventId === nearestEvent?._id) setIsParticipatingNearest(true);
-      toast.success(response.data.message || "You have successfully joined the event!");
+      const response = await axios.post(
+        url,
+        {},
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const newStatus = !isParticipating;
+      setStatusCallback(newStatus);
+      setParticipationStatus((prev) => ({ ...prev, [eventId]: newStatus }));
+      if (eventId === nearestEvent?._id) setIsParticipatingNearest(newStatus);
+
+      setEvents((prevEvents) =>
+        prevEvents.map((event) =>
+          event._id === eventId
+            ? {
+                ...event,
+                participants: newStatus
+                  ? [...(event.participants || []), "user"]
+                  : (event.participants || []).filter((id) => id !== "user"),
+              }
+            : event
+        )
+      );
+
+      if (newStatus) {
+        toast.success(response.data.message || "You have successfully joined the event!");
+      } else {
+        toast(response.data.message || "You have successfully canceled your participation!", {
+          style: {
+            background: "#dc3545", // Rouge pour annulation
+            color: "#fff",
+          },
+        });
+      }
     } catch (error) {
-      console.error("Error participating in event:", error.response?.data || error.message);
-      toast.error(error.response?.data?.message || "Failed to join the event");
+      console.error("Erreur lors de la gestion de la participation:", error.response?.data || error.message);
+      const errorMessage = error.response?.data?.message || "Failed to update participation";
+      toast.error(errorMessage);
+      if (error.response?.status === 403 || error.response?.status === 401) {
+        setTimeout(() => {
+          localStorage.removeItem("jwt-token");
+          navigate("/login");
+        }, 2000);
+      }
     } finally {
       setIsSubmitting((prev) => ({ ...prev, [eventId]: false }));
     }
@@ -281,7 +332,6 @@ const Events = () => {
             />
             <select value={filterLocation} onChange={handleFilterLocationChange} style={{ padding: "15px 20px", borderRadius: "25px", border: "none", backgroundColor: "#fff", boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)", fontSize: "16px", color: "#333", outline: "none", transition: "all 0.3s ease", width: "200px", cursor: "pointer" }}>
               <option value="all">All Locations</option>
-              {/* Liste des gouvernorats tunisiens reste inchangée */}
               <option value="Ariana">Ariana</option>
               <option value="Béja">Béja</option>
               <option value="Ben Arous">Ben Arous</option>
@@ -416,7 +466,7 @@ const Events = () => {
                             {truncateText(event.title, 25)}
                           </Link>
                         </h4>
-                        <div style={{ display: "flex", gap: "10px" }}>
+                        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
                           <Link
                             to={`/event/${event._id}`}
                             className="theme-btn"
@@ -441,33 +491,40 @@ const Events = () => {
                             Details <i className="fas fa-circle-arrow-right" style={{ marginLeft: "8px" }}></i>
                           </Link>
                           <button
-                            onClick={() => handleParticipate(event._id, (status) => setParticipationStatus((prev) => ({ ...prev, [event._id]: status })))}
-                            disabled={participationStatus[event._id] || isSubmitting[event._id]}
+                            onClick={() => handleParticipationToggle(event._id, (status) => setParticipationStatus((prev) => ({ ...prev, [event._id]: status })))}
+                            disabled={isSubmitting[event._id]}
+                            className="theme-btn"
                             style={{
-                              backgroundColor: participationStatus[event._id] ? "#ccc" : isSubmitting[event._id] ? "#999" : "#28a745",
+                              backgroundColor: participationStatus[event._id] ? "#dc3545" : "#28a745",
                               color: "#fff",
                               padding: "10px 20px",
                               borderRadius: "25px",
                               border: "none",
                               fontWeight: "500",
                               transition: "background-color 0.3s ease, transform 0.3s ease",
-                              cursor: participationStatus[event._id] || isSubmitting[event._id] ? "not-allowed" : "pointer",
+                              cursor: isSubmitting[event._id] ? "not-allowed" : "pointer",
                             }}
                             onMouseEnter={(e) => {
-                              if (!participationStatus[event._id] && !isSubmitting[event._id]) {
-                                e.target.style.backgroundColor = "#218838";
+                              if (!isSubmitting[event._id]) {
+                                e.target.style.backgroundColor = participationStatus[event._id] ? "#c82333" : "#218838";
                                 e.target.style.transform = "scale(1.05)";
                               }
                             }}
                             onMouseLeave={(e) => {
-                              if (!participationStatus[event._id] && !isSubmitting[event._id]) {
-                                e.target.style.backgroundColor = "#28a745";
+                              if (!isSubmitting[event._id]) {
+                                e.target.style.backgroundColor = participationStatus[event._id] ? "#dc3545" : "#28a745";
                                 e.target.style.transform = "scale(1)";
                               }
                             }}
                           >
-                            {isSubmitting[event._id] ? "Joining..." : participationStatus[event._id] ? "Joined" : "Participate"}{" "}
-                            <i className="fas fa-check" style={{ marginLeft: "8px" }}></i>
+                            {isSubmitting[event._id] ? (
+                              "Processing..."
+                            ) : participationStatus[event._id] ? (
+                              "Leave Now"
+                            ) : (
+                              "Join Now"
+                            )}
+                            <i className="fas fa-circle-arrow-right" style={{ marginLeft: "8px" }}></i>
                           </button>
                         </div>
                       </div>
@@ -556,34 +613,39 @@ const Events = () => {
                         <Countdown targetDate={nearestEvent.start_date} />
                       </div>
                       <button
-                        onClick={() => handleParticipate(nearestEvent._id, setIsParticipatingNearest)}
-                        disabled={isParticipatingNearest || isSubmitting[nearestEvent._id]}
+                        onClick={() => handleParticipationToggle(nearestEvent._id, setIsParticipatingNearest)}
+                        disabled={isSubmitting[nearestEvent._id]}
+                        className="theme-btn"
                         style={{
-                          backgroundColor: isParticipatingNearest ? "#ccc" : isSubmitting[nearestEvent._id] ? "#999" : "#28a745",
+                          backgroundColor: isParticipatingNearest ? "#dc3545" : "#28a745",
                           color: "#fff",
                           padding: "12px 25px",
                           borderRadius: "25px",
                           border: "none",
                           fontWeight: "500",
                           transition: "background-color 0.3s ease, transform 0.3s ease",
-                          cursor: isParticipatingNearest || isSubmitting[nearestEvent._id] ? "not-allowed" : "pointer",
+                          cursor: isSubmitting[nearestEvent._id] ? "not-allowed" : "pointer",
                           marginTop: "20px",
                         }}
                         onMouseEnter={(e) => {
-                          if (!isParticipatingNearest && !isSubmitting[nearestEvent._id]) {
-                            e.target.style.backgroundColor = "#218838";
+                          if (!isSubmitting[nearestEvent._id]) {
+                            e.target.style.backgroundColor = isParticipatingNearest ? "#c82333" : "#218838";
                             e.target.style.transform = "scale(1.05)";
                           }
                         }}
                         onMouseLeave={(e) => {
-                          if (!isParticipatingNearest && !isSubmitting[nearestEvent._id]) {
-                            e.target.style.backgroundColor = "#28a745";
+                          if (!isSubmitting[nearestEvent._id]) {
+                            e.target.style.backgroundColor = isParticipatingNearest ? "#dc3545" : "#28a745";
                             e.target.style.transform = "scale(1)";
                           }
                         }}
                       >
-                        {isSubmitting[nearestEvent._id] ? "Joining..." : isParticipatingNearest ? "Already Joined" : "Join Now"}{" "}
-                        <i className="fas fa-check" style={{ marginLeft: "8px" }}></i>
+                        {isSubmitting[nearestEvent._id]
+                          ? "Processing..."
+                          : isParticipatingNearest
+                          ? "Cancel Participation"
+                          : "Join Now"}
+                        <i className="fas fa-circle-arrow-right" style={{ marginLeft: "8px" }}></i>
                       </button>
                     </div>
                   </div>

@@ -314,6 +314,17 @@ const EventDetails = () => {
                           {event.created_by?.email || event.contact_email || "organizer unknown"} for more details.
                         </p>
                       </div>
+                      {event.event_type === "in-person" && event.localisation && (
+                        <div className="event-map mt-5">
+                          <iframe
+                            src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBxDeUBlVhmClKJGU1YLAsa5AzhgddjYJ4&q=${encodeURIComponent(event.localisation)}`}
+                            style={{ border: 0, width: "100%", height: "400px" }}
+                            allowFullScreen=""
+                            loading="lazy"
+                            title="Event Location"
+                          ></iframe>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>

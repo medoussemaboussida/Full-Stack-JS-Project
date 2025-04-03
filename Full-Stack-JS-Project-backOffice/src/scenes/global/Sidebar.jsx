@@ -18,7 +18,7 @@ import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
 import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import useAuth from "../../Authentification";  
 import FeedOutlinedIcon from "@mui/icons-material/FeedOutlined";
-
+import EventOutlinedIcon from "@mui/icons-material/EventOutlined"; // Icône pour les événements
 
 const Item = ({ title, to, icon, selected, setSelected }) => {
   const theme = useTheme();
@@ -156,6 +156,15 @@ const Sidebar = () => {
               selected={selected}
               setSelected={setSelected}
             />
+
+           <Item
+              title="Events"
+              to="/events"
+              icon={<EventOutlinedIcon />}
+              selected={selected}
+              setSelected={setSelected}
+             />
+
              <Item
               title="passtime"
               to="/activities"
