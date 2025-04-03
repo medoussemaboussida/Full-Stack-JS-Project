@@ -12,7 +12,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Forum from './pages/Forum';
 import AddForum from './pages/AddForum';
 import ForumModerate from './pages/ForumModerate'
-
+import AddComplaint from './pages/AddComplaint'
+import Complaint from './pages/Complaint';
 function App(){
 
     return(
@@ -33,6 +34,8 @@ function App(){
         <Route path="/forum" element={<Forum />} />
         <Route path="/addforum" element={<AddForum />} />
         <Route path="/moderateForum" element={<ForumModerate />} />
+        <Route path="/addcomplaint" element={<AddComplaint />} />
+        <Route path="/complaint" element={<Complaint />} />
 
 
 

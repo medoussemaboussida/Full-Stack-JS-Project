@@ -11,5 +11,6 @@ router.get("/getCommentReports/:commentId", forumCommentController.getCommentRep
 router.delete("/reports/:reportId", forumCommentController.deleteCommentReport); 
 router.post("/toggleLikeComment/:comment_id/:user_id", forumCommentController.toggleLikeComment);
 router.get("/topCommenter", forumCommentController.getTopCommenter);
+router.post("/addReply/:comment_id/:user_id", forumCommentController.addReply);
 
 module.exports = router;
