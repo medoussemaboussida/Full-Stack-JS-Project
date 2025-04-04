@@ -5,6 +5,121 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSearch, faEdit, faTrashAlt } from "@fortawesome/free-solid-svg-icons";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
+import { CKEditor } from "@ckeditor/ckeditor5-react";
+import ClassicEditor from "@ckeditor/ckeditor5-build-classic";
+
+// Fonction pour parser le HTML et le convertir en JSX
+const parseHTMLToJSX = (htmlString) => {
+  // Vérifier si htmlString est une chaîne valide
+  if (!htmlString || typeof htmlString !== "string") {
+    return <span>Contenu non disponible</span>;
+  }
+
+  // Créer un élément DOM temporaire pour parser le HTML
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlString, "text/html");
+  const body = doc.body;
+
+  // Fonction récursive pour convertir les nœuds DOM en JSX
+  const convertNodeToJSX = (node, index) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.textContent;
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return null;
+    }
+
+    const children = Array.from(node.childNodes).map((child, i) =>
+      convertNodeToJSX(child, i)
+    );
+
+    switch (node.tagName.toLowerCase()) {
+      case "p":
+        return <p key={index} style={{ margin: "0 0 10px 0" }}>{children}</p>;
+      case "ul":
+        return (
+          <ul
+            key={index}
+            style={{
+              paddingLeft: "20px",
+              margin: "0 0 10px 0",
+              listStyleType: "disc",
+            }}
+          >
+            {children}
+          </ul>
+        );
+      case "ol":
+        return (
+          <ol
+            key={index}
+            style={{
+              paddingLeft: "20px",
+              margin: "0 0 10px 0",
+              listStyleType: "decimal",
+            }}
+          >
+            {children}
+          </ol>
+        );
+      case "li":
+        return <li key={index} style={{ margin: "0 0 5px 0" }}>{children}</li>;
+      case "h1":
+        return (
+          <h1
+            key={index}
+            style={{ fontSize: "2em", fontWeight: "bold", margin: "0 0 10px 0" }}
+          >
+            {children}
+          </h1>
+        );
+      case "h2":
+        return (
+          <h2
+            key={index}
+            style={{ fontSize: "1.5em", fontWeight: "bold", margin: "0 0 10px 0" }}
+          >
+            {children}
+          </h2>
+        );
+      case "h3":
+        return (
+          <h3
+            key={index}
+            style={{ fontSize: "1.17em", fontWeight: "bold", margin: "0 0 10px 0" }}
+          >
+            {children}
+          </h3>
+        );
+      case "strong":
+      case "b":
+        return <strong key={index}>{children}</strong>;
+      case "em":
+      case "i":
+        return <em key={index}>{children}</em>;
+      case "a":
+        return (
+          <a
+            key={index}
+            href={node.getAttribute("href") || "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "#007bff", textDecoration: "underline" }}
+          >
+            {children}
+          </a>
+        );
+      default:
+        return <span key={index}>{children}</span>;
+    }
+  };
+
+  // Convertir tous les enfants du body en JSX
+  return Array.from(body.childNodes).map((child, index) =>
+    convertNodeToJSX(child, index)
+  );
+};
 
 function Complaint() {
   const [complaints, setComplaints] = useState([]);
@@ -42,6 +157,8 @@ function Complaint() {
           localStorage.removeItem("jwt-token");
           setToken(null);
           setUserId(null);
+          toast.error("Session expired. Please log in again.");
+          navigate("/login");
           return;
         }
 
@@ -52,13 +169,17 @@ function Complaint() {
         localStorage.removeItem("jwt-token");
         setToken(null);
         setUserId(null);
+        toast.error("Invalid token. Please log in again.");
+        navigate("/login");
       }
     } else {
       console.log("Aucun token trouvé.");
       setToken(null);
       setUserId(null);
+      toast.error("Please log in to view your complaints.");
+      navigate("/login");
     }
-  }, []);
+  }, [navigate]);
 
   // Charger les réclamations de l'utilisateur
   useEffect(() => {
@@ -74,15 +195,20 @@ function Complaint() {
             },
           }
         );
-        const data = await response.json();
-        if (response.ok) {
-          setComplaints(data);
-        } else {
-          console.error("Erreur lors de la récupération des réclamations:", data);
+
+        if (!response.ok) {
+          throw new Error(`Erreur HTTP: ${response.status}`);
         }
+
+        const data = await response.json();
+        setComplaints(data);
+        // Inspecter le contenu HTML des descriptions
+        data.forEach((complaint, index) => {
+          console.log(`Description ${index + 1}:`, complaint.description);
+        });
       } catch (error) {
         console.error("Erreur lors de l'appel API:", error);
-        toast.error("Error loading complaints.");
+        toast.error("Error loading complaints. Please try again later.");
       }
     };
 
@@ -94,14 +220,14 @@ function Complaint() {
     .filter((complaint) => {
       if (!searchQuery) return true;
       const query = searchQuery.toLowerCase();
-      const subjectMatch = complaint.subject.toLowerCase().includes(query);
-      const descriptionMatch = complaint.description.toLowerCase().includes(query);
-      const statusMatch = complaint.status.toLowerCase().includes(query);
+      const subjectMatch = complaint.subject?.toLowerCase().includes(query);
+      const descriptionMatch = complaint.description?.toLowerCase().includes(query);
+      const statusMatch = complaint.status?.toLowerCase().includes(query);
       return subjectMatch || descriptionMatch || statusMatch;
     })
     .filter((complaint) => {
       if (sortOption === "newest" || sortOption === "oldest") return true;
-      return complaint.status.toLowerCase() === sortOption;
+      return complaint.status?.toLowerCase() === sortOption;
     })
     .sort((a, b) => {
       const dateA = new Date(a.createdAt);
@@ -121,22 +247,28 @@ function Complaint() {
           },
         }
       );
-      const data = await response.json();
-      if (response.ok) {
-        setComplaints(complaints.filter((complaint) => complaint._id !== complaintId));
-        setShowDeleteModal(false);
-        toast.success("Complaint deleted successfully!");
-      } else {
-        toast.error("Failed to delete complaint: " + data.message);
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
       }
+
+      const data = await response.json();
+      setComplaints(complaints.filter((complaint) => complaint._id !== complaintId));
+      setShowDeleteModal(false);
+      toast.success("Complaint deleted successfully!");
     } catch (error) {
       console.error("Erreur lors de la suppression de la réclamation:", error);
-      toast.error("Error deleting complaint!");
+      toast.error("Error deleting complaint. Please try again.");
     }
   };
 
   // Mettre à jour une réclamation
   const handleUpdate = async (complaintId) => {
+    if (!updatedSubject || !updatedDescription) {
+      toast.error("Subject and description cannot be empty.");
+      return;
+    }
+
     try {
       const response = await fetch(
         `http://localhost:5000/complaint/updateComplaint/${complaintId}`,
@@ -152,28 +284,95 @@ function Complaint() {
           }),
         }
       );
-      const data = await response.json();
-      if (response.ok) {
-        setComplaints(
-          complaints.map((complaint) =>
-            complaint._id === complaintId
-              ? { ...complaint, subject: updatedSubject, description: updatedDescription }
-              : complaint
-          )
-        );
-        setShowUpdateModal(false);
-        toast.success("Complaint updated successfully!");
-      } else {
-        toast.error("Failed to update complaint: " + data.message);
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
       }
+
+      const data = await response.json();
+      setComplaints(
+        complaints.map((complaint) =>
+          complaint._id === complaintId
+            ? { ...complaint, subject: updatedSubject, description: updatedDescription }
+            : complaint
+        )
+      );
+      setShowUpdateModal(false);
+      toast.success("Complaint updated successfully!");
     } catch (error) {
       console.error("Erreur lors de la mise à jour de la réclamation:", error);
-      toast.error("Error updating complaint!");
+      toast.error("Error updating complaint. Please try again.");
     }
   };
 
   return (
     <div>
+      {/* Styles spécifiques pour forcer l'affichage des listes */}
+      <style jsx>{`
+        /* Styles pour l'affichage des listes dans la liste des réclamations */
+        .complaint-item .complaint-description.ck-editor-content ul,
+        .complaint-item .complaint-description.ck-editor-content ul li {
+          list-style-type: disc !important;
+          padding-left: 20px !important;
+          margin: 0 0 10px 0 !important;
+          list-style-position: outside !important;
+        }
+        .complaint-item .complaint-description.ck-editor-content ol,
+        .complaint-item .complaint-description.ck-editor-content ol li {
+          list-style-type: decimal !important;
+          padding-left: 20px !important;
+          margin: 0 0 10px 0 !important;
+          list-style-position: outside !important;
+        }
+        .complaint-item .complaint-description.ck-editor-content li {
+          margin: 0 0 5px 0 !important;
+          padding-left: 5px !important;
+        }
+        .complaint-item .complaint-description.ck-editor-content p {
+          margin: 0 0 10px 0 !important;
+        }
+        .complaint-item .complaint-description.ck-editor-content h1 {
+          font-size: 2em !important;
+          font-weight: bold !important;
+          margin: 0 0 10px 0 !important;
+        }
+        .complaint-item .complaint-description.ck-editor-content h2 {
+          font-size: 1.5em !important;
+          font-weight: bold !important;
+          margin: 0 0 10px 0 !important;
+        }
+        .complaint-item .complaint-description.ck-editor-content h3 {
+          font-size: 1.17em !important;
+          font-weight: bold !important;
+          margin: 0 0 10px 0 !important;
+        }
+
+        /* Styles pour l'éditeur CKEditor dans le modal */
+        .ck-editor__editable ul,
+        .ck-editor__editable ul li {
+          list-style-type: disc !important;
+          padding-left: 20px !important;
+          margin: 0 0 10px 0 !important;
+          list-style-position: outside !important;
+        }
+        .ck-editor__editable ol,
+        .ck-editor__editable ol li {
+          list-style-type: decimal !important;
+          padding-left: 20px !important;
+          margin: 0 0 10px 0 !important;
+          list-style-position: outside !important;
+        }
+        .ck-editor__editable li {
+          margin: 0 0 5px 0 !important;
+          padding-left: 5px !important;
+        }
+        .ck-editor__editable {
+          min-height: 100px !important;
+          border: 1px solid #ddd !important;
+          border-radius: 4px !important;
+        }
+      `}</style>
+
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -252,7 +451,7 @@ function Complaint() {
                         width: isSearchOpen ? "100%" : "0%",
                         boxSizing: "border-box",
                         opacity: isSearchOpen ? 1 : 0,
-                        transition: "opacity 0.10s ease, width 0.10s ease",
+                        transition: "opacity 0.3s ease, width 0.3s ease",
                         visibility: isSearchOpen ? "visible" : "hidden",
                       }}
                     />
@@ -288,6 +487,11 @@ function Complaint() {
                   className="theme-btn"
                   style={{
                     borderRadius: "50px",
+                    padding: "10px 20px",
+                    backgroundColor: "#007bff",
+                    color: "white",
+                    border: "none",
+                    cursor: "pointer",
                   }}
                   onClick={() => navigate("/addComplaint")}
                 >
@@ -311,6 +515,8 @@ function Complaint() {
                     className="complaint-item p-4 border rounded mb-4"
                     style={{
                       position: "relative",
+                      backgroundColor: "white",
+                      boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
                     }}
                   >
                     {/* Bulle de statut en haut à droite */}
@@ -336,25 +542,31 @@ function Complaint() {
                         overflowWrap: "break-word",
                         whiteSpace: "normal",
                         maxWidth: "100%",
-                        margin: 0,
+                        margin: "0 0 10px 0",
+                        color: "#007bff",
                       }}
                     >
-                      {complaint.subject}
+                      {complaint.subject || "No Subject"}
                     </h3>
-                    <p
-                      className="complaint-description mb-0"
+                    <div
+                      className="complaint-description mb-0 ck-editor-content"
                       style={{
-                        fontSize: "18px",
+                        fontSize: "16px",
                         color: "black",
                         lineHeight: "1.5",
+                        padding: "10px 15px",
+                        border: "1px solid #ccc",
+                        borderRadius: "4px",
+                        minHeight: "100px",
+                        backgroundColor: "#f9f9f9",
                       }}
                     >
-                      {complaint.description}
-                    </p>
+                      {parseHTMLToJSX(complaint.description)}
+                    </div>
                     <div className="d-flex justify-content-between align-items-center mt-2">
                       <div className="text-muted" style={{ fontSize: "14px" }}>
                         <p style={{ margin: 0 }}>
-                          Posted at: {" "}
+                          Posted at:{" "}
                           {new Date(complaint.createdAt).toLocaleString("fr-FR", {
                             day: "2-digit",
                             month: "2-digit",
@@ -364,7 +576,7 @@ function Complaint() {
                           })}
                         </p>
                         <p style={{ margin: 0 }}>
-                          Status: {complaint.status}
+                          Status: {complaint.status || "Unknown"}
                         </p>
                       </div>
                       <div className="d-flex align-items-center">
@@ -378,8 +590,8 @@ function Complaint() {
                           }}
                           onClick={() => {
                             setComplaintToUpdate(complaint);
-                            setUpdatedSubject(complaint.subject);
-                            setUpdatedDescription(complaint.description);
+                            setUpdatedSubject(complaint.subject || "");
+                            setUpdatedDescription(complaint.description || "");
                             setShowUpdateModal(true);
                           }}
                         >
@@ -404,7 +616,9 @@ function Complaint() {
                   </div>
                 ))
               ) : (
-                <p>No complaints found.</p>
+                <p style={{ textAlign: "center", color: "#666" }}>
+                  No complaints found.
+                </p>
               )}
             </div>
           </div>
@@ -433,14 +647,14 @@ function Complaint() {
               padding: "20px",
               borderRadius: "8px",
               width: "400px",
-              maxWidth: "100%",
+              maxWidth: "90%",
               boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+            <h3 style={{ marginBottom: "20px", textAlign: "center", color: "#333" }}>
               Confirm Deletion
             </h3>
-            <p style={{ marginBottom: "20px", textAlign: "center" }}>
+            <p style={{ marginBottom: "20px", textAlign: "center", color: "666" }}>
               Are you sure you want to delete this complaint? This action cannot be undone.
             </p>
             <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
@@ -497,15 +711,17 @@ function Complaint() {
               padding: "20px",
               borderRadius: "8px",
               width: "500px",
-              maxWidth: "100%",
+              maxWidth: "90%",
               boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+            <h3 style={{ marginBottom: "20px", textAlign: "center", color: "#333" }}>
               Update Complaint
             </h3>
             <div style={{ marginBottom: "15px" }}>
-              <label style={{ color: "black" }}>Subject:</label>
+              <label style={{ color: "black", display: "block", marginBottom: "5px" }}>
+                Subject:
+              </label>
               <input
                 type="text"
                 value={updatedSubject}
@@ -515,20 +731,35 @@ function Complaint() {
                   padding: "8px",
                   borderRadius: "50px",
                   border: "1px solid #ddd",
+                  boxSizing: "border-box",
                 }}
               />
             </div>
             <div style={{ marginBottom: "15px" }}>
-              <label style={{ color: "black" }}>Description:</label>
-              <textarea
-                value={updatedDescription}
-                onChange={(e) => setUpdatedDescription(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  borderRadius: "20px",
-                  border: "1px solid #ddd",
-                  minHeight: "100px",
+              <label style={{ color: "black", display: "block", marginBottom: "5px" }}>
+                Description:
+              </label>
+              <CKEditor
+                editor={ClassicEditor}
+                data={updatedDescription}
+                onChange={(event, editor) => {
+                  const data = editor.getData();
+                  setUpdatedDescription(data);
+                  console.log("Updated description:", data); // Pour déboguer
+                }}
+                config={{
+                  toolbar: [
+                    "heading",
+                    "|",
+                    "bold",
+                    "italic",
+                    "link",
+                    "bulletedList",
+                    "numberedList",
+                    "|",
+                    "undo",
+                    "redo",
+                  ],
                 }}
               />
             </div>
