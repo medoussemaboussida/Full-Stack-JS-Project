@@ -18,6 +18,119 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+// Fonction pour parser le HTML et le convertir en JSX
+const parseHTMLToJSX = (htmlString) => {
+  // Vérifier si htmlString est une chaîne valide
+  if (!htmlString || typeof htmlString !== "string") {
+    return <span>Contenu non disponible</span>;
+  }
+
+  // Créer un élément DOM temporaire pour parser le HTML
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlString, "text/html");
+  const body = doc.body;
+
+  // Fonction récursive pour convertir les nœuds DOM en JSX
+  const convertNodeToJSX = (node, index) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.textContent;
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return null;
+    }
+
+    const children = Array.from(node.childNodes).map((child, i) =>
+      convertNodeToJSX(child, i)
+    );
+
+    switch (node.tagName.toLowerCase()) {
+      case "p":
+        return <p key={index} style={{ margin: "0 0 10px 0" }}>{children}</p>;
+      case "ul":
+        return (
+          <ul
+            key={index}
+            style={{
+              paddingLeft: "20px",
+              margin: "0 0 10px 0",
+              listStyleType: "disc",
+            }}
+          >
+            {children}
+          </ul>
+        );
+      case "ol":
+        return (
+          <ol
+            key={index}
+            style={{
+              paddingLeft: "20px",
+              margin: "0 0 10px 0",
+              listStyleType: "decimal",
+            }}
+          >
+            {children}
+          </ol>
+        );
+      case "li":
+        return <li key={index} style={{ margin: "0 0 5px 0" }}>{children}</li>;
+      case "h1":
+        return (
+          <h1
+            key={index}
+            style={{ fontSize: "2em", fontWeight: "bold", margin: "0 0 10px 0" }}
+          >
+            {children}
+          </h1>
+        );
+      case "h2":
+        return (
+          <h2
+            key={index}
+            style={{ fontSize: "1.5em", fontWeight: "bold", margin: "0 0 10px 0" }}
+          >
+            {children}
+          </h2>
+        );
+      case "h3":
+        return (
+          <h3
+            key={index}
+            style={{ fontSize: "1.17em", fontWeight: "bold", margin: "0 0 10px 0" }}
+          >
+            {children}
+          </h3>
+        );
+      case "strong":
+      case "b":
+        return <strong key={index}>{children}</strong>;
+      case "em":
+      case "i":
+        return <em key={index}>{children}</em>;
+      case "a":
+        return (
+          <a
+            key={index}
+            href={node.getAttribute("href") || "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "#007bff", textDecoration: "underline" }}
+          >
+            {children}
+          </a>
+        );
+      default:
+        return <span key={index}>{children}</span>;
+    }
+  };
+
+  // Convertir tous les enfants du body en JSX
+  return Array.from(body.childNodes).map((child, index) =>
+    convertNodeToJSX(child, index)
+  );
+};
+
 const AdminComplaints = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
@@ -162,6 +275,46 @@ const AdminComplaints = () => {
 
   return (
     <Box m="20px">
+      {/* Styles spécifiques pour forcer l'affichage des listes et autres éléments CKEditor */}
+      <style jsx>{`
+        .complaint-description.ck-editor-content ul,
+        .complaint-description.ck-editor-content ul li {
+          list-style-type: disc !important;
+          padding-left: 20px !important;
+          margin: 0 0 10px 0 !important;
+          list-style-position: outside !important;
+        }
+        .complaint-description.ck-editor-content ol,
+        .complaint-description.ck-editor-content ol li {
+          list-style-type: decimal !important;
+          padding-left: 20px !important;
+          margin: 0 0 10px 0 !important;
+          list-style-position: outside !important;
+        }
+        .complaint-description.ck-editor-content li {
+          margin: 0 0 5px 0 !important;
+          padding-left: 5px !important;
+        }
+        .complaint-description.ck-editor-content p {
+          margin: 0 0 10px 0 !important;
+        }
+        .complaint-description.ck-editor-content h1 {
+          font-size: 2em !important;
+          font-weight: bold !important;
+          margin: 0 0 10px 0 !important;
+        }
+        .complaint-description.ck-editor-content h2 {
+          font-size: 1.5em !important;
+          font-weight: bold !important;
+          margin: 0 0 10px 0 !important;
+        }
+        .complaint-description.ck-editor-content h3 {
+          font-size: 1.17em !important;
+          font-weight: bold !important;
+          margin: 0 0 10px 0 !important;
+        }
+      `}</style>
+
       {/* Ajout du composant ToastContainer pour afficher les notifications */}
       <ToastContainer
         position="top-right"
@@ -270,9 +423,11 @@ const AdminComplaints = () => {
                   bgcolor={colors.blueAccent[700]}
                   borderRadius={1}
                   sx={{ maxHeight: 100, overflowY: "auto" }}
+                  className="complaint-description ck-editor-content"
                 >
                   <Typography variant="body1">
-                    <strong>Description: </strong> {complaint.description}
+                    <strong>Description: </strong>
+                    {parseHTMLToJSX(complaint.description)}
                   </Typography>
                 </Box>
                 <Typography variant="caption" color="textSecondary">

@@ -12,8 +12,23 @@ const complaintSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId, 
         ref: "User",  
         required: true
-    }
+    },
+    responses: [
+        {
+          message: { type: String, required: true },
+          author: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+          },
+          createdAt: {
+            type: Date,
+            default: Date.now,
+          },
+        },
+      ],
 }, 
+
 {
     timestamps: true  // Automatically adds createdAt and updatedAt fields
 });

@@ -4,6 +4,8 @@ import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
 import debounce from 'lodash/debounce';
 import { Filter } from 'bad-words';
+import { CKEditor } from '@ckeditor/ckeditor5-react';
+import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 
 const AddReclamation = () => {
   const [subject, setSubject] = useState("");
@@ -81,16 +83,18 @@ const AddReclamation = () => {
     }
 
     if (field === "description" || field === "all") {
-      if (!value) {
+      // Nettoyer les balises HTML pour la validation
+      const cleanDescription = value.replace(/<[^>]+>/g, '').trim();
+      if (!cleanDescription) {
         error = "Description is required.";
         isDescriptionValid = false;
-      } else if (value.length < 10) {
+      } else if (cleanDescription.length < 10) {
         error = "Description must be at least 10 characters long.";
         isDescriptionValid = false;
-      } else if (value.length > 1000) {
+      } else if (cleanDescription.length > 1000) {
         error = "Description cannot exceed 1000 characters.";
         isDescriptionValid = false;
-      } else if (!subjectRegex.test(value)) {
+      } else if (!subjectRegex.test(cleanDescription)) {
         error = "Description can only contain letters, numbers, spaces, and some characters (.,!?').";
         isDescriptionValid = false;
       }
@@ -100,11 +104,13 @@ const AddReclamation = () => {
     // Vérifier la validité globale du formulaire
     if (field === "all") {
       isSubjectValid = !subjectError && subject && subject.length >= 5 && subject.length <= 100 && subjectRegex.test(subject);
-      isDescriptionValid = !descriptionError && description && description.length >= 10 && description.length <= 1000 && subjectRegex.test(description);
+      const cleanDescription = description.replace(/<[^>]+>/g, '').trim();
+      isDescriptionValid = !descriptionError && cleanDescription && cleanDescription.length >= 10 && cleanDescription.length <= 1000 && subjectRegex.test(cleanDescription);
     } else {
       // Si on valide un champ spécifique, vérifier l'autre champ
       isSubjectValid = field === "subject" ? isSubjectValid : !subjectError && subject && subject.length >= 5 && subject.length <= 100 && subjectRegex.test(subject);
-      isDescriptionValid = field === "description" ? isDescriptionValid : !descriptionError && description && description.length >= 10 && description.length <= 1000 && subjectRegex.test(description);
+      const cleanDescription = description.replace(/<[^>]+>/g, '').trim();
+      isDescriptionValid = field === "description" ? isDescriptionValid : !descriptionError && cleanDescription && cleanDescription.length >= 10 && cleanDescription.length <= 1000 && subjectRegex.test(cleanDescription);
     }
 
     setIsFormValid(isSubjectValid && isDescriptionValid);
@@ -127,13 +133,14 @@ const AddReclamation = () => {
     }
 
     // Vérification des bad words avant soumission
+    const cleanDescription = description.replace(/<[^>]+>/g, '').trim();
     const subjectHasBadWords = badWordsFilter.isProfane(subject);
-    const descriptionHasBadWords = badWordsFilter.isProfane(description);
+    const descriptionHasBadWords = badWordsFilter.isProfane(cleanDescription);
 
     if (subjectHasBadWords || descriptionHasBadWords) {
       const foundBadWords = [
         ...subject.split(/\s+/).filter(word => badWordsFilter.isProfane(word)),
-        ...description.split(/\s+/).filter(word => badWordsFilter.isProfane(word))
+        ...cleanDescription.split(/\s+/).filter(word => badWordsFilter.isProfane(word))
       ];
       toast.error(`Inappropriate content detected: ${foundBadWords.join(", ")}. Cannot submit.`, {
         position: "top-right",
@@ -144,7 +151,7 @@ const AddReclamation = () => {
 
     const reclamationData = {
       subject,
-      description,
+      description, // Envoie le contenu HTML généré par CKEditor
     };
 
     try {
@@ -207,7 +214,7 @@ const AddReclamation = () => {
             <div className="col-md-5 mx-auto">
               <div className="auth-form">
                 <div className="auth-header text-center">
-                  <h2 className="text-2xl font-bold mb-4">Add Reclamation</h2>
+                  <h2 className="text-2xl font-bold mb-4">Add a claim</h2>
                 </div>
                 <form onSubmit={handleSubmit}>
                   <div className="form-group">
@@ -233,20 +240,26 @@ const AddReclamation = () => {
                   </div>
 
                   <div className="form-group">
-                    <div className="form-icon">
-                      <i className="far fa-comment"></i>
-                      <textarea
-                        className="form-control"
-                        placeholder="Description"
-                        value={description}
-                        onChange={(e) => {
-                          const newDescription = e.target.value;
+                    <div className="ck-editor-container">
+                      <CKEditor
+                        editor={ClassicEditor}
+                        data={description}
+                        onChange={(event, editor) => {
+                          const newDescription = editor.getData();
                           setDescription(newDescription);
                           validateForm("description", newDescription);
-                          checkBadWords(newDescription, "description");
+                          const cleanDescription = newDescription.replace(/<[^>]+>/g, '').trim();
+                          checkBadWords(cleanDescription, "description");
                         }}
-                        required
-                      ></textarea>
+                        config={{
+                          toolbar: [
+                            'heading', '|',
+                            'bold', 'italic', 'link', 'bulletedList', 'numberedList', '|',
+                            'undo', 'redo'
+                          ],
+                          placeholder: "Enter your description here..."
+                        }}
+                      />
                     </div>
                     {descriptionError && (
                       <p className="text-red-500 text-xs mt-1">{descriptionError}</p>
@@ -271,9 +284,57 @@ const AddReclamation = () => {
 
       <style jsx>{`
         .theme-btn:disabled {
-          background-color:rgb(95, 116, 143); /* Couleur grisée pour le bouton désactivé */
+          background-color: rgb(95, 116, 143); /* Couleur grisée pour le bouton désactivé */
           cursor: not-allowed; /* Curseur indiquant que le bouton est désactivé */
           opacity: 0.6; /* Réduire l'opacité pour un effet visuel désactivé */
+        }
+        .ck-editor-container {
+          width: 100%;
+        }
+        .ck-editor__editable {
+          min-height: 150px; /* Hauteur minimale pour l'éditeur */
+          padding: 10px 15px; /* Ajuster le padding pour un meilleur positionnement du texte */
+          border: 1px solid #ccc; /* Ajouter une bordure pour harmoniser avec le reste du formulaire */
+          border-radius: 4px; /* Coins arrondis */
+          line-height: 1.5; /* Ajuster la hauteur de ligne pour éviter que le texte ne monte */
+        }
+        .ck-editor__editable p,
+        .ck-editor__editable li {
+          margin: 0 0 10px 0; /* Espacement entre les paragraphes et les éléments de liste */
+        }
+        .ck-editor__editable ul,
+        .ck-editor__editable ol {
+          padding-left: 20px; /* Indentation pour les listes */
+          margin: 0 0 10px 0; /* Espacement pour les listes */
+        }
+        .ck-editor__editable ul li {
+          list-style-type: disc; /* Assurer que les puces s'affichent */
+        }
+        .ck-editor__editable ol li {
+          list-style-type: decimal; /* Assurer que les numéros s'affichent */
+        }
+        .ck-editor__editable i {
+          font-style: italic; /* Assurer que le texte en italique est bien rendu */
+        }
+        .ck-editor__top {
+          border-bottom: 1px solid #ccc; /* Séparer la barre d'outils du contenu */
+        }
+        .form-group {
+          margin-bottom: 20px; /* Espacement entre les champs */
+        }
+        .form-control {
+          padding-left: 40px; /* Espace pour l'icône dans le champ Subject */
+          height: 40px; /* Hauteur cohérente avec le reste du formulaire */
+          border: 1px solid #ccc; /* Bordure cohérente */
+          border-radius: 4px; /* Coins arrondis */
+        }
+        .form-icon i {
+          position: absolute;
+          left: 10px;
+          top: 50%;
+          transform: translateY(-50%);
+          font-size: 18px;
+          color: #666;
         }
       `}</style>
     </div>
