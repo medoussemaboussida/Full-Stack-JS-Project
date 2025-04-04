@@ -74,6 +74,7 @@ router.get('/me', userController.verifyToken, userController.photo);
 router.get('/allappoint', userController.getAllAppoint);
 router.delete('/chat/:messageId', userController.verifyToken, userController.deletechat);
 router.put('/chat/:messageId', userController.verifyToken, userController.updatechat);
+router.get('/users/chat/rooms', userController.verifyToken, userController.getAllchat);
 
 
 

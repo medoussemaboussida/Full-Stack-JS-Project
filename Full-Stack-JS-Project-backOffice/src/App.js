@@ -18,6 +18,7 @@ import { ColorModeContext, useMode } from "./theme";
 import Calendar from "./scenes/calendar/calendar";
 import Forum from "./scenes/forum/forum";
 import Appointment from "./scenes/Appointment/Appointment";
+import Chat from "./scenes/Chat/Chat";
 import Events from "./scenes/events/events"; 
 import { NotificationProvider } from "./scenes/publication/NotificationContext"; // Importer le NotificationProvider
 import Activities from "./scenes/passtime/activities";
@@ -74,6 +75,8 @@ function App() {
                 <Route path="/geography" element={<Geography />} />
                 <Route path="/forum" element={<Forum />} />
                 <Route path="/appointment" element={<Appointment />} />
+                <Route path="/chat" element={<Chat />} />
+
                 <Route path="/activities" element={<Activities />} />
                 <Route path="/complaint" element={<AdminComplaints />} />
 

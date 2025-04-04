@@ -2583,6 +2583,61 @@ module.exports.updatechat = async (req, res) => {
     }
 };
 
+
+
+    module.exports.getAllchat = async (req, res) => {
+
+    try {
+      // Aggregate messages by roomCode
+      const rooms = await Chat.aggregate([
+        {
+          $group: {
+            _id: '$roomCode', // Group by roomCode
+            messages: { $push: "$$ROOT" }, // Include all fields of each message
+            participants: { $addToSet: '$sender' } // Collect unique sender IDs
+          }
+        },
+        {
+          $lookup: {
+            from: 'users', // Your User collection name (lowercase 'users' typically)
+            localField: 'participants',
+            foreignField: '_id',
+            as: 'participants'
+          }
+        },
+        {
+          $project: {
+            roomCode: '$_id',
+            _id: 0, // Exclude _id from the output
+            messages: 1,
+            participants: {
+              $map: {
+                input: '$participants',
+                as: 'participant',
+                in: {
+                  _id: '$$participant._id',
+                  username: '$$participant.username', // Adjust fields as per your User schema
+                  user_photo: '$$participant.user_photo'
+                }
+              }
+            }
+          }
+        }
+      ]);
+  
+      if (!rooms || rooms.length === 0) {
+        console.log('No rooms found in the database');
+        return res.status(200).json([]); // Return empty array if no data
+      }
+  
+      console.log('Returning rooms:', rooms);
+      res.status(200).json(rooms);
+    } catch (err) {
+      console.error('Error fetching rooms:', err);
+      res.status(500).json({ message: 'Failed to fetch chat rooms', error: err.message });
+    }
+  };
+
     module.exports.getAllAppoint = async (req, res) => {
         try {
             const appointments = await Appointment.find()
