@@ -42,7 +42,25 @@ module.exports.getComplaints = async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 };
-
+// Récupérer une réclamation spécifique par ID
+module.exports.getComplaintById = async (req, res) => {
+    try {
+      const complaintId = req.params.complaintId;
+  
+      const complaint = await Complaint.findById(complaintId)
+        .populate("user_id", "username email user_photo level speciality")
+        .populate("responses.author", "username email user_photo role")
+        .exec();
+  
+      if (!complaint) {
+        return res.status(404).json({ message: "Complaint not found" });
+      }
+  
+      res.status(200).json(complaint);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  };
 //afficher reclamation de user connecté
 module.exports.getUserComplaints = async (req, res) => {
     try {
@@ -172,3 +190,81 @@ module.exports.updateComplaintStatus = async (req, res) => {
       res.status(500).json({ message: err.message });
     }
   };
+
+// Ajouter une réponse à une réclamation
+module.exports.addResponse = async (req, res) => {
+    try {
+      const complaintId = req.params.complaint_id;
+      const { message, authorId } = req.body;
+  
+      const existingComplaint = await Complaint.findById(complaintId);
+      if (!existingComplaint) {
+        return res.status(404).json({ message: "Complaint not found" });
+      }
+  
+      const author = await User.findById(authorId);
+      if (!author) {
+        return res.status(404).json({ message: "Author not found" });
+      }
+  
+      const newResponse = {
+        message,
+        author: authorId,
+        createdAt: new Date(),
+      };
+  
+      existingComplaint.responses.push(newResponse);
+      const updatedComplaint = await existingComplaint.save();
+  
+      const populatedComplaint = await Complaint.findById(complaintId)
+        .populate("user_id", "username email user_photo level speciality")
+        .populate("responses.author", "username email user_photo role")
+        .exec();
+  
+      // Notifier les clients connectés via SSE
+      global.notifyClients && global.notifyClients(populatedComplaint.user_id.toString(), populatedComplaint);
+  
+      res.status(200).json({ message: "Response added successfully", complaint: populatedComplaint });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  };
+  
+  module.exports.streamComplaints = async (req, res) => {
+    const userId = req.params.user_id;
+  
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+  
+    const sendComplaints = async () => {
+      const userComplaints = await Complaint.find({ user_id: userId })
+        .populate("user_id", "username email user_photo level speciality")
+        .populate("responses.author", "username email user_photo role")
+        .exec();
+      res.write(`data: ${JSON.stringify(userComplaints)}\n\n`);
+    };
+  
+    await sendComplaints();
+  
+    // Polling toutes les 3 secondes (alternative au change stream)
+    const interval = setInterval(async () => {
+      await sendComplaints();
+    }, 3000);
+  
+    req.on("close", () => {
+      clearInterval(interval);
+      res.end();
+    });
+  
+    if (!global.notifyClients) {
+      global.notifyClients = (targetUserId, updatedComplaint) => {
+        if (targetUserId === userId) {
+          sendComplaints();
+        }
+      };
+    }
+  };
+
+  
