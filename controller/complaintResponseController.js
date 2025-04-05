@@ -48,7 +48,7 @@ module.exports.getComplaintResponses = async (req, res) => {
 
         // Récupérer les réponses liées à cette réclamation
         const responses = await ComplaintResponse.find({ complaint_id })
-            .populate('user_id', 'username email') // Affiche l'utilisateur qui a répondu
+            .populate('user_id', 'username email user_photo level speciality') // Affiche l'utilisateur qui a répondu
 
         res.status(200).json(responses);
     } catch (err) {
@@ -72,6 +72,26 @@ module.exports.getAllResponsesForComplaint = async (req, res) => {
             .populate('user_id', 'username email') // Affiche l'utilisateur qui a répondu
 
         res.status(200).json(responses);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
+// Supprimer toutes les réponses associées à une réclamation
+module.exports.deleteAllResponses = async (req, res) => {
+    try {
+        const { complaint_id } = req.params; // Récupération de l'ID de la réclamation
+
+        // Vérifier si la réclamation existe
+        const complaintExists = await Complaint.findById(complaint_id);
+        if (!complaintExists) {
+            return res.status(404).json({ message: "Complaint not found" });
+        }
+
+        // Supprimer toutes les réponses associées à cette réclamation
+        await ComplaintResponse.deleteMany({ complaint_id });
+
+        res.status(200).json({ message: "All responses deleted successfully" });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }

@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSearch, faEdit, faTrashAlt } from "@fortawesome/free-solid-svg-icons";
+import { faSearch, faEdit, faTrashAlt, faComment } from "@fortawesome/free-solid-svg-icons";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
 import { CKEditor } from "@ckeditor/ckeditor5-react";
@@ -10,17 +10,14 @@ import ClassicEditor from "@ckeditor/ckeditor5-build-classic";
 
 // Fonction pour parser le HTML et le convertir en JSX
 const parseHTMLToJSX = (htmlString) => {
-  // Vérifier si htmlString est une chaîne valide
   if (!htmlString || typeof htmlString !== "string") {
     return <span>Contenu non disponible</span>;
   }
 
-  // Créer un élément DOM temporaire pour parser le HTML
   const parser = new DOMParser();
   const doc = parser.parseFromString(htmlString, "text/html");
   const body = doc.body;
 
-  // Fonction récursive pour convertir les nœuds DOM en JSX
   const convertNodeToJSX = (node, index) => {
     if (node.nodeType === Node.TEXT_NODE) {
       return node.textContent;
@@ -115,7 +112,6 @@ const parseHTMLToJSX = (htmlString) => {
     }
   };
 
-  // Convertir tous les enfants du body en JSX
   return Array.from(body.childNodes).map((child, index) =>
     convertNodeToJSX(child, index)
   );
@@ -125,16 +121,22 @@ function Complaint() {
   const [complaints, setComplaints] = useState([]);
   const [token, setToken] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [username, setUsername] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showResponsesModal, setShowResponsesModal] = useState(false);
   const [complaintToDelete, setComplaintToDelete] = useState(null);
   const [complaintToUpdate, setComplaintToUpdate] = useState(null);
+  const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [responses, setResponses] = useState([]);
+  const [newResponse, setNewResponse] = useState("");
   const [updatedSubject, setUpdatedSubject] = useState("");
   const [updatedDescription, setUpdatedDescription] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [sortOption, setSortOption] = useState("newest");
   const navigate = useNavigate();
+  const chatEndRef = useRef(null);
 
   // Fonction pour basculer l'affichage du champ de recherche
   const toggleSearch = () => {
@@ -144,7 +146,7 @@ function Complaint() {
     }
   };
 
-  // Charger le token et l'ID utilisateur
+  // Charger le token, l'ID utilisateur et le nom d'utilisateur
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
     if (token) {
@@ -157,6 +159,7 @@ function Complaint() {
           localStorage.removeItem("jwt-token");
           setToken(null);
           setUserId(null);
+          setUsername("");
           toast.error("Session expired. Please log in again.");
           navigate("/login");
           return;
@@ -164,11 +167,13 @@ function Complaint() {
 
         setToken(token);
         setUserId(decoded.id);
+        setUsername(decoded.username || "User");
       } catch (error) {
         console.error("Erreur de décodage du token:", error);
         localStorage.removeItem("jwt-token");
         setToken(null);
         setUserId(null);
+        setUsername("");
         toast.error("Invalid token. Please log in again.");
         navigate("/login");
       }
@@ -176,6 +181,7 @@ function Complaint() {
       console.log("Aucun token trouvé.");
       setToken(null);
       setUserId(null);
+      setUsername("");
       toast.error("Please log in to view your complaints.");
       navigate("/login");
     }
@@ -202,13 +208,11 @@ function Complaint() {
 
         const data = await response.json();
         setComplaints(data);
-        // Inspecter le contenu HTML des descriptions
         data.forEach((complaint, index) => {
           console.log(`Description ${index + 1}:`, complaint.description);
         });
       } catch (error) {
         console.error("Erreur lors de l'appel API:", error);
-        toast.error("Error loading complaints. Please try again later.");
       }
     };
 
@@ -305,11 +309,145 @@ function Complaint() {
     }
   };
 
+  // Récupérer les réponses pour une réclamation spécifique
+  const fetchResponses = async (complaintId) => {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/complaintResponse/getResponse/${complaintId}/${userId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Erreur HTTP: ${response.status} - ${errorData.message || "Unknown error"}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Erreur lors de la récupération des réponses:", error);
+      toast.error(`Error loading responses: ${error.message}`);
+      return [];
+    }
+  };
+
+  // Ouvrir le modal de conversation
+  const handleOpenResponsesModal = async (complaint) => {
+    const responsesData = await fetchResponses(complaint._id);
+    setSelectedComplaint(complaint);
+    setResponses(responsesData);
+    setShowResponsesModal(true);
+  };
+
+  // Fermer le modal de conversation
+  const handleCloseResponsesModal = () => {
+    setShowResponsesModal(false);
+    setSelectedComplaint(null);
+    setResponses([]);
+    setNewResponse("");
+  };
+
+  // Rafraîchir automatiquement les réponses lorsque le modal est ouvert
+  useEffect(() => {
+    if (!showResponsesModal || !selectedComplaint) return;
+
+    const interval = setInterval(async () => {
+      const newResponses = await fetchResponses(selectedComplaint._id);
+      // Comparer les réponses pour éviter les mises à jour inutiles
+      if (JSON.stringify(newResponses) !== JSON.stringify(responses)) {
+        setResponses(newResponses);
+      }
+    }, 1000); // Rafraîchir toutes les 5 secondes
+
+    // Nettoyer l'intervalle lorsque le modal est fermé
+    return () => clearInterval(interval);
+  }, [showResponsesModal, selectedComplaint, responses]);
+
+  // Ajouter une nouvelle réponse
+  const handleAddResponse = async () => {
+    if (!newResponse.trim()) {
+      toast.error("Response cannot be empty!");
+      return;
+    }
+
+    if (!userId) {
+      toast.error("User ID not found. Please log in again.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/complaintResponse/addResponse/${selectedComplaint._id}/${userId}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            content: newResponse,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Erreur HTTP: ${response.status} - ${errorData.message || "Unknown error"}`);
+      }
+
+      const newResponseData = await response.json();
+      // Formater la nouvelle réponse pour correspondre à la structure attendue
+      const formattedResponse = {
+        ...newResponseData,
+        user_id: {
+          _id: userId,
+          username: username,
+        },
+        createdAt: new Date().toISOString(),
+      };
+      setResponses([...responses, formattedResponse]);
+      setNewResponse("");
+      toast.success("Response added successfully!");
+    } catch (error) {
+      console.error("Erreur lors de l'envoi de la réponse:", error);
+      toast.error(`Error adding response: ${error.message}`);
+    }
+  };
+
+  // Scroller automatiquement vers le bas du chat
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [responses]);
+
+  // Formater la date/heure
+  const formatMessageTime = (date) => {
+    const now = new Date();
+    const messageDate = new Date(date);
+    const isToday = now.toDateString() === messageDate.toDateString();
+
+    if (isToday) {
+      return messageDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    } else {
+      return messageDate.toLocaleString("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+  };
+
   return (
     <div>
-      {/* Styles spécifiques pour forcer l'affichage des listes */}
+      {/* Styles spécifiques pour forcer l'affichage des listes et la conversation */}
       <style jsx>{`
-        /* Styles pour l'affichage des listes dans la liste des réclamations */
         .complaint-item .complaint-description.ck-editor-content ul,
         .complaint-item .complaint-description.ck-editor-content ul li {
           list-style-type: disc !important;
@@ -346,8 +484,6 @@ function Complaint() {
           font-weight: bold !important;
           margin: 0 0 10px 0 !important;
         }
-
-        /* Styles pour l'éditeur CKEditor dans le modal */
         .ck-editor__editable ul,
         .ck-editor__editable ul li {
           list-style-type: disc !important;
@@ -371,6 +507,50 @@ function Complaint() {
           border: 1px solid #ddd !important;
           border-radius: 4px !important;
         }
+        .chat-message {
+          display: flex;
+          margin-bottom: 15px;
+        }
+        .chat-message.user {
+          justify-content: flex-end;
+        }
+        .chat-message.admin {
+          justify-content: flex-start;
+        }
+        .chat-message .message-content {
+          max-width: 70%;
+          padding: 10px;
+          border-radius: 15px;
+          position: relative;
+        }
+        .chat-message.user .message-content {
+          background-color: #007bff;
+          color: white;
+          border-bottom-right-radius: 5px;
+        }
+        .chat-message.admin .message-content {
+          background-color: #e5e5ea;
+          color: black;
+          border-bottom-left-radius: 5px;
+        }
+        .chat-message .message-content p {
+          margin: 0;
+        }
+        .chat-message .message-content .author {
+          font-size: 12px;
+          font-weight: bold;
+          margin-bottom: 5px;
+        }
+        .chat-message .message-content .timestamp {
+          font-size: 10px;
+          margin-top: 5px;
+          color: #d0e7ff;
+          text-align: right;
+        }
+        .chat-message.admin .message-content .timestamp {
+          color: #666;
+          text-align: left;
+        }
       `}</style>
 
       <ToastContainer
@@ -385,7 +565,6 @@ function Complaint() {
         pauseOnHover
       />
       <main className="main">
-        {/* Breadcrumb */}
         <div
           className="site-breadcrumb"
           style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}
@@ -401,11 +580,9 @@ function Complaint() {
           </div>
         </div>
 
-        {/* Complaints Section */}
         <div className="complaint-area py-100">
           <div className="container" style={{ maxWidth: "800px", margin: "0 auto" }}>
             <div className="complaint-header d-flex justify-content-between align-items-center mb-4">
-              {/* Champ de recherche à gauche avec icône et animation */}
               <div
                 style={{
                   position: "relative",
@@ -458,9 +635,7 @@ function Complaint() {
                   </>
                 )}
               </div>
-              {/* Conteneur pour la liste déroulante et le bouton */}
               <div className="d-flex align-items-center">
-                {/* Liste déroulante à gauche */}
                 <select
                   value={sortOption}
                   onChange={(e) => setSortOption(e.target.value)}
@@ -481,8 +656,6 @@ function Complaint() {
                   <option value="resolved">Resolved</option>
                   <option value="rejected">Rejected</option>
                 </select>
-
-                {/* Bouton Add New Claim */}
                 <button
                   className="theme-btn"
                   style={{
@@ -519,7 +692,6 @@ function Complaint() {
                       boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
                     }}
                   >
-                    {/* Bulle de statut en haut à droite */}
                     <div
                       style={{
                         position: "absolute",
@@ -575,11 +747,23 @@ function Complaint() {
                             minute: "2-digit",
                           })}
                         </p>
-                        <p style={{ margin: 0 }}>
+                        <p style={{ margin: "0" }}>
                           Status: {complaint.status || "Unknown"}
                         </p>
                       </div>
                       <div className="d-flex align-items-center">
+                        <span
+                          className="icon"
+                          style={{
+                            cursor: "pointer",
+                            fontSize: "20px",
+                            color: "#007bff",
+                            marginRight: "15px",
+                          }}
+                          onClick={() => handleOpenResponsesModal(complaint)}
+                        >
+                          <FontAwesomeIcon icon={faComment} />
+                        </span>
                         <span
                           className="icon"
                           style={{
@@ -745,7 +929,7 @@ function Complaint() {
                 onChange={(event, editor) => {
                   const data = editor.getData();
                   setUpdatedDescription(data);
-                  console.log("Updated description:", data); // Pour déboguer
+                  console.log("Updated description:", data);
                 }}
                 config={{
                   toolbar: [
@@ -791,6 +975,124 @@ function Complaint() {
                 Update
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de conversation */}
+      {showResponsesModal && selectedComplaint && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "500px",
+              maxWidth: "90%",
+              maxHeight: "70vh",
+              display: "flex",
+              flexDirection: "column",
+              gap: "15px",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <h3 style={{ margin: 0, textAlign: "center", color: "#333" }}>
+              Conversation for: {selectedComplaint.subject || "Unknown"}
+            </h3>
+            <div
+              style={{
+                flex: 1,
+                maxHeight: "50vh",
+                overflowY: "auto",
+                padding: "10px",
+                backgroundColor: "#f0f0f0",
+                borderRadius: "4px",
+              }}
+            >
+              {responses.length > 0 ? (
+                responses.map((response, index) => (
+                  <div
+                    key={index}
+                    className={`chat-message ${
+                      response.user_id._id === userId ? "user" : "admin"
+                    }`}
+                  >
+                    <div className="message-content">
+                      <p className="author">
+                        {response.user_id._id === userId
+                          ? "You"
+                          : "Admin"}
+                      </p>
+                      <p>{response.content}</p>
+                      <p className="timestamp">{formatMessageTime(response.createdAt)}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p style={{ textAlign: "center", color: "#666" }}>
+                  No responses yet.
+                </p>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <input
+                type="text"
+                placeholder="Type your response..."
+                value={newResponse}
+                onChange={(e) => setNewResponse(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") handleAddResponse();
+                }}
+                style={{
+                  flex: 1,
+                  padding: "10px",
+                  borderRadius: "50px",
+                  border: "1px solid #ddd",
+                  outline: "none",
+                }}
+              />
+              <button
+                onClick={handleAddResponse}
+                style={{
+                  backgroundColor: "#007bff",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "50px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Send
+              </button>
+            </div>
+            <button
+              onClick={handleCloseResponsesModal}
+              style={{
+                backgroundColor: "#f44336",
+                color: "white",
+                padding: "10px 20px",
+                borderRadius: "5px",
+                border: "none",
+                cursor: "pointer",
+                alignSelf: "center",
+              }}
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

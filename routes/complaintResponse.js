@@ -6,5 +6,5 @@ const complaintResponseController = require('../controller/complaintResponseCont
 router.post('/addResponse/:complaint_id/:user_id', complaintResponseController.addComplaintResponse);
 router.get('/getResponse/:complaint_id/:user_id', complaintResponseController.getComplaintResponses);
 router.get('/getAllResponse/:complaint_id', complaintResponseController.getAllResponsesForComplaint);
-
+router.delete('/deleteAllResponses/:complaint_id', complaintResponseController.deleteAllResponses);
 module.exports = router;
