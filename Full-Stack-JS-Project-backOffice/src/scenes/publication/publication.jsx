@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Box, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Select, MenuItem, InputLabel, FormControl, Alert, IconButton, InputBase,
-  Divider, Chip, Avatar, Badge, Tooltip, List, ListItem, ListItemText
+  Divider, Chip, Avatar, Badge, Tooltip, List, ListItem, ListItemText // Ajout de Chip ici
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import EditIcon from "@mui/icons-material/Edit";
@@ -20,6 +20,7 @@ import { useTheme } from "@mui/material";
 import Snackbar from '@mui/material/Snackbar';
 import html2pdf from "html2pdf.js";
 import { useNotification } from "../publication/NotificationContext";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const stripHtmlTags = (str) => {
   if (!str) return "";
@@ -57,6 +58,7 @@ const Publication = () => {
   const [userRole, setUserRole] = useState(null);
   const [banData, setBanData] = useState({ days: "", reason: "", customReason: "" });
   const [userToBan, setUserToBan] = useState(null);
+  const [authorStats, setAuthorStats] = useState(null);
   const navigate = useNavigate();
   const theme = useTheme();
 
@@ -215,9 +217,11 @@ const Publication = () => {
       );
 
       setComments(commentsWithReports);
+      return commentsWithReports;
     } catch (err) {
       console.error("❌ Error retrieving comments:", err);
       setNotification({ open: true, message: "Failed to load comments!", severity: "error" });
+      return [];
     }
   };
 
@@ -346,6 +350,38 @@ const Publication = () => {
     return filtered;
   };
 
+  const calculateAuthorStats = async (author) => {
+    if (author === "all") {
+      setAuthorStats(null);
+      return;
+    }
+
+    const authorPublications = publications.filter(pub => pub.author_id?.username === author);
+    let totalPublished = 0;
+    let totalLikes = 0;
+    let totalDislikes = 0;
+    let totalReports = 0;
+    let totalComments = 0;
+
+    for (const pub of authorPublications) {
+      if (pub.status === "published") totalPublished++;
+      totalLikes += pub.likeCount || 0;
+      totalDislikes += pub.dislikeCount || 0;
+      totalReports += pub.reportCount || 0;
+
+      const comments = await fetchComments(pub.id);
+      totalComments += comments.length;
+    }
+
+    setAuthorStats([
+      { name: "Published", value: totalPublished, fill: "#4caf50" },
+      { name: "Likes", value: totalLikes, fill: "#81c784" },
+      { name: "Dislikes", value: totalDislikes, fill: "#ef5350" },
+      { name: "Reports", value: totalReports, fill: "#f44336" },
+      { name: "Comments", value: totalComments, fill: "#fab200" },
+    ]);
+  };
+
   useEffect(() => {
     fetchPublications();
   }, []);
@@ -361,6 +397,7 @@ const Publication = () => {
   useEffect(() => {
     const filtered = filterPublications(publications, statusFilter, authorFilter);
     setFilteredPublications(filtered);
+    calculateAuthorStats(authorFilter);
   }, [publications, statusFilter, authorFilter]);
 
   const handleOpen = (pub = null) => {
@@ -846,6 +883,36 @@ const Publication = () => {
       <Box sx={{ height: 500, width: "100%", minWidth: "1200px" }}>
         <DataGrid checkboxSelection rows={filteredPublications} columns={columns} />
       </Box>
+
+      {/* Affichage des statistiques sous forme de BarChart */}
+      {authorStats && authorFilter !== "all" && (
+        <Box
+          mt={2}
+          p={2}
+          sx={{
+            backgroundColor: "#424242",
+            borderRadius: "8px",
+            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+          }}
+        >
+          <Typography variant="h6" sx={{ color: "#fff", mb: 2 }}>
+            Statistiques pour {authorFilter}
+          </Typography>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={authorStats} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#616161" />
+              <XAxis dataKey="name" stroke="#fff" />
+              <YAxis stroke="#fff" />
+              <RechartsTooltip
+                contentStyle={{ backgroundColor: "#616161", border: "none", color: "#fff" }}
+                labelStyle={{ color: "#fff" }}
+              />
+              <Legend />
+              <Bar dataKey="value" name="Statistiques" />
+            </BarChart>
+          </ResponsiveContainer>
+        </Box>
+      )}
 
       <Dialog
         open={openProfileModal}
