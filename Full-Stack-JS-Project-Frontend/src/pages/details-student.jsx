@@ -8,6 +8,35 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { useNavigate } from "react-router-dom";
 
+// Fonction pour évaluer la force du mot de passe
+const getPasswordStrength = (password) => {
+  let strength = 0;
+  const minLength = 8;
+
+  // Critères de force
+  if (password.length > 0) strength += 10; // Au moins une lettre
+  if (password.length >= minLength) strength += 20; // Longueur minimale
+  if (/[A-Z]/.test(password)) strength += 20; // Lettre majuscule
+  if (/[0-9]/.test(password)) strength += 20; // Chiffre
+  if (/[^A-Za-z0-9]/.test(password)) strength += 30; // Caractère spécial
+
+  // Limiter à 100%
+  strength = Math.min(strength, 100);
+
+  // Déterminer le label et la couleur
+  let label = "Weak";
+  let color = "#f44336"; // Rouge
+  if (strength >= 70) {
+    label = "Strong";
+    color = "#4CAF50"; // Vert
+  } else if (strength >= 40) {
+    label = "Medium";
+    color = "#FF9800"; // Orange
+  }
+
+  return { strength, label, color };
+};
+
 function DetailsStudents() {
   const [user, setUser] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -73,16 +102,13 @@ function DetailsStudents() {
       .map((slot, index) => {
         let date;
   
-        // New schema with date
         if (slot.date) {
           date = new Date(slot.date);
           if (isNaN(date.getTime())) {
             console.error(`Invalid date in slot ${index}:`, slot);
             return null;
           }
-        }
-        // Old schema with day
-        else if (slot.day) {
+        } else if (slot.day) {
           const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
           const dayIndex = daysOfWeek.indexOf(slot.day);
           if (dayIndex === -1) {
@@ -288,6 +314,11 @@ function DetailsStudents() {
       toast.error("All fields are required");
       return;
     }
+    const { strength } = getPasswordStrength(passwordData.newPassword);
+    if (strength < 40) {
+      toast.error("Password is too weak. Please use a stronger password.");
+      return;
+    }
     try {
       const token = localStorage.getItem("jwt-token");
       const decoded = jwtDecode(token);
@@ -379,7 +410,7 @@ function DetailsStudents() {
       const startDate = new Date(info.event.start);
       const endDate = new Date(info.event.end);
       const updatedAvailability = {
-        date: formatDateForInput(startDate), // YYYY-MM-DD
+        date: formatDateForInput(startDate),
         startTime: `${String(startDate.getHours()).padStart(2, "0")}:${String(startDate.getMinutes()).padStart(2, "0")}`,
         endTime: `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`,
       };
@@ -472,7 +503,7 @@ function DetailsStudents() {
     const token = localStorage.getItem("jwt-token");
     const decoded = jwtDecode(token);
     const newAvailability = {
-      date: selectedDate, // YYYY-MM-DD
+      date: selectedDate,
       startTime: selectedStartTime,
       endTime: selectedEndTime,
     };
@@ -512,6 +543,8 @@ function DetailsStudents() {
   if (!user) {
     return <div style={{ textAlign: "center", padding: "20px", fontSize: "18px" }}>Loading...</div>;
   }
+
+  const passwordStrength = getPasswordStrength(passwordData.newPassword);
 
   return (
     <div>
@@ -567,7 +600,7 @@ function DetailsStudents() {
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                min={formatDateForInput(new Date())} // Prevent past dates
+                min={formatDateForInput(new Date())}
                 style={{ width: "100%", padding: "8px", borderRadius: "3px", border: "1px solid #ccc" }}
               />
             </div>
@@ -793,7 +826,7 @@ function DetailsStudents() {
                 />
                 <i className={`fas ${showNewPassword ? "fa-eye-slash" : "fa-eye"}`} onClick={() => setShowNewPassword(!showNewPassword)} style={{ marginLeft: "10px", cursor: "pointer" }} />
               </div>
-              <div style={{ marginBottom: "20px", display: "flex", alignItems: "center" }}>
+              <div style={{ marginBottom: "10px", display: "flex", alignItems: "center" }}>
                 <input
                   type={showConfirmNewPassword ? "text" : "password"}
                   name="confirmNewPassword"
@@ -803,6 +836,22 @@ function DetailsStudents() {
                   style={{ padding: "10px", width: "100%", borderRadius: "4px", border: "1px solid #ccc" }}
                 />
                 <i className={`fas ${showConfirmNewPassword ? "fa-eye-slash" : "fa-eye"}`} onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)} style={{ marginLeft: "10px", cursor: "pointer" }} />
+              </div>
+              {/* Barre de progression pour la force du mot de passe */}
+              <div style={{ marginBottom: "20px" }}>
+                <div style={{ height: "10px", backgroundColor: "#e0e0e0", borderRadius: "5px", overflow: "hidden" }}>
+                  <div
+                    style={{
+                      width: `${passwordStrength.strength}%`,
+                      height: "100%",
+                      backgroundColor: passwordStrength.color,
+                      transition: "width 0.3s ease-in-out",
+                    }}
+                  />
+                </div>
+                <p style={{ textAlign: "center", marginTop: "5px", color: passwordStrength.color, fontWeight: "bold" }}>
+                  Password Strength: {passwordStrength.label}
+                </p>
               </div>
               <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
                 <button onClick={handleChangePassword} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "5px" }}>Save New Password</button>
