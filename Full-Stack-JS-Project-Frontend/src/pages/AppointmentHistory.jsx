@@ -24,7 +24,7 @@ const AppointmentHistory = () => {
     const [statusFilter, setStatusFilter] = useState('all');
     const [searchName, setSearchName] = useState('');
     const [userId, setUserId] = useState(null);
-    const [dateSort, setDateSort] = useState('recent'); // New state for date sorting
+    const [dateSort, setDateSort] = useState('recent');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -36,13 +36,12 @@ const AppointmentHistory = () => {
                     return;
                 }
 
-                const appointmentResponse = await axios.get('http://localhost:5000/users/appointments/history', {
-                    headers: { 'Authorization': `Bearer ${token}` },
+                const appointmentResponse = await axios.get('http://localhost:5000/users/appointments/history', { 
+                                       headers: { 'Authorization': `Bearer ${token}` },
                     params: { statusFilter, searchName },
                 });
                 let fetchedAppointments = appointmentResponse.data.appointments;
 
-                // Sort appointments based on dateSort
                 fetchedAppointments.sort((a, b) => {
                     const dateA = new Date(a.date);
                     const dateB = new Date(b.date);
@@ -61,7 +60,7 @@ const AppointmentHistory = () => {
         };
 
         fetchData();
-    }, [statusFilter, searchName, dateSort]); // Add dateSort to dependency array
+    }, [statusFilter, searchName, dateSort]);
 
     const handleDeleteAppointment = async () => {
         try {
@@ -220,6 +219,14 @@ const AppointmentHistory = () => {
         }
     };
 
+    const isNewAppointment = (appointment) => {
+        const now = new Date();
+        const appointmentDate = new Date(appointment.date);
+        const timeDiff = now - appointmentDate;
+        const hoursDiff = timeDiff / (1000 * 60 * 60);
+        return hoursDiff < 24 && appointment.status === 'pending'; // New if within 24 hours and pending
+    };
+
     if (loading) return <div className="loading">Loading...</div>;
     if (error) return <div className="error">{error}</div>;
 
@@ -262,7 +269,7 @@ const AppointmentHistory = () => {
             ) : (
                 <div className="appointments-list">
                     {appointments.map((appointment) => (
-                        <div key={appointment._id} className="appointment-card">
+                        <div key={appointment._id} className="appointment-card" style={{ position: 'relative' }}>
                             {role === 'student' && (appointment.status === 'pending' || appointment.status === 'canceled') && (
                                 <>
                                     <button className="delete-icon" onClick={() => openDeleteModal(appointment._id)}>
@@ -278,6 +285,22 @@ const AppointmentHistory = () => {
                                         </button>
                                     )}
                                 </>
+                            )}
+                            {role === 'psychiatrist' && isNewAppointment(appointment) && (
+                                <span
+                                    style={{
+                                        position: 'absolute',
+                                        top: '10px',
+                                        right: '10px',
+                                        backgroundColor: '#28a745',
+                                        color: 'white',
+                                        padding: '2px 6px',
+                                        borderRadius: '3px',
+                                        fontSize: '12px',
+                                    }}
+                                >
+                                    New
+                                </span>
                             )}
                             <div className="appointment-details">
                                 <p><span className="label">Date:</span> {new Date(appointment.date).toLocaleDateString()}</p>

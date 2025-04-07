@@ -1,27 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import '../App.css'; // Assuming you’ll extract navbar-specific CSS
+import '../App.css';
 
 const Navbar = () => {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(null);
     const [notifications, setNotifications] = useState([]);
     const [showNotifications, setShowNotifications] = useState(false);
-    const prevNotificationsRef = useRef([]); // To store previous notifications
+    const [animateBell, setAnimateBell] = useState(false); // For bell animation
+    const prevNotificationsRef = useRef([]);
 
     useEffect(() => {
         const storedToken = localStorage.getItem('jwt-token');
         if (storedToken) {
             setToken(storedToken);
             fetchUserData(storedToken);
-            fetchNotifications(storedToken);
+            fetchNotifications(storedToken); // Fetch immediately on mount
         }
 
-        // Poll for new notifications every 30 seconds
         const interval = setInterval(() => fetchNotifications(storedToken), 30000);
         return () => clearInterval(interval);
 
-        // Request browser notification permission
         if (Notification.permission !== 'granted') {
             Notification.requestPermission();
         }
@@ -45,7 +44,6 @@ const Navbar = () => {
             });
             const newNotifications = response.data.notifications;
 
-            // Compare with previous notifications to detect new ones
             const prevNotifications = prevNotificationsRef.current;
             const unreadCount = newNotifications.filter(n => !n.read).length;
             const prevUnreadCount = prevNotifications.filter(n => !n.read).length;
@@ -53,16 +51,16 @@ const Navbar = () => {
             if (unreadCount > prevUnreadCount) {
                 const newCount = unreadCount - prevUnreadCount;
                 console.log(`New notifications received: ${newCount}`);
-                // Optionally trigger a browser notification
+                setAnimateBell(true); // Trigger bell animation
+                setTimeout(() => setAnimateBell(false), 1000); // Reset after 1s
                 if (Notification.permission === 'granted') {
                     new Notification('New Notification', {
                         body: `You have ${newCount} new notification(s)`,
-                        icon: '/assets/img/logo/logo.png', // Optional: Add an icon
+                        icon: '/assets/img/logo/logo.png',
                     });
                 }
             }
 
-            // Update state and ref with new notifications
             setNotifications(newNotifications);
             prevNotificationsRef.current = newNotifications;
         } catch (err) {
@@ -98,6 +96,12 @@ const Navbar = () => {
         } catch (err) {
             console.error('Error marking all notifications as read:', err);
         }
+    };
+
+    const handleNotificationClick = (notification) => {
+        handleMarkNotificationAsRead(notification._id);
+        // Redirect to AppointmentHistory
+        window.location.href = '/appointment-history';
     };
 
     const logout = () => {
@@ -224,13 +228,15 @@ const Navbar = () => {
                                             <i className="far fa-search"></i>
                                         </button>
                                     </div>
-                                    {/* Notification Bell */}
                                     <div className="notification-bell" style={{ position: 'relative', marginLeft: '15px' }}>
                                         <button
                                             onClick={() => setShowNotifications(!showNotifications)}
                                             style={{ background: 'none', border: 'none', cursor: 'pointer' }}
                                         >
-                                            <i className="fas fa-bell" style={{ fontSize: '20px', color: '#007BFF' }}></i>
+                                            <i
+                                                className={`fas fa-bell ${animateBell ? 'bell-shake' : ''}`}
+                                                style={{ fontSize: '20px', color: '#007BFF' }}
+                                            ></i>
                                             {notifications.filter(n => !n.read).length > 0 && (
                                                 <span
                                                     className="notification-badge"
@@ -297,7 +303,7 @@ const Navbar = () => {
                                                         <div
                                                             key={notification._id}
                                                             className={`notification-item ${notification.read ? 'read' : 'unread'}`}
-                                                            onClick={() => handleMarkNotificationAsRead(notification._id)}
+                                                            onClick={() => handleNotificationClick(notification)}
                                                             style={{
                                                                 padding: '10px',
                                                                 borderBottom: '1px solid #eee',

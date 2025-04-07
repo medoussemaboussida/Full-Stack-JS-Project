@@ -2011,8 +2011,10 @@ const scheduleReminder = async (appointment, studentId) => {
     }
   };
 
-  
-  module.exports.bookAppointment = async (req, res) => {
+
+
+
+module.exports.bookAppointment = async (req, res) => {
     const { psychiatristId, date, startTime, endTime } = req.body;
     const studentId = req.userId;
 
@@ -2026,6 +2028,11 @@ const scheduleReminder = async (appointment, studentId) => {
         const psychiatrist = await User.findById(psychiatristId);
         if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
             return res.status(404).json({ message: "Psychiatrist not found" });
+        }
+
+        const student = await User.findById(studentId);
+        if (!student || student.role !== "student") {
+            return res.status(404).json({ message: "Student not found" });
         }
 
         // Parse the date (assuming "DD/MM/YYYY" format from frontend)
@@ -2106,7 +2113,20 @@ const scheduleReminder = async (appointment, studentId) => {
             });
         }
 
-        await Promise.all([appointment.save(), psychiatrist.save()]);
+        // Save the appointment first to get its ID
+        await appointment.save();
+
+        // Create a notification for the psychiatrist
+        const notification = new Notification({
+            userId: psychiatristId, // Changed from "user" to "userId"
+            message: `A new appointment has been booked by ${student.username || 'a student'} on ${parsedDate.toLocaleDateString()} from ${startTime} to ${endTime}.`,
+            type: 'new_appointment', // Required field, set to "new_appointment"
+            appointmentId: appointment._id, // Link to the appointment
+            read: false, // Default value, optional since schema sets it
+        });
+
+        // Save the psychiatrist's updated availability and the notification
+        await Promise.all([psychiatrist.save(), notification.save()]);
 
         res.status(201).json({
             message: "Appointment booked successfully",
