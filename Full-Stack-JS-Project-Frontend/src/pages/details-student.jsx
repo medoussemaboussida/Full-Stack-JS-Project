@@ -885,22 +885,26 @@ function DetailsStudents() {
                 Select a time slot to add availability, drag to move, or click to delete
               </p>
               <FullCalendar
-                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                initialView="timeGridWeek"
-                events={events}
-                editable={true}
-                selectable={true}
-                selectMirror={true}
-                eventDrop={handleEventDrop}
-                eventClick={handleEventClick}
-                select={handleDateSelect}
-                slotMinTime="08:00:00"
-                slotMaxTime="20:00:00"
-                headerToolbar={{
-                  left: "prev,next today",
-                  center: "title",
-                  right: "dayGridMonth,timeGridWeek,timeGridDay",
-                }}
+  plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+  initialView="timeGridWeek"
+  events={events}
+  editable={true}
+  selectable={true}
+  selectMirror={true}
+  eventDrop={handleEventDrop}
+  eventClick={handleEventClick}
+  select={handleDateSelect}
+  slotMinTime="08:00:00"
+  slotMaxTime="20:00:00"
+  validRange={{
+    start: new Date().toISOString().split("T")[0], // Starts from today
+  }}
+  headerToolbar={{
+    left: "prev,next today",
+    center: "title",
+    right: "dayGridMonth,timeGridWeek,timeGridDay",
+  }}
+
               />
               <button onClick={() => setShowCalendar(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "5px", marginTop: "20px", display: "block", marginLeft: "auto" }}>Close</button>
             </div>
