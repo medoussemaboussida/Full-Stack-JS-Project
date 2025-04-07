@@ -26,6 +26,8 @@ var complaintRouter = require('./routes/complaint');
 var complaintResponseRouter = require('./routes/complaintResponse');
 const associationRoutes = require('./routes/association');
 const eventRoutes = require('./routes/event');
+const Appointment = require("./model/appointment");
+const Notification = require('./model/Notification'); // Adjust path to your Notification model
 const nodemailer = require('nodemailer'); // Add this line
 const cron = require('node-cron'); // Add this line
 const app = express();
@@ -475,6 +477,32 @@ app.use((err, req, res, next) => {
   res.status(500).render('error', { message: 'Something went wrong!', error: err.stack });
 });
 
+
+// Schedule reminders when the server starts
+cron.schedule('* * * * *', async () => { // Runs every minute
+  try {
+    const now = new Date();
+    const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
+    const appointments = await Appointment.find({
+      status: 'confirmed',
+      date: { $lte: fiveMinutesFromNow },
+      startTime: fiveMinutesFromNow.toTimeString().slice(0, 5),
+    }).populate('student psychiatrist');
+
+    appointments.forEach(async (appointment) => {
+      const message = `Reminder: Your appointment with ${appointment.psychiatrist.username} starts in 5 minutes!`;
+      await Notification.create({
+        userId: appointment.student._id,
+        message,
+        type: 'reminder',
+        appointmentId: appointment._id,
+      });
+      console.log(`Reminder created for ${appointment.student.username}: ${message}`);
+    });
+  } catch (error) {
+    console.error('Error in cron job:', error);
+  }
+});
 
 
 

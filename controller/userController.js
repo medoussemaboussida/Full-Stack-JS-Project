@@ -11,6 +11,7 @@ const Appointment = require("../model/appointment");
 const Chat = require("../model/chat");
 const Problem = require('../model/problem'); // Add Problem model
 const AttendanceSheet = require('../model/attendanceSheet'); // Add Problem model
+const Notification = require('../model/Notification'); // Import the new Notification model
 
 const { v4: uuidv4 } = require('uuid');
 const cron = require('node-cron'); 
@@ -1978,7 +1979,37 @@ module.exports.deleteAvailability = async (req, res) => {
       res.status(500).json({ message: 'Server error', error: error.message });
     }
   };
-
+ 
+  // Utility function to schedule a reminder
+const scheduleReminder = async (appointment, studentId) => {
+    const appointmentTime = new Date(`${appointment.date.toISOString().split('T')[0]}T${appointment.startTime}:00Z`);
+    const reminderTime = new Date(appointmentTime.getTime() - 5 * 60 * 1000); // 5 minutes before
+    const now = new Date();
+  
+    const timeUntilReminder = reminderTime - now;
+    if (timeUntilReminder > 0) {
+      setTimeout(async () => {
+        try {
+          const student = await User.findById(studentId);
+          const psychiatrist = await User.findById(appointment.psychiatrist);
+          const message = `Reminder: Your appointment with ${psychiatrist.username} starts in 5 minutes!`;
+          
+          // Store the reminder notification
+          await Notification.create({
+            userId: studentId,
+            message,
+            type: 'reminder',
+            appointmentId: appointment._id,
+          });
+  
+          console.log(`Reminder scheduled for ${student.email}: ${message}`);
+          // Optionally, send an email or push notification here
+        } catch (error) {
+          console.error('Error scheduling reminder:', error);
+        }
+      }, timeUntilReminder);
+    }
+  };
 
   
   module.exports.bookAppointment = async (req, res) => {
@@ -2187,91 +2218,137 @@ module.exports.getAppointmentHistory = async (req, res) => {
 
 module.exports.updateAppointmentStatus = async (req, res) => {
     try {
-        const userId = req.userId; // ID de l'utilisateur connecté (from verifyToken middleware)
-        const { appointmentId } = req.params; // ID du rendez-vous à modifier
-        const { status } = req.body; // Nouveau statut
-
-        // Vérifier que le statut est valide
-        const validStatuses = ['pending', 'confirmed', 'completed', 'canceled'];
-        if (!validStatuses.includes(status)) {
-            return res.status(400).json({
-                message: "Statut invalide. Les valeurs autorisées sont : 'pending', 'confirmed', 'completed', 'canceled'.",
-            });
+      const userId = req.userId; // Logged-in user's ID (from verifyToken middleware)
+      const { appointmentId } = req.params; // Appointment ID to update
+      const { status } = req.body; // New status
+  
+      const validStatuses = ['pending', 'confirmed', 'completed', 'canceled'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({
+          message: "Invalid status. Allowed values are: 'pending', 'confirmed', 'completed', 'canceled'.",
+        });
+      }
+  
+      const user = await User.findById(userId);
+      if (!user || (user.role !== 'psychiatrist' && user.role !== 'admin')) {
+        return res.status(403).json({
+          message: "Only a psychiatrist or admin can update an appointment status",
+        });
+      }
+  
+      let appointment;
+      if (user.role === 'psychiatrist') {
+        appointment = await Appointment.findOne({ _id: appointmentId, psychiatrist: userId }).populate('student psychiatrist');
+        if (!appointment) {
+          return res.status(404).json({
+            message: "Appointment not found or you are not authorized to modify it",
+          });
         }
-
-        // Vérifier si l'utilisateur est un psychiatre ou un admin
-        const user = await User.findById(userId);
-        if (!user || (user.role !== 'psychiatrist' && user.role !== 'admin')) {
-            return res.status(403).json({
-                message: "Seul un psychiatre ou un administrateur peut modifier le statut d'un rendez-vous",
-            });
+      } else if (user.role === 'admin') {
+        appointment = await Appointment.findById(appointmentId).populate('student psychiatrist');
+        if (!appointment) {
+          return res.status(404).json({ message: "Appointment not found" });
         }
-
-        // Vérifier si le rendez-vous existe
-        let appointment;
-        if (user.role === 'psychiatrist') {
-            appointment = await Appointment.findOne({ _id: appointmentId, psychiatrist: userId }).populate('student psychiatrist');
-            if (!appointment) {
-                return res.status(404).json({
-                    message: "Rendez-vous non trouvé ou vous n'êtes pas autorisé à le modifier",
-                });
-            }
-        } else if (user.role === 'admin') {
-            appointment = await Appointment.findById(appointmentId).populate('student psychiatrist');
-            if (!appointment) {
-                return res.status(404).json({ message: "Rendez-vous non trouvé" });
-            }
+      }
+  
+      // Update the status
+      appointment.status = status;
+      await appointment.save();
+  
+      const chatCode = crypto.randomBytes(32).toString('hex'); // Generate chat code
+  
+      // Notify student when status changes
+      if (appointment.student) {
+        const studentId = appointment.student._id;
+        const psychiatristName = appointment.psychiatrist.username;
+        const message = `Your appointment with ${psychiatristName} has been updated to "${status}" on ${new Date(appointment.date).toLocaleDateString()} from ${appointment.startTime} to ${appointment.endTime}.`;
+  
+        // Store the notification
+        await Notification.create({
+          userId: studentId,
+          message,
+          type: status, // e.g., "confirmed", "canceled"
+          appointmentId: appointment._id,
+        });
+  
+        // If status is "confirmed", send email and schedule reminder
+        if (status === 'confirmed') {
+          const studentEmail = appointment.student.email;
+          const psychiatristEmail = appointment.psychiatrist.email;
+          const subject = "Your Appointment is Confirmed on EspritCare";
+          const htmlContent = `
+            <h2>Your Appointment is Confirmed</h2>
+            <p>Hello ${appointment.student.username} and Dr. ${appointment.psychiatrist.username},</p>
+            <p>The appointment has been successfully confirmed.</p>
+            <ul>
+              <li><strong>Date :</strong> ${new Date(appointment.date).toLocaleDateString()}</li>
+              <li><strong>Time :</strong> ${appointment.startTime} - ${appointment.endTime}</li>
+              <li><strong>Psychiatrist :</strong> ${appointment.psychiatrist.username}</li>
+              <li><strong>Student :</strong> ${appointment.student.username}</li>
+            </ul>
+            <p>Please make sure to be available on time.</p>
+            <p>Use this unique code to access the chat:</p>
+            <h3 style="text-align: center; background-color: #0ea5e6; color: white; padding: 10px; border-radius: 5px;">
+              ${chatCode}
+            </h3>
+            <p>Thank you for using EspritCare!</p>
+          `;
+  
+          try {
+            await Promise.all([
+              sendEmail(studentEmail, subject, htmlContent),
+              sendEmail(psychiatristEmail, subject, htmlContent),
+            ]);
+            console.log(`Emails sent to ${studentEmail} and ${psychiatristEmail} with code: ${chatCode}`);
+  
+            // Schedule the 5-minute reminder
+            scheduleReminder(appointment, studentId);
+          } catch (emailError) {
+            console.error("Error sending confirmation emails:", emailError);
+          }
         }
-
-        // Mettre à jour le statut
-        appointment.status = status;
-        await appointment.save();
-
-        // Générer un code unique de 32 bytes (256 bits) pour l'accès au chat
-        const chatCode = crypto.randomBytes(32).toString('hex'); // 32 bytes -> 64 caractères hexadécimaux
-
-        // Envoyer un email si le rendez-vous est confirmé
-        if (status === 'confirmed' && appointment.student && appointment.psychiatrist) {
-            const studentEmail = appointment.student.email;
-            const psychiatristEmail = appointment.psychiatrist.email;
-            const subject = "Your Appointment is Confirmed on EspritCare";
-            const htmlContent = `
-                <h2>Your Appointment is Confirmed</h2>
-                <p>Hello ${appointment.student.username} and Dr. ${appointment.psychiatrist.username},</p>
-                <p>The appointment has been successfully confirmed.</p>
-                <ul>
-                    <li><strong>Date :</strong> ${new Date(appointment.date).toLocaleDateString()}</li>
-                    <li><strong>Time :</strong> ${appointment.startTime} - ${appointment.endTime}</li>
-                    <li><strong>Psychiatrist :</strong> ${appointment.psychiatrist.username}</li>
-                    <li><strong>Student :</strong> ${appointment.student.username}</li>
-                </ul>
-                <p>Please make sure to be available on time.</p>
-                <p>Use this unique code to access the chat:</p>
-                <h3 style="text-align: center; background-color: #0ea5e6; color: white; padding: 10px; border-radius: 5px;">
-                    ${chatCode}
-                </h3>
-                <p>Thank you for using EspritCare!</p>
-            `;
-
-            try {
-                // Envoyer les emails en parallèle
-                await Promise.all([
-                    sendEmail(studentEmail, subject, htmlContent),
-                    sendEmail(psychiatristEmail, subject, htmlContent)
-                ]);
-
-                console.log(`Emails envoyés à ${studentEmail} et ${psychiatristEmail} avec le code : ${chatCode}`);
-            } catch (emailError) {
-                console.error("Erreur lors de l'envoi des emails de confirmation :", emailError);
-            }
-        }
-
-        res.status(200).json({ message: "Statut du rendez-vous mis à jour avec succès", appointment, chatCode });
+      }
+  
+      res.status(200).json({ message: "Appointment status updated successfully", appointment, chatCode });
     } catch (error) {
-        console.error('Erreur dans updateAppointmentStatus:', error);
-        res.status(500).json({ message: "Erreur serveur", error: error.message });
+      console.error('Error in updateAppointmentStatus:', error);
+      res.status(500).json({ message: "Server error", error: error.message });
     }
-};
+  };
+
+  module.exports.markNotificationAsRead = async (req, res) => {
+    try {
+      const { notificationId } = req.params;
+      const userId = req.userId;
+  
+      const notification = await Notification.findOneAndUpdate(
+        { _id: notificationId, userId },
+        { read: true },
+        { new: true }
+      );
+  
+      if (!notification) {
+        return res.status(404).json({ message: 'Notification not found or not authorized' });
+      }
+  
+      res.status(200).json({ message: 'Notification marked as read', notification });
+    } catch (error) {
+      console.error('Error in markNotificationAsRead:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  };
+  
+  // New endpoint to fetch notifications for a user
+  module.exports.getUserNotifications = async (req, res) => {
+    try {
+      const userId = req.userId;
+      const notifications = await Notification.find({ userId }).sort({ createdAt: -1 });
+      res.status(200).json({ notifications });
+    } catch (error) {
+      console.error('Error in getUserNotifications:', error);
+      res.status(500).json({ message: "Server error", error: error.message });
+    }
+  };
 
 // controllers/userController.js
 module.exports.getPsychiatristById = async (req, res) => {

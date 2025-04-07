@@ -23,9 +23,11 @@ const AppointmentHistory = () => {
     const [calendarEvents, setCalendarEvents] = useState([]);
     const [statusFilter, setStatusFilter] = useState('all');
     const [searchName, setSearchName] = useState('');
+    const [userId, setUserId] = useState(null);
+    const [dateSort, setDateSort] = useState('recent'); // New state for date sorting
 
     useEffect(() => {
-        const fetchAppointments = async () => {
+        const fetchData = async () => {
             try {
                 const token = localStorage.getItem('jwt-token');
                 if (!token) {
@@ -34,77 +36,58 @@ const AppointmentHistory = () => {
                     return;
                 }
 
-                const response = await axios.get('http://localhost:5000/users/appointments/history', {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    params: {
-                        statusFilter,
-                        searchName,
-                    },
+                const appointmentResponse = await axios.get('http://localhost:5000/users/appointments/history', {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    params: { statusFilter, searchName },
                 });
-                setAppointments(response.data.appointments);
-                setRole(response.data.role);
+                let fetchedAppointments = appointmentResponse.data.appointments;
+
+                // Sort appointments based on dateSort
+                fetchedAppointments.sort((a, b) => {
+                    const dateA = new Date(a.date);
+                    const dateB = new Date(b.date);
+                    return dateSort === 'recent' ? dateB - dateA : dateA - dateB;
+                });
+
+                setAppointments(fetchedAppointments);
+                setRole(appointmentResponse.data.role);
+                setUserId(appointmentResponse.data.userId);
                 setLoading(false);
             } catch (err) {
-                console.error('Error fetching appointments:', err);
+                console.error('Error fetching data:', err);
                 setError(err.response?.data?.message || 'Server error');
                 setLoading(false);
             }
         };
 
-        fetchAppointments();
-    }, [statusFilter, searchName]);
+        fetchData();
+    }, [statusFilter, searchName, dateSort]); // Add dateSort to dependency array
 
     const handleDeleteAppointment = async () => {
         try {
             const token = localStorage.getItem('jwt-token');
-            await axios.delete(
-                `http://localhost:5000/users/appointments/${selectedAppointmentId}`,
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,
-                    },
-                }
-            );
+            await axios.delete(`http://localhost:5000/users/appointments/${selectedAppointmentId}`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
 
             setAppointments((prevAppointments) =>
                 prevAppointments.filter((appointment) => appointment._id !== selectedAppointmentId)
             );
             setShowModal(false);
-            console.log('Triggering delete success toast');
-            toast.success('Appointment successfully deleted!', { 
-                position: 'top-right', 
-                autoClose: 3000 
-            });
+            toast.success('Appointment successfully deleted!', { position: 'top-right', autoClose: 3000 });
         } catch (err) {
             console.error('Error deleting appointment:', err);
-            toast.error(err.response?.data?.message || 'Failed to delete appointment', { 
-                position: 'top-right', 
-                autoClose: 5000 
-            });
+            toast.error(err.response?.data?.message || 'Failed to delete appointment', { position: 'top-right', autoClose: 5000 });
         }
-    };
-
-    const openDeleteModal = (appointmentId) => {
-        setSelectedAppointmentId(appointmentId);
-        setShowModal(true);
     };
 
     const handleStatusChange = async (appointmentId) => {
         try {
             const token = localStorage.getItem('jwt-token');
-            await axios.put(
+            const response = await axios.put(
                 `http://localhost:5000/users/appointments/${appointmentId}/status`,
                 { status: newStatus },
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,
-                    },
-                }
+                { headers: { 'Authorization': `Bearer ${token}` } }
             );
 
             setAppointments((prevAppointments) =>
@@ -113,16 +96,35 @@ const AppointmentHistory = () => {
                 )
             );
             setEditingAppointmentId(null);
-            console.log('Triggering status update success toast');
-            toast.success('Appointment status updated successfully!', { 
-                position: 'top-right', 
-                autoClose: 3000 
-            });
+            toast.success('Appointment status updated successfully!', { position: 'top-right', autoClose: 3000 });
         } catch (err) {
             console.error('Error updating status:', err);
-            toast.error(err.response?.data?.message || 'Failed to update status', { 
-                position: 'top-right', 
-                autoClose: 5000 
+            toast.error(err.response?.data?.message || 'Failed to update status', { position: 'top-right', autoClose: 5000 });
+        }
+    };
+
+    const openDeleteModal = (appointmentId) => {
+        setSelectedAppointmentId(appointmentId);
+        setShowModal(true);
+    };
+
+    const handleUpdateTime = async (appointment) => {
+        try {
+            const token = localStorage.getItem('jwt-token');
+            const response = await axios.get(`http://localhost:5000/users/psychiatrists/${appointment.psychiatrist._id}`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+            const psychiatrist = response.data;
+            setSelectedPsychiatrist(psychiatrist);
+            setSelectedAppointmentId(appointment._id);
+            const formattedEvents = formatAvailabilitiesToEvents(psychiatrist.availability);
+            setCalendarEvents(formattedEvents);
+            setShowCalendarModal(true);
+        } catch (err) {
+            console.error('Error fetching psychiatrist availability:', err);
+            toast.error('Error fetching availability: ' + (err.response?.data?.message || err.message), {
+                position: 'top-right',
+                autoClose: 5000,
             });
         }
     };
@@ -182,36 +184,9 @@ const AppointmentHistory = () => {
         return eventsArray;
     };
 
-    const handleUpdateTime = async (appointment) => {
-        try {
-            const token = localStorage.getItem('jwt-token');
-            const response = await axios.get(`http://localhost:5000/users/psychiatrists/${appointment.psychiatrist._id}`, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-            const psychiatrist = response.data;
-            setSelectedPsychiatrist(psychiatrist);
-            setSelectedAppointmentId(appointment._id);
-            const formattedEvents = formatAvailabilitiesToEvents(psychiatrist.availability);
-            setCalendarEvents(formattedEvents);
-            setShowCalendarModal(true);
-        } catch (err) {
-            console.error('Error fetching psychiatrist availability:', err);
-            toast.error('Error fetching availability: ' + (err.response?.data?.message || err.message), { 
-                position: 'top-right', 
-                autoClose: 5000 
-            });
-        }
-    };
-
     const handleTimeChange = async (eventInfo) => {
         if (!eventInfo) {
-            toast.error('Please select a new time slot!', { 
-                position: 'top-right', 
-                autoClose: 5000 
-            });
+            toast.error('Please select a new time slot!', { position: 'top-right', autoClose: 5000 });
             return;
         }
 
@@ -226,32 +201,21 @@ const AppointmentHistory = () => {
             await axios.put(
                 `http://localhost:5000/users/appointments/${selectedAppointmentId}`,
                 updatedData,
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,
-                    },
-                }
+                { headers: { 'Authorization': `Bearer ${token}` } }
             );
 
             setAppointments((prevAppointments) =>
                 prevAppointments.map((appointment) =>
-                    appointment._id === selectedAppointmentId
-                        ? { ...appointment, ...updatedData }
-                        : appointment
+                    appointment._id === selectedAppointmentId ? { ...appointment, ...updatedData } : appointment
                 )
             );
             setShowCalendarModal(false);
-            console.log('Triggering time update success toast');
-            toast.success('Appointment time updated successfully!', { 
-                position: 'top-right', 
-                autoClose: 3000 
-            });
+            toast.success('Appointment time updated successfully!', { position: 'top-right', autoClose: 3000 });
         } catch (err) {
             console.error('Error updating appointment time:', err);
-            toast.error(err.response?.data?.message || 'Failed to update appointment time', { 
-                position: 'top-right', 
-                autoClose: 5000 
+            toast.error(err.response?.data?.message || 'Failed to update appointment time', {
+                position: 'top-right',
+                autoClose: 5000,
             });
         }
     };
@@ -264,16 +228,11 @@ const AppointmentHistory = () => {
             <ToastContainer />
             <h2>Appointment History</h2>
 
-            <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
                 <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    style={{
-                        padding: '8px',
-                        borderRadius: '5px',
-                        border: '2px solid #007BFF',
-                        outline: 'none',
-                    }}
+                    style={{ padding: '8px', borderRadius: '5px', border: '2px solid #007BFF', outline: 'none' }}
                 >
                     <option value="all">All Statuses</option>
                     <option value="pending">Pending</option>
@@ -286,14 +245,16 @@ const AppointmentHistory = () => {
                     value={searchName}
                     onChange={(e) => setSearchName(e.target.value)}
                     placeholder={role === 'psychiatrist' ? 'Search by student name' : role === 'student' ? 'Search by psychiatrist name' : 'Search by name...'}
-                    style={{
-                        padding: '8px',
-                        borderRadius: '5px',
-                        border: '2px solid #007BFF',
-                        outline: 'none',
-                        width: '200px',
-                    }}
+                    style={{ padding: '8px', borderRadius: '5px', border: '2px solid #007BFF', outline: 'none', width: '200px' }}
                 />
+                <select
+                    value={dateSort}
+                    onChange={(e) => setDateSort(e.target.value)}
+                    style={{ padding: '8px', borderRadius: '5px', border: '2px solid #007BFF', outline: 'none' }}
+                >
+                    <option value="recent">Most Recent</option>
+                    <option value="oldest">Oldest</option>
+                </select>
             </div>
 
             {appointments.length === 0 ? (
@@ -304,10 +265,7 @@ const AppointmentHistory = () => {
                         <div key={appointment._id} className="appointment-card">
                             {role === 'student' && (appointment.status === 'pending' || appointment.status === 'canceled') && (
                                 <>
-                                    <button
-                                        className="delete-icon"
-                                        onClick={() => openDeleteModal(appointment._id)}
-                                    >
+                                    <button className="delete-icon" onClick={() => openDeleteModal(appointment._id)}>
                                         <i className="fas fa-trash"></i>
                                     </button>
                                     {appointment.status === 'pending' && (
@@ -322,74 +280,34 @@ const AppointmentHistory = () => {
                                 </>
                             )}
                             <div className="appointment-details">
-                                <p>
-                                    <span className="label">Date:</span>{' '}
-                                    {new Date(appointment.date).toLocaleDateString()}
-                                </p>
-                                <p>
-                                    <span className="label">Time:</span>{' '}
-                                    {appointment.startTime} - {appointment.endTime}
-                                </p>
+                                <p><span className="label">Date:</span> {new Date(appointment.date).toLocaleDateString()}</p>
+                                <p><span className="label">Time:</span> {appointment.startTime} - {appointment.endTime}</p>
                                 {role === 'student' ? (
                                     <>
-                                        <p>
-                                            <span className="label">Psychiatrist:</span>{' '}
-                                            {appointment.psychiatrist?.username || 'Not specified'} (
-                                            {appointment.psychiatrist?.email || 'Not specified'})
-                                        </p>
-                                        <p>
-                                            <span className="label">Status:</span>{' '}
-                                            {appointment.status || 'Not specified'}
-                                        </p>
+                                        <p><span className="label">Psychiatrist:</span> {appointment.psychiatrist?.username || 'Not specified'} ({appointment.psychiatrist?.email || 'Not specified'})</p>
+                                        <p><span className="label">Status:</span> {appointment.status || 'Not specified'}</p>
                                     </>
                                 ) : role === 'psychiatrist' ? (
                                     <>
-                                        <p>
-                                            <span className="label">Student:</span>{' '}
-                                            {appointment.student?.username || 'Not specified'} (
-                                            {appointment.student?.email || 'Not specified'})
-                                        </p>
+                                        <p><span className="label">Student:</span> {appointment.student?.username || 'Not specified'} ({appointment.student?.email || 'Not specified'})</p>
                                         <div className="status-section">
                                             <span className="label">Status:</span>{' '}
                                             {editingAppointmentId === appointment._id ? (
                                                 <div className="edit-status">
-                                                    <select
-                                                        value={newStatus}
-                                                        onChange={(e) => setNewStatus(e.target.value)}
-                                                    >
+                                                    <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
                                                         <option value="">Select a status</option>
                                                         <option value="pending">Pending</option>
                                                         <option value="confirmed">Confirmed</option>
                                                         <option value="completed">Completed</option>
                                                         <option value="canceled">Canceled</option>
                                                     </select>
-                                                    <Button
-                                                        variant="primary"
-                                                        onClick={() => handleStatusChange(appointment._id)}
-                                                    >
-                                                        Save
-                                                    </Button>
-                                                    <Button
-                                                        variant="secondary"
-                                                        onClick={() => setEditingAppointmentId(null)}
-                                                    >
-                                                        Cancel
-                                                    </Button>
+                                                    <Button variant="primary" onClick={() => handleStatusChange(appointment._id)}>Save</Button>
+                                                    <Button variant="secondary" onClick={() => setEditingAppointmentId(null)}>Cancel</Button>
                                                 </div>
                                             ) : (
                                                 <>
-                                                    <span className={`status ${appointment.status}`}>
-                                                        {appointment.status || 'Not specified'}
-                                                    </span>
-                                                    <Button
-                                                        variant="info"
-                                                        onClick={() => {
-                                                            setEditingAppointmentId(appointment._id);
-                                                            setNewStatus(appointment.status || '');
-                                                        }}
-                                                    >
-                                                        Edit
-                                                    </Button>
+                                                    <span className={`status ${appointment.status}`}>{appointment.status || 'Not specified'}</span>
+                                                    <Button variant="info" onClick={() => { setEditingAppointmentId(appointment._id); setNewStatus(appointment.status || ''); }}>Edit</Button>
                                                 </>
                                             )}
                                         </div>
@@ -405,16 +323,10 @@ const AppointmentHistory = () => {
                 <Modal.Header closeButton>
                     <Modal.Title>Confirm Deletion</Modal.Title>
                 </Modal.Header>
-                <Modal.Body>
-                    Are you sure you want to delete this appointment?
-                </Modal.Body>
+                <Modal.Body>Are you sure you want to delete this appointment?</Modal.Body>
                 <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowModal(false)}>
-                        Cancel
-                    </Button>
-                    <Button variant="danger" onClick={handleDeleteAppointment}>
-                        Delete
-                    </Button>
+                    <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
+                    <Button variant="danger" onClick={handleDeleteAppointment}>Delete</Button>
                 </Modal.Footer>
             </Modal>
 
@@ -458,7 +370,7 @@ const AppointmentHistory = () => {
                             headerToolbar={{
                                 left: 'prev,next today',
                                 center: 'title',
-                                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                                right: 'dayGridMonth,timeGridWeek,timeGridDay',
                             }}
                             selectable={false}
                         />
