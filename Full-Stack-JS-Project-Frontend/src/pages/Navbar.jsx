@@ -187,8 +187,6 @@ const Navbar = () => {
                                         </a>
                                         <ul className="dropdown-menu fade-down">
                                             <li><a className="dropdown-item" href="/about">About Us</a></li>
-                                            <li><a className="dropdown-item" href="/team">Our Team</a></li>
-                                            <li><a className="dropdown-item" href="/AddAvailabilityForm">Add Availability</a></li>
                                             <li><a className="dropdown-item" href="/Forum">Forum</a></li>
                                             <li><a className="dropdown-item" href="/Complaint">Complaint</a></li>
                                             <li><a className="dropdown-item" href="/Associations">Our Associations</a></li>
