@@ -1,30 +1,32 @@
-import React, { useState, useEffect } from 'react'; 
-import axios from 'axios'; 
-import { Box, Typography, useTheme, Button, MenuItem, Select, InputLabel, FormControl, TextField } from '@mui/material'; 
-import { Modal as BootstrapModal } from 'react-bootstrap'; 
-import { toast, ToastContainer } from 'react-toastify'; 
-import 'bootstrap/dist/css/bootstrap.min.css'; 
-import 'react-toastify/dist/ReactToastify.css'; 
-import { tokens } from '../../theme'; 
-import Header from '../../components/Header'; 
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { Box, Typography, useTheme, Button, MenuItem, Select, InputLabel, FormControl, TextField } from '@mui/material';
+import { Modal as BootstrapModal } from 'react-bootstrap';
+import { toast, ToastContainer } from 'react-toastify';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'react-toastify/dist/ReactToastify.css';
+import { tokens } from '../../theme';
+import Header from '../../components/Header';
+import IconButton from '@mui/material/IconButton';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 const Appointment = () => {
-  const theme = useTheme(); 
-  const colors = tokens(theme.palette.mode); 
-  const [appointments, setAppointments] = useState([]); 
-  const [loading, setLoading] = useState(true); 
-  const [error, setError] = useState(null); 
-  const [editingAppointmentId, setEditingAppointmentId] = useState(null); 
-  const [newStatus, setNewStatus] = useState(''); 
-  const [showModal, setShowModal] = useState(false); 
-  const [selectedAppointmentId, setSelectedAppointmentId] = useState(null); 
-  const [currentPage, setCurrentPage] = useState(1); 
-  const appointmentsPerPage = 5; 
+  const theme = useTheme();
+  const colors = tokens(theme.palette.mode);
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [editingAppointmentId, setEditingAppointmentId] = useState(null);
+  const [newStatus, setNewStatus] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const appointmentsPerPage = 5;
 
-  // Filter state 
+  // Filter state
   const [statusFilter, setStatusFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
-  const [dateFilter, setDateFilter] = useState('all'); 
+  const [dateFilter, setDateFilter] = useState('all');
 
   useEffect(() => {
     const fetchAllAppointments = async () => {
@@ -262,14 +264,13 @@ const Appointment = () => {
                       >
                         Change Status
                       </Button>
-                      <Button
-                        variant="contained"
-                        size="small"
+                      <IconButton
                         color="error"
+                        size="small"
                         onClick={() => openDeleteModal(appointment._id)}
                       >
-                        Delete
-                      </Button>
+                        <DeleteIcon />
+                      </IconButton>
                     </Box>
                   )}
                 </Box>
