@@ -281,6 +281,38 @@ module.exports.updateStudentProfile = async (req, res) => {
     }
 };
 
+module.exports.updatePsychiatristDescription = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const { description } = req.body;
+
+        // Vérifier si l'utilisateur existe et est un psychiatre
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "Utilisateur non trouvé" });
+        }
+        if (user.role !== "psychiatrist") {
+            return res.status(403).json({ message: "Action réservée aux psychiatres" });
+        }
+
+        // Vérifier si une description est fournie
+        if (!description) {
+            return res.status(400).json({ message: "La description est requise" });
+        }
+
+        // Mettre à jour la description
+        user.description = description;
+        const updatedUser = await user.save();
+
+        res.status(200).json({
+            message: "Description mise à jour avec succès",
+            user: updatedUser.toObject()
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
 // Mise à jour de la photo de profil
 module.exports.updateStudentPhoto = async (req, res) => {
     upload(req, res, async (err) => {

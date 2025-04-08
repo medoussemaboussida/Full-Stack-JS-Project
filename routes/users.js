@@ -55,7 +55,7 @@ router.get('/banned-users', userController.verifyToken, userController.getBanned
 
 
 
-
+router.put("/psychiatrists/update-description/:id", userController.updatePsychiatristDescription);
 router.get('/psychiatrists', userController.verifyToken, userController.getPsychiatrists);
 router.put('/psychiatrists/add-availability/:id', userController.verifyToken, userController.addAvailability);
 router.delete('/psychiatrists/delete-availability/:id/:index', userController.verifyToken, userController.deleteAvailability);

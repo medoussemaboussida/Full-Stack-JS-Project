@@ -54,6 +54,7 @@ function DetailsStudents() {
     etat: "",
     user_photo: "",
     receiveEmails: true,
+    description: "",
   });
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
@@ -71,6 +72,8 @@ function DetailsStudents() {
   const [selectedStartTime, setSelectedStartTime] = useState("08:00"); // Default start time
   const [selectedEndTime, setSelectedEndTime] = useState("17:00"); // Default end time
   const [selectedDateInfo, setSelectedDateInfo] = useState(null);
+  const [showDescriptionModal, setShowDescriptionModal] = useState(false);
+const [descriptionInput, setDescriptionInput] = useState(formData.description || '');
 
   const BASE_URL = "http://localhost:5000";
   const navigate = useNavigate();
@@ -179,6 +182,7 @@ function DetailsStudents() {
                 etat: data.etat,
                 user_photo: data.user_photo || "",
                 receiveEmails: data.receiveEmails,
+                description: data.description || "", 
               });
               setPreviewPhoto(data.user_photo ? `${BASE_URL}${data.user_photo}` : "assets/img/user.png");
               if (data.availability) {
@@ -222,6 +226,7 @@ function DetailsStudents() {
       etat: user.etat,
       user_photo: user.user_photo || "",
       receiveEmails: user.receiveEmails,
+      description: user.description || "", 
     });
   };
 
@@ -247,6 +252,36 @@ function DetailsStudents() {
       const reader = new FileReader();
       reader.onloadend = () => setPreviewPhoto(reader.result);
       reader.readAsDataURL(file);
+    }
+  };
+  const handleSaveDescription = async () => {
+    if (!descriptionInput.trim()) {
+      toast.error("Description cannot be empty");
+      return;
+    }
+  
+    try {
+      const token = localStorage.getItem("jwt-token");
+      const decoded = jwtDecode(token);
+      const response = await fetch(`${BASE_URL}/users/psychiatrists/update-description/${decoded.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ description: descriptionInput }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setFormData((prev) => ({ ...prev, description: descriptionInput }));
+        setUser((prev) => ({ ...prev, description: descriptionInput }));
+        setShowDescriptionModal(false);
+        toast.success("Description updated successfully");
+      } else {
+        toast.error(`Error updating description: ${data.message}`);
+      }
+    } catch (error) {
+      toast.error("Error updating description");
     }
   };
 
@@ -278,32 +313,45 @@ function DetailsStudents() {
 
   const handleSave = async () => {
     if (!formData.username) {
-      toast.error("Username cannot be empty");
-      return;
+        toast.error("Username cannot be empty");
+        return;
     }
     try {
-      const token = localStorage.getItem("jwt-token");
-      const decoded = jwtDecode(token);
-      const response = await fetch(`${BASE_URL}/users/students/update/${decoded.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setUser(data.user || data.student);
-        setIsEditing(false);
-        toast.success("Profile updated successfully");
-      } else {
-        toast.error(`Error updating profile: ${data.message}`);
-      }
+        const token = localStorage.getItem("jwt-token");
+        const decoded = jwtDecode(token);
+        let endpoint = '';
+        let body = {};
+
+        if (user.role === 'psychiatrist') {
+            endpoint = `${BASE_URL}/users/psychiatrists/update-description/${decoded.id}`;
+            body = { description: formData.description }; // Only send description
+        } else {
+            endpoint = `${BASE_URL}/users/students/update/${decoded.id}`;
+            body = formData; // Full form data for students
+        }
+
+        const response = await fetch(endpoint, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(body),
+        });
+        const data = await response.json();
+        if (response.ok) {
+            setUser(data.user);
+            setIsEditing(false);
+            toast.success("Profile updated successfully");
+        } else {
+            toast.error(`Error updating profile: ${data.message}`);
+        }
     } catch (error) {
-      toast.error("Error updating profile");
+        toast.error("Error updating profile");
     }
-  };
+};
+
+
 
   const handleChangePassword = async () => {
     if (passwordData.newPassword !== passwordData.confirmNewPassword) {
@@ -691,10 +739,32 @@ function DetailsStudents() {
                       ] : []),
                       { title: "Role", name: "role", value: formData.role, disabled: true },
                       { title: "Status", name: "etat", value: formData.etat, disabled: true },
+                      { title: "Description", name: "description", value: formData.description }                     
                     ].map((field, index) => (
                       <div key={index} style={{ background: "#ffffff", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 10px rgba(0, 0, 0, 0.05)" }}>
-                        <h6 style={{ fontSize: "0.95rem", color: "#718096", marginBottom: "10px", fontWeight: "500" }}>{field.title}</h6>
-                        {isEditing ? (
+  <h6 style={{ fontSize: "0.95rem", color: "#718096", marginBottom: "10px", fontWeight: "500" }}>{field.title}</h6>
+  {field.name === "description" && user.role === "psychiatrist" ? (
+    <div 
+      onClick={() => {
+        setDescriptionInput(formData.description || '');
+        setShowDescriptionModal(true);
+      }} 
+      style={{ 
+        cursor: "pointer", 
+        padding: "10px", 
+        border: "1px solid #e2e8f0", 
+        borderRadius: "8px", 
+        backgroundColor: "#f9fafb",
+        minHeight: "100px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: formData.description ? "flex-start" : "center",
+        color: formData.description ? "#2d3748" : "#718096"
+      }}
+    >
+      {formData.description || "Click to add/edit description"}
+    </div>
+  ) : isEditing ? (
                           field.name === "speciality" ? (
                             <select name="speciality" value={formData.speciality} onChange={handleChange} style={{ width: "100%", padding: "10px 15px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
                               <option value="A">A</option>
@@ -719,8 +789,17 @@ function DetailsStudents() {
                               <option value="4">4</option>
                               <option value="5">5</option>
                             </select>
-                          ) : (
-                            <input
+) : field.name === "description" ? (
+  <textarea
+    name="description"
+    value={formData.description}
+    onChange={handleChange}
+    placeholder="Enter your professional description"
+    style={{ width: "100%", padding: "10px 15px", borderRadius: "8px", border: "1px solid #e2e8f0", minHeight: "100px", resize: "vertical" }}
+    maxLength={500}
+  />
+) : (
+                              <input
                               type={field.type || "text"}
                               name={field.name}
                               value={field.value}
@@ -860,6 +939,78 @@ function DetailsStudents() {
             </div>
           </div>
         )}
+        {showDescriptionModal && user.role === "psychiatrist" && (
+  <div style={{ 
+    position: "fixed", 
+    top: 0, 
+    left: 0, 
+    right: 0, 
+    bottom: 0, 
+    backgroundColor: "rgba(0, 0, 0, 0.5)", 
+    display: "flex", 
+    justifyContent: "center", 
+    alignItems: "center", 
+    zIndex: 1000 
+  }}>
+    <div style={{ 
+      backgroundColor: "white", 
+      padding: "20px", 
+      borderRadius: "8px", 
+      width: "500px", 
+      maxWidth: "90%", 
+      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" 
+    }}>
+      <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+        {formData.description ? "Edit Description" : "Add Description"}
+      </h3>
+      <textarea
+        value={descriptionInput}
+        onChange={(e) => setDescriptionInput(e.target.value)}
+        placeholder="Enter your professional description"
+        style={{ 
+          width: "100%", 
+          padding: "10px", 
+          borderRadius: "4px", 
+          border: "1px solid #ccc", 
+          minHeight: "150px", 
+          resize: "vertical",
+          marginBottom: "20px"
+        }}
+        maxLength={500}
+      />
+      <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+        <button 
+          onClick={handleSaveDescription} 
+          style={{ 
+            backgroundColor: "#4CAF50", 
+            color: "white", 
+            padding: "10px 20px", 
+            fontSize: "16px", 
+            border: "none", 
+            cursor: "pointer", 
+            borderRadius: "5px" 
+          }}
+        >
+          Save
+        </button>
+        <button 
+          onClick={() => setShowDescriptionModal(false)} 
+          style={{ 
+            backgroundColor: "#f44336", 
+            color: "white", 
+            padding: "10px 20px", 
+            fontSize: "16px", 
+            border: "none", 
+            cursor: "pointer", 
+            borderRadius: "5px" 
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
         {isChangingPhoto && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0, 0, 0, 0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }}>
