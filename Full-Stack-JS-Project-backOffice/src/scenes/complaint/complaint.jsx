@@ -16,9 +16,24 @@ import { tokens } from "../../theme";
 import Header from "../../components/Header";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ChatIcon from "@mui/icons-material/Chat";
-import ClearIcon from "@mui/icons-material/Clear"; // Icône pour "Clear discussion"
+import ClearIcon from "@mui/icons-material/Clear";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import { Bar } from "react-chartjs-2";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
+// Enregistrer les composants de Chart.js
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 // Fonction pour parser le HTML et le convertir en JSX
 const parseHTMLToJSX = (htmlString) => {
@@ -139,19 +154,34 @@ const AdminComplaints = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
   const [openResponsesModal, setOpenResponsesModal] = useState(false);
-  const [openClearModal, setOpenClearModal] = useState(false); // État pour le modal de confirmation "Clear discussion"
+  const [openClearModal, setOpenClearModal] = useState(false);
+  const [openStatsModal, setOpenStatsModal] = useState(false);
   const [complaintToDelete, setComplaintToDelete] = useState(null);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [responses, setResponses] = useState([]);
   const [newResponse, setNewResponse] = useState("");
   const [adminId, setAdminId] = useState(null);
   const [adminUsername, setAdminUsername] = useState("Admin");
+  const [stats, setStats] = useState({
+    totalComplaints: 0,
+    pendingComplaints: 0,
+    resolvedComplaints: 0,
+    rejectedComplaints: 0,
+  });
+  const [advancedStats, setAdvancedStats] = useState({
+    topUser: { username: "N/A", complaintCount: 0 },
+    complaintsByMonth: [],
+    resolvedComplaints: 0,
+    rejectedComplaints: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
   const chatEndRef = useRef(null);
 
-  // Récupérer toutes les réclamations et l'ID de l'admin
+  // Récupérer toutes les réclamations, l'ID de l'admin et les statistiques
   useEffect(() => {
     const fetchComplaints = async () => {
       try {
+        setIsLoading(true);
         const token = localStorage.getItem("jwt-token");
         if (!token) {
           console.error("No token found.");
@@ -159,29 +189,113 @@ const AdminComplaints = () => {
           return;
         }
 
-        const decodedToken = JSON.parse(atob(token.split('.')[1]));
+        let decodedToken;
+        try {
+          decodedToken = JSON.parse(atob(token.split(".")[1]));
+        } catch (error) {
+          console.error("Erreur lors du décodage du token:", error);
+          toast.error("Invalid token. Please log in again.");
+          return;
+        }
+
         setAdminId(decodedToken.id);
         setAdminUsername(decodedToken.username || "Admin");
 
-        const response = await fetch("http://localhost:5000/complaint/getComplaint", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        const data = await response.json();
-        if (response.ok) {
-          setComplaints(data);
-          setFilteredComplaints(data);
+        const complaintsResponse = await fetch(
+          "http://localhost:5000/complaint/getComplaint",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        const complaintsData = await complaintsResponse.json();
+        if (complaintsResponse.ok) {
+          setComplaints(complaintsData);
+          setFilteredComplaints(complaintsData);
         } else {
-          console.error("Erreur lors de la récupération des réclamations:", data.message);
+          console.error(
+            "Erreur lors de la récupération des réclamations:",
+            complaintsData.message
+          );
+          toast.error("Failed to load complaints: " + complaintsData.message);
+        }
+
+        const statsResponse = await fetch(
+          "http://localhost:5000/complaint/stats",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        const statsData = await statsResponse.json();
+        if (statsResponse.ok) {
+          setStats(statsData);
+        } else {
+          console.error(
+            "Erreur lors de la récupération des statistiques:",
+            statsData.message
+          );
+          toast.error("Failed to load stats: " + statsData.message);
+        }
+
+        const advancedStatsResponse = await fetch(
+          "http://localhost:5000/complaint/advancedStats",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        const advancedStatsData = await advancedStatsResponse.json();
+        if (advancedStatsResponse.ok) {
+          setAdvancedStats(advancedStatsData);
+        } else {
+          console.error(
+            "Erreur lors de la récupération des statistiques avancées:",
+            advancedStatsData.message
+          );
+          toast.error("Failed to load advanced stats: " + advancedStatsData.message);
         }
       } catch (error) {
         console.error("Erreur lors de l'appel API:", error);
+        toast.error("Error loading data!");
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchComplaints();
   }, []);
+
+  // Mettre à jour les statistiques après modification
+  const updateStats = async () => {
+    try {
+      const token = localStorage.getItem("jwt-token");
+      const statsResponse = await fetch(
+        "http://localhost:5000/complaint/stats",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const statsData = await statsResponse.json();
+      if (statsResponse.ok) {
+        setStats(statsData);
+      } else {
+        console.error(
+          "Erreur lors de la mise à jour des statistiques:",
+          statsData.message
+        );
+        toast.error("Failed to update stats: " + statsData.message);
+      }
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour des statistiques:", error);
+      toast.error("Error updating stats!");
+    }
+  };
 
   // Filtrer et trier les réclamations
   useEffect(() => {
@@ -193,12 +307,18 @@ const AdminComplaints = () => {
         const subject = complaint.subject?.toLowerCase() || "";
         const description = complaint.description?.toLowerCase() || "";
         const query = searchQuery.toLowerCase();
-        return userName.includes(query) || subject.includes(query) || description.includes(query);
+        return (
+          userName.includes(query) ||
+          subject.includes(query) ||
+          description.includes(query)
+        );
       });
     }
 
     if (statusFilter !== "all") {
-      updatedComplaints = updatedComplaints.filter((complaint) => complaint.status === statusFilter);
+      updatedComplaints = updatedComplaints.filter(
+        (complaint) => complaint.status === statusFilter
+      );
     }
 
     updatedComplaints.sort((a, b) => {
@@ -225,12 +345,22 @@ const AdminComplaints = () => {
       );
       const data = await response.json();
       if (response.ok) {
-        setComplaints(complaints.filter((complaint) => complaint._id !== complaintId));
-        setFilteredComplaints(filteredComplaints.filter((complaint) => complaint._id !== complaintId));
+        setComplaints(
+          complaints.filter((complaint) => complaint._id !== complaintId)
+        );
+        setFilteredComplaints(
+          filteredComplaints.filter(
+            (complaint) => complaint._id !== complaintId
+          )
+        );
         setOpenDeleteModal(false);
         toast.success("Complaint deleted successfully!");
+        await updateStats();
       } else {
-        console.error("Erreur lors de la suppression de la réclamation:", data.message);
+        console.error(
+          "Erreur lors de la suppression de la réclamation:",
+          data.message
+        );
         toast.error("Failed to delete complaint: " + data.message);
       }
     } catch (error) {
@@ -258,15 +388,20 @@ const AdminComplaints = () => {
       if (response.ok) {
         setComplaints(
           complaints.map((complaint) =>
-            complaint._id === complaintId ? { ...complaint, status: newStatus } : complaint
+            complaint._id === complaintId
+              ? { ...complaint, status: newStatus }
+              : complaint
           )
         );
         setFilteredComplaints(
           filteredComplaints.map((complaint) =>
-            complaint._id === complaintId ? { ...complaint, status: newStatus } : complaint
+            complaint._id === complaintId
+              ? { ...complaint, status: newStatus }
+              : complaint
           )
         );
         toast.success("Complaint status updated successfully!");
+        await updateStats();
       } else {
         console.error("Erreur lors de la mise à jour du statut:", data.message);
         toast.error("Failed to update status: " + data.message);
@@ -292,7 +427,11 @@ const AdminComplaints = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(`Erreur HTTP: ${response.status} - ${errorData.message || "Unknown error"}`);
+        throw new Error(
+          `Erreur HTTP: ${response.status} - ${
+            errorData.message || "Unknown error"
+          }`
+        );
       }
 
       const data = await response.json();
@@ -320,10 +459,13 @@ const AdminComplaints = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(`Erreur HTTP: ${response.status} - ${errorData.message || "Unknown error"}`);
+        throw new Error(
+          `Erreur HTTP: ${response.status} - ${
+            errorData.message || "Unknown error"
+          }`
+        );
       }
 
-      // Vider les réponses dans l'état
       setResponses([]);
       setOpenClearModal(false);
       toast.success("All responses deleted successfully!");
@@ -355,13 +497,11 @@ const AdminComplaints = () => {
 
     const interval = setInterval(async () => {
       const newResponses = await fetchResponses(selectedComplaint._id);
-      // Comparer les réponses pour éviter les mises à jour inutiles
       if (JSON.stringify(newResponses) !== JSON.stringify(responses)) {
         setResponses(newResponses);
       }
-    }, 1000); // Rafraîchir toutes les 5 secondes
+    }, 1000);
 
-    // Nettoyer l'intervalle lorsque le modal est fermé
     return () => clearInterval(interval);
   }, [openResponsesModal, selectedComplaint, responses]);
 
@@ -395,11 +535,14 @@ const AdminComplaints = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(`Erreur HTTP: ${response.status} - ${errorData.message || "Unknown error"}`);
+        throw new Error(
+          `Erreur HTTP: ${response.status} - ${
+            errorData.message || "Unknown error"
+          }`
+        );
       }
 
       const newResponseData = await response.json();
-      // Formater la nouvelle réponse pour correspondre à la structure attendue
       const formattedResponse = {
         ...newResponseData,
         user_id: {
@@ -431,7 +574,10 @@ const AdminComplaints = () => {
     const isToday = now.toDateString() === messageDate.toDateString();
 
     if (isToday) {
-      return messageDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+      return messageDate.toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
     } else {
       return messageDate.toLocaleString("fr-FR", {
         day: "2-digit",
@@ -443,9 +589,190 @@ const AdminComplaints = () => {
     }
   };
 
+  // Données pour le graphique à barres
+  const chartData = {
+    labels: ["Complaints"],
+    datasets: [
+      {
+        label: "Total",
+        data: [stats.totalComplaints],
+        backgroundColor: "#42A5F5",
+        borderColor: "#1E88E5",
+        borderWidth: 1,
+      },
+      {
+        label: "Pending",
+        data: [stats.pendingComplaints],
+        backgroundColor: "#FFCA28",
+        borderColor: "#FFB300",
+        borderWidth: 1,
+      },
+      {
+        label: "Resolved",
+        data: [stats.resolvedComplaints],
+        backgroundColor: "#66BB6A",
+        borderColor: "#43A047",
+        borderWidth: 1,
+      },
+      {
+        label: "Rejected",
+        data: [stats.rejectedComplaints],
+        backgroundColor: "#EF5350",
+        borderColor: "#D32F2F",
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  // Options pour le graphique
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: "top",
+        labels: {
+          color: colors.grey[100],
+        },
+      },
+      title: {
+        display: true,
+        text: "Complaint Statistics",
+        color: colors.grey[100],
+        font: {
+          size: 18,
+        },
+      },
+      tooltip: {
+        backgroundColor: colors.grey[800],
+        titleColor: colors.grey[100],
+        bodyColor: colors.grey[100],
+      },
+    },
+    scales: {
+      x: {
+        ticks: {
+          color: colors.grey[100],
+        },
+        grid: {
+          display: false,
+        },
+      },
+      y: {
+        beginAtZero: true,
+        ticks: {
+          color: colors.grey[100],
+          stepSize: 1,
+        },
+        grid: {
+          color: colors.grey[700],
+        },
+      },
+    },
+  };
+
+  // Fonction pour générer le PDF
+  const generatePDF = () => {
+    const doc = new jsPDF();
+
+    console.log("generatePDF appelé");
+
+    try {
+      const logo = "../../assets/logo.png";
+      const imgWidth = 40;
+      const imgHeight = 10;
+      doc.addImage(logo, "PNG", 160, 13, imgWidth, imgHeight);
+
+      doc.setFontSize(18);
+      doc.text("Rapport Détaillé des Réclamations", 14, 20);
+
+      doc.setFontSize(14);
+      doc.text("Réclamations par mois", 14, 30);
+      const monthlyData = advancedStats.complaintsByMonth.map((item) => [
+        `${item.month}/${item.year}`,
+        item.count,
+      ]);
+      autoTable(doc, {
+        startY: 35,
+        head: [["Mois/Année", "Nombre de réclamations"]],
+        body: monthlyData,
+      });
+
+      let currentY = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(14);
+      doc.text("Statistiques des réclamations", 14, currentY);
+      const statsData = [
+        ["Total", stats.totalComplaints],
+        ["Pending", stats.pendingComplaints],
+        ["Resolved", stats.resolvedComplaints],
+        ["Rejected", stats.rejectedComplaints],
+      ];
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [["Statut", "Nombre"]],
+        body: statsData,
+      });
+
+      currentY = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(14);
+      doc.text("Top Utilisateur", 14, currentY);
+      const topUserData = [
+        [
+          advancedStats.topUser.username,
+          advancedStats.topUser.complaintCount,
+        ],
+      ];
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [["Utilisateur", "Nombre de réclamations"]],
+        body: topUserData,
+      });
+
+      currentY = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(14);
+      doc.text("Liste des réclamations", 14, currentY);
+      const complaintData = complaints.map((complaint) => [
+        complaint.user_id?.username || "Unknown",
+        complaint.subject,
+        complaint.description.substring(0, 50) + "...",
+        complaint.status,
+        new Date(complaint.createdAt).toLocaleString("fr-FR", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      ]);
+      autoTable(doc, {
+        startY: currentY + 5,
+        head: [["Utilisateur", "Sujet", "Description", "Statut", "Date de création"]],
+        body: complaintData,
+      });
+
+      doc.save(`rapport_reclamations_${new Date().toLocaleDateString("fr-FR")}.pdf`);
+    } catch (error) {
+      console.error("Erreur dans generatePDF:", error);
+      toast.error("Erreur lors de la génération du PDF !");
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Box
+        m="20px"
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        height="100vh"
+      >
+        <Typography variant="h5">Loading...</Typography>
+      </Box>
+    );
+  }
+
   return (
     <Box m="20px">
-      {/* Styles spécifiques pour forcer l'affichage des listes et la conversation */}
       <style jsx>{`
         .complaint-description.ck-editor-content ul,
         .complaint-description.ck-editor-content ul li {
@@ -546,7 +873,7 @@ const AdminComplaints = () => {
         subtitle="List of all user complaints"
       />
 
-      <Box display="flex" justifyContent="space-between" mb={2}>
+      <Box display="flex" alignItems="center" gap={2} mb={2}>
         <TextField
           label="Search by username, subject, or description"
           variant="outlined"
@@ -554,7 +881,21 @@ const AdminComplaints = () => {
           onChange={(e) => setSearchQuery(e.target.value)}
           sx={{ width: "300px" }}
         />
-        <Box display="flex" gap={2}>
+        <Button
+          variant="contained"
+          color="warning"
+          onClick={() => setOpenStatsModal(true)}
+        >
+          View Stats
+        </Button>
+        <Button
+          variant="contained"
+          color="warning"
+          onClick={generatePDF}
+        >
+          Download Report
+        </Button>
+        <Box display="flex" gap={2} ml="auto">
           <FormControl sx={{ minWidth: 150 }}>
             <InputLabel>Sort By</InputLabel>
             <Select
@@ -605,7 +946,8 @@ const AdminComplaints = () => {
                     sx={{ width: 30, height: 30 }}
                   />
                   <Typography variant="h5">
-                    <strong>Posted By: </strong> {complaint.user_id?.username || "Unknown"}
+                    <strong>Posted By: </strong>{" "}
+                    {complaint.user_id?.username || "Unknown"}
                     <span
                       style={{
                         backgroundColor: "transparent",
@@ -618,7 +960,8 @@ const AdminComplaints = () => {
                         marginLeft: "8px",
                       }}
                     >
-                      {complaint.user_id?.level || "N/A"} {complaint.user_id?.speciality || "N/A"}
+                      {complaint.user_id?.level || "N/A"}{" "}
+                      {complaint.user_id?.speciality || "N/A"}
                     </span>
                   </Typography>
                 </Box>
@@ -666,7 +1009,9 @@ const AdminComplaints = () => {
                   <FormControl sx={{ minWidth: 120 }}>
                     <Select
                       value={complaint.status}
-                      onChange={(e) => handleUpdateStatus(complaint._id, e.target.value)}
+                      onChange={(e) =>
+                        handleUpdateStatus(complaint._id, e.target.value)
+                      }
                       sx={{
                         height: "30px",
                         color:
@@ -717,7 +1062,6 @@ const AdminComplaints = () => {
         )}
       </Box>
 
-      {/* Modal de confirmation de suppression de la réclamation */}
       <Modal open={openDeleteModal} onClose={() => setOpenDeleteModal(false)}>
         <Box
           sx={{
@@ -737,7 +1081,8 @@ const AdminComplaints = () => {
             Confirm Deletion
           </Typography>
           <Typography variant="body1" mb={2} color="white">
-            Are you sure you want to delete this complaint? This action cannot be undone.
+            Are you sure you want to delete this complaint? This action cannot
+            be undone.
           </Typography>
           <Box display="flex" justifyContent="center" gap={2}>
             <Button
@@ -758,7 +1103,6 @@ const AdminComplaints = () => {
         </Box>
       </Modal>
 
-      {/* Modal de conversation */}
       <Modal open={openResponsesModal} onClose={handleCloseResponsesModal}>
         <Box
           sx={{
@@ -812,7 +1156,11 @@ const AdminComplaints = () => {
                 </Box>
               ))
             ) : (
-              <Typography variant="body2" textAlign="center" color="textSecondary">
+              <Typography
+                variant="body2"
+                textAlign="center"
+                color="textSecondary"
+              >
                 No responses yet.
               </Typography>
             )}
@@ -858,7 +1206,6 @@ const AdminComplaints = () => {
         </Box>
       </Modal>
 
-      {/* Modal de confirmation pour "Clear discussion" */}
       <Modal open={openClearModal} onClose={() => setOpenClearModal(false)}>
         <Box
           sx={{
@@ -878,7 +1225,8 @@ const AdminComplaints = () => {
             Confirm Clear Discussion
           </Typography>
           <Typography variant="body1" mb={2} color="white">
-            Are you sure you want to clear all responses in this conversation? This action cannot be undone.
+            Are you sure you want to clear all responses in this conversation?
+            This action cannot be undone.
           </Typography>
           <Box display="flex" justifyContent="center" gap={2}>
             <Button
@@ -894,6 +1242,66 @@ const AdminComplaints = () => {
               onClick={handleClearDiscussion}
             >
               Clear
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      <Modal open={openStatsModal} onClose={() => setOpenStatsModal(false)}>
+        <Box
+          sx={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            backgroundColor: colors.primary[400],
+            padding: "20px",
+            borderRadius: "8px",
+            width: "600px",
+            maxHeight: "80vh",
+            display: "flex",
+            flexDirection: "column",
+            gap: "15px",
+            boxShadow: 24,
+          }}
+        >
+          <Typography variant="h5" textAlign="center">
+            Complaint Statistics
+          </Typography>
+
+          <Box display="flex" justifyContent="space-around" mb={2}>
+            <Box textAlign="center">
+              <Typography variant="h6" color="#42A5F5">
+                Total: {stats.totalComplaints}
+              </Typography>
+            </Box>
+            <Box textAlign="center">
+              <Typography variant="h6" color="#FFCA28">
+                Pending: {stats.pendingComplaints}
+              </Typography>
+            </Box>
+            <Box textAlign="center">
+              <Typography variant="h6" color="#66BB6A">
+                Resolved: {stats.resolvedComplaints}
+              </Typography>
+            </Box>
+            <Box textAlign="center">
+              <Typography variant="h6" color="#EF5350">
+                Rejected: {stats.rejectedComplaints}
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ height: "400px" }}>
+            <Bar data={chartData} options={chartOptions} />
+          </Box>
+          <Box display="flex" justifyContent="center">
+            <Button
+              variant="contained"
+              color="error"
+              onClick={() => setOpenStatsModal(false)}
+            >
+              Close
             </Button>
           </Box>
         </Box>
