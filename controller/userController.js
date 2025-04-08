@@ -861,6 +861,31 @@ module.exports.addCommentaire = async (req, res) => {
     }
 };
 
+
+// getBannedUsers
+module.exports.getBannedUsers = async (req, res) => {
+    try {
+        // Vérification des permissions
+        if (req.userRole !== "admin" && req.userRole !== "psychiatrist") {
+            return res.status(403).json({ message: "Permission refusée" });
+        }
+
+        // Récupérer les utilisateurs bannis
+        const bannedUsers = await User.find({
+            isBanned: true,
+            banExpiration: { $gte: new Date() } // Seuls les bannissements actifs
+        }).select('username email banExpiration banReason');
+
+        res.status(200).json({
+            message: "Liste des utilisateurs bannis récupérée avec succès",
+            bannedUsers
+        });
+    } catch (err) {
+        console.error("Erreur lors de la récupération des utilisateurs bannis:", err);
+        res.status(500).json({ message: "Erreur serveur", error: err.message });
+    }
+};
+
 // Récupérer les commentaires
 module.exports.getCommentairesByPublication = async (req, res) => {
     try {

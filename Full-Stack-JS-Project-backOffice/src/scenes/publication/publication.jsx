@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Box, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Select, MenuItem, InputLabel, FormControl, Alert, IconButton, InputBase,
-  Divider, Chip, Avatar, Badge, Tooltip, List, ListItem, ListItemText // Ajout de Chip ici
+  Divider, Chip, Avatar, Badge, Tooltip, List, ListItem, ListItemText, ListItemAvatar
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import EditIcon from "@mui/icons-material/Edit";
@@ -21,6 +21,7 @@ import Snackbar from '@mui/material/Snackbar';
 import html2pdf from "html2pdf.js";
 import { useNotification } from "../publication/NotificationContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
+import { QRCodeSVG } from "qrcode.react";
 
 const stripHtmlTags = (str) => {
   if (!str) return "";
@@ -44,6 +45,7 @@ const Publication = () => {
   const [openCommentReportsModal, setOpenCommentReportsModal] = useState(false);
   const [openDeleteConfirmModal, setOpenDeleteConfirmModal] = useState(false);
   const [openBanModal, setOpenBanModal] = useState(false);
+  const [openBannedUsersModal, setOpenBannedUsersModal] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState(null);
   const [selectedComment, setSelectedComment] = useState(null);
   const [comments, setComments] = useState([]);
@@ -59,6 +61,7 @@ const Publication = () => {
   const [banData, setBanData] = useState({ days: "", reason: "", customReason: "" });
   const [userToBan, setUserToBan] = useState(null);
   const [authorStats, setAuthorStats] = useState(null);
+  const [bannedUsers, setBannedUsers] = useState([]);
   const navigate = useNavigate();
   const theme = useTheme();
 
@@ -336,6 +339,38 @@ const Publication = () => {
         message: err.message || "Échec du bannissement de l'utilisateur !",
         severity: "error",
       });
+    }
+  };
+
+  const fetchBannedUsers = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/users/banned-users", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to fetch banned users");
+      const data = await res.json();
+      
+      // Assuming data.bannedUsers contains an array of user objects with basic info
+      // Fetch detailed info for each user if necessary
+      const detailedUsers = await Promise.all(
+        data.bannedUsers.map(async (user) => {
+          const userRes = await fetch(`http://localhost:5000/users/session/${user._id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!userRes.ok) return user; // Fallback to basic data if detailed fetch fails
+          const detailedUser = await userRes.json();
+          return {
+            ...user,
+            ...detailedUser, // Merge detailed data (dob, speciality, etc.)
+          };
+        })
+      );
+      
+      setBannedUsers(detailedUsers);
+      setOpenBannedUsersModal(true);
+    } catch (err) {
+      console.error("❌ Error fetching banned users:", err);
+      setNotification({ open: true, message: "Failed to load banned users", severity: "error" });
     }
   };
 
@@ -878,13 +913,33 @@ const Publication = () => {
         >
           Generate PDF
         </Button>
+        <Button
+          variant="contained"
+          startIcon={<BlockIcon />}
+          onClick={fetchBannedUsers}
+          sx={{
+            backgroundColor: "#ff9800",
+            color: "#fff",
+            "&:hover": { backgroundColor: "#f57c00" },
+            height: "48px",
+            padding: "0 20px",
+            borderRadius: "8px",
+            boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+            transition: "all 0.3s ease",
+            "&:hover": {
+              transform: "translateY(-2px)",
+              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+            },
+          }}
+        >
+          Banned Users
+        </Button>
       </Box>
 
       <Box sx={{ height: 500, width: "100%", minWidth: "1200px" }}>
         <DataGrid checkboxSelection rows={filteredPublications} columns={columns} />
       </Box>
 
-      {/* Affichage des statistiques sous forme de BarChart */}
       {authorStats && authorFilter !== "all" && (
         <Box
           mt={2}
@@ -1789,6 +1844,146 @@ const Publication = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog
+  open={openBannedUsersModal}
+  onClose={() => setOpenBannedUsersModal(false)}
+  maxWidth="md"
+  fullWidth
+  sx={{
+    "& .MuiDialog-paper": {
+      borderRadius: "12px",
+      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+      backgroundColor: "#424242",
+      overflow: "hidden",
+      transition: "all 0.3s ease-in-out",
+    },
+  }}
+>
+  <DialogTitle
+    sx={{
+      fontSize: "1.5rem",
+      fontWeight: "600",
+      textAlign: "center",
+      backgroundColor: "#ff9800",
+      color: "#fff",
+      padding: "16px 24px",
+      borderBottom: "1px solid #616161",
+    }}
+  >
+    Utilisateurs Bannis
+  </DialogTitle>
+  <DialogContent
+    sx={{
+      padding: "24px",
+      backgroundColor: "#424242",
+      color: "#fff",
+      maxHeight: "60vh",
+      overflowY: "auto",
+    }}
+  >
+    {bannedUsers.length > 0 ? (
+      <List>
+        {bannedUsers.map((user) => {
+          // Format detailed user info for QR code
+          const qrContent = `
+Username: ${user.username || "Non défini"}
+Email: ${user.email || "Non défini"}
+Date de naissance: ${user.dob ? new Date(user.dob).toLocaleDateString() : "Non défini"}
+Rôle: ${user.role || "Non défini"}
+Spécialité: ${user.speciality || "Non défini"}
+Niveau: ${user.level || "Non défini"}
+Raison du ban: ${user.banReason || "Non spécifiée"}
+Expiration du ban: ${user.banExpiration ? new Date(user.banExpiration).toLocaleString() : "Non défini"}
+État: ${user.etat || "Non défini"}
+Photo: ${user.user_photo ? "http://localhost:5000" + user.user_photo : "Aucune"}
+          `.trim();
+
+          return (
+            <ListItem
+              key={user._id}
+              sx={{
+                backgroundColor: "#616161",
+                borderRadius: "8px",
+                mb: "8px",
+                "&:hover": { backgroundColor: "#757575" },
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center" }}>
+                <ListItemAvatar>
+                  <Avatar
+                    src={user.user_photo ? `http://localhost:5000${user.user_photo}` : null}
+                    alt={user.username}
+                    sx={{ width: 40, height: 40 }}
+                  />
+                </ListItemAvatar>
+                <ListItemText
+                  primary={user.username || "Utilisateur inconnu"}
+                  secondary={
+                    <>
+                      <Typography component="span" variant="body2" color="#bdbdbd">
+                        Email: {user.email || "Non défini"}
+                      </Typography>
+                      <br />
+                      <Typography component="span" variant="body2" color="#bdbdbd">
+                        Raison: {user.banReason || "Non spécifiée"}
+                      </Typography>
+                      <br />
+                      <Typography component="span" variant="body2" color="#bdbdbd">
+                        Expiration: {user.banExpiration ? new Date(user.banExpiration).toLocaleString() : "Non défini"}
+                      </Typography>
+                    </>
+                  }
+                  primaryTypographyProps={{ color: "#fff", fontWeight: "bold" }}
+                />
+              </Box>
+              <Tooltip title="Scanner pour voir les détails de l'utilisateur">
+                <Box sx={{ p: 1 }}>
+                  <QRCodeSVG
+                    value={qrContent}
+                    size={180}
+                    bgColor="#616161"
+                    fgColor="#fff"
+                    level="H" // High error correction for more data
+                  />
+                </Box>
+              </Tooltip>
+            </ListItem>
+          );
+        })}
+      </List>
+    ) : (
+      <Typography sx={{ textAlign: "center", color: "#bdbdbd", fontSize: "1.2rem" }}>
+        Aucun utilisateur banni pour le moment.
+      </Typography>
+    )}
+  </DialogContent>
+  <DialogActions
+    sx={{
+      padding: "16px 24px",
+      backgroundColor: "#424242",
+      borderTop: "1px solid #616161",
+    }}
+  >
+    <Button
+      onClick={() => setOpenBannedUsersModal(false)}
+      variant="outlined"
+      sx={{
+        fontSize: "1.1rem",
+        color: "#fff",
+        borderColor: "#616161",
+        padding: "8px 16px",
+        borderRadius: "8px",
+        "&:hover": { backgroundColor: "#616161", borderColor: "#757575" },
+      }}
+    >
+      Fermer
+    </Button>
+  </DialogActions>
+</Dialog>
 
       <Dialog open={open} onClose={handleClose}>
         <DialogTitle>{formData.id ? "Update Publication" : "Add Publication"}</DialogTitle>
