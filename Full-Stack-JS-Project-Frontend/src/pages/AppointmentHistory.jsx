@@ -10,6 +10,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import '../App.css';
 import { Pie, Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, LineElement, PointElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
+import { jsPDF } from 'jspdf';
 
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, ArcElement, Title, Tooltip, Legend);
@@ -101,7 +102,7 @@ const AppointmentHistory = () => {
                 )
             );
             setEditingAppointmentId(null);
-            toast.success('Appointment status updated successfully!', { position: 'top-right', autoClose: 3000 }); // Fixed typo
+            toast.success('Appointment status updated successfully!', { position: 'top-right', autoClose: 3000 });
         } catch (err) {
             console.error('Error updating status:', err);
             toast.error(err.response?.data?.message || 'Failed to update status', { position: 'top-right', autoClose: 5000 });
@@ -136,6 +137,9 @@ const AppointmentHistory = () => {
 
     const formatAvailabilitiesToEvents = (availabilities) => {
         const eventsArray = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
         availabilities.forEach((slot, slotIndex) => {
             let startDate;
             if (slot.date) {
@@ -149,6 +153,8 @@ const AppointmentHistory = () => {
                 const daysToAdd = (dayIndex - currentDate.getDay() + 7) % 7;
                 startDate.setDate(currentDate.getDate() + daysToAdd);
             }
+
+            if (startDate < today) return;
 
             const startHour = parseInt(slot.startTime.split(':')[0]);
             const startMinute = parseInt(slot.startTime.split(':')[1]);
@@ -178,12 +184,14 @@ const AppointmentHistory = () => {
                     eventEnd.setDate(eventEnd.getDate() + 1);
                 }
 
-                eventsArray.push({
-                    id: `${slotIndex}-${time}`,
-                    title: slot.title || `Available - ${slot.day}`,
-                    start: eventStart.toISOString(),
-                    end: eventEnd.toISOString(),
-                });
+                if (eventStart >= today) {
+                    eventsArray.push({
+                        id: `${slotIndex}-${time}`,
+                        title: slot.title || `Available - ${slot.day || new Date(slot.date).toLocaleDateString()}`,
+                        start: eventStart.toISOString(),
+                        end: eventEnd.toISOString(),
+                    });
+                }
             }
         });
         return eventsArray;
@@ -330,6 +338,47 @@ const AppointmentHistory = () => {
                 title: { display: true, text: 'Date' }
             }
         }
+    };
+
+    const exportToPDF = () => {
+        const doc = new jsPDF();
+        const { statusCounts, dailyStats } = getStatsData();
+        const today = new Date().toLocaleDateString();
+
+        // Title
+        doc.setFontSize(18);
+        doc.text('Appointment Statistics Report', 20, 20);
+        doc.setFontSize(12);
+        doc.text(`Generated on: ${today}`, 20, 30);
+
+        // Status Distribution
+        doc.setFontSize(14);
+        doc.text('Status Distribution', 20, 40);
+        doc.setFontSize(12);
+        let yPos = 50;
+        Object.entries(statusCounts).forEach(([status, count]) => {
+            doc.text(`${status.charAt(0).toUpperCase() + status.slice(1)}: ${count}`, 30, yPos);
+            yPos += 10;
+        });
+
+        // Daily Appointments
+        doc.setFontSize(14);
+        doc.text('Appointments Over Last 30 Days', 20, yPos + 10);
+        doc.setFontSize(12);
+        yPos += 20;
+        
+        const dailyData = Object.entries(dailyStats);
+        dailyData.forEach(([date, count], index) => {
+            if (index % 25 === 0 && index !== 0) {
+                doc.addPage();
+                yPos = 20;
+            }
+            doc.text(`${date}: ${count} appointment${count !== 1 ? 's' : ''}`, 30, yPos);
+            yPos += 10;
+        });
+
+        // Save the PDF
+        doc.save(`appointment_statistics_${today}.pdf`);
     };
 
     if (loading) return <div className="loading">Loading...</div>;
@@ -575,6 +624,21 @@ const AppointmentHistory = () => {
                     </div>
                 </Modal.Body>
                 <Modal.Footer>
+                    <Button 
+                        variant="success"
+                        onClick={exportToPDF}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            transition: 'transform 0.3s ease-in-out',
+                        }}
+                        onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                        onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                    >
+                        <span role="img" aria-label="download">📥</span>
+                        Export to PDF
+                    </Button>
                     <Button variant="secondary" onClick={() => setShowStatsModal(false)}>
                         Close
                     </Button>
