@@ -126,6 +126,12 @@ function ForumModerate() {
       if (response.ok) {
         toast.success(data.message || "User unbanned successfully!");
         setBannedUsers(bannedUsers.filter((user) => user._id !== banId));
+        // Ajout de la notification pour l'utilisateur débanni
+      const bannedUser = bannedUsers.find((user) => user._id === banId);
+      if (bannedUser && bannedUser.user_id) {
+        const message = `You have been unbanned by a moderator. You can now participate in the forum again.`;
+        addNotification(bannedUser.user_id._id, message, "unban");
+      }
       } else {
         toast.error(data.message || "Failed to unban user!");
       }
@@ -241,6 +247,14 @@ function ForumModerate() {
           )
         );
         toast.success(`Topic ${newStatus === "actif" ? "activated" : "deactivated"} successfully!`);
+        // Ajout de la notification pour l'utilisateur du forum
+      const forum = forums.find((f) => f._id === forumId);
+      if (forum && forum.user_id) {
+        const message = `Your post "${forum.title}" has been ${
+          newStatus === "actif" ? "activated" : "deactivated"
+        } by a moderator.`;
+        addNotification(forum.user_id._id, message, "status_changed");
+      }
       } else {
         console.error("Erreur lors du changement de statut:", data.message);
         toast.error("Failed to change topic status!");

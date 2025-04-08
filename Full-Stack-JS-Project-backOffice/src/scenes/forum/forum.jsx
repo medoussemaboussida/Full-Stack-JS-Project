@@ -6,10 +6,16 @@ import {
   Avatar,
   Button,
   Modal,
+  TextField,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl,
 } from "@mui/material";
 import { tokens } from "../../theme";
 import Header from "../../components/Header";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import DeleteIcon from "@mui/icons-material/Delete";
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -22,6 +28,9 @@ import {
 } from "chart.js";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 // Enregistrer les composants nécessaires pour Chart.js
 ChartJS.register(
   CategoryScale,
@@ -32,10 +41,18 @@ ChartJS.register(
   Legend
 );
 
+// Fonction pour générer l'URL du QR code avec les informations de ban
+const generateQRCodeUrl = (user) => {
+  const qrData = `Username: ${user.user_id.username}\nLevel and Speciality: ${user.user_id.level || 'N/A'} ${user.user_id.speciality || 'N/A'}\nReason of ban: ${user.reason}\nBan expires: ${new Date(user.expiresAt).toLocaleString("fr-FR")}`;
+  const encodedData = encodeURIComponent(qrData);
+  return `https://api.qrserver.com/v1/create-qr-code/?data=${encodedData}&size=120x120`;
+};
+
 const Forum = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const [forums, setForums] = useState([]);
+  const [filteredForums, setFilteredForums] = useState([]);
   const [openModal, setOpenModal] = useState(false);
   const [selectedForum, setSelectedForum] = useState(null);
   const [comments, setComments] = useState([]);
@@ -54,73 +71,238 @@ const Forum = () => {
   const [topPublisher, setTopPublisher] = useState(null);
   const [topCommenter, setTopCommenter] = useState(null);
   const [mostBannedUser, setMostBannedUser] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortOption, setSortOption] = useState("newest");
+  const [openDeleteModal, setOpenDeleteModal] = useState(false);
+  const [forumToDelete, setForumToDelete] = useState(null);
+  const [openDeleteCommentModal, setOpenDeleteCommentModal] = useState(false);
+  const [commentToDelete, setCommentToDelete] = useState(null);
+  const [openBannedListModal, setOpenBannedListModal] = useState(false);
+  const [bannedUsers, setBannedUsers] = useState([]);
+  const [token, setToken] = useState(null);
+  const [openStatsModal, setOpenStatsModal] = useState(false); // Nouvel état pour le modal des stats
 
-  // Récupérer les forums
+  // Récupérer le token et les données initiales
   useEffect(() => {
+    const token = localStorage.getItem("jwt-token");
+    if (token) {
+      setToken(token);
+    } else {
+      toast.error("No token found. Please log in as an admin.");
+    }
+
     const fetchData = async () => {
       try {
-        const response = await fetch("http://localhost:5000/forum/getForum");
-        const data = await response.json();
-        setForums(data);
-      } catch (error) {
-        console.error("Erreur lors de la récupération des données:", error);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  // Récupérer les statistiques
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const response = await fetch("http://localhost:5000/forum/stats");
-        const data = await response.json();
-        setStats({
-          uniquePublishers: data.uniquePublishers || 0,
-          totalComments: data.totalComments || 0,
-          totalReports: data.totalReports || 0,
-          bannedUsers: data.bannedUsers || 0,
+        // Récupérer les forums
+        const forumsResponse = await fetch("http://localhost:5000/forum/getForum", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         });
-      } catch (error) {
-        console.error("Erreur lors de la récupération des stats:", error);
-      }
-    };
+        const forumsData = await forumsResponse.json();
+        setForums(forumsData);
+        setFilteredForums(forumsData);
 
-    fetchStats();
-  }, []);
+        // Récupérer les statistiques
+        const statsResponse = await fetch("http://localhost:5000/forum/stats", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const statsData = await statsResponse.json();
+        setStats({
+          uniquePublishers: statsData.uniquePublishers || 0,
+          totalComments: statsData.totalComments || 0,
+          totalReports: statsData.totalReports || 0,
+          bannedUsers: statsData.bannedUsers || 0,
+        });
 
-  // Récupérer les données pour le rapport PDF
-  useEffect(() => {
-    const fetchReportData = async () => {
-      try {
-        const monthlyResponse = await fetch("http://localhost:5000/forum/monthlyStats");
+        // Récupérer les données pour le rapport PDF
+        const monthlyResponse = await fetch("http://localhost:5000/forum/monthlyStats", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         const monthlyData = await monthlyResponse.json();
         setMonthlyForumPosts(monthlyData);
 
-        const publisherResponse = await fetch("http://localhost:5000/forum/topPublisher");
+        const publisherResponse = await fetch("http://localhost:5000/forum/topPublisher", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         const publisherData = await publisherResponse.json();
         setTopPublisher(publisherData);
 
-        const commenterResponse = await fetch("http://localhost:5000/forumComment/topCommenter");
+        const commenterResponse = await fetch("http://localhost:5000/forumComment/topCommenter", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         const commenterData = await commenterResponse.json();
         setTopCommenter(commenterData);
 
-        const bannedResponse = await fetch("http://localhost:5000/forum/mostBannedUser");
+        const bannedResponse = await fetch("http://localhost:5000/forum/mostBannedUser", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         const bannedData = await bannedResponse.json();
         setMostBannedUser(bannedData);
       } catch (error) {
-        console.error("Erreur lors de la récupération des données du rapport:", error);
+        console.error("Erreur lors de la récupération des données:", error);
+        toast.error("Error loading data!");
       }
     };
 
-    fetchReportData();
+    if (token) {
+      fetchData();
+    }
   }, []);
+
+  // Filtrer et trier les forums
+  useEffect(() => {
+    let updatedForums = [...forums];
+
+    if (searchQuery) {
+      updatedForums = updatedForums.filter((forum) => {
+        const title = forum.title?.toLowerCase() || "";
+        const description = forum.description?.toLowerCase() || "";
+        const username = forum.user_id?.username?.toLowerCase() || "";
+        const query = searchQuery.toLowerCase();
+        return (
+          title.includes(query) ||
+          description.includes(query) ||
+          username.includes(query)
+        );
+      });
+    }
+
+    updatedForums.sort((a, b) => {
+      const dateA = new Date(a.createdAt);
+      const dateB = new Date(b.createdAt);
+      return sortOption === "newest" ? dateB - dateA : dateA - dateB;
+    });
+
+    setFilteredForums(updatedForums);
+  }, [searchQuery, sortOption, forums]);
+
+  // Récupérer les utilisateurs bannis
+  const fetchBannedUsers = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/forum/banned-users", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setBannedUsers(data.bannedUsers);
+        setOpenBannedListModal(true);
+      } else {
+        toast.error("Failed to fetch banned users!");
+      }
+    } catch (error) {
+      console.error("Erreur lors de la récupération des utilisateurs bannis:", error);
+      toast.error("Error fetching banned users!");
+    }
+  };
+
+  // Supprimer un forum
+  const handleDeleteForum = async (forumId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/forum/deleteForum/${forumId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setForums(forums.filter((forum) => forum._id !== forumId));
+        setFilteredForums(filteredForums.filter((forum) => forum._id !== forumId));
+        setOpenDeleteModal(false);
+        toast.success("Forum deleted successfully!");
+      } else {
+        toast.error(data.message || "Failed to delete forum");
+      }
+    } catch (error) {
+      console.error("Error deleting forum:", error);
+      toast.error("Error deleting forum");
+    }
+  };
+
+  // Supprimer un commentaire
+  const handleDeleteComment = async (commentId) => {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/forumComment/deleteComment/${commentId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+      if (response.ok) {
+        setComments(comments.filter((comment) => comment._id !== commentId));
+        setOpenDeleteCommentModal(false);
+        toast.success("Comment deleted successfully!");
+      } else {
+        toast.error(data.message || "Failed to delete comment");
+      }
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      toast.error("Error deleting comment");
+    }
+  };
+
+  // Changer le statut d'un forum
+  const handleChangeStatus = async (forumId, newStatus) => {
+    try {
+      const response = await fetch(`http://localhost:5000/forum/changeStatus/${forumId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setForums(
+          forums.map((forum) =>
+            forum._id === forumId ? { ...forum, status: newStatus } : forum
+          )
+        );
+        setFilteredForums(
+          filteredForums.map((forum) =>
+            forum._id === forumId ? { ...forum, status: newStatus } : forum
+          )
+        );
+        toast.success(`Forum status changed to ${newStatus}!`);
+      } else {
+        toast.error(data.message || "Failed to change forum status");
+      }
+    } catch (error) {
+      console.error("Error changing status:", error);
+      toast.error("Error changing forum status");
+    }
+  };
 
   const handleViewComments = async (forumId) => {
     try {
       const response = await fetch(
-        `http://localhost:5000/forumComment/getComment/${forumId}`
+        `http://localhost:5000/forumComment/getComment/${forumId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
       const data = await response.json();
       setComments(data);
@@ -128,6 +310,7 @@ const Forum = () => {
       setOpenModal(true);
     } catch (error) {
       console.error("Erreur lors de la récupération des commentaires:", error);
+      toast.error("Error loading comments!");
     }
   };
 
@@ -140,7 +323,12 @@ const Forum = () => {
   const handleViewReports = async (forumId) => {
     try {
       const response = await fetch(
-        `http://localhost:5000/forum/getForumReports/${forumId}`
+        `http://localhost:5000/forum/getForumReports/${forumId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
       const data = await response.json();
       if (response.ok) {
@@ -148,17 +336,23 @@ const Forum = () => {
         setSelectedForum(forumId);
         setOpenReportModal(true);
       } else {
-        console.error("Erreur lors de la récupération des rapports:", data.message);
+        toast.error("Failed to fetch reports: " + data.message);
       }
     } catch (error) {
       console.error("Erreur lors de l'appel API:", error);
+      toast.error("Error fetching reports!");
     }
   };
 
   const handleViewCommentReports = async (commentId) => {
     try {
       const response = await fetch(
-        `http://localhost:5000/forumComment/getCommentReports/${commentId}`
+        `http://localhost:5000/forumComment/getCommentReports/${commentId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
       const data = await response.json();
       if (response.ok) {
@@ -166,10 +360,11 @@ const Forum = () => {
         setSelectedComment(commentId);
         setOpenCommentReportModal(true);
       } else {
-        console.error("Erreur lors de la récupération des signalements:", data.message);
+        toast.error("Failed to fetch comment reports: " + data.message);
       }
     } catch (error) {
       console.error("Erreur lors de l'appel API:", error);
+      toast.error("Error fetching comment reports!");
     }
   };
 
@@ -184,34 +379,31 @@ const Forum = () => {
     setSelectedForum(null);
     setReports([]);
   };
+
   const generatePDF = () => {
     const doc = new jsPDF();
-  
-    console.log("generatePDF appelé");
-  
+
     try {
-      // Ajouter le logo
-      const logo = `../../assets/logo.png`; // Ajuste si nécessaire
-    const imgWidth = 40; // Largeur du logo en mm (ajuste selon tes besoins)
-    const imgHeight = 10; // Hauteur du logo en mm (ajuste selon tes besoins)
-    doc.addImage(logo, "PNG", 160, 13, imgWidth, imgHeight); // Position (x: 14, y: 10)
+      const logo = `../../assets/logo.png`;
+      const imgWidth = 40;
+      const imgHeight = 10;
+      doc.addImage(logo, "PNG", 160, 13, imgWidth, imgHeight);
 
       doc.setFontSize(18);
       doc.text("Rapport Détaillé du Forum", 14, 20);
-  
+
       doc.setFontSize(14);
       doc.text("Forums publiés par mois", 14, 30);
       const monthlyData = Object.entries(monthlyForumPosts).map(([month, count]) => [
         month,
         count,
       ]);
-      console.log("monthlyData:", monthlyData);
       autoTable(doc, {
         startY: 35,
         head: [["Mois", "Nombre de publications"]],
         body: monthlyData,
       });
-  
+
       let currentY = doc.lastAutoTable.finalY + 10;
       doc.setFontSize(14);
       doc.text("Nombre de commentaires par forum", 14, currentY);
@@ -219,13 +411,12 @@ const Forum = () => {
         forum.title,
         forum.commentCount || 0,
       ]);
-      console.log("commentData:", commentData);
       autoTable(doc, {
         startY: currentY + 5,
         head: [["Forum", "Nombre de commentaires"]],
         body: commentData,
       });
-  
+
       currentY = doc.lastAutoTable.finalY + 10;
       doc.setFontSize(14);
       doc.text("Top Utilisateurs", 14, currentY);
@@ -234,13 +425,12 @@ const Forum = () => {
         ["Top Commenter", topCommenter?.username || "N/A", topCommenter?.commentCount || 0],
         ["Most Banned", mostBannedUser?.username || "N/A", mostBannedUser?.banCount || 0],
       ];
-      console.log("topUsersData:", topUsersData);
       autoTable(doc, {
         startY: currentY + 5,
         head: [["Catégorie", "Utilisateur", "Nombre"]],
         body: topUsersData,
       });
-  
+
       currentY = doc.lastAutoTable.finalY + 10;
       doc.setFontSize(14);
       doc.text("Signalements par forum", 14, currentY);
@@ -248,13 +438,12 @@ const Forum = () => {
         forum.title,
         forum.reportCount || 0,
       ]);
-      console.log("reportData:", reportData);
       autoTable(doc, {
         startY: currentY + 5,
         head: [["Forum", "Nombre de signalements"]],
         body: reportData,
       });
-  
+
       currentY = doc.lastAutoTable.finalY + 10;
       doc.setFontSize(14);
       doc.text("Signalements des commentaires", 14, currentY);
@@ -262,17 +451,16 @@ const Forum = () => {
         comment.content.substring(0, 30) + "...",
         comment.reportCount || 0,
       ]);
-      console.log("commentReportData:", commentReportData);
       autoTable(doc, {
         startY: currentY + 5,
         head: [["Commentaire", "Nombre de signalements"]],
         body: commentReportData,
       });
-  
-      console.log("PDF prêt à être sauvegardé");
+
       doc.save(`rapport_forum_${new Date().toLocaleDateString("fr-FR")}.pdf`);
     } catch (error) {
       console.error("Erreur dans generatePDF:", error);
+      toast.error("Error generating PDF!");
     }
   };
 
@@ -350,21 +538,64 @@ const Forum = () => {
 
   return (
     <Box m="20px">
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
       <Header
         title="FORUM MANAGEMENT"
         subtitle="List of forum topics and their comments"
       />
-      <Box display="flex" justifyContent="flex-end" mb={2}>
+      <Box display="flex" alignItems="center" gap={2} mb={2}>
+        <TextField
+          label="Search by title, description, or username"
+          variant="outlined"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          sx={{ width: "300px" }}
+        />
+        <FormControl sx={{ minWidth: 150 }}>
+          <InputLabel>Sort By</InputLabel>
+          <Select
+            value={sortOption}
+            onChange={(e) => setSortOption(e.target.value)}
+            label="Sort By"
+          >
+            <MenuItem value="newest">Newest</MenuItem>
+            <MenuItem value="oldest">Oldest</MenuItem>
+          </Select>
+        </FormControl>
+        <Button
+          variant="contained"
+          color="warning"
+          onClick={fetchBannedUsers}
+        >
+          View Banned Users
+        </Button>
+        <Button
+          variant="contained"
+          color="info"
+          onClick={() => setOpenStatsModal(true)} // Ouvre le modal des stats
+        >
+          View Statistics
+        </Button>
         <Button
           variant="contained"
           color="warning"
           onClick={generatePDF}
         >
-          Download report
+          Download Report
         </Button>
       </Box>
       <Box mt={4}>
-        {forums.map((forum, index) => (
+        {filteredForums.map((forum, index) => (
           <Box
             key={index}
             display="flex"
@@ -374,6 +605,7 @@ const Forum = () => {
             borderRadius={2}
             mb={2}
             boxShadow={3}
+            sx={{ opacity: forum.status === "inactif" ? 0.5 : 1 }}
           >
             {forum.forum_photo && (
               <img
@@ -389,7 +621,7 @@ const Forum = () => {
                 }}
               />
             )}
-            <Box>
+            <Box flex={1}>
               <Box display="flex" alignItems="center" gap={2}>
                 <Typography variant="h4">
                   <strong>Forum topic : </strong> {forum.title}
@@ -440,38 +672,61 @@ const Forum = () => {
                 </Typography>
               </Box>
               <br />
-              <Button
-                variant="contained"
-                color="info"
-                size="medium"
-                startIcon={<VisibilityIcon />}
-                onClick={() => handleViewComments(forum._id)}
-              >
-                View comments
-              </Button>{" "}
-              <Button
-                variant="contained"
-                color="warning"
-                size="medium"
-                startIcon={<VisibilityIcon />}
-                onClick={() => handleViewReports(forum._id)}
-              >
-                View Reports
-              </Button>
+              <Typography variant="body2">
+                <strong>Status: </strong>
+                <span style={{ color: forum.status === "actif" ? "green" : "red" }}>
+                  {forum.status}
+                </span>
+              </Typography>
+              <br />
+              <Box display="flex" gap={2}>
+                <Button
+                  variant="contained"
+                  color="info"
+                  size="medium"
+                  startIcon={<VisibilityIcon />}
+                  onClick={() => handleViewComments(forum._id)}
+                >
+                  View Comments
+                </Button>
+                <Button
+                  variant="contained"
+                  color="warning"
+                  size="medium"
+                  startIcon={<VisibilityIcon />}
+                  onClick={() => handleViewReports(forum._id)}
+                >
+                  View Reports
+                </Button>
+                <Button
+                  variant="contained"
+                  color={forum.status === "actif" ? "error" : "success"}
+                  size="medium"
+                  onClick={() =>
+                    handleChangeStatus(forum._id, forum.status === "actif" ? "inactif" : "actif")
+                  }
+                >
+                  {forum.status === "actif" ? "Deactivate" : "Activate"}
+                </Button>
+                <Button
+                  variant="contained"
+                  color="error"
+                  size="medium"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => {
+                    setForumToDelete(forum._id);
+                    setOpenDeleteModal(true);
+                  }}
+                >
+                  Delete
+                </Button>
+              </Box>
             </Box>
           </Box>
         ))}
       </Box>
 
-      <Box mt={4} p={2} bgcolor={colors.primary[400]} borderRadius={2} boxShadow={3}>
-        <Typography variant="h4" mb={2}>
-          Forum Statistics
-        </Typography>
-        <Box sx={{ maxWidth: "600px", margin: "0 auto" }}>
-          <Bar data={chartData} options={chartOptions} />
-        </Box>
-      </Box>
-
+      {/* Modal pour les commentaires */}
       <Modal open={openModal} onClose={handleCloseModal}>
         <Box
           sx={{
@@ -544,6 +799,18 @@ const Forum = () => {
                   >
                     View Reports
                   </Button>
+                  <Button
+                    variant="contained"
+                    color="error"
+                    size="small"
+                    startIcon={<DeleteIcon />}
+                    onClick={() => {
+                      setCommentToDelete(comment._id);
+                      setOpenDeleteCommentModal(true);
+                    }}
+                  >
+                    Delete
+                  </Button>
                 </Box>
               </Box>
             ))
@@ -562,6 +829,89 @@ const Forum = () => {
         </Box>
       </Modal>
 
+      {/* Modal pour confirmer la suppression d'un forum */}
+      <Modal open={openDeleteModal} onClose={() => setOpenDeleteModal(false)}>
+        <Box
+          sx={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            backgroundColor: "black",
+            padding: "20px",
+            borderRadius: "8px",
+            width: "40%",
+            maxHeight: "80%",
+            overflowY: "auto",
+          }}
+        >
+          <Typography variant="h5" mb={2} color="white">
+            Confirm Deletion
+          </Typography>
+          <Typography variant="body1" mb={2} color="white">
+            Are you sure you want to delete this forum topic? This action cannot be undone.
+          </Typography>
+          <Box display="flex" justifyContent="center" gap={2}>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={() => setOpenDeleteModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="success"
+              onClick={() => handleDeleteForum(forumToDelete)}
+            >
+              Delete
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      {/* Modal pour confirmer la suppression d'un commentaire */}
+      <Modal open={openDeleteCommentModal} onClose={() => setOpenDeleteCommentModal(false)}>
+        <Box
+          sx={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            backgroundColor: "black",
+            padding: "20px",
+            borderRadius: "8px",
+            width: "40%",
+            maxHeight: "80%",
+            overflowY: "auto",
+          }}
+        >
+          <Typography variant="h5" mb={2} color="white">
+            Confirm Deletion
+          </Typography>
+          <Typography variant="body1" mb={2} color="white">
+            Are you sure you want to delete this comment? This action cannot be undone.
+          </Typography>
+          <Box display="flex" justifyContent="center" gap={2}>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={() => setOpenDeleteCommentModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="success"
+              onClick={() => handleDeleteComment(commentToDelete)}
+            >
+              Delete
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      {/* Modal pour les signalements d'un forum */}
       <Modal open={openReportModal} onClose={handleCloseReportModal}>
         <Box
           sx={{
@@ -574,7 +924,7 @@ const Forum = () => {
             borderRadius: "8px",
             width: "60%",
             maxHeight: "80%",
-            overflowY: comments.length > 3 ? "auto" : "visible",
+            overflowY: reports.length > 3 ? "auto" : "visible",
           }}
         >
           <Typography variant="h5" mb={2}>
@@ -642,6 +992,7 @@ const Forum = () => {
         </Box>
       </Modal>
 
+      {/* Modal pour les signalements d'un commentaire */}
       <Modal open={openCommentReportModal} onClose={handleCloseCommentReportModal}>
         <Box
           sx={{
@@ -654,14 +1005,14 @@ const Forum = () => {
             borderRadius: "8px",
             width: "60%",
             maxHeight: "80%",
-            overflowY: comments.length > 3 ? "auto" : "visible",
+            overflowY: commentReports.length > 3 ? "auto" : "visible",
           }}
         >
           <Typography variant="h5" mb={2}>
             Reports for Comment
           </Typography>
           {commentReports.length > 0 ? (
-            comments.map((report, index) => (
+            commentReports.map((report, index) => (
               <Box
                 key={index}
                 mb={2}
@@ -671,7 +1022,7 @@ const Forum = () => {
                 boxShadow={3}
               >
                 <Typography variant="h6">
-                  <strong>Posted By :</strong>{" "}
+                  <strong>Reported By :</strong>{" "}
                   <Box display="flex" alignItems="center" gap={1}>
                     {report.user_id?.username || "Unknown User (ID: " + report.user_id + ")"}
                     {report.user_id && report.user_id.level && report.user_id.speciality && (
@@ -714,6 +1065,102 @@ const Forum = () => {
               variant="contained"
               color="error"
               onClick={handleCloseCommentReportModal}
+            >
+              Close
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      {/* Modal pour la liste des utilisateurs bannis */}
+      <Modal open={openBannedListModal} onClose={() => setOpenBannedListModal(false)}>
+        <Box
+          sx={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            backgroundColor: "black",
+            padding: "20px",
+            borderRadius: "8px",
+            width: "60%",
+            maxHeight: "80%",
+            overflowY: bannedUsers.length > 3 ? "auto" : "visible",
+          }}
+        >
+          <Typography variant="h5" mb={2}>
+            Banned Users List
+          </Typography>
+          {bannedUsers.length > 0 ? (
+            bannedUsers.map((user, index) => (
+              <Box
+                key={index}
+                mb={2}
+                p={2}
+                bgcolor={colors.primary[400]}
+                borderRadius={2}
+                boxShadow={3}
+                display="flex"
+                alignItems="center"
+                justifyContent="space-between"
+              >
+                <Box>
+                  <Typography variant="h6">
+                    <strong>Username:</strong> {user.user_id?.username}
+                  </Typography>
+                </Box>
+                <img
+                  src={generateQRCodeUrl(user)}
+                  alt="QR Code for ban info"
+                  style={{
+                    width: "90px",
+                    height: "90px",
+                  }}
+                />
+              </Box>
+            ))
+          ) : (
+            <Typography variant="body2">No banned users found.</Typography>
+          )}
+          <Box display="flex" justifyContent="center" mt={2}>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={() => setOpenBannedListModal(false)}
+            >
+              Close
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      {/* Modal pour les statistiques */}
+      <Modal open={openStatsModal} onClose={() => setOpenStatsModal(false)}>
+        <Box
+          sx={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            backgroundColor: "black",
+            padding: "20px",
+            borderRadius: "8px",
+            width: "60%",
+            maxHeight: "80%",
+            overflowY: "auto",
+          }}
+        >
+          <Typography variant="h5" mb={2} color="white">
+            Forum Statistics
+          </Typography>
+          <Box sx={{ maxWidth: "600px", margin: "0 auto" }}>
+            <Bar data={chartData} options={chartOptions} />
+          </Box>
+          <Box display="flex" justifyContent="center" mt={2}>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={() => setOpenStatsModal(false)}
             >
               Close
             </Button>
