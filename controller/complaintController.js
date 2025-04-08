@@ -191,3 +191,110 @@ module.exports.updateComplaintStatus = async (req, res) => {
   }
 };
 
+// Nouvelle méthode pour récupérer les statistiques des réclamations
+module.exports.getComplaintStats = async (req, res) => {
+  try {
+    // Compter le nombre total de réclamations
+    const totalComplaints = await Complaint.countDocuments();
+
+    // Compter les réclamations par statut
+    const pendingComplaints = await Complaint.countDocuments({ status: "pending" });
+    const resolvedComplaints = await Complaint.countDocuments({ status: "resolved" });
+    const rejectedComplaints = await Complaint.countDocuments({ status: "rejected" });
+
+    // Créer un objet avec les statistiques
+    const stats = {
+      totalComplaints,
+      pendingComplaints,
+      resolvedComplaints,
+      rejectedComplaints,
+    };
+
+    // Répondre avec les statistiques
+    res.status(200).json(stats);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Nouvelle méthode pour récupérer des statistiques avancées sur les réclamations
+module.exports.getAdvancedComplaintStats = async (req, res) => {
+  try {
+    // 1. Top utilisateur ayant soumis le plus de réclamations
+    const topUser = await Complaint.aggregate([
+      {
+        $group: {
+          _id: "$user_id", // Grouper par user_id
+          complaintCount: { $sum: 1 }, // Compter le nombre de réclamations par utilisateur
+        },
+      },
+      {
+        $sort: { complaintCount: -1 }, // Trier par nombre de réclamations (décroissant)
+      },
+      {
+        $limit: 1, // Prendre uniquement le premier (le top utilisateur)
+      },
+      {
+        $lookup: {
+          from: "users", // Collection des utilisateurs
+          localField: "_id",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      {
+        $unwind: "$user", // Décomposer le tableau "user" généré par $lookup
+      },
+      {
+        $project: {
+          username: "$user.username",
+          complaintCount: 1,
+          _id: 0,
+        },
+      },
+    ]);
+
+    // 2. Nombre de réclamations par mois (sur l'année en cours, par exemple)
+    const complaintsByMonth = await Complaint.aggregate([
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { "_id.year": 1, "_id.month": 1 }, // Trier par année et mois
+      },
+      {
+        $project: {
+          year: "$_id.year",
+          month: "$_id.month",
+          count: 1,
+          _id: 0,
+        },
+      },
+    ]);
+
+    // 3. Nombre de réclamations résolues
+    const resolvedComplaints = await Complaint.countDocuments({ status: "resolved" });
+
+    // 4. Nombre de réclamations rejetées
+    const rejectedComplaints = await Complaint.countDocuments({ status: "rejected" });
+
+    // Créer un objet avec les statistiques avancées
+    const advancedStats = {
+      topUser: topUser.length > 0 ? topUser[0] : { username: "N/A", complaintCount: 0 }, // Si aucun utilisateur, renvoyer un objet par défaut
+      complaintsByMonth,
+      resolvedComplaints,
+      rejectedComplaints,
+    };
+
+    // Répondre avec les statistiques avancées
+    res.status(200).json(advancedStats);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
