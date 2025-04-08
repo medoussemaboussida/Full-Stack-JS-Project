@@ -12,10 +12,10 @@ router.post("/reportForum", forumController.addReportForum);
 router.get("/getForumReports/:forumId", forumController.getForumReports);
 router.delete("/reports/:reportId", forumController.deleteForumReport); 
 router.put('/changeStatus/:forum_id', forumController.changeForumStatus);
-router.post("/ban", forumController.banUser); 
-router.delete("/unban/:banId", forumController.unbanUser); 
-router.get("/banned-users", forumController.getBannedUsers); 
-router.get("/checkBan/:userId", forumController.checkBan);
+router.post("/ban", forumController.banUser); //ban
+router.delete("/unban/:banId", forumController.unbanUser); //delete ban
+router.get("/banned-users", forumController.getBannedUsers); //list of all banned users
+router.get("/checkBan/:userId", forumController.checkBan); //ban of a user
 router.post("/togglePinForum/:forum_id/:user_id", forumController.togglePinForum); 
 router.post("/toggleLikeForum/:forum_id/:user_id", forumController.toggleLikeForum); 
 router.get("/stats", forumController.getForumStats);
