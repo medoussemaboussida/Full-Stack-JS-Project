@@ -8,6 +8,11 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import 'react-toastify/dist/ReactToastify.css';
 import '../App.css';
+import { Pie, Line } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, LineElement, PointElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
+
+// Register Chart.js components
+ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, ArcElement, Title, Tooltip, Legend);
 
 const AppointmentHistory = () => {
     const [appointments, setAppointments] = useState([]);
@@ -25,6 +30,7 @@ const AppointmentHistory = () => {
     const [searchName, setSearchName] = useState('');
     const [userId, setUserId] = useState(null);
     const [dateSort, setDateSort] = useState('recent');
+    const [showStatsModal, setShowStatsModal] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -37,7 +43,7 @@ const AppointmentHistory = () => {
                 }
 
                 const appointmentResponse = await axios.get('http://localhost:5000/users/appointments/history', { 
-                                       headers: { 'Authorization': `Bearer ${token}` },
+                    headers: { 'Authorization': `Bearer ${token}` },
                     params: { statusFilter, searchName },
                 });
                 let fetchedAppointments = appointmentResponse.data.appointments;
@@ -95,7 +101,7 @@ const AppointmentHistory = () => {
                 )
             );
             setEditingAppointmentId(null);
-            toast.success('Appointment status updated successfully!', { position: 'top-right', autoClose: 3000 });
+            toast.success('Appointment status updated successfully!', { position: 'top-right', autoClose: 3000 }); // Fixed typo
         } catch (err) {
             console.error('Error updating status:', err);
             toast.error(err.response?.data?.message || 'Failed to update status', { position: 'top-right', autoClose: 5000 });
@@ -224,7 +230,106 @@ const AppointmentHistory = () => {
         const appointmentDate = new Date(appointment.date);
         const timeDiff = now - appointmentDate;
         const hoursDiff = timeDiff / (1000 * 60 * 60);
-        return hoursDiff < 24 && appointment.status === 'pending'; // New if within 24 hours and pending
+        return hoursDiff < 24 && appointment.status === 'pending';
+    };
+
+    const getStatsData = () => {
+        const statusCounts = {
+            pending: 0,
+            confirmed: 0,
+            completed: 0,
+            canceled: 0
+        };
+
+        const dailyStats = {};
+        const today = new Date();
+        for (let i = 29; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(today.getDate() - i);
+            const dateStr = date.toISOString().split('T')[0];
+            dailyStats[dateStr] = 0;
+        }
+
+        appointments.forEach(appointment => {
+            statusCounts[appointment.status]++;
+            const appointmentDate = new Date(appointment.date).toISOString().split('T')[0];
+            if (dailyStats.hasOwnProperty(appointmentDate)) {
+                dailyStats[appointmentDate]++;
+            }
+        });
+
+        return { statusCounts, dailyStats };
+    };
+
+    const pieChartData = () => {
+        const { statusCounts } = getStatsData();
+        return {
+            labels: ['Pending', 'Confirmed', 'Completed', 'Canceled'],
+            datasets: [{
+                data: [
+                    statusCounts.pending,
+                    statusCounts.confirmed,
+                    statusCounts.completed,
+                    statusCounts.canceled
+                ],
+                backgroundColor: [
+                    'rgba(255, 206, 86, 0.6)',
+                    'rgba(54, 162, 235, 0.6)',
+                    'rgba(75, 192, 192, 0.6)',
+                    'rgba(255, 99, 132, 0.6)'
+                ],
+                borderColor: [
+                    'rgba(255, 206, 86, 1)',
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(255, 99, 132, 1)'
+                ],
+                borderWidth: 1
+            }]
+        };
+    };
+
+    const lineChartData = () => {
+        const { dailyStats } = getStatsData();
+        const labels = Object.keys(dailyStats);
+        const data = Object.values(dailyStats);
+        
+        return {
+            labels,
+            datasets: [{
+                label: 'Daily Appointments',
+                data,
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                fill: true,
+                tension: 0.1,
+            }]
+        };
+    };
+
+    const pieChartOptions = {
+        responsive: true,
+        plugins: {
+            legend: { position: 'top' },
+            title: { display: true, text: 'Appointment Status Distribution' }
+        }
+    };
+
+    const lineChartOptions = {
+        responsive: true,
+        plugins: {
+            legend: { position: 'top' },
+            title: { display: true, text: 'Appointments Over Last 30 Days' }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: { display: true, text: 'Number of Appointments' }
+            },
+            x: {
+                title: { display: true, text: 'Date' }
+            }
+        }
     };
 
     if (loading) return <div className="loading">Loading...</div>;
@@ -234,6 +339,32 @@ const AppointmentHistory = () => {
         <div className="appointment-history-container">
             <ToastContainer />
             <h2>Appointment History</h2>
+
+            {/* Centered Animated Statistics Button with Emoji */}
+            {role === 'psychiatrist' && (
+                <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    marginBottom: '20px' 
+                }}>
+                    <Button 
+                        variant="primary"
+                        onClick={() => setShowStatsModal(true)}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '10px 20px',
+                            transition: 'transform 0.3s ease-in-out',
+                        }}
+                        onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                        onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                    >
+                        <span role="img" aria-label="chart">📊</span>
+                        Statistics
+                    </Button>
+                </div>
+            )}
 
             <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
                 <select
@@ -417,6 +548,38 @@ const AppointmentHistory = () => {
                     </div>
                 </div>
             )}
+
+            <Modal 
+                show={showStatsModal} 
+                onHide={() => setShowStatsModal(false)}
+                size="lg"
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>Appointment Statistics</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <div style={{ marginBottom: '30px' }}>
+                        <h4>Status Distribution (Pie Chart)</h4>
+                        <Pie 
+                            data={pieChartData()}
+                            options={pieChartOptions}
+                            style={{ maxHeight: '400px' }}
+                        />
+                    </div>
+                    <div>
+                        <h4>Total Appointments Over Time (Line Chart)</h4>
+                        <Line 
+                            data={lineChartData()}
+                            options={lineChartOptions}
+                        />
+                    </div>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowStatsModal(false)}>
+                        Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
         </div>
     );
 };

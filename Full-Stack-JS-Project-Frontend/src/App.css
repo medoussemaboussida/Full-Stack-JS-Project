@@ -650,3 +650,14 @@
   75% { transform: translateX(-5px); }
   100% { transform: translateX(0); }
 }
+
+.stats-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  transition: transform 0.3s ease-in-out;
+}
+.stats-button:hover {
+  transform: scale(1.05);
+}
