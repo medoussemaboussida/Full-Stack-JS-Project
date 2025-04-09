@@ -67,6 +67,7 @@ const Forum = () => {
     totalReports: 0,
     bannedUsers: 0,
   });
+  const [totalCommentReports, setTotalCommentReports] = useState(0);
   const [monthlyForumPosts, setMonthlyForumPosts] = useState({});
   const [topPublisher, setTopPublisher] = useState(null);
   const [topCommenter, setTopCommenter] = useState(null);
@@ -80,7 +81,7 @@ const Forum = () => {
   const [openBannedListModal, setOpenBannedListModal] = useState(false);
   const [bannedUsers, setBannedUsers] = useState([]);
   const [token, setToken] = useState(null);
-  const [openStatsModal, setOpenStatsModal] = useState(false); // Nouvel état pour le modal des stats
+  const [openStatsModal, setOpenStatsModal] = useState(false);
 
   // Récupérer le token et les données initiales
   useEffect(() => {
@@ -93,7 +94,6 @@ const Forum = () => {
 
     const fetchData = async () => {
       try {
-        // Récupérer les forums
         const forumsResponse = await fetch("http://localhost:5000/forum/getForum", {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -103,7 +103,6 @@ const Forum = () => {
         setForums(forumsData);
         setFilteredForums(forumsData);
 
-        // Récupérer les statistiques
         const statsResponse = await fetch("http://localhost:5000/forum/stats", {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -117,7 +116,7 @@ const Forum = () => {
           bannedUsers: statsData.bannedUsers || 0,
         });
 
-        // Récupérer les données pour le rapport PDF
+
         const monthlyResponse = await fetch("http://localhost:5000/forum/monthlyStats", {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -151,7 +150,6 @@ const Forum = () => {
         setMostBannedUser(bannedData);
       } catch (error) {
         console.error("Erreur lors de la récupération des données:", error);
-        toast.error("Error loading data!");
       }
     };
 
@@ -160,7 +158,6 @@ const Forum = () => {
     }
   }, []);
 
-  // Filtrer et trier les forums
   useEffect(() => {
     let updatedForums = [...forums];
 
@@ -187,7 +184,6 @@ const Forum = () => {
     setFilteredForums(updatedForums);
   }, [searchQuery, sortOption, forums]);
 
-  // Récupérer les utilisateurs bannis
   const fetchBannedUsers = async () => {
     try {
       const response = await fetch("http://localhost:5000/forum/banned-users", {
@@ -208,7 +204,6 @@ const Forum = () => {
     }
   };
 
-  // Supprimer un forum
   const handleDeleteForum = async (forumId) => {
     try {
       const response = await fetch(`http://localhost:5000/forum/deleteForum/${forumId}`, {
@@ -233,7 +228,6 @@ const Forum = () => {
     }
   };
 
-  // Supprimer un commentaire
   const handleDeleteComment = async (commentId) => {
     try {
       const response = await fetch(
@@ -260,7 +254,6 @@ const Forum = () => {
     }
   };
 
-  // Changer le statut d'un forum
   const handleChangeStatus = async (forumId, newStatus) => {
     try {
       const response = await fetch(`http://localhost:5000/forum/changeStatus/${forumId}`, {
@@ -296,6 +289,7 @@ const Forum = () => {
 
   const handleViewComments = async (forumId) => {
     try {
+      // Récupérer les commentaires
       const response = await fetch(
         `http://localhost:5000/forumComment/getComment/${forumId}`,
         {
@@ -304,8 +298,31 @@ const Forum = () => {
           },
         }
       );
-      const data = await response.json();
-      setComments(data);
+      const commentsData = await response.json();
+
+      // Pour chaque commentaire, récupérer le nombre de signalements
+      const commentsWithReportCount = await Promise.all(
+        commentsData.map(async (comment) => {
+          try {
+            const reportResponse = await fetch(
+              `http://localhost:5000/forumComment/getCommentReports/${comment._id}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            const reportsData = await reportResponse.json();
+            const reportCount = Array.isArray(reportsData) ? reportsData.length : 0;
+            return { ...comment, reportCount };
+          } catch (error) {
+            console.error(`Erreur lors de la récupération des signalements pour le commentaire ${comment._id}:`, error);
+            return { ...comment, reportCount: 0 }; // En cas d'erreur, on met 0
+          }
+        })
+      );
+
+      setComments(commentsWithReportCount);
       setSelectedForum(forumId);
       setOpenModal(true);
     } catch (error) {
@@ -572,17 +589,36 @@ const Forum = () => {
             <MenuItem value="oldest">Oldest</MenuItem>
           </Select>
         </FormControl>
-        <Button
-          variant="contained"
-          color="warning"
-          onClick={fetchBannedUsers}
-        >
-          View Banned Users
-        </Button>
+        <Box sx={{ position: "relative" }}>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={fetchBannedUsers}
+          >
+            View Banned Users
+          </Button>
+          {stats.bannedUsers > 0 && (
+            <Box
+              sx={{
+                position: "absolute",
+                top: "-10px",
+                right: "-10px",
+                backgroundColor: "red",
+                color: "white",
+                borderRadius: "50%",
+                padding: "5px 8px",
+                fontSize: "12px",
+                fontWeight: "bold",
+              }}
+            >
+              {stats.bannedUsers}
+            </Box>
+          )}
+        </Box>
         <Button
           variant="contained"
           color="info"
-          onClick={() => setOpenStatsModal(true)} // Ouvre le modal des stats
+          onClick={() => setOpenStatsModal(true)}
         >
           View Statistics
         </Button>
@@ -689,15 +725,34 @@ const Forum = () => {
                 >
                   View Comments
                 </Button>
-                <Button
-                  variant="contained"
-                  color="warning"
-                  size="medium"
-                  startIcon={<VisibilityIcon />}
-                  onClick={() => handleViewReports(forum._id)}
-                >
-                  View Reports
-                </Button>
+                <Box sx={{ position: "relative" }}>
+                  <Button
+                    variant="contained"
+                    color="warning"
+                    size="medium"
+                    startIcon={<VisibilityIcon />}
+                    onClick={() => handleViewReports(forum._id)}
+                  >
+                    View Reports
+                  </Button>
+                  {forum.reportCount > 0 && (
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        top: "-10px",
+                        right: "-10px",
+                        backgroundColor: "red",
+                        color: "white",
+                        borderRadius: "50%",
+                        padding: "5px 8px",
+                        fontSize: "12px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {forum.reportCount}
+                    </Box>
+                  )}
+                </Box>
                 <Button
                   variant="contained"
                   color={forum.status === "actif" ? "error" : "success"}
@@ -797,7 +852,7 @@ const Forum = () => {
                     startIcon={<VisibilityIcon />}
                     onClick={() => handleViewCommentReports(comment._id)}
                   >
-                    View Reports
+                    View Reports ({comment.reportCount})
                   </Button>
                   <Button
                     variant="contained"
