@@ -201,10 +201,28 @@ function EditActivity() {
   };
 
   // Nouvelle fonction pour supprimer l'image actuelle
-  const handleRemoveImage = () => {
-    setFormData((prev) => ({ ...prev, imageUrl: null }));
-    setPreviewImage("assets/img/activity/03.jpg"); // Revenir à l'image par défaut
-    toast.success("Image supprimée, revenue à l'image par défaut.");
+  const handleRemoveImage = async () => {
+    try {
+      // Charger l'image par défaut depuis les assets
+      const response = await fetch("/assets/img/activity/03.jpg");
+      if (!response.ok) throw new Error("Erreur lors du chargement de l'image par défaut");
+  
+      const blob = await response.blob();
+      // Créer un objet File à partir du Blob
+      const defaultImageFile = new File([blob], "default-activity-image.jpg", { type: "image/jpeg" });
+  
+      // Mettre à jour formData avec le fichier par défaut
+      setFormData((prev) => ({ ...prev, imageUrl: defaultImageFile }));
+      // Mettre à jour l'aperçu
+      setPreviewImage("/assets/img/activity/03.jpg");
+      toast.success("Image supprimée, revenue à l'image par défaut.");
+    } catch (error) {
+      console.error("Erreur lors de la récupération de l'image par défaut:", error);
+      toast.error("Erreur lors du chargement de l'image par défaut");
+      // Fallback : utiliser null si ça échoue
+      setFormData((prev) => ({ ...prev, imageUrl: null }));
+      setPreviewImage("/assets/img/activity/03.jpg");
+    }
   };
 
   const createNewCategory = async (token, userId) => {
@@ -232,19 +250,19 @@ function EditActivity() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-
+  
     const token = getToken();
     if (!token) {
       toast.error("Vous devez être connecté pour modifier une activité.");
       setIsSubmitting(false);
       return;
     }
-
+  
     const decoded = jwtDecode(token);
     const userId = decoded.id;
-
+  
     let categoryId = formData.category;
-
+  
     if (formData.category === "new") {
       if (!formData.newCategory.trim()) {
         toast.error("Veuillez entrer un nom pour la nouvelle catégorie.");
@@ -260,18 +278,20 @@ function EditActivity() {
         return;
       }
     }
-
+  
     const data = new FormData();
     data.append("title", formData.title);
     data.append("description", formData.description);
     data.append("category", categoryId);
-
-    if (formData.imageUrl && formData.imageUrl instanceof File) {
+  
+    // Si imageUrl est un fichier (soit une nouvelle image, soit l'image par défaut)
+    if (formData.imageUrl instanceof File) {
       data.append("image", formData.imageUrl);
     } else if (formData.imageUrl === null) {
-      data.append("removeImage", true); // Indique au backend de supprimer l'image
+      // Si aucune image n'est définie, indiquer au backend de supprimer l'image
+      data.append("removeImage", true);
     }
-
+  
     try {
       const response = await fetch(
         `http://localhost:5000/users/psychiatrist/${userId}/update-activity/${id}`,
@@ -283,7 +303,7 @@ function EditActivity() {
           body: data,
         }
       );
-
+  
       const result = await response.json();
       if (response.ok) {
         toast.success("Activité mise à jour avec succès !");
