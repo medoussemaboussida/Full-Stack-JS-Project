@@ -50,7 +50,6 @@ router.get('/comment/reports/:commentId', userController.verifyToken, userContro
 router.delete('/deleteCommentAdmin/:commentId', userController.deleteCommentaireAdmin);
 router.post('/ban/:userId', userController.verifyToken, userController.banUser);
 router.get('/banned-users', userController.verifyToken, userController.getBannedUsers);
-router.put('/unban/:userId', userController.verifyToken, userController.unbanUser);
 
 
 
@@ -142,7 +141,8 @@ router.post("/favorite-activity/:id", activitiesController.toggleFavoriteActivit
 // ✅ Supprimer toutes les activités favorites
 router.delete("/clear-favorite/:id", activitiesController.clearFavoriteActivities);
 
-
+router.post('/generate-description', activitiesController.generateDescription);
+router.post('/generate-title', activitiesController.generateTitle);
 
 //schedule
 // POST /users/schedule/:userId - Save or update scheduled activities

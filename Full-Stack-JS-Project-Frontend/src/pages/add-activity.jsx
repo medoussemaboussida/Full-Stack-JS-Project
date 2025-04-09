@@ -27,7 +27,7 @@ function AddActivity() {
     const fetchCategories = async () => {
       const token = getToken();
       if (!token) {
-        toast.error("Vous devez être connecté pour charger les catégories");
+        toast.error("You must be logged in to load categories");
         return;
       }
       try {
@@ -40,10 +40,10 @@ function AddActivity() {
         if (response.ok) {
           setCategories(data);
         } else {
-          toast.error("Erreur lors du chargement des catégories");
+          toast.error("Error loading categories");
         }
       } catch (error) {
-        toast.error("Erreur réseau lors du chargement des catégories");
+        toast.error("Network error while loading categories");
         console.error("Error fetching categories:", error);
       }
     };
@@ -51,11 +51,87 @@ function AddActivity() {
   }, []);
 
   const generateDescription = async () => {
-    // ... (code existant inchangé)
+    const token = getToken();
+    if (!token) {
+      toast.error("You must be logged in to generate a description");
+      return;
+    }
+
+    if (!formData.title.trim()) {
+      toast.error("Please enter a title first");
+      return;
+    }
+
+    setIsGenerating(true);
+
+    try {
+      const response = await fetch("http://localhost:5000/users/generate-description", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title: formData.title }),
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        setFormData((prev) => ({
+          ...prev,
+          description: result.description.description || result.description,
+        }));
+        toast.success("Description generated successfully !");
+      } else {
+        toast.error(result.message || "Error generating description");
+      }
+    } catch (error) {
+      toast.error("Network error while generating description");
+      console.error("Error generating description:", error);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const generateTitle = async () => {
-    // ... (code existant inchangé)
+    const token = getToken();
+    if (!token) {
+      toast.error("You must be logged in to generate a title");
+      return;
+    }
+
+    if (!formData.description.trim()) {
+      toast.error("Please enter a description first");
+      return;
+    }
+
+    setIsGenerating(true);
+
+    try {
+      const response = await fetch("http://localhost:5000/users/generate-title", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ description: formData.description }),
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        setFormData((prev) => ({
+          ...prev,
+          title: result.title.title || result.title,
+        }));
+        toast.success("Title generated successfully!");
+      } else {
+        toast.error(result.message || "Error generating title");
+      }
+    } catch (error) {
+      toast.error("Network error while generating the title");
+      console.error("Error generating title:", error);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleChange = (e) => {
@@ -92,9 +168,9 @@ function AddActivity() {
 
       const data = await response.json();
       if (response.ok) {
-        return data._id; // Retourne l'ID de la nouvelle catégorie créée
+        return data._id;
       } else {
-        throw new Error(data.message || "Erreur lors de la création de la catégorie");
+        throw new Error(data.message || "Error creating category");
       }
     } catch (error) {
       throw error;
@@ -106,24 +182,24 @@ function AddActivity() {
 
     const token = getToken();
     if (!token) {
-      toast.error("Vous devez être connecté pour ajouter une activité");
+      toast.error("You must be logged in to add an activity");
       return;
     }
 
     if (!formData.title.trim()) {
-      toast.error("Veuillez remplir le titre de l'activité");
+      toast.error("Please fill in the title of the activity");
       return;
     }
     if (!formData.description.trim()) {
-      toast.error("Veuillez remplir la description de l'activité");
+      toast.error("Please fill out the activity description");
       return;
     }
     if (!formData.category) {
-      toast.error("Veuillez sélectionner ou ajouter une catégorie");
+      toast.error("Please select or add a category");
       return;
     }
     if (formData.category === "new" && !formData.newCategory.trim()) {
-      toast.error("Veuillez entrer un nom pour la nouvelle catégorie");
+      toast.error("Please enter a name for the new category");
       return;
     }
 
@@ -132,14 +208,12 @@ function AddActivity() {
     const decodedToken = jwtDecode(token);
     let categoryId = formData.category;
 
-    // Si nouvelle catégorie, on la crée d'abord
     if (formData.category === "new") {
       try {
         categoryId = await createNewCategory(token, decodedToken.id);
-        // Met à jour la liste des catégories localement
         setCategories((prev) => [...prev, { _id: categoryId, name: formData.newCategory }]);
       } catch (error) {
-        toast.error(error.message || "Erreur lors de la création de la catégorie");
+        toast.error(error.message || "Error creating category");
         setIsSubmitting(false);
         return;
       }
@@ -148,7 +222,7 @@ function AddActivity() {
     const data = new FormData();
     data.append("title", formData.title);
     data.append("description", formData.description);
-    data.append("category", categoryId); // Utilise l'ID de la catégorie (existante ou nouvellement créée)
+    data.append("category", categoryId);
     if (formData.image) {
       data.append("image", formData.image);
     }
@@ -167,16 +241,16 @@ function AddActivity() {
 
       const result = await response.json();
       if (response.ok) {
-        toast.success("Activité ajoutée avec succès !");
+        toast.success("Activity added successfully !");
         setFormData({ title: "", description: "", category: "", image: null, newCategory: "" });
         setPreviewImage(null);
         setShowNewCategoryInput(false);
         setTimeout(() => navigate("/Activities"), 2000);
       } else {
-        toast.error(result.message || "Erreur lors de l'ajout de l'activité");
+        toast.error(result.message || "Error adding activity");
       }
     } catch (error) {
-      toast.error("Erreur réseau lors de l'ajout de l'activité");
+      toast.error("Network error while adding activity");
     } finally {
       setIsSubmitting(false);
     }

@@ -6,6 +6,7 @@ const Schedule = require("../model/Schedule");
 const Mood = require("../model/Mood");
 const Note = require("../model/Note"); // New model for notes
 const Category = require("../model/Category");
+const axios = require('axios');
 
 // ✅ Récupérer les activités favorites d'un utilisateur
 module.exports.getFavoriteActivities = async (req, res) => {
@@ -95,6 +96,137 @@ const upload1 = multer({
     limits: { fileSize: 5 * 1024 * 1024 }
 }).single('image');  // ✅ Maintenant ça correspond au frontend
 
+// Générer une description à partir d'un titre
+module.exports.generateDescription = async (req, res) => {
+    const userId = req.userId; // Suppose une authentification préalable
+    const { title } = req.body;
+  
+    try {
+      // Vérifier que le titre est présent
+      if (!title) {
+        return res.status(400).json({ message: "Title is required" });
+      }
+  
+      // Générer la description avec l'API de Groq
+      const groqResponse = await axios.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          model: 'llama3-70b-8192',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a helpful assistant. Provide a concise but informative description (100-150 words) based on the given title.',
+            },
+            {
+              role: 'user',
+              content: `Generate a description for this title: "${title}"`,
+            },
+          ],
+          max_tokens: 200,
+          temperature: 0.7,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+          },
+        }
+      );
+  
+      console.log('Groq Response:', groqResponse.data);
+      const generatedDescription = groqResponse.data.choices[0].message.content.trim();
+  
+      // Créer l'objet réponse (vous pouvez adapter selon votre modèle de données)
+      const descriptionData = {
+        title,
+        userId,
+        description: generatedDescription,
+        generatedDate: new Date(),
+        status: 'generated',
+      };
+  
+      res.status(201).json({ 
+        message: 'Description generated successfully', 
+        description: descriptionData 
+      });
+  
+    } catch (error) {
+      console.error('Error generating description with Groq:', error.response ? error.response.data : error.message);
+      res.status(500).json({ 
+        message: 'Error generating description', 
+        error: error.response ? error.response.data : error.message 
+      });
+    }
+  };
+  
+  // Générer un titre à partir d'une description
+  module.exports.generateTitle = async (req, res) => {
+    const userId = req.userId; // Suppose une authentification préalable
+    const { description } = req.body;
+  
+    try {
+      // Vérifier que la description est présente
+      if (!description) {
+        return res.status(400).json({ message: "Description is required" });
+      }
+  
+      // Générer le titre avec l'API de Groq
+      const groqResponse = await axios.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          model: 'llama3-70b-8192',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a helpful assistant. Provide a very concise title (maximum 5 words) that captures the essence of the given description. Focus on the most impactful single word or short phrase.',
+            },
+            {
+              role: 'user',
+              content: `Generate a title for this description: "${description}"`,
+            },
+          ],
+          max_tokens: 20, // Réduit pour forcer une réponse courte
+          temperature: 0.7,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+          },
+        }
+      );
+  
+      console.log('Groq Response:', groqResponse.data);
+      let generatedTitle = groqResponse.data.choices[0].message.content.trim();
+  
+      // Forcer la limite à 5 mots maximum
+      const words = generatedTitle.split(' ');
+      if (words.length > 5) {
+        generatedTitle = words.slice(0, 5).join(' ');
+      }
+  
+      // Créer l'objet réponse
+      const titleData = {
+        description,
+        userId,
+        title: generatedTitle,
+        generatedDate: new Date(),
+        status: 'generated',
+      };
+  
+      res.status(201).json({ 
+        message: 'Title generated successfully', 
+        title: titleData 
+      });
+  
+    } catch (error) {
+      console.error('Error generating title with Groq:', error.response ? error.response.data : error.message);
+      res.status(500).json({ 
+        message: 'Error generating title', 
+        error: error.response ? error.response.data : error.message 
+      });
+    }
+  };
 
 // ✅ Ajouter une activité (réservé aux psychiatres)
 module.exports.addActivity = (req, res) => {
