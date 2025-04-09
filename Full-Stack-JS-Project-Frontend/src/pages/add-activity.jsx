@@ -304,7 +304,7 @@ function AddActivity() {
                           onClick={generateDescription}
                           disabled={isGenerating || isSubmitting}
                         >
-                          {isGenerating ? "Génération..." : "Générer Description"}
+                          {isGenerating ? "Generation..." : "Generate Description"}
                         </button>
                       </div>
                     </div>
@@ -325,7 +325,7 @@ function AddActivity() {
                           onClick={generateTitle}
                           disabled={isGenerating || isSubmitting}
                         >
-                          {isGenerating ? "Génération..." : "Générer Titre"}
+                          {isGenerating ? "Generation...": "Generate Title"}
                         </button>
                       </div>
                     </div>
@@ -344,7 +344,7 @@ function AddActivity() {
                               {cat.name}
                             </option>
                           ))}
-                          <option value="new">Ajouter une nouvelle catégorie</option>
+                          <option value="new">Add a new category</option>
                         </select>
                       </div>
                       {showNewCategoryInput && (

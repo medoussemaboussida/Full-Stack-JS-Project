@@ -198,6 +198,8 @@ module.exports.generateDescription = async (req, res) => {
   
       console.log('Groq Response:', groqResponse.data);
       let generatedTitle = groqResponse.data.choices[0].message.content.trim();
+      // Supprimer les guillemets s'ils sont présents dans la réponse
+    generatedTitle = generatedTitle.replace(/^"|"$/g, '');
   
       // Forcer la limite à 5 mots maximum
       const words = generatedTitle.split(' ');

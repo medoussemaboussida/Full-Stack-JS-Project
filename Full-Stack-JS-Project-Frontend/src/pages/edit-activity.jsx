@@ -10,19 +10,18 @@ function EditActivity() {
     description: "",
     category: "",
     imageUrl: null,
-    newCategory: "", // Nouveau champ pour la nouvelle catégorie
+    newCategory: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [categories, setCategories] = useState([]);
   const [previewImage, setPreviewImage] = useState(null);
-  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false); // Contrôle l'affichage du champ nouvelle catégorie
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
   const navigate = useNavigate();
   const { id } = useParams();
 
-  // Récupérer le token
   const getToken = () => localStorage.getItem("jwt-token");
 
-  // Fetch des catégories
   useEffect(() => {
     const fetchCategories = async () => {
       const token = getToken();
@@ -34,7 +33,7 @@ function EditActivity() {
         });
         const data = await response.json();
         if (response.ok) {
-          setCategories(data); // [{ _id, name }]
+          setCategories(data);
         } else {
           toast.error("Erreur lors du chargement des catégories");
         }
@@ -46,7 +45,6 @@ function EditActivity() {
     fetchCategories();
   }, []);
 
-  // Fetch des détails de l'activité
   useEffect(() => {
     const fetchActivity = async () => {
       try {
@@ -74,7 +72,7 @@ function EditActivity() {
           setFormData({
             title: result.title || "",
             description: result.description || "",
-            category: result.category?._id || "", // Récupère l'ID de la catégorie existante
+            category: result.category?._id || "",
             imageUrl: result.imageUrl || null,
             newCategory: "",
           });
@@ -91,7 +89,91 @@ function EditActivity() {
     fetchActivity();
   }, [id]);
 
-  // Gestion des changements dans le formulaire
+  const generateDescription = async () => {
+    const token = getToken();
+    if (!token) {
+      toast.error("Vous devez être connecté pour générer une description");
+      return;
+    }
+
+    if (!formData.title.trim()) {
+      toast.error("Veuillez d'abord entrer un titre");
+      return;
+    }
+
+    setIsGenerating(true);
+
+    try {
+      const response = await fetch("http://localhost:5000/generate-description", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title: formData.title }),
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        setFormData((prev) => ({
+          ...prev,
+          description: result.description.description || result.description,
+        }));
+        toast.success("Description générée avec succès !");
+      } else {
+        toast.error(result.message || "Erreur lors de la génération de la description");
+      }
+    } catch (error) {
+      toast.error("Erreur réseau lors de la génération de la description");
+      console.error("Error generating description:", error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const generateTitle = async () => {
+    const token = getToken();
+    if (!token) {
+      toast.error("Vous devez être connecté pour générer un titre");
+      return;
+    }
+
+    if (!formData.description.trim()) {
+      toast.error("Veuillez d'abord entrer une description");
+      return;
+    }
+
+    setIsGenerating(true);
+
+    try {
+      const response = await fetch("http://localhost:5000/generate-title", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ description: formData.description }),
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        const generatedTitle = result.title.title || result.title;
+        setFormData((prev) => ({
+          ...prev,
+          title: generatedTitle,
+        }));
+        toast.success("Titre généré avec succès !");
+      } else {
+        toast.error(result.message || "Erreur lors de la génération du titre");
+      }
+    } catch (error) {
+      toast.error("Erreur réseau lors de la génération du titre");
+      console.error("Error generating title:", error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value, files } = e.target;
     if (name === "image") {
@@ -118,7 +200,13 @@ function EditActivity() {
     }
   };
 
-  // Création d'une nouvelle catégorie
+  // Nouvelle fonction pour supprimer l'image actuelle
+  const handleRemoveImage = () => {
+    setFormData((prev) => ({ ...prev, imageUrl: null }));
+    setPreviewImage("assets/img/activity/03.jpg"); // Revenir à l'image par défaut
+    toast.success("Image supprimée, revenue à l'image par défaut.");
+  };
+
   const createNewCategory = async (token, userId) => {
     try {
       const response = await fetch(`http://localhost:5000/users/categories/${userId}`, {
@@ -132,7 +220,7 @@ function EditActivity() {
 
       const data = await response.json();
       if (response.ok) {
-        return data._id; // Retourne l'ID de la nouvelle catégorie créée
+        return data._id;
       } else {
         throw new Error(data.message || "Erreur lors de la création de la catégorie");
       }
@@ -141,7 +229,6 @@ function EditActivity() {
     }
   };
 
-  // Soumission du formulaire
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -158,7 +245,6 @@ function EditActivity() {
 
     let categoryId = formData.category;
 
-    // Si une nouvelle catégorie est ajoutée
     if (formData.category === "new") {
       if (!formData.newCategory.trim()) {
         toast.error("Veuillez entrer un nom pour la nouvelle catégorie.");
@@ -178,10 +264,12 @@ function EditActivity() {
     const data = new FormData();
     data.append("title", formData.title);
     data.append("description", formData.description);
-    data.append("category", categoryId); // Utilise l'ID de la catégorie (existante ou nouvelle)
+    data.append("category", categoryId);
 
     if (formData.imageUrl && formData.imageUrl instanceof File) {
       data.append("image", formData.imageUrl);
+    } else if (formData.imageUrl === null) {
+      data.append("removeImage", true); // Indique au backend de supprimer l'image
     }
 
     try {
@@ -211,7 +299,6 @@ function EditActivity() {
     }
   };
 
-  // Annulation de la modification
   const handleCancel = () => {
     navigate("/Activities");
   };
@@ -224,12 +311,8 @@ function EditActivity() {
         <div className="container">
           <h2 className="breadcrumb-title">Edit Activity</h2>
           <ul className="breadcrumb-menu">
-            <li>
-              <a href="/Home">Home</a>
-            </li>
-            <li>
-              <a href="/Activities">Activities</a>
-            </li>
+            <li><a href="/Home">Home</a></li>
+            <li><a href="/Activities">Activities</a></li>
             <li className="active">Edit Activity</li>
           </ul>
         </div>
@@ -239,33 +322,56 @@ function EditActivity() {
         <div className="container">
           <div className="row align-items-center">
             <div className="col-lg-6">
-              <div className="become-volunteer-img">
-                {previewImage ? (
+            <div className="become-volunteer-img" style={{ position: "relative" }}>
+              {previewImage ? (
+                <>
                   <img
                     src={previewImage}
                     alt="Activity Image"
                     style={{ maxWidth: "100%", height: "auto" }}
                     onError={(e) => {
-                      e.target.src = "/assets/img/default-image.jpg";
-                      console.log("Activity image failed to load, using default.");
+                      e.target.src = "/assets/img/activity/03.jpg"; // Image par défaut en cas d'erreur
+                      console.log("Preview image failed to load, switched to default.");
                     }}
                   />
-                ) : (
-                  <div>
-                    <p>No image available for this activity</p>
-                  </div>
-                )}
-              </div>
+                  {previewImage !== "/assets/img/activity/03.jpg" && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      style={{
+                        position: "absolute",
+                        top: "10px",
+                        right: "10px",
+                        background: "rgba(255, 0, 0, 0.8)",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "50%",
+                        width: "25px",
+                        height: "25px",
+                        cursor: "pointer",
+                        fontSize: "16px",
+                        lineHeight: "25px",
+                        textAlign: "center",
+                      }}
+                      title="Supprimer l'image"
+                    >
+                      X
+                    </button>
+                  )}
+                </>
+              ) : (
+                <img
+                  src="/assets/img/activity/03.jpg"
+                  alt="Default Activity Image"
+                  style={{ maxWidth: "100%", height: "auto" }}
+                  onError={() => console.log("Default image failed to load")}
+                />
+              )}
+            </div>
             </div>
             <div className="col-lg-6">
               <div className="become-volunteer-form">
-                <h2
-                  style={{
-                    fontSize: "32px",
-                    fontWeight: "700",
-                    marginBottom: "40px",
-                  }}
-                >
+                <h2 style={{ fontSize: "32px", fontWeight: "700", marginBottom: "40px" }}>
                   Edit an <span style={{ color: "#ff5a5f" }}>Activity</span>
                 </h2>
                 <form onSubmit={handleSubmit}>
@@ -281,6 +387,14 @@ function EditActivity() {
                           placeholder="Activity Title"
                           required
                         />
+                        <button
+                          type="button"
+                          className="theme-btn mt-2"
+                          onClick={generateDescription}
+                          disabled={isGenerating || isSubmitting}
+                        >
+                          {isGenerating ? "Génération..." : "Générer Description"}
+                        </button>
                       </div>
                     </div>
 
@@ -295,6 +409,14 @@ function EditActivity() {
                           required
                           rows="3"
                         ></textarea>
+                        <button
+                          type="button"
+                          className="theme-btn mt-2"
+                          onClick={generateTitle}
+                          disabled={isGenerating || isSubmitting}
+                        >
+                          {isGenerating ? "Génération..." : "Générer Titre"}
+                        </button>
                       </div>
                     </div>
 
@@ -348,7 +470,7 @@ function EditActivity() {
                         <button
                           type="submit"
                           className="theme-btn mt-2"
-                          disabled={isSubmitting}
+                          disabled={isSubmitting || isGenerating}
                         >
                           {isSubmitting ? "Updating..." : "Update Activity"}{" "}
                           <i className="fas fa-circle-arrow-right"></i>
@@ -357,7 +479,7 @@ function EditActivity() {
                           type="button"
                           className="theme-btn mt-2"
                           onClick={handleCancel}
-                          disabled={isSubmitting}
+                          disabled={isSubmitting || isGenerating}
                           style={{ backgroundColor: "#f44336" }}
                         >
                           Cancel Edit <i className="fas fa-times"></i>
@@ -375,9 +497,7 @@ function EditActivity() {
       <footer className="footer-area">
         <div className="container">
           <div className="copyright text-center">
-            <p>
-              © {new Date().getFullYear()} <a href="#">Lovcare</a> - All Rights Reserved.
-            </p>
+            <p>© {new Date().getFullYear()} <a href="#">Lovcare</a> - All Rights Reserved.</p>
           </div>
         </div>
       </footer>
