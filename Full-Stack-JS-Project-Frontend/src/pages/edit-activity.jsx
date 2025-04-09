@@ -104,7 +104,7 @@ function EditActivity() {
     setIsGenerating(true);
 
     try {
-      const response = await fetch("http://localhost:5000/generate-description", {
+      const response = await fetch("http://localhost:5000/users/generate-description", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -146,7 +146,7 @@ function EditActivity() {
     setIsGenerating(true);
 
     try {
-      const response = await fetch("http://localhost:5000/generate-title", {
+      const response = await fetch("http://localhost:5000/users/generate-title", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

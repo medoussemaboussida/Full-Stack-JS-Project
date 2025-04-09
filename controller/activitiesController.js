@@ -314,46 +314,54 @@ exports.getActivityById = async (req, res) => {
 };
 // ✅ Modifier une activité (tous les psychiatres peuvent le faire)
 module.exports.updateActivity = (req, res) => {
-    upload1(req, res, async (err) => {
-      if (err) {
-        return res.status(400).json({ message: err.message });
+  upload1(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message });
+    }
+
+    try {
+      const { id, activityId } = req.params;
+      const { title, description, category, removeImage } = req.body;
+      let imageUrl = null;
+
+      // Vérifier si l'image doit être supprimée
+      if (removeImage === "true") {
+        imageUrl = "/assets/img/activity/03.jpg";  // L'image par défaut
+      } else if (req.file) {
+        imageUrl = `/uploads/activities/${req.file.filename}`; // Nouvelle image téléchargée
       }
-  
-      try {
-        const { id, activityId } = req.params;
-        const { title, description, category } = req.body;
-        const imageUrl = req.file ? `/uploads/activities/${req.file.filename}` : null;
-  
-        const user = await User.findById(id);
-        if (!user || (user.role !== "psychiatrist" && user.role !== "admin")) {
-          return res.status(403).json({ message: "Seuls les psychiatres peuvent modifier des activités" });
-        }
-  
-        const activity = await Activity.findById(activityId);
-        if (!activity) {
-          return res.status(404).json({ message: "Activité non trouvée" });
-        }
-  
-        activity.title = title || activity.title;
-        activity.description = description || activity.description;
-  
-        const foundCategory = await Category.findById(category);
-        if (!foundCategory) {
-          return res.status(400).json({ message: "Invalid category" });
-        }
-        activity.category = foundCategory._id;
-  
-        if (imageUrl) activity.imageUrl = imageUrl;
-  
-        await activity.save();
-        res.status(200).json({ message: "Activité mise à jour avec succès", activity });
-      } catch (error) {
-        console.error("❌ Erreur lors de la mise à jour:", error);
-        res.status(500).json({ message: "Erreur serveur", error });
+
+      const user = await User.findById(id);
+      if (!user || (user.role !== "psychiatrist" && user.role !== "admin")) {
+        return res.status(403).json({ message: "Seuls les psychiatres peuvent modifier des activités" });
       }
-    });
-  };
-  
+
+      const activity = await Activity.findById(activityId);
+      if (!activity) {
+        return res.status(404).json({ message: "Activité non trouvée" });
+      }
+
+      activity.title = title || activity.title;
+      activity.description = description || activity.description;
+
+      const foundCategory = await Category.findById(category);
+      if (!foundCategory) {
+        return res.status(400).json({ message: "Invalid category" });
+      }
+      activity.category = foundCategory._id;
+
+      // Mettre à jour l'image si nécessaire
+      if (imageUrl) activity.imageUrl = imageUrl;
+
+      await activity.save();
+      res.status(200).json({ message: "Activité mise à jour avec succès", activity });
+    } catch (error) {
+      console.error("❌ Erreur lors de la mise à jour:", error);
+      res.status(500).json({ message: "Erreur serveur", error });
+    }
+  });
+};
+
 
   exports.updateCategory = async (req, res) => {
     try {
