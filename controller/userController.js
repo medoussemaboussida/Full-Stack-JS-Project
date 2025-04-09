@@ -11,6 +11,8 @@ const Appointment = require("../model/appointment");
 const Chat = require("../model/chat");
 const Problem = require('../model/problem'); // Add Problem model
 const AttendanceSheet = require('../model/attendanceSheet'); // Add Problem model
+const Solution = require('../model/Solution'); // Adjust path to your Solution model
+const axios = require('axios');
 const Notification = require('../model/Notification'); // Import the new Notification model
 
 const { v4: uuidv4 } = require('uuid');
@@ -2804,7 +2806,86 @@ module.exports.updatechat = async (req, res) => {
         }
     };
 
-// Create a problem
+// generate solution
+module.exports.generateSolution = async (req, res) => {
+    const problemId = req.params.problemId;
+    const userId = req.userId;
+  
+    try {
+      // Trouver le problème
+      const problem = await Problem.findOne({ _id: problemId, userId });
+      
+      if (!problem) {
+        return res.status(404).json({ message: "Problem not found" });
+      }
+  
+      // Vérifier que toutes les données nécessaires sont présentes
+      if (!problem.what || !problem.source || !problem.reaction || !problem.satisfaction) {
+        return res.status(400).json({ message: "Problem data is incomplete" });
+      }
+  
+      // Générer la solution avec l'API de Groq
+      const groqResponse = await axios.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          model: 'llama3-70b-8192', // Modèle mis à jour
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a helpful assistant. Provide a list of specific, actionable recommendations to solve the given problem. Start with "Recommended Actions:" and list each recommendation on a new line with a dash (-). Do not include problem analysis.',
+            },
+            {
+              role: 'user',
+              content: `Problem: ${problem.what}\nSource: ${problem.source}\nReaction: ${problem.reaction}\nSatisfaction: ${problem.satisfaction}`,
+            },
+          ],
+          max_tokens: 150,
+          temperature: 0.7,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.GROQ_API_KEY}`, // Votre clé
+          },
+        }
+      );
+  
+      console.log('Groq Response:', groqResponse.data); // Log pour débogage
+      const proposedSolution = groqResponse.data.choices[0].message.content.trim();
+  
+      // Créer la solution
+      const solution = {
+        problemId: problem._id,
+        userId: problem.userId,
+        proposedSolution,
+        generatedDate: new Date(),
+        status: 'pending',
+        confidenceLevel: 0.85,
+        estimatedResolutionTime: 3,
+      };
+  
+      // Sauvegarder la solution
+      const newSolution = new Solution(solution);
+      await newSolution.save();
+  
+      // Mettre à jour le problème avec la référence à la solution
+      problem.solutionId = newSolution._id;
+      await problem.save();
+  
+      res.status(201).json({ 
+        message: 'Solution generated successfully', 
+        solution: newSolution 
+      });
+    } catch (error) {
+      console.error('Error generating solution with Groq:', error.response ? error.response.data : error.message);
+      res.status(500).json({ 
+        message: 'Error generating solution', 
+        error: error.response ? error.response.data : error.message 
+      });
+    }
+  };
+
+
 // Create a problem (unchanged)
 module.exports.createProblem = async (req, res) => {
   const userId = req.userId;

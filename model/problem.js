@@ -15,6 +15,7 @@ const problemSchema = new mongoose.Schema({
   endDate: { type: Date },                          // Date de fin du problème
   notes: { type: String },                          // Notes supplémentaires (optionnel)
   createdAt: { type: Date, default: Date.now },     // Date de création
+  solutionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Solution' },
 });
 
 module.exports = mongoose.model('Problem', problemSchema);

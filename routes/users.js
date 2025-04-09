@@ -170,6 +170,8 @@ router.post('/problems', userController.verifyToken, userController.createProble
 router.get('/problems/:userId', userController.verifyToken, userController.getProblems);
 router.put('/problems/:userId/:problemId', userController.verifyToken, userController.updateProblem);
 router.delete('/problems/:userId/:problemId', userController.verifyToken, userController.deleteProblem);
+//generate solution
+router.post('/problems/:problemId/solution', userController.verifyToken, userController.generateSolution);
 // Attendance routes
 router.post(
     '/attendance/:userId',

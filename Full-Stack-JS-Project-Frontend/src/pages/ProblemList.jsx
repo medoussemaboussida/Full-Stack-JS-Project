@@ -171,19 +171,25 @@ const ProblemList = () => {
   };
 
   const generateSolution = async (problem) => {
+    const token = localStorage.getItem('jwt-token');
+    if (!token) {
+      toast.error('You must be logged in to generate a solution');
+      setTimeout(() => navigate('/login'), 2000);
+      return;
+    }
+
     try {
-      const prompt = `Problem: ${problem.what}\nSource: ${problem.source}\nReaction: ${problem.reaction}\nSuggest a solution to this problem.`;
       const response = await axios.post(
-        'https://api.openai.com/v1/completions',
-        { model: 'text-davinci-003', prompt, max_tokens: 150, temperature: 0.7 },
-        { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer YOUR_OPENAI_API_KEY` } }
+        `http://localhost:5000/users/problems/${problem._id}/solution`,
+        {}, // Pas de corps requis car les données sont déjà dans le problème
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-      setGeneratedSolution(response.data.choices[0].text.trim());
+      setGeneratedSolution(response.data.solution.proposedSolution);
       setSelectedProblem(problem);
       setSolutionModalOpen(true);
     } catch (error) {
       console.error('Error generating solution:', error);
-      toast.error('Error generating solution');
+      toast.error(error.response?.data?.message || 'Error generating solution');
     }
   };
 
@@ -267,7 +273,7 @@ const ProblemList = () => {
               <p style={{ textAlign: 'center', color: '#666' }}>No problems found.</p>
             ) : (
               <>
-                <ul style={{ listStyleType: 'none', padding: 0, display: 'flex', flexWrap: 'wrap', gap: '30px', justifyContent: 'center' }}>
+               <ul style={{ listStyleType: 'none', padding: 0, display: 'flex', flexWrap: 'wrap', gap: '30px', justifyContent: 'center' }}>
                   {problems.map((problem) => (
                     <li
                       key={problem._id}
@@ -407,11 +413,11 @@ const ProblemList = () => {
         </div>
       )}
 
-      {solutionModalOpen && (
+        {solutionModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
           <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', width: '500px', maxWidth: '90%', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)', textAlign: 'center' }}>
-            <h3 style={{ marginBottom: '20px' }}>Generated Solution</h3>
-            <p style={{ marginBottom: '20px', color: '#333', textAlign: 'left' }}><strong>Problem:</strong> {selectedProblem?.what}<br /><strong>Solution:</strong> {generatedSolution}</p>
+            <h3 style={{ marginBottom: '20px' }}>Solution</h3>
+            <p style={{ marginBottom: '20px', color: '#333', textAlign: 'left', whiteSpace: 'pre-wrap' }}>{generatedSolution}</p>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
               <button onClick={closeSolutionModal} style={{ backgroundColor: '#0ea5e6', color: 'white', padding: '10px 20px', borderRadius: '5px', border: 'none', cursor: 'pointer' }}>Close</button>
             </div>
