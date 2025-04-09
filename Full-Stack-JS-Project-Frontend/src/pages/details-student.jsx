@@ -13,25 +13,22 @@ const getPasswordStrength = (password) => {
   let strength = 0;
   const minLength = 8;
 
-  // Critères de force
-  if (password.length > 0) strength += 10; // Au moins une lettre
-  if (password.length >= minLength) strength += 20; // Longueur minimale
-  if (/[A-Z]/.test(password)) strength += 20; // Lettre majuscule
-  if (/[0-9]/.test(password)) strength += 20; // Chiffre
-  if (/[^A-Za-z0-9]/.test(password)) strength += 30; // Caractère spécial
+  if (password.length > 0) strength += 10;
+  if (password.length >= minLength) strength += 20;
+  if (/[A-Z]/.test(password)) strength += 20;
+  if (/[0-9]/.test(password)) strength += 20;
+  if (/[^A-Za-z0-9]/.test(password)) strength += 30;
 
-  // Limiter à 100%
   strength = Math.min(strength, 100);
 
-  // Déterminer le label et la couleur
   let label = "Weak";
-  let color = "#f44336"; // Rouge
+  let color = "#f44336";
   if (strength >= 70) {
     label = "Strong";
-    color = "#4CAF50"; // Vert
+    color = "#4CAF50";
   } else if (strength >= 40) {
     label = "Medium";
-    color = "#FF9800"; // Orange
+    color = "#FF9800";
   }
 
   return { strength, label, color };
@@ -68,12 +65,14 @@ function DetailsStudents() {
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(""); // Full date (YYYY-MM-DD)
-  const [selectedStartTime, setSelectedStartTime] = useState("08:00"); // Default start time
-  const [selectedEndTime, setSelectedEndTime] = useState("17:00"); // Default end time
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedStartTime, setSelectedStartTime] = useState("08:00");
+  const [selectedEndTime, setSelectedEndTime] = useState("17:00");
   const [selectedDateInfo, setSelectedDateInfo] = useState(null);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
-const [descriptionInput, setDescriptionInput] = useState(formData.description || '');
+  const [descriptionInput, setDescriptionInput] = useState(formData.description || '');
+  const [showDeleteAvailabilityModal, setShowDeleteAvailabilityModal] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState(null);
 
   const BASE_URL = "http://localhost:5000";
   const navigate = useNavigate();
@@ -149,7 +148,7 @@ const [descriptionInput, setDescriptionInput] = useState(formData.description ||
         }
   
         return {
-          id: index,
+          id: index.toString(), // Ensure ID is a string for FullCalendar
           title: `Available - ${startDate.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`,
           start: startDate.toISOString(),
           end: endDate.toISOString(),
@@ -182,7 +181,7 @@ const [descriptionInput, setDescriptionInput] = useState(formData.description ||
                 etat: data.etat,
                 user_photo: data.user_photo || "",
                 receiveEmails: data.receiveEmails,
-                description: data.description || "", 
+                description: data.description || "",
               });
               setPreviewPhoto(data.user_photo ? `${BASE_URL}${data.user_photo}` : "assets/img/user.png");
               if (data.availability) {
@@ -226,7 +225,7 @@ const [descriptionInput, setDescriptionInput] = useState(formData.description ||
       etat: user.etat,
       user_photo: user.user_photo || "",
       receiveEmails: user.receiveEmails,
-      description: user.description || "", 
+      description: user.description || "",
     });
   };
 
@@ -254,6 +253,7 @@ const [descriptionInput, setDescriptionInput] = useState(formData.description ||
       reader.readAsDataURL(file);
     }
   };
+
   const handleSaveDescription = async () => {
     if (!descriptionInput.trim()) {
       toast.error("Description cannot be empty");
@@ -313,45 +313,43 @@ const [descriptionInput, setDescriptionInput] = useState(formData.description ||
 
   const handleSave = async () => {
     if (!formData.username) {
-        toast.error("Username cannot be empty");
-        return;
+      toast.error("Username cannot be empty");
+      return;
     }
     try {
-        const token = localStorage.getItem("jwt-token");
-        const decoded = jwtDecode(token);
-        let endpoint = '';
-        let body = {};
+      const token = localStorage.getItem("jwt-token");
+      const decoded = jwtDecode(token);
+      let endpoint = '';
+      let body = {};
 
-        if (user.role === 'psychiatrist') {
-            endpoint = `${BASE_URL}/users/psychiatrists/update-description/${decoded.id}`;
-            body = { description: formData.description }; // Only send description
-        } else {
-            endpoint = `${BASE_URL}/users/students/update/${decoded.id}`;
-            body = formData; // Full form data for students
-        }
+      if (user.role === 'psychiatrist') {
+        endpoint = `${BASE_URL}/users/psychiatrists/update-description/${decoded.id}`;
+        body = { description: formData.description };
+      } else {
+        endpoint = `${BASE_URL}/users/students/update/${decoded.id}`;
+        body = formData;
+      }
 
-        const response = await fetch(endpoint, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(body),
-        });
-        const data = await response.json();
-        if (response.ok) {
-            setUser(data.user);
-            setIsEditing(false);
-            toast.success("Profile updated successfully");
-        } else {
-            toast.error(`Error updating profile: ${data.message}`);
-        }
+      const response = await fetch(endpoint, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setUser(data.user);
+        setIsEditing(false);
+        toast.success("Profile updated successfully");
+      } else {
+        toast.error(`Error updating profile: ${data.message}`);
+      }
     } catch (error) {
-        toast.error("Error updating profile");
+      toast.error("Error updating profile");
     }
-};
-
-
+  };
 
   const handleChangePassword = async () => {
     if (passwordData.newPassword !== passwordData.confirmNewPassword) {
@@ -452,7 +450,7 @@ const [descriptionInput, setDescriptionInput] = useState(formData.description ||
   const handleEventDrop = async (info) => {
     const token = localStorage.getItem("jwt-token");
     const decoded = jwtDecode(token);
-    const slotIndex = events.findIndex((event) => event.id === parseInt(info.event.id));
+    const slotIndex = events.findIndex((event) => event.id === info.event.id);
 
     if (slotIndex !== -1) {
       const startDate = new Date(info.event.start);
@@ -487,29 +485,43 @@ const [descriptionInput, setDescriptionInput] = useState(formData.description ||
     }
   };
 
-  const handleEventClick = async (info) => {
-    if (window.confirm("Do you want to delete this availability?")) {
-      const token = localStorage.getItem("jwt-token");
-      const decoded = jwtDecode(token);
-      const slotIndex = events.findIndex((event) => event.id === parseInt(info.event.id));
+  const handleEventClick = (info) => {
+    console.log("Event clicked:", info.event.id); // Debug log
+    setSelectedEventId(info.event.id);
+    setShowDeleteAvailabilityModal(true);
+  };
 
-      try {
-        const response = await fetch(`${BASE_URL}/users/psychiatrists/delete-availability/${decoded.id}/${slotIndex}`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setEvents(formatAvailabilitiesToEvents(data.user.availability));
-          toast.success("Availability deleted successfully");
-        } else {
-          const errorData = await response.json();
-          toast.error(`Error: ${errorData.message}`);
-        }
-      } catch (error) {
-        toast.error("Error deleting availability");
-        console.error(error);
+  const handleDeleteAvailability = async () => {
+    const token = localStorage.getItem("jwt-token");
+    const decoded = jwtDecode(token);
+    const slotIndex = events.findIndex((event) => event.id === selectedEventId);
+
+    if (slotIndex === -1) {
+      toast.error("Availability slot not found");
+      setShowDeleteAvailabilityModal(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${BASE_URL}/users/psychiatrists/delete-availability/${decoded.id}/${slotIndex}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setEvents(formatAvailabilitiesToEvents(data.user.availability));
+        toast.success("Availability deleted successfully");
+        setShowDeleteAvailabilityModal(false);
+        setSelectedEventId(null);
+      } else {
+        const errorData = await response.json();
+        toast.error(`Error: ${errorData.message}`);
+        setShowDeleteAvailabilityModal(false);
       }
+    } catch (error) {
+      toast.error("Error deleting availability");
+      console.error(error);
+      setShowDeleteAvailabilityModal(false);
     }
   };
 
@@ -739,32 +751,32 @@ const [descriptionInput, setDescriptionInput] = useState(formData.description ||
                       ] : []),
                       { title: "Role", name: "role", value: formData.role, disabled: true },
                       { title: "Status", name: "etat", value: formData.etat, disabled: true },
-                      { title: "Description", name: "description", value: formData.description }                     
+                      { title: "Description", name: "description", value: formData.description }
                     ].map((field, index) => (
                       <div key={index} style={{ background: "#ffffff", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 10px rgba(0, 0, 0, 0.05)" }}>
-  <h6 style={{ fontSize: "0.95rem", color: "#718096", marginBottom: "10px", fontWeight: "500" }}>{field.title}</h6>
-  {field.name === "description" && user.role === "psychiatrist" ? (
-    <div 
-      onClick={() => {
-        setDescriptionInput(formData.description || '');
-        setShowDescriptionModal(true);
-      }} 
-      style={{ 
-        cursor: "pointer", 
-        padding: "10px", 
-        border: "1px solid #e2e8f0", 
-        borderRadius: "8px", 
-        backgroundColor: "#f9fafb",
-        minHeight: "100px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: formData.description ? "flex-start" : "center",
-        color: formData.description ? "#2d3748" : "#718096"
-      }}
-    >
-      {formData.description || "Click to add/edit description"}
-    </div>
-  ) : isEditing ? (
+                        <h6 style={{ fontSize: "0.95rem", color: "#718096", marginBottom: "10px", fontWeight: "500" }}>{field.title}</h6>
+                        {field.name === "description" && user.role === "psychiatrist" ? (
+                          <div 
+                            onClick={() => {
+                              setDescriptionInput(formData.description || '');
+                              setShowDescriptionModal(true);
+                            }} 
+                            style={{ 
+                              cursor: "pointer", 
+                              padding: "10px", 
+                              border: "1px solid #e2e8f0", 
+                              borderRadius: "8px", 
+                              backgroundColor: "#f9fafb",
+                              minHeight: "100px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: formData.description ? "flex-start" : "center",
+                              color: formData.description ? "#2d3748" : "#718096"
+                            }}
+                          >
+                            {formData.description || "Click to add/edit description"}
+                          </div>
+                        ) : isEditing ? (
                           field.name === "speciality" ? (
                             <select name="speciality" value={formData.speciality} onChange={handleChange} style={{ width: "100%", padding: "10px 15px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
                               <option value="A">A</option>
@@ -789,17 +801,17 @@ const [descriptionInput, setDescriptionInput] = useState(formData.description ||
                               <option value="4">4</option>
                               <option value="5">5</option>
                             </select>
-) : field.name === "description" ? (
-  <textarea
-    name="description"
-    value={formData.description}
-    onChange={handleChange}
-    placeholder="Enter your professional description"
-    style={{ width: "100%", padding: "10px 15px", borderRadius: "8px", border: "1px solid #e2e8f0", minHeight: "100px", resize: "vertical" }}
-    maxLength={500}
-  />
-) : (
-                              <input
+                          ) : field.name === "description" ? (
+                            <textarea
+                              name="description"
+                              value={formData.description}
+                              onChange={handleChange}
+                              placeholder="Enter your professional description"
+                              style={{ width: "100%", padding: "10px 15px", borderRadius: "8px", border: "1px solid #e2e8f0", minHeight: "100px", resize: "vertical" }}
+                              maxLength={500}
+                            />
+                          ) : (
+                            <input
                               type={field.type || "text"}
                               name={field.name}
                               value={field.value}
@@ -916,7 +928,6 @@ const [descriptionInput, setDescriptionInput] = useState(formData.description ||
                 />
                 <i className={`fas ${showConfirmNewPassword ? "fa-eye-slash" : "fa-eye"}`} onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)} style={{ marginLeft: "10px", cursor: "pointer" }} />
               </div>
-              {/* Barre de progression pour la force du mot de passe */}
               <div style={{ marginBottom: "20px" }}>
                 <div style={{ height: "10px", backgroundColor: "#e0e0e0", borderRadius: "5px", overflow: "hidden" }}>
                   <div
@@ -939,78 +950,79 @@ const [descriptionInput, setDescriptionInput] = useState(formData.description ||
             </div>
           </div>
         )}
+
         {showDescriptionModal && user.role === "psychiatrist" && (
-  <div style={{ 
-    position: "fixed", 
-    top: 0, 
-    left: 0, 
-    right: 0, 
-    bottom: 0, 
-    backgroundColor: "rgba(0, 0, 0, 0.5)", 
-    display: "flex", 
-    justifyContent: "center", 
-    alignItems: "center", 
-    zIndex: 1000 
-  }}>
-    <div style={{ 
-      backgroundColor: "white", 
-      padding: "20px", 
-      borderRadius: "8px", 
-      width: "500px", 
-      maxWidth: "90%", 
-      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" 
-    }}>
-      <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
-        {formData.description ? "Edit Description" : "Add Description"}
-      </h3>
-      <textarea
-        value={descriptionInput}
-        onChange={(e) => setDescriptionInput(e.target.value)}
-        placeholder="Enter your professional description"
-        style={{ 
-          width: "100%", 
-          padding: "10px", 
-          borderRadius: "4px", 
-          border: "1px solid #ccc", 
-          minHeight: "150px", 
-          resize: "vertical",
-          marginBottom: "20px"
-        }}
-        maxLength={500}
-      />
-      <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-        <button 
-          onClick={handleSaveDescription} 
-          style={{ 
-            backgroundColor: "#4CAF50", 
-            color: "white", 
-            padding: "10px 20px", 
-            fontSize: "16px", 
-            border: "none", 
-            cursor: "pointer", 
-            borderRadius: "5px" 
-          }}
-        >
-          Save
-        </button>
-        <button 
-          onClick={() => setShowDescriptionModal(false)} 
-          style={{ 
-            backgroundColor: "#f44336", 
-            color: "white", 
-            padding: "10px 20px", 
-            fontSize: "16px", 
-            border: "none", 
-            cursor: "pointer", 
-            borderRadius: "5px" 
-          }}
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+          <div style={{ 
+            position: "fixed", 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            backgroundColor: "rgba(0, 0, 0, 0.5)", 
+            display: "flex", 
+            justifyContent: "center", 
+            alignItems: "center", 
+            zIndex: 1000 
+          }}>
+            <div style={{ 
+              backgroundColor: "white", 
+              padding: "20px", 
+              borderRadius: "8px", 
+              width: "500px", 
+              maxWidth: "90%", 
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" 
+            }}>
+              <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+                {formData.description ? "Edit Description" : "Add Description"}
+              </h3>
+              <textarea
+                value={descriptionInput}
+                onChange={(e) => setDescriptionInput(e.target.value)}
+                placeholder="Enter your professional description"
+                style={{ 
+                  width: "100%", 
+                  padding: "10px", 
+                  borderRadius: "4px", 
+                  border: "1px solid #ccc", 
+                  minHeight: "150px", 
+                  resize: "vertical",
+                  marginBottom: "20px"
+                }}
+                maxLength={500}
+              />
+              <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+                <button 
+                  onClick={handleSaveDescription} 
+                  style={{ 
+                    backgroundColor: "#4CAF50", 
+                    color: "white", 
+                    padding: "10px 20px", 
+                    fontSize: "16px", 
+                    border: "none", 
+                    cursor: "pointer", 
+                    borderRadius: "5px" 
+                  }}
+                >
+                  Save
+                </button>
+                <button 
+                  onClick={() => setShowDescriptionModal(false)} 
+                  style={{ 
+                    backgroundColor: "#f44336", 
+                    color: "white", 
+                    padding: "10px 20px", 
+                    fontSize: "16px", 
+                    border: "none", 
+                    cursor: "pointer", 
+                    borderRadius: "5px" 
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {isChangingPhoto && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0, 0, 0, 0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }}>
@@ -1030,34 +1042,47 @@ const [descriptionInput, setDescriptionInput] = useState(formData.description ||
 
         {showCalendar && (
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0, 0, 0, 0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }}>
-            <div style={{ backgroundColor: "white", padding: "20px", borderRadius: "8px", width: "90%", maxWidth: "1000px", maxHeight: "90vh", overflow: "auto" }}>
+            <div style={{ backgroundColor: "white", padding: "20px", borderRadius: "8px", width: "90%", maxWidth: "1000px", maxHeight: "90vh", overflow: "auto", position: "relative" }}>
               <h3 style={{ textAlign: "center", marginBottom: "10px" }}>Manage Your Availability</h3>
               <p style={{ textAlign: "center", color: "#555", marginBottom: "20px" }}>
                 Select a time slot to add availability, drag to move, or click to delete
               </p>
               <FullCalendar
-  plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-  initialView="timeGridWeek"
-  events={events}
-  editable={true}
-  selectable={true}
-  selectMirror={true}
-  eventDrop={handleEventDrop}
-  eventClick={handleEventClick}
-  select={handleDateSelect}
-  slotMinTime="08:00:00"
-  slotMaxTime="20:00:00"
-  validRange={{
-    start: new Date().toISOString().split("T")[0], // Starts from today
-  }}
-  headerToolbar={{
-    left: "prev,next today",
-    center: "title",
-    right: "dayGridMonth,timeGridWeek,timeGridDay",
-  }}
-
+                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                initialView="timeGridWeek"
+                events={events}
+                editable={true}
+                selectable={true}
+                selectMirror={true}
+                eventDrop={handleEventDrop}
+                eventClick={handleEventClick}
+                select={handleDateSelect}
+                slotMinTime="08:00:00"
+                slotMaxTime="20:00:00"
+                validRange={{
+                  start: new Date().toISOString().split("T")[0],
+                }}
+                headerToolbar={{
+                  left: "prev,next today",
+                  center: "title",
+                  right: "dayGridMonth,timeGridWeek,timeGridDay",
+                }}
               />
               <button onClick={() => setShowCalendar(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "5px", marginTop: "20px", display: "block", marginLeft: "auto" }}>Close</button>
+
+              {/* Delete Availability Modal Inside Calendar */}
+              {showDeleteAvailabilityModal && (
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0, 0, 0, 0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 2000 }}>
+                  <div style={{ backgroundColor: "white", padding: "20px", borderRadius: "8px", width: "400px", maxWidth: "90%", boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}>
+                    <h3 style={{ marginBottom: "20px", textAlign: "center" }}>Confirm Deletion</h3>
+                    <p style={{ marginBottom: "20px", textAlign: "center" }}>Do you want to delete this availability?</p>
+                    <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+                      <button onClick={() => setShowDeleteAvailabilityModal(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "5px" }}>Cancel</button>
+                      <button onClick={handleDeleteAvailability} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "5px" }}>Confirm</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
