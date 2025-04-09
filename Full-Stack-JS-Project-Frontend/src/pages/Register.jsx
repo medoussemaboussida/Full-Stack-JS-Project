@@ -19,10 +19,6 @@ function Register() {
 
     const { username, dob, email, password, speciality, level } = formData;
 
-
-
-
-
     const analyzePassword = (password) => {
         const messages = [];
     
@@ -89,8 +85,8 @@ function Register() {
             .required("Email is required."),
 
         dob: yup.date()
-        .nullable() // Permet de gérer les valeurs null
-        .transform((value, originalValue) => originalValue === "" ? null : value) // Convertit "" en null
+            .nullable() // Permet de gérer les valeurs null
+            .transform((value, originalValue) => originalValue === "" ? null : value) // Convertit "" en null
             .max(new Date(), "Date of birth cannot be in the future.")
             .test("is-18", "Minimum age is 18.", function (value) {
                 if (!value) return false;
@@ -107,8 +103,7 @@ function Register() {
             })
             .required("Date of birth is required."),
 
-
-            password: yup.string()
+        password: yup.string()
             .test("password-strength", "Password is too weak.", function(value) {
                 const messages = analyzePassword(value);
                 if (messages.length > 0) {
@@ -117,26 +112,18 @@ function Register() {
                 return true;
             })
             .required("Password is required."),
-    
-
-        // password: yup.string()
-        //     .min(6, "Password must be at least 6 characters long.")
-        //     .matches(/[0-9]/, "Password must contain at least one number.")
-        //     .matches(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least one special character.")
-        //     .required("Password is required."),
 
         speciality: yup.string()
             .oneOf(["A", "B", "TWIN", "SAE", "SE", "BI", "DS", "IOSYS", "SLEAM", "SIM", "NIDS", "INFINI"], "Invalid speciality.")
             .required("Speciality is required."),
 
-            level: yup.number()
+        level: yup.number()
             .nullable()  // Permet de gérer null ou vide
             .transform((originalValue) => (originalValue === "" ? null : originalValue))  // Transforme "" en null
             .typeError("Level is required.")  // Message d'erreur si ce n'est pas un nombre
             .min(1, "Level must be at least 1.")  // Niveau minimum
             .max(5, "Level must be at most 5.")  // Niveau maximum
             .required("Level is required."),  // Validation si vide
-        
     });
 
     const handleChange = (e) => {
@@ -185,7 +172,6 @@ function Register() {
                 });
                 setErrors(validationErrors);
                 toast.error('Respect the form please !');
-
             } else {
                 console.error(err);
                 toast.error('An error occurred while registering the student.');
@@ -205,9 +191,14 @@ function Register() {
         };
     }, []);
 
+    // Calculer la force du mot de passe et les propriétés de la barre de progression
+    const passwordStrength = getPasswordStrength(password);
+    const progressWidth = passwordStrength === "WEAK" ? "33%" : passwordStrength === "MODERATE" ? "66%" : "100%";
+    const progressColor = passwordStrength === "WEAK" ? "#ff4d4f" : passwordStrength === "MODERATE" ? "#ffa500" : "#28a745";
+
     return (
         <div>
-                 <ToastContainer
+            <ToastContainer
                 position="top-right"
                 autoClose={3000}
                 hideProgressBar={false}
@@ -225,7 +216,6 @@ function Register() {
                             <div className="auth-form">
                                 <div className="auth-header">
                                     <img src="assets/img/logo/logo.png" alt="" />
-                                    {/* <p>Create your free lovcare account</p> */}
                                 </div>
                                 <form onSubmit={handleSubmit}>
                                     {/* Username */}
@@ -242,7 +232,7 @@ function Register() {
                                             />
                                         </div>
                                         {errors.username && <p className="text-danger">{errors.username}</p>}
-                                        </div>
+                                    </div>
 
                                     {/* Email */}
                                     <div className="form-group">
@@ -273,10 +263,42 @@ function Register() {
                                                 value={password} 
                                                 onChange={handleChange} 
                                             />
-                                            {/* <span className="password-view" onClick={togglePasswordVisibility}>
+                                            <span className="password-view" onClick={togglePasswordVisibility}>
                                                 <i className={`far ${showPassword ? "fa-eye" : "fa-eye-slash"}`}></i>
-                                            </span> */}
+                                            </span>
                                         </div>
+                                        {/* Barre de progression pour la force du mot de passe */}
+                                        {password && (
+                                            <div className="password-strength mt-2">
+                                                <div
+                                                    style={{
+                                                        height: '5px',
+                                                        width: '100%',
+                                                        backgroundColor: '#e0e0e0',
+                                                        borderRadius: '5px',
+                                                        overflow: 'hidden',
+                                                    }}
+                                                >
+                                                    <div
+                                                        style={{
+                                                            height: '100%',
+                                                            width: progressWidth,
+                                                            backgroundColor: progressColor,
+                                                            transition: 'width 0.3s ease-in-out',
+                                                        }}
+                                                    />
+                                                </div>
+                                                <p
+                                                    style={{
+                                                        color: progressColor,
+                                                        fontSize: '0.875rem',
+                                                        marginTop: '5px',
+                                                    }}
+                                                >
+                                                    Password Strength: {passwordStrength}
+                                                </p>
+                                            </div>
+                                        )}
                                         {errors.password && <p className="text-danger">{errors.password}</p>}
                                     </div>
 
@@ -357,11 +379,11 @@ function Register() {
                                         <div className="auth-social-list">
                                             <a href="#"><i className="fab fa-facebook-f"></i></a>
                                             <a href="http://localhost:5000/auth/google">
-  <i className="fab fa-google"></i>
-</a>
-<a href="http://localhost:5000/auth/github">
-  <i className="fab fa-github"></i>
-</a>
+                                                <i className="fab fa-google"></i>
+                                            </a>
+                                            <a href="http://localhost:5000/auth/github">
+                                                <i className="fab fa-github"></i>
+                                            </a>
                                         </div>
                                     </div>
                                     <p className="auth-bottom-text">

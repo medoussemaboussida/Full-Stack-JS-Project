@@ -50,6 +50,7 @@ router.get('/comment/reports/:commentId', userController.verifyToken, userContro
 router.delete('/deleteCommentAdmin/:commentId', userController.deleteCommentaireAdmin);
 router.post('/ban/:userId', userController.verifyToken, userController.banUser);
 router.get('/banned-users', userController.verifyToken, userController.getBannedUsers);
+router.put('/unban/:userId', userController.verifyToken, userController.unbanUser);
 
 
 

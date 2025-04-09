@@ -84,7 +84,7 @@ module.exports.addStudent = async (req, res) => {
         console.log(req.body);
         const { username, dob, email, password, speciality, level } = req.body;
         const etatUser = "Actif";
-        const photoUser = "Null";
+        const photoUser = "/uploads/user_icon.png";
         const roleUser = "student";
         const user = new User({ username, email, dob, password, role: roleUser, etat: etatUser, user_photo: photoUser, speciality, level });
         const userAdded = await user.save();
@@ -803,18 +803,18 @@ module.exports.banUser = async (req, res) => {
         const updatedUser = await user.save();
 
         // Envoyer un email à l'utilisateur banni
-        const subject = "Vous avez été banni d'EspritCare";
+        const subject = "You have been banned from EspritCare";
         const htmlContent = `
-            <h2>Notification de bannissement</h2>
-            <p>Bonjour ${user.username},</p>
-            <p>Votre compte sur EspritCare a été banni pour la raison suivante :</p>
+            <h2>Ban Notification</h2>
+            <p>Hello ${user.username},</p>
+            <p>Your account on EspritCare has been banned for the following reason :</p>
             <ul>
                 <li><strong>Raison :</strong> ${finalReason}</li>
-                <li><strong>Durée :</strong> ${daysInt} jour${daysInt > 1 ? 's' : ''}</li>
+                <li><strong>Duration :</strong> ${daysInt} jour${daysInt > 1 ? 's' : ''}</li>
                 <li><strong>Expiration :</strong> ${banExpiration.toLocaleString()}</li>
             </ul>
-            <p>Si vous pensez qu'il s'agit d'une erreur, veuillez contacter notre support à support@espritcare.com.</p>
-            <p>Cordialement,<br>L'équipe EspritCare</p>
+            <p>If you believe this is a mistake, please contact our support team at support@espritcare.com.</p>
+            <p>Best Regards,<br>The EspritCare Team</p>
         `;
 
         try {
@@ -916,6 +916,74 @@ module.exports.getBannedUsers = async (req, res) => {
         });
     } catch (err) {
         console.error("Erreur lors de la récupération des utilisateurs bannis:", err);
+        res.status(500).json({ message: "Erreur serveur", error: err.message });
+    }
+};
+
+// Débannir un utilisateur
+module.exports.unbanUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        // Vérification des permissions
+        if (req.userRole !== "admin" && req.userRole !== "psychiatrist") {
+            return res.status(403).json({ message: "Permission refusée" });
+        }
+
+        // Validation de l'ID utilisateur
+        if (!userId) {
+            return res.status(400).json({ message: "L'ID de l'utilisateur est requis" });
+        }
+
+        // Trouver l'utilisateur
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "Utilisateur non trouvé" });
+        }
+
+        // Vérifier si l'utilisateur est déjà non banni
+        if (!user.isBanned) {
+            return res.status(400).json({ message: "Cet utilisateur n'est pas banni" });
+        }
+
+        // Réinitialiser les champs liés au bannissement
+        user.isBanned = false;
+        user.banExpiration = null;
+        user.banReason = null;
+
+        const updatedUser = await user.save();
+
+        // Envoyer un email à l'utilisateur pour l'informer
+        const subject = "Your EspritCare account has been unbanned";
+        const htmlContent = `
+            <h2>Unbanned account</h2>
+            <p>Hello ${user.username},</p>
+            <p>We would like to inform you that your account on EspritCare has been unbanned. You can now access all the platform's features again.</p>
+            <p>If you have any questions, please don't hesitate to contact our support team at support@espritcare.com.</p>
+            <p>Best regards,<br>The EspritCare Team</p>
+        `;
+
+        try {
+            await sendEmail(user.email, subject, htmlContent);
+            console.log(`Email de déban envoyé à ${user.email}`);
+        } catch (emailErr) {
+            console.error(`Erreur lors de l'envoi de l'email à ${user.email} :`, emailErr);
+            // Ne pas bloquer la réponse en cas d'échec d'email
+        }
+
+        // Réponse au client
+        res.status(200).json({
+            message: "Utilisateur débanni avec succès",
+            user: {
+                _id: updatedUser._id,
+                username: updatedUser.username,
+                isBanned: updatedUser.isBanned,
+                banExpiration: updatedUser.banExpiration,
+                banReason: updatedUser.banReason,
+            },
+        });
+    } catch (err) {
+        console.error("Erreur lors du déban de l'utilisateur:", err);
         res.status(500).json({ message: "Erreur serveur", error: err.message });
     }
 };
