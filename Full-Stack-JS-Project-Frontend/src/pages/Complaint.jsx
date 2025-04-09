@@ -2,11 +2,17 @@ import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSearch, faEdit, faTrashAlt, faComment } from "@fortawesome/free-solid-svg-icons";
+import { faSearch, faEdit, faTrashAlt, faComment, faBell } from "@fortawesome/free-solid-svg-icons";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
 import { CKEditor } from "@ckeditor/ckeditor5-react";
 import ClassicEditor from "@ckeditor/ckeditor5-build-classic";
+import {
+  getNotifications,
+  addNotification,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+} from "../utils/notificationUtils";
 
 // Fonction pour parser le HTML et le convertir en JSX
 const parseHTMLToJSX = (htmlString) => {
@@ -125,6 +131,8 @@ function Complaint() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showResponsesModal, setShowResponsesModal] = useState(false);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const [complaintToDelete, setComplaintToDelete] = useState(null);
   const [complaintToUpdate, setComplaintToUpdate] = useState(null);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
@@ -137,14 +145,6 @@ function Complaint() {
   const [sortOption, setSortOption] = useState("newest");
   const navigate = useNavigate();
   const chatEndRef = useRef(null);
-
-  // Fonction pour basculer l'affichage du champ de recherche
-  const toggleSearch = () => {
-    setIsSearchOpen((prev) => !prev);
-    if (isSearchOpen) {
-      setSearchQuery("");
-    }
-  };
 
   // Charger le token, l'ID utilisateur et le nom d'utilisateur
   useEffect(() => {
@@ -187,7 +187,22 @@ function Complaint() {
     }
   }, [navigate]);
 
-  // Charger les réclamations de l'utilisateur
+  // Charger les notifications de l'utilisateur
+  useEffect(() => {
+    if (!userId) return;
+
+    const loadNotifications = () => {
+      const userNotifications = getNotifications(userId);
+      setNotifications(userNotifications);
+    };
+
+    loadNotifications();
+
+    const interval = setInterval(loadNotifications, 1000);
+    return () => clearInterval(interval);
+  }, [userId]);
+
+  // Charger les réclamations de l'utilisateur et vérifier les suppressions et changements de statut
   useEffect(() => {
     if (!userId || !token) return;
 
@@ -207,39 +222,150 @@ function Complaint() {
         }
 
         const data = await response.json();
-        setComplaints(data);
-        data.forEach((complaint, index) => {
-          console.log(`Description ${index + 1}:`, complaint.description);
+
+        // Récupérer les statuts précédents depuis localStorage
+        const previousStatuses = JSON.parse(
+          localStorage.getItem(`complaint_statuses_${userId}`) || "{}"
+        );
+
+        // Vérifier les changements de statut
+        data.forEach((complaint) => {
+          const previousStatus = previousStatuses[complaint._id];
+          const currentStatus = complaint.status;
+
+          if (previousStatus && previousStatus !== currentStatus) {
+            addNotification(
+              userId,
+              `The status of your complaint "${complaint.subject}" has changed from "${previousStatus}" to "${currentStatus}".`,
+              "status_changed"
+            );
+          }
+
+          previousStatuses[complaint._id] = currentStatus;
         });
+
+        // Mettre à jour les statuts dans localStorage
+        localStorage.setItem(
+          `complaint_statuses_${userId}`,
+          JSON.stringify(previousStatuses)
+        );
+
+        // Vérifier les suppressions
+        const currentComplaintIds = complaints.map((complaint) => complaint._id);
+        const newComplaintIds = data.map((complaint) => complaint._id);
+        const deletedComplaints = complaints.filter(
+          (complaint) => !newComplaintIds.includes(complaint._id)
+        );
+
+        deletedComplaints.forEach((deletedComplaint) => {
+          addNotification(
+            userId,
+            `Your complaint "${deletedComplaint.subject}" has been deleted.`,
+            "complaint_deleted"
+          );
+        });
+
+        setComplaints(data);
       } catch (error) {
         console.error("Erreur lors de l'appel API:", error);
       }
     };
 
     fetchComplaints();
+    const interval = setInterval(fetchComplaints, 1000);
+    return () => clearInterval(interval);
   }, [userId, token]);
 
-  // Filtrer et trier les réclamations
-  const filteredComplaints = complaints
-    .filter((complaint) => {
-      if (!searchQuery) return true;
-      const query = searchQuery.toLowerCase();
-      const subjectMatch = complaint.subject?.toLowerCase().includes(query);
-      const descriptionMatch = complaint.description?.toLowerCase().includes(query);
-      const statusMatch = complaint.status?.toLowerCase().includes(query);
-      return subjectMatch || descriptionMatch || statusMatch;
-    })
-    .filter((complaint) => {
-      if (sortOption === "newest" || sortOption === "oldest") return true;
-      return complaint.status?.toLowerCase() === sortOption;
-    })
-    .sort((a, b) => {
-      const dateA = new Date(a.createdAt);
-      const dateB = new Date(b.createdAt);
-      return sortOption === "newest" ? dateB - dateA : dateA - dateB;
-    });
+  // Vérifier les nouvelles réponses pour chaque réclamation
+  useEffect(() => {
+    if (!userId || !token || complaints.length === 0) return;
 
-  // Supprimer une réclamation
+    const fetchAllResponses = async () => {
+      for (const complaint of complaints) {
+        const previousResponses = JSON.parse(
+          localStorage.getItem(`responses_${complaint._id}_${userId}`) || "[]"
+        );
+
+        const currentResponses = await fetchResponses(complaint._id);
+
+        localStorage.setItem(
+          `responses_${complaint._id}_${userId}`,
+          JSON.stringify(currentResponses)
+        );
+
+        const newResponses = currentResponses.filter(
+          (response) =>
+            !previousResponses.some((prev) => prev._id === response._id) &&
+            response.user_id._id !== userId
+        );
+
+        if (newResponses.length > 0) {
+          newResponses.forEach((response) => {
+            addNotification(
+              userId,
+              `A new response has been added to your complaint "${complaint.subject}" by ${response.user_id.username}.`,
+              "new_response"
+            );
+          });
+        }
+      }
+    };
+
+    fetchAllResponses();
+    const interval = setInterval(fetchAllResponses, 1000);
+    return () => clearInterval(interval);
+  }, [userId, token, complaints]);
+
+  // Rafraîchir les réponses lorsque le modal de conversation est ouvert
+  useEffect(() => {
+    if (!showResponsesModal || !selectedComplaint) return;
+
+    const interval = setInterval(async () => {
+      const newResponses = await fetchResponses(selectedComplaint._id);
+      if (JSON.stringify(newResponses) !== JSON.stringify(responses)) {
+        setResponses(newResponses);
+        localStorage.setItem(
+          `responses_${selectedComplaint._id}_${userId}`,
+          JSON.stringify(newResponses)
+        );
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [showResponsesModal, selectedComplaint]);
+
+  // Scroller automatiquement vers le bas du chat
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [responses]);
+
+  // Calculer le nombre de notifications non lues
+  const unreadNotificationsCount = notifications.filter((notif) => !notif.read).length;
+
+  // Fonctions utilitaires
+  const toggleSearch = () => {
+    setIsSearchOpen((prev) => !prev);
+    if (isSearchOpen) {
+      setSearchQuery("");
+    }
+  };
+
+  const handleOpenNotifications = () => {
+    setShowNotificationsModal(true);
+  };
+
+  const handleMarkAsRead = (notificationId) => {
+    markNotificationAsRead(userId, notificationId);
+    setNotifications(getNotifications(userId));
+  };
+
+  const handleMarkAllAsRead = () => {
+    markAllNotificationsAsRead(userId);
+    setNotifications(getNotifications(userId));
+  };
+
   const handleDelete = async (complaintId) => {
     try {
       const response = await fetch(
@@ -256,17 +382,24 @@ function Complaint() {
         throw new Error(`Erreur HTTP: ${response.status}`);
       }
 
-      const data = await response.json();
       setComplaints(complaints.filter((complaint) => complaint._id !== complaintId));
       setShowDeleteModal(false);
       toast.success("Complaint deleted successfully!");
+
+      const deletedComplaint = complaints.find((complaint) => complaint._id === complaintId);
+      if (deletedComplaint) {
+        addNotification(
+          userId,
+          `You have deleted your complaint "${deletedComplaint.subject}".`,
+          "complaint_deleted"
+        );
+      }
     } catch (error) {
       console.error("Erreur lors de la suppression de la réclamation:", error);
       toast.error("Error deleting complaint. Please try again.");
     }
   };
 
-  // Mettre à jour une réclamation
   const handleUpdate = async (complaintId) => {
     if (!updatedSubject || !updatedDescription) {
       toast.error("Subject and description cannot be empty.");
@@ -293,7 +426,6 @@ function Complaint() {
         throw new Error(`Erreur HTTP: ${response.status}`);
       }
 
-      const data = await response.json();
       setComplaints(
         complaints.map((complaint) =>
           complaint._id === complaintId
@@ -309,7 +441,6 @@ function Complaint() {
     }
   };
 
-  // Récupérer les réponses pour une réclamation spécifique
   const fetchResponses = async (complaintId) => {
     try {
       const response = await fetch(
@@ -326,8 +457,7 @@ function Complaint() {
         throw new Error(`Erreur HTTP: ${response.status} - ${errorData.message || "Unknown error"}`);
       }
 
-      const data = await response.json();
-      return data;
+      return await response.json();
     } catch (error) {
       console.error("Erreur lors de la récupération des réponses:", error);
       toast.error(`Error loading responses: ${error.message}`);
@@ -335,15 +465,18 @@ function Complaint() {
     }
   };
 
-  // Ouvrir le modal de conversation
   const handleOpenResponsesModal = async (complaint) => {
     const responsesData = await fetchResponses(complaint._id);
     setSelectedComplaint(complaint);
     setResponses(responsesData);
     setShowResponsesModal(true);
+
+    localStorage.setItem(
+      `responses_${complaint._id}_${userId}`,
+      JSON.stringify(responsesData)
+    );
   };
 
-  // Fermer le modal de conversation
   const handleCloseResponsesModal = () => {
     setShowResponsesModal(false);
     setSelectedComplaint(null);
@@ -351,23 +484,6 @@ function Complaint() {
     setNewResponse("");
   };
 
-  // Rafraîchir automatiquement les réponses lorsque le modal est ouvert
-  useEffect(() => {
-    if (!showResponsesModal || !selectedComplaint) return;
-
-    const interval = setInterval(async () => {
-      const newResponses = await fetchResponses(selectedComplaint._id);
-      // Comparer les réponses pour éviter les mises à jour inutiles
-      if (JSON.stringify(newResponses) !== JSON.stringify(responses)) {
-        setResponses(newResponses);
-      }
-    }, 1000); // Rafraîchir toutes les 5 secondes
-
-    // Nettoyer l'intervalle lorsque le modal est fermé
-    return () => clearInterval(interval);
-  }, [showResponsesModal, selectedComplaint, responses]);
-
-  // Ajouter une nouvelle réponse
   const handleAddResponse = async () => {
     if (!newResponse.trim()) {
       toast.error("Response cannot be empty!");
@@ -400,7 +516,6 @@ function Complaint() {
       }
 
       const newResponseData = await response.json();
-      // Formater la nouvelle réponse pour correspondre à la structure attendue
       const formattedResponse = {
         ...newResponseData,
         user_id: {
@@ -412,20 +527,17 @@ function Complaint() {
       setResponses([...responses, formattedResponse]);
       setNewResponse("");
       toast.success("Response added successfully!");
+
+      localStorage.setItem(
+        `responses_${selectedComplaint._id}_${userId}`,
+        JSON.stringify([...responses, formattedResponse])
+      );
     } catch (error) {
       console.error("Erreur lors de l'envoi de la réponse:", error);
       toast.error(`Error adding response: ${error.message}`);
     }
   };
 
-  // Scroller automatiquement vers le bas du chat
-  useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [responses]);
-
-  // Formater la date/heure
   const formatMessageTime = (date) => {
     const now = new Date();
     const messageDate = new Date(date);
@@ -444,9 +556,29 @@ function Complaint() {
     }
   };
 
+  // Filtrer et trier les réclamations
+  const filteredComplaints = complaints
+    .filter((complaint) => {
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      return (
+        complaint.subject?.toLowerCase().includes(query) ||
+        complaint.description?.toLowerCase().includes(query) ||
+        complaint.status?.toLowerCase().includes(query)
+      );
+    })
+    .filter((complaint) => {
+      if (sortOption === "newest" || sortOption === "oldest") return true;
+      return complaint.status?.toLowerCase() === sortOption;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.createdAt);
+      const dateB = new Date(b.createdAt);
+      return sortOption === "newest" ? dateB - dateA : dateA - dateB;
+    });
+
   return (
     <div>
-      {/* Styles spécifiques pour forcer l'affichage des listes et la conversation */}
       <style jsx>{`
         .complaint-item .complaint-description.ck-editor-content ul,
         .complaint-item .complaint-description.ck-editor-content ul li {
@@ -564,6 +696,61 @@ function Complaint() {
         draggable
         pauseOnHover
       />
+
+      {token && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "20px",
+            right: "20px",
+            zIndex: 1000,
+            cursor: "pointer",
+          }}
+          onClick={handleOpenNotifications}
+        >
+          <div
+            style={{
+              backgroundColor: "#007bff",
+              borderRadius: "50%",
+              width: "60px",
+              height: "60px",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+              transition: "transform 0.3s ease",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
+            onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+          >
+            <FontAwesomeIcon
+              icon={faBell}
+              style={{
+                fontSize: "24px",
+                color: "white",
+              }}
+            />
+            {unreadNotificationsCount > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: "-5px",
+                  right: "-5px",
+                  backgroundColor: "red",
+                  color: "white",
+                  borderRadius: "50%",
+                  padding: "5px 8px",
+                  fontSize: "12px",
+                  fontWeight: "bold",
+                }}
+              >
+                {unreadNotificationsCount}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       <main className="main">
         <div
           className="site-breadcrumb"
@@ -809,7 +996,6 @@ function Complaint() {
         </div>
       </main>
 
-      {/* Modal de confirmation de suppression */}
       {showDeleteModal && (
         <div
           style={{
@@ -838,7 +1024,7 @@ function Complaint() {
             <h3 style={{ marginBottom: "20px", textAlign: "center", color: "#333" }}>
               Confirm Deletion
             </h3>
-            <p style={{ marginBottom: "20px", textAlign: "center", color: "666" }}>
+            <p style={{ marginBottom: "20px", textAlign: "center", color: "#666" }}>
               Are you sure you want to delete this complaint? This action cannot be undone.
             </p>
             <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
@@ -873,7 +1059,6 @@ function Complaint() {
         </div>
       )}
 
-      {/* Modal de mise à jour de la réclamation */}
       {showUpdateModal && complaintToUpdate && (
         <div
           style={{
@@ -929,7 +1114,6 @@ function Complaint() {
                 onChange={(event, editor) => {
                   const data = editor.getData();
                   setUpdatedDescription(data);
-                  console.log("Updated description:", data);
                 }}
                 config={{
                   toolbar: [
@@ -979,7 +1163,6 @@ function Complaint() {
         </div>
       )}
 
-      {/* Modal de conversation */}
       {showResponsesModal && selectedComplaint && (
         <div
           style={{
@@ -1032,9 +1215,7 @@ function Complaint() {
                   >
                     <div className="message-content">
                       <p className="author">
-                        {response.user_id._id === userId
-                          ? "You"
-                          : "Admin"}
+                        {response.user_id._id === userId ? "You" : "Admin"}
                       </p>
                       <p>{response.content}</p>
                       <p className="timestamp">{formatMessageTime(response.createdAt)}</p>
@@ -1093,6 +1274,148 @@ function Complaint() {
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {showNotificationsModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "600px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+              Notifications
+            </h3>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                marginBottom: "10px",
+              }}
+            >
+              <button
+                onClick={handleMarkAllAsRead}
+                style={{
+                  backgroundColor: "#007bff",
+                  color: "white",
+                  padding: "5px 10px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                }}
+              >
+                Mark All as Read
+              </button>
+            </div>
+            <div
+              style={{
+                maxHeight: notifications.length > 3 ? "300px" : "auto",
+                overflowY: notifications.length > 3 ? "auto" : "visible",
+                marginBottom: "20px",
+              }}
+            >
+              {notifications.length > 0 ? (
+                notifications
+                  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                  .map((notif) => (
+                    <div
+                      key={notif.id}
+                      style={{
+                        marginBottom: "10px",
+                        padding: "10px",
+                        borderBottom: "1px solid #ddd",
+                        backgroundColor: notif.read ? "#f9f9f9" : "#e6f3ff",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <div>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontWeight: notif.read ? "normal" : "bold",
+                            color: notif.read ? "#666" : "#000",
+                            fontSize: "12px",
+                          }}
+                        >
+                          {notif.message}
+                        </p>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: "12px",
+                            color: "#999",
+                          }}
+                        >
+                          {new Date(notif.createdAt).toLocaleString("fr-FR")}
+                        </p>
+                      </div>
+                      {!notif.read && (
+                        <button
+                          onClick={() => handleMarkAsRead(notif.id)}
+                          style={{
+                            backgroundColor: "#28a745",
+                            color: "white",
+                            padding: "5px 10px",
+                            borderRadius: "5px",
+                            border: "none",
+                            cursor: "pointer",
+                            fontSize: "12px",
+                          }}
+                        >
+                          Mark as Read
+                        </button>
+                      )}
+                    </div>
+                  ))
+              ) : (
+                <p style={{ textAlign: "center" }}>No notifications available.</p>
+              )}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: "10px",
+                marginTop: "20px",
+              }}
+            >
+              <button
+                onClick={() => setShowNotificationsModal(false)}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
