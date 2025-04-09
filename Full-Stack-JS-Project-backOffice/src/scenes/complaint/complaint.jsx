@@ -17,6 +17,7 @@ import Header from "../../components/Header";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ChatIcon from "@mui/icons-material/Chat";
 import ClearIcon from "@mui/icons-material/Clear";
+import NotificationsIcon from "@mui/icons-material/Notifications";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import {
@@ -31,11 +32,16 @@ import {
 import { Bar } from "react-chartjs-2";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import {
+  addNotification,
+  getNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+} from "../complaint/notificationUtils";
 
-// Enregistrer les composants de Chart.js
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-// Fonction pour parser le HTML et le convertir en JSX
+// Fonction pour parser le HTML et le convertir en JSX (inchangée)
 const parseHTMLToJSX = (htmlString) => {
   if (!htmlString || typeof htmlString !== "string") {
     return <span>Contenu non disponible</span>;
@@ -156,6 +162,8 @@ const AdminComplaints = () => {
   const [openResponsesModal, setOpenResponsesModal] = useState(false);
   const [openClearModal, setOpenClearModal] = useState(false);
   const [openStatsModal, setOpenStatsModal] = useState(false);
+  const [openNotificationsModal, setOpenNotificationsModal] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const [complaintToDelete, setComplaintToDelete] = useState(null);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [responses, setResponses] = useState([]);
@@ -176,8 +184,9 @@ const AdminComplaints = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const chatEndRef = useRef(null);
+  const [processedResponseIds, setProcessedResponseIds] = useState(new Set()); // Pour suivre les réponses déjà traitées
 
-  // Récupérer toutes les réclamations, l'ID de l'admin et les statistiques
+  // Récupérer toutes les réclamations, l'ID de l'admin, les statistiques et les notifications
   useEffect(() => {
     const fetchComplaints = async () => {
       try {
@@ -258,6 +267,10 @@ const AdminComplaints = () => {
           );
           toast.error("Failed to load advanced stats: " + advancedStatsData.message);
         }
+
+        // Charger les notifications de l'admin
+        const adminNotifications = getNotifications(decodedToken.id, true);
+        setNotifications(adminNotifications);
       } catch (error) {
         console.error("Erreur lors de l'appel API:", error);
         toast.error("Error loading data!");
@@ -267,7 +280,66 @@ const AdminComplaints = () => {
     };
 
     fetchComplaints();
-  }, []);
+  }, []); // Pas de dépendance sur adminId pour éviter des rechargements inutiles
+
+  // Vérifier les nouvelles réponses des utilisateurs et charger les notifications
+  useEffect(() => {
+    if (!adminId || complaints.length === 0) return;
+
+    const fetchAllResponsesAndNotifications = async () => {
+      // Charger les notifications actuelles
+      const adminNotifications = getNotifications(adminId, true);
+      setNotifications(adminNotifications);
+
+      // Vérifier les nouvelles réponses pour chaque réclamation
+      for (const complaint of complaints) {
+        const previousResponses = JSON.parse(
+          localStorage.getItem(`admin_responses_${complaint._id}_${adminId}`) || "[]"
+        );
+
+        const currentResponses = await fetchResponses(complaint._id);
+
+        // Mettre à jour les réponses dans localStorage
+        localStorage.setItem(
+          `admin_responses_${complaint._id}_${adminId}`,
+          JSON.stringify(currentResponses)
+        );
+
+        // Filtrer les nouvelles réponses
+        const newResponses = currentResponses.filter(
+          (response) =>
+            !previousResponses.some((prev) => prev._id === response._id) &&
+            response.user_id._id !== adminId &&
+            !processedResponseIds.has(response._id) // Vérifier si la réponse a déjà été traitée
+        );
+
+        // Ajouter les nouvelles réponses à processedResponseIds
+        newResponses.forEach((response) => {
+          setProcessedResponseIds((prev) => new Set(prev).add(response._id));
+        });
+
+        // Ajouter une notification pour chaque nouvelle réponse
+        if (newResponses.length > 0) {
+          newResponses.forEach((response) => {
+            addNotification(
+              adminId,
+              `A new response has been added to the complaint "${complaint.subject}" by ${response.user_id.username}.`,
+              "new_response",
+              true
+            );
+          });
+        }
+      }
+    };
+
+    // Exécuter immédiatement au montage
+    fetchAllResponsesAndNotifications();
+
+    // Exécuter toutes les 5 secondes
+    const interval = setInterval(fetchAllResponsesAndNotifications, 1000);
+
+    return () => clearInterval(interval);
+  }, [adminId, complaints]);
 
   // Mettre à jour les statistiques après modification
   const updateStats = async () => {
@@ -330,7 +402,7 @@ const AdminComplaints = () => {
     setFilteredComplaints(updatedComplaints);
   }, [searchQuery, sortOption, statusFilter, complaints]);
 
-  // Supprimer une réclamation
+  // Supprimer une réclamation et ajouter une notification
   const handleDeleteComplaint = async (complaintId) => {
     try {
       const token = localStorage.getItem("jwt-token");
@@ -345,6 +417,18 @@ const AdminComplaints = () => {
       );
       const data = await response.json();
       if (response.ok) {
+        const deletedComplaint = complaints.find(
+          (complaint) => complaint._id === complaintId
+        );
+        if (deletedComplaint && deletedComplaint.user_id) {
+          const userId = deletedComplaint.user_id._id;
+          addNotification(
+            userId,
+            `Votre réclamation "${deletedComplaint.subject}" a été supprimée par un administrateur.`,
+            "complaint_deleted"
+          );
+        }
+
         setComplaints(
           complaints.filter((complaint) => complaint._id !== complaintId)
         );
@@ -481,6 +565,11 @@ const AdminComplaints = () => {
     setSelectedComplaint(complaint);
     setResponses(responsesData);
     setOpenResponsesModal(true);
+
+    localStorage.setItem(
+      `admin_responses_${complaint._id}_${adminId}`,
+      JSON.stringify(responsesData)
+    );
   };
 
   // Fermer le modal de conversation
@@ -499,13 +588,17 @@ const AdminComplaints = () => {
       const newResponses = await fetchResponses(selectedComplaint._id);
       if (JSON.stringify(newResponses) !== JSON.stringify(responses)) {
         setResponses(newResponses);
+        localStorage.setItem(
+          `admin_responses_${selectedComplaint._id}_${adminId}`,
+          JSON.stringify(newResponses)
+        );
       }
     }, 1000);
 
     return () => clearInterval(interval);
   }, [openResponsesModal, selectedComplaint, responses]);
 
-  // Ajouter une nouvelle réponse
+  // Ajouter une nouvelle réponse et notifier l'utilisateur
   const handleAddResponse = async () => {
     if (!newResponse.trim()) {
       toast.error("Response cannot be empty!");
@@ -554,6 +647,18 @@ const AdminComplaints = () => {
       setResponses([...responses, formattedResponse]);
       setNewResponse("");
       toast.success("Response added successfully!");
+
+      const userId = selectedComplaint.user_id._id;
+      addNotification(
+        userId,
+        `Une nouvelle réponse a été ajoutée à votre réclamation "${selectedComplaint.subject}".`,
+        "new_response"
+      );
+
+      localStorage.setItem(
+        `admin_responses_${selectedComplaint._id}_${adminId}`,
+        JSON.stringify([...responses, formattedResponse])
+      );
     } catch (error) {
       console.error("Erreur lors de l'envoi de la réponse:", error);
       toast.error(`Error adding response: ${error.message}`);
@@ -587,6 +692,24 @@ const AdminComplaints = () => {
         minute: "2-digit",
       });
     }
+  };
+
+  // Calculer le nombre de notifications non lues
+  const unreadNotificationsCount = notifications.filter((notif) => !notif.read).length;
+
+  // Fonctions pour gérer les notifications
+  const handleOpenNotifications = () => {
+    setOpenNotificationsModal(true);
+  };
+
+  const handleMarkAsRead = (notificationId) => {
+    markNotificationAsRead(adminId, notificationId, true);
+    setNotifications(getNotifications(adminId, true));
+  };
+
+  const handleMarkAllAsRead = () => {
+    markAllNotificationsAsRead(adminId, true);
+    setNotifications(getNotifications(adminId, true));
   };
 
   // Données pour le graphique à barres
@@ -867,6 +990,54 @@ const AdminComplaints = () => {
         draggable
         pauseOnHover
       />
+
+      {/* Bulle de notification flottante */}
+      <Box
+        sx={{
+          position: "fixed",
+          bottom: "20px",
+          right: "20px",
+          zIndex: 1000,
+          cursor: "pointer",
+        }}
+        onClick={handleOpenNotifications}
+      >
+        <Box
+          sx={{
+            backgroundColor: colors.blueAccent[500],
+            borderRadius: "50%",
+            width: "60px",
+            height: "60px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+            transition: "transform 0.3s ease",
+            "&:hover": {
+              transform: "scale(1.1)",
+            },
+          }}
+        >
+          <NotificationsIcon sx={{ fontSize: "24px", color: "white" }} />
+          {unreadNotificationsCount > 0 && (
+            <Box
+              sx={{
+                position: "absolute",
+                top: "-5px",
+                right: "-5px",
+                backgroundColor: "red",
+                color: "white",
+                borderRadius: "50%",
+                padding: "5px 8px",
+                fontSize: "12px",
+                fontWeight: "bold",
+              }}
+            >
+              {unreadNotificationsCount}
+            </Box>
+          )}
+        </Box>
+      </Box>
 
       <Header
         title="COMPLAINTS MANAGEMENT"
@@ -1300,6 +1471,108 @@ const AdminComplaints = () => {
               variant="contained"
               color="error"
               onClick={() => setOpenStatsModal(false)}
+            >
+              Close
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      {/* Modal pour les notifications */}
+      <Modal
+        open={openNotificationsModal}
+        onClose={() => setOpenNotificationsModal(false)}
+      >
+        <Box
+          sx={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            backgroundColor: colors.primary[400],
+            padding: "20px",
+            borderRadius: "8px",
+            width: "600px",
+            maxHeight: "80vh",
+            display: "flex",
+            flexDirection: "column",
+            gap: "15px",
+            boxShadow: 24,
+          }}
+        >
+          <Typography variant="h5" textAlign="center">
+            Notifications
+          </Typography>
+          <Box display="flex" justifyContent="flex-end">
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleMarkAllAsRead}
+              size="small"
+            >
+              Mark All as Read
+            </Button>
+          </Box>
+          <Box
+            sx={{
+              maxHeight: notifications.length > 3 ? "300px" : "auto",
+              overflowY: notifications.length > 3 ? "auto" : "visible",
+              mb: 2,
+            }}
+          >
+            {notifications.length > 0 ? (
+              notifications
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                .map((notif) => (
+                  <Box
+                    key={notif.id}
+                    sx={{
+                      mb: 1,
+                      p: 1,
+                      borderBottom: `1px solid ${colors.grey[700]}`,
+                      backgroundColor: notif.read ? colors.grey[800] : colors.blueAccent[700],
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Box>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: notif.read ? "normal" : "bold",
+                          color: notif.read ? colors.grey[300] : colors.grey[100],
+                        }}
+                      >
+                        {notif.message}
+                      </Typography>
+                      <Typography variant="caption" color={colors.grey[500]}>
+                        {new Date(notif.createdAt).toLocaleString("fr-FR")}
+                      </Typography>
+                    </Box>
+                    {!notif.read && (
+                      <Button
+                        variant="contained"
+                        color="success"
+                        size="small"
+                        onClick={() => handleMarkAsRead(notif.id)}
+                      >
+                        Mark as Read
+                      </Button>
+                    )}
+                  </Box>
+                ))
+            ) : (
+              <Typography variant="body2" textAlign="center">
+                No notifications available.
+              </Typography>
+            )}
+          </Box>
+          <Box display="flex" justifyContent="center">
+            <Button
+              variant="contained"
+              color="error"
+              onClick={() => setOpenNotificationsModal(false)}
             >
               Close
             </Button>
