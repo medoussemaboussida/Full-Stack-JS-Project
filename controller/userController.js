@@ -82,7 +82,7 @@ module.exports.addStudent = async (req, res) => {
         console.log(req.body);
         const { username, dob, email, password, speciality, level } = req.body;
         const etatUser = "Actif";
-        const photoUser = "Null";
+        const photoUser = "/uploads/user_icon.png";
         const roleUser = "student";
         const user = new User({ username, email, dob, password, role: roleUser, etat: etatUser, user_photo: photoUser, speciality, level });
         const userAdded = await user.save();
