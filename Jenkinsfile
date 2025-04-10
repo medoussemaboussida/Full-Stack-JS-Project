@@ -4,17 +4,15 @@ pipeline {
     stage('Install dependencies') {
       steps {
         script {
-     sh 'rm -rf node_modules package-lock.json' // Nettoie tout
           sh 'npm install'
-          sh 'npm rebuild bcrypt --build-from-source' // Recompile bcrypt
-          sh 'ls -l node_modules/.bin/jest || echo "Jest binary not found"'
-          sh 'chmod -R +x node_modules/.bin/'
+
         }
       }
     }
     stage('Unit Test') {
       steps {
         script {
+         sh 'chmod -R +x node_modules/.bin/'
           sh 'npm test' // Changement de "npx test" à "npm test"
         }
       }
