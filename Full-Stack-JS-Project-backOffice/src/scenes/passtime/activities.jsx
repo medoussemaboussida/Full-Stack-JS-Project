@@ -26,12 +26,13 @@ import UnarchiveIcon from "@mui/icons-material/Unarchive";
 import SearchIcon from "@mui/icons-material/Search";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import DeleteIcon from "@mui/icons-material/Delete";
-import BarChartIcon from "@mui/icons-material/BarChart"; // Icon for Statistics button
+import BarChartIcon from "@mui/icons-material/BarChart";
 import Header from "../../components/Header";
 import { useTheme } from "@mui/material";
 import { tokens } from "../../theme";
 import { jwtDecode } from "jwt-decode";
 import jsPDF from "jspdf";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 const Activities = () => {
   const [activities, setActivities] = useState([]);
@@ -766,35 +767,79 @@ const Activities = () => {
 </Dialog>
 
       {/* Statistics Modal */}
-      <Dialog open={openStatsModal} onClose={() => setOpenStatsModal(false)} maxWidth="sm" fullWidth>
+      <Dialog open={openStatsModal} onClose={() => setOpenStatsModal(false)} maxWidth="md" fullWidth>
         <DialogTitle>Activity Statistics</DialogTitle>
         <DialogContent>
           <Box sx={{ maxHeight: 400, overflowY: "auto" }}>
             {categories.length > 0 ? (
-              categories.map((cat) => (
-                <Box
-                  key={cat._id}
-                  p={2}
-                  mb={1}
-                  bgcolor={colors.primary[500]}
-                  borderRadius="4px"
+              <Box
+                backgroundColor={colors.primary[400]}
+                p={3}
+                borderRadius="8px"
+                boxShadow="0 2px 10px rgba(0,0,0,0.2)"
+              >
+                <Typography
+                  variant="h6"
+                  color={colors.blueAccent[300]}
+                  fontWeight="bold"
+                  mb={2}
                 >
-                  <Typography sx={{ color: colors.grey[100], fontWeight: "bold" }}>
-                    {cat.name}
-                  </Typography>
-                  <Typography sx={{ color: colors.grey[100] }}>
-                    Total Activities: {cat.totalActivities}
-                  </Typography>
-                  <Typography sx={{ color: colors.greenAccent[500] }}>
-                    Published: {cat.publishedActivities}
-                  </Typography>
-                  <Typography sx={{ color: colors.redAccent[500] }}>
-                    Archived: {cat.archivedActivities}
-                  </Typography>
-                </Box>
-              ))
+                  Activities per Category (Total, Published, Archived)
+                </Typography>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart
+                    data={categories.map((cat) => ({
+                      name: cat.name,
+                      totalActivities: cat.totalActivities,
+                      publishedActivities: cat.publishedActivities,
+                      archivedActivities: cat.archivedActivities,
+                    }))}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke={colors.grey[500]} />
+                    <XAxis
+                      dataKey="name"
+                      stroke={colors.grey[100]}
+                      tick={{ fill: colors.grey[100] }}
+                    />
+                    <YAxis
+                      stroke={colors.grey[100]}
+                      tick={{ fill: colors.grey[100] }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: colors.primary[500],
+                        border: `1px solid ${colors.grey[700]}`,
+                        borderRadius: "4px",
+                        color: colors.grey[100],
+                      }}
+                    />
+                    <Legend />
+                    <Bar
+                      dataKey="totalActivities"
+                      fill={colors.blueAccent[500]}
+                      barSize={20}
+                      name="Total Activities"
+                    />
+                    <Bar
+                      dataKey="publishedActivities"
+                      fill={colors.greenAccent[500]}
+                      barSize={20}
+                      name="Published Activities"
+                    />
+                    <Bar
+                      dataKey="archivedActivities"
+                      fill={colors.redAccent[500]}
+                      barSize={20}
+                      name="Archived Activities"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Box>
             ) : (
-              <Typography sx={{ color: colors.grey[100] }}>No statistics available</Typography>
+              <Typography sx={{ color: colors.grey[100] }}>
+                No statistics available
+              </Typography>
             )}
           </Box>
         </DialogContent>
@@ -821,5 +866,4 @@ const Activities = () => {
     </Box>
   );
 };
-
 export default Activities;
