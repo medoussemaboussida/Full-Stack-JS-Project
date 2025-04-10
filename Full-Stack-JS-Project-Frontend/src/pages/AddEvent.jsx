@@ -17,18 +17,9 @@ const tunisianGovernorates = [
 ].sort();
 
 const emailDomains = [
-  "@gmail.com",
-  "@yahoo.fr",
-  "@hotmail.com",
-  "@outlook.com",
-  "@live.fr",
-  "@aol.com",
-  "@icloud.com",
-  "@mail.com",
-  "@protonmail.com",
-  "@yandex.com",
-  "@yahoo.com",
-  "@msn.com"
+  "@gmail.com", "@yahoo.fr", "@hotmail.com", "@outlook.com", "@live.fr",
+  "@aol.com", "@icloud.com", "@mail.com", "@protonmail.com", "@yandex.com",
+  "@yahoo.com", "@msn.com"
 ];
 
 const AddEvent = () => {
@@ -44,6 +35,8 @@ const AddEvent = () => {
     heure: "",
     contact_email: "",
     image: null,
+    hasPartners: false, // Changé en booléen (true/false) au lieu de "yes"/"no"
+    partners: [], // Conservé mais non utilisé pour le moment
   });
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState(null);
@@ -88,7 +81,9 @@ const AddEvent = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    // Convertir "hasPartners" en booléen
+    const newValue = name === "hasPartners" ? (value === "true") : value;
+    setFormData({ ...formData, [name]: newValue });
     setErrors({ ...errors, [name]: "" });
   };
 
@@ -105,6 +100,8 @@ const AddEvent = () => {
       heure: "",
       contact_email: "",
       image: null,
+      hasPartners: false, // Réinitialisé à false
+      partners: [],
     });
     setImagePreview("/assets/img/about/image.png");
     setErrors({});
@@ -116,7 +113,7 @@ const AddEvent = () => {
     setIsSubmitting(true);
     setErrors({});
     setServerError(null);
-  
+
     const token = localStorage.getItem('jwt-token');
     if (!token) {
       toast.error("You must be logged in to add an event", { autoClose: 3000 });
@@ -129,7 +126,7 @@ const AddEvent = () => {
       setIsSubmitting(false);
       return;
     }
-  
+
     const formDataToSend = new FormData();
     formDataToSend.append('title', formData.title);
     formDataToSend.append('description', formData.description);
@@ -147,22 +144,25 @@ const AddEvent = () => {
     if (formData.image) {
       formDataToSend.append('image', formData.image);
     }
-  
-    console.log('Data sent to backend:', Object.fromEntries(formDataToSend));
-  
+    formDataToSend.append('hasPartners', formData.hasPartners); // Envoyé comme booléen
+
+    console.log('Data sent to backend:', Object.fromEntries(formDataToSend)); // Log pour débogage
+
     try {
       const response = await axios.post(`${BASE_URL}/events/addEvent`, formDataToSend, {
         headers: {
           "Authorization": `Bearer ${token}`,
+          "Content-Type": "multipart/form-data", // Nécessaire pour FormData
         },
       });
-      toast.success("Event added successfully!", { autoClose: 2000 });
+
+      // Afficher un message de succès, incluant éventuellement des détails sur l'envoi d'emails
+      const successMessage = response.data.message + (formData.hasPartners ? " Emails will be sent to association members." : "");
+      toast.success(successMessage, { autoClose: 2000 });
       handleReset();
       setTimeout(() => navigate('/events'), 2000);
     } catch (error) {
-      // Ajoutez ce log ici pour voir la réponse complète du backend
-      console.log('Full error response for online event:', error.response);
-      
+      console.log('Full error response:', error.response);
       if (error.response?.status === 403) {
         toast.error("Your session has expired, please log in again", { autoClose: 3000 });
         localStorage.removeItem('jwt-token');
@@ -188,6 +188,9 @@ const AddEvent = () => {
           setServerError(errorMessage);
           toast.error(errorMessage, { autoClose: 3000 });
         }
+      } else if (error.response?.status === 500 && error.response?.data?.message.includes("emails")) {
+        // Cas où l'événement est créé mais l'envoi d'emails échoue
+        toast.warn(error.response.data.message, { autoClose: 5000 });
       } else {
         const errorMessage = error.response?.data?.message || "An error occurred while adding the event";
         setServerError(errorMessage);
@@ -197,8 +200,7 @@ const AddEvent = () => {
       setIsSubmitting(false);
     }
   };
-  
-  
+
   return (
     <>
       <div className="site-breadcrumb" style={{ background: "url(/assets/img/breadcrumb/01.jpg)" }}>
@@ -465,6 +467,33 @@ const AddEvent = () => {
                             {errors.contact_email}
                           </p>
                         )}
+                      </div>
+                      <div className="col-md-12" style={{ marginBottom: '15px' }}>
+                        <label htmlFor="hasPartners" style={{ marginBottom: '5px', display: 'block' }}>
+                          Notify Partner Associations?
+                        </label>
+                        <select
+                          id="hasPartners"
+                          name="hasPartners"
+                          className="form-control"
+                          value={formData.hasPartners.toString()} // Convertir en chaîne pour le select
+                          onChange={handleChange}
+                          style={{
+                            borderColor: errors.hasPartners ? '#dc3545' : '#ced4da',
+                            padding: '10px',
+                            borderRadius: '5px',
+                            fontSize: '16px',
+                            color: '#333',
+                            outline: 'none',
+                            transition: 'all 0.3s ease',
+                          }}
+                        >
+                          <option value="false">No</option>
+                          <option value="true">Yes</option>
+                        </select>
+                        <small style={{ color: '#6c757d', fontSize: '12px' }}>
+                          If "Yes", other association members will be notified by email.
+                        </small>
                       </div>
                       <div className="col-md-12" style={{ marginBottom: '15px' }}>
                         <label htmlFor="image" style={{ marginBottom: '5px', display: 'block' }}>

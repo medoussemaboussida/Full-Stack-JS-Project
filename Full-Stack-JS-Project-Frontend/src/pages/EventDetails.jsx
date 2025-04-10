@@ -16,6 +16,7 @@ const EventDetails = () => {
   const [userId, setUserId] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({});
+  const [relatedEvents, setRelatedEvents] = useState([]); // État pour les événements liés
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -51,6 +52,7 @@ const EventDetails = () => {
           contact_email: eventData.contact_email || '',
           imageUrl: eventData.imageUrl || '',
         });
+        await fetchRelatedEvents(eventData.event_type);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching event:", error.response?.data || error.message);
@@ -61,6 +63,38 @@ const EventDetails = () => {
 
     fetchEvent();
   }, [id]);
+
+  const fetchRelatedEvents = async (eventType) => {
+    try {
+      const token = localStorage.getItem("jwt-token");
+      if (!token || !eventType) {
+        setRelatedEvents([]);
+        return;
+      }
+
+      const response = await axios.post(
+        `${BASE_URL}/events/related`,
+        { 
+          event_type: eventType, 
+          status: ["upcoming", "ongoing"]
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const filteredEvents = response.data
+        .filter((e) => e._id !== id)
+        .slice(0, 3);
+      setRelatedEvents(filteredEvents);
+    } catch (error) {
+      console.error("Error fetching related events:", error);
+      setRelatedEvents([]);
+    }
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -405,6 +439,21 @@ const EventDetails = () => {
                         </div>
                       </div>
                     </div>
+                  </div>
+                  {/* Section pour les événements liés - Afficher uniquement le nom */}
+                  <div className="widget recent-post">
+                    <h5 className="title">Related Events</h5>
+                    {relatedEvents.length > 0 ? (
+                      <ul>
+                        {relatedEvents.map((relatedEvent) => (
+                          <li key={relatedEvent._id}>
+                            <Link to={`/events/${relatedEvent._id}`}>{relatedEvent.title}</Link>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>No related events found.</p>
+                    )}
                   </div>
                 </div>
               </div>

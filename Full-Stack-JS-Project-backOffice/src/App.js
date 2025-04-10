@@ -19,6 +19,8 @@ import Calendar from "./scenes/calendar/calendar";
 import Forum from "./scenes/forum/forum";
 import Appointment from "./scenes/Appointment/Appointment";
 import Events from "./scenes/events/events"; 
+import Associations from "./scenes/associations/associations";
+
 import { NotificationProvider } from "./scenes/publication/NotificationContext"; // Importer le NotificationProvider
 import Activities from "./scenes/passtime/activities";
 import AdminComplaints from "./scenes/complaint/complaint";
@@ -75,6 +77,9 @@ function App() {
                 <Route path="/forum" element={<Forum />} />
                 <Route path="/appointment" element={<Appointment />} />
                 <Route path="/activities" element={<Activities />} />
+                <Route path="/events" element={<Events />} />
+                <Route path="/associations" element={<Associations />} />
+
 
               </Routes>
             </main>

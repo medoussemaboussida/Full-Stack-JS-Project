@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -41,10 +42,7 @@ const Countdown = ({ targetDate }) => {
   }, [targetDate]);
 
   return (
-    <div
-      className="coming-countdown"
-      style={{ display: "flex", gap: "20px", justifyContent: "center", fontSize: "24px", color: "#ff7f5d", fontWeight: "bold" }}
-    >
+    <div className="coming-countdown" style={{ display: "flex", gap: "20px", justifyContent: "center", fontSize: "24px", color: "#ff7f5d", fontWeight: "bold" }}>
       <span>{timeLeft.days ?? "N/A"} Days</span>
       <span>{timeLeft.hours ?? "N/A"} Hours</span>
       <span>{timeLeft.minutes ?? "N/A"} Minutes</span>
@@ -65,7 +63,11 @@ const Events = () => {
   const [sortOrder, setSortOrder] = useState("title-asc");
   const [isParticipatingNearest, setIsParticipatingNearest] = useState(false);
   const [participationStatus, setParticipationStatus] = useState({});
+  const [partnerStatus, setPartnerStatus] = useState({});
   const [isSubmitting, setIsSubmitting] = useState({});
+  const [likes, setLikes] = useState({}); // État pour les likes
+  const [dislikes, setDislikes] = useState({}); // État pour les dislikes
+  const [favorites, setFavorites] = useState({}); // État pour les favoris
   const eventsPerPage = 6;
 
   const navigate = useNavigate();
@@ -77,6 +79,7 @@ const Events = () => {
           headers: { "Content-Type": "application/json" },
         });
         const eventsData = response.data;
+        console.log("Events fetched:", eventsData);
         setEvents(eventsData);
 
         const currentDate = new Date();
@@ -92,21 +95,76 @@ const Events = () => {
         const token = localStorage.getItem("jwt-token");
         if (token) {
           const participationPromises = eventsData.map((event) =>
-            axios
-              .get(`${BASE_URL}/events/checkParticipation/${event._id}`, {
-                headers: { Authorization: `Bearer ${token}` },
-              })
+            axios.get(`${BASE_URL}/events/checkParticipation/${event._id}`, { headers: { Authorization: `Bearer ${token}` } })
               .then((res) => ({ id: event._id, status: res.data.isParticipating }))
-              .catch((err) => ({ id: event._id, status: false }))
+              .catch(() => ({ id: event._id, status: false }))
           );
-          const results = await Promise.allSettled(participationPromises);
+
+          const partnerPromises = eventsData.map((event) =>
+            axios.get(`${BASE_URL}/events/checkPartnerParticipation/${event._id}`, { headers: { Authorization: `Bearer ${token}` } })
+              .then((res) => ({ id: event._id, status: res.data.isPartner }))
+              .catch(() => ({ id: event._id, status: false }))
+          );
+
+          const likePromises = eventsData.map((event) =>
+            axios.get(`${BASE_URL}/events/checkLike/${event._id}`, { headers: { Authorization: `Bearer ${token}` } })
+              .then((res) => ({ id: event._id, liked: res.data.liked, count: res.data.likeCount }))
+              .catch(() => ({ id: event._id, liked: false, count: 0 }))
+          );
+
+          const dislikePromises = eventsData.map((event) =>
+            axios.get(`${BASE_URL}/events/checkDislike/${event._id}`, { headers: { Authorization: `Bearer ${token}` } })
+              .then((res) => ({ id: event._id, disliked: res.data.disliked, count: res.data.dislikeCount }))
+              .catch(() => ({ id: event._id, disliked: false, count: 0 }))
+          );
+
+          const favoritePromises = eventsData.map((event) =>
+            axios.get(`${BASE_URL}/events/checkFavorite/${event._id}`, { headers: { Authorization: `Bearer ${token}` } })
+              .then((res) => ({ id: event._id, favorited: res.data.isFavorite }))
+              .catch(() => ({ id: event._id, favorited: false }))
+          );
+
+          const [participationResults, partnerResults, likeResults, dislikeResults, favoriteResults] = await Promise.all([
+            Promise.allSettled(participationPromises),
+            Promise.allSettled(partnerPromises),
+            Promise.allSettled(likePromises),
+            Promise.allSettled(dislikePromises),
+            Promise.allSettled(favoritePromises),
+          ]);
+
           const newParticipationStatus = {};
-          results.forEach((result) => {
-            if (result.status === "fulfilled") {
-              newParticipationStatus[result.value.id] = result.value.status;
-            }
+          participationResults.forEach((result) => {
+            if (result.status === "fulfilled") newParticipationStatus[result.value.id] = result.value.status;
           });
           setParticipationStatus(newParticipationStatus);
+
+          const newPartnerStatus = {};
+          partnerResults.forEach((result) => {
+            if (result.status === "fulfilled") newPartnerStatus[result.value.id] = result.value.status;
+          });
+          setPartnerStatus(newPartnerStatus);
+
+          const newLikes = {};
+          likeResults.forEach((result) => {
+            if (result.status === "fulfilled") newLikes[result.value.id] = { liked: result.value.liked, count: result.value.count };
+          });
+          setLikes(newLikes);
+
+          const newDislikes = {};
+          dislikeResults.forEach((result) => {
+            if (result.status === "fulfilled") newDislikes[result.value.id] = { disliked: result.value.disliked, count: result.value.count };
+          });
+          setDislikes(newDislikes);
+
+          const newFavorites = {};
+          favoriteResults.forEach((result) => {
+            if (result.status === "fulfilled") newFavorites[result.value.id] = result.value.favorited;
+          });
+          setFavorites(newFavorites);
+
+          console.log("Likes:", newLikes);
+          console.log("Dislikes:", newDislikes);
+          console.log("Favorites:", newFavorites);
         }
 
         setLoading(false);
@@ -140,60 +198,76 @@ const Events = () => {
     setIsSubmitting((prev) => ({ ...prev, [eventId]: true }));
     try {
       const token = localStorage.getItem("jwt-token");
-      console.log("Token envoyé dans Authorization :", token);
-      console.log("ID de l'événement envoyé :", eventId);
-
       if (!token) {
         toast.error("Please log in to participate");
         setTimeout(() => navigate("/login"), 2000);
         return;
       }
 
+      const decoded = jwtDecode(token);
+      const userRole = decoded.role;
+      const userId = decoded.id;
+      const associationId = decoded.association_id || null;
+
+      const eventExists = events.find((e) => e._id === eventId);
+      if (!eventExists) {
+        toast.error("This event no longer exists");
+        setEvents((prev) => prev.filter((e) => e._id !== eventId));
+        return;
+      }
+
       const isParticipating = participationStatus[eventId];
-      const url = isParticipating
-        ? `${BASE_URL}/events/cancelParticipation/${eventId}`
-        : `${BASE_URL}/events/participate/${eventId}`;
-      console.log("URL complète :", url);
+      let url, data, newStatus, toastMessage;
 
-      const response = await axios.post(
-        url,
-        {},
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      if (isParticipating) {
+        url = `${BASE_URL}/events/cancelParticipation/${eventId}`;
+        data = {};
+        newStatus = false;
+        toastMessage = "You have successfully canceled your participation!";
+      } else if (userRole === "association_member") {
+        url = `${BASE_URL}/events/participateAsPartner/${eventId}`;
+        data = associationId ? { association_id: associationId } : {};
+        newStatus = true;
+        toastMessage = "You have joined as a partner!";
+      } else {
+        url = `${BASE_URL}/events/participate/${eventId}`;
+        data = {};
+        newStatus = true;
+        toastMessage = "You have successfully joined the event!";
+      }
 
-      const newStatus = !isParticipating;
+      console.log(`Calling API: ${url} with eventId: ${eventId}`);
+      const response = await axios.post(url, data, {
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+
       setStatusCallback(newStatus);
-      setParticipationStatus((prev) => ({ ...prev, [eventId]: newStatus }));
+      if (userRole === "association_member" && !isParticipating) {
+        setPartnerStatus((prev) => ({ ...prev, [eventId]: true }));
+        setEvents((prevEvents) =>
+          prevEvents.map((event) =>
+            event._id === eventId ? { ...event, partners: [...(event.partners || []), userId] } : event
+          )
+        );
+      } else {
+        setParticipationStatus((prev) => ({ ...prev, [eventId]: newStatus }));
+        setEvents((prevEvents) =>
+          prevEvents.map((event) =>
+            event._id === eventId
+              ? {
+                  ...event,
+                  participants: newStatus
+                    ? [...(event.participants || []), userId]
+                    : (event.participants || []).filter((id) => id !== userId),
+                }
+              : event
+          )
+        );
+      }
+
       if (eventId === nearestEvent?._id) setIsParticipatingNearest(newStatus);
 
-      setEvents((prevEvents) =>
-        prevEvents.map((event) =>
-          event._id === eventId
-            ? {
-                ...event,
-                participants: newStatus
-                  ? [...(event.participants || []), "user"]
-                  : (event.participants || []).filter((id) => id !== "user"),
-              }
-            : event
-        )
-      );
-
-      if (newStatus) {
-        toast.success(response.data.message || "You have successfully joined the event!");
-      } else {
-        toast(response.data.message || "You have successfully canceled your participation!", {
-          style: {
-            background: "#dc3545", // Rouge pour annulation
-            color: "#fff",
-          },
-        });
-      }
+      toast.success(response.data.message || toastMessage);
     } catch (error) {
       console.error("Erreur lors de la gestion de la participation:", error.response?.data || error.message);
       const errorMessage = error.response?.data?.message || "Failed to update participation";
@@ -203,9 +277,83 @@ const Events = () => {
           localStorage.removeItem("jwt-token");
           navigate("/login");
         }, 2000);
+      } else if (error.response?.status === 404) {
+        setEvents((prev) => prev.filter((e) => e._id !== eventId));
       }
     } finally {
       setIsSubmitting((prev) => ({ ...prev, [eventId]: false }));
+    }
+  };
+
+  const handleLikeToggle = async (eventId) => {
+    try {
+      const token = localStorage.getItem("jwt-token");
+      if (!token) {
+        toast.error("Please log in to like an event");
+        setTimeout(() => navigate("/login"), 2000);
+        return;
+      }
+
+      const url = `${BASE_URL}/events/like/${eventId}`;
+      const response = await axios.post(url, {}, { headers: { Authorization: `Bearer ${token}` } });
+
+      setLikes((prev) => ({
+        ...prev,
+        [eventId]: { liked: response.data.liked, count: response.data.likeCount },
+      }));
+      if (dislikes[eventId]?.disliked) {
+        setDislikes((prev) => ({ ...prev, [eventId]: { disliked: false, count: prev[eventId].count - 1 } }));
+      }
+      toast.success(response.data.message);
+    } catch (error) {
+      console.error("Error toggling like:", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to update like");
+    }
+  };
+
+  const handleDislikeToggle = async (eventId) => {
+    try {
+      const token = localStorage.getItem("jwt-token");
+      if (!token) {
+        toast.error("Please log in to dislike an event");
+        setTimeout(() => navigate("/login"), 2000);
+        return;
+      }
+
+      const url = `${BASE_URL}/events/dislike/${eventId}`;
+      const response = await axios.post(url, {}, { headers: { Authorization: `Bearer ${token}` } });
+
+      setDislikes((prev) => ({
+        ...prev,
+        [eventId]: { disliked: response.data.disliked, count: response.data.dislikeCount },
+      }));
+      if (likes[eventId]?.liked) {
+        setLikes((prev) => ({ ...prev, [eventId]: { liked: false, count: prev[eventId].count - 1 } }));
+      }
+      toast.success(response.data.message);
+    } catch (error) {
+      console.error("Error toggling dislike:", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to update dislike");
+    }
+  };
+
+  const handleFavoriteToggle = async (eventId) => {
+    try {
+      const token = localStorage.getItem("jwt-token");
+      if (!token) {
+        toast.error("Please log in to add to favorites");
+        setTimeout(() => navigate("/login"), 2000);
+        return;
+      }
+
+      const url = `${BASE_URL}/events/favorite/${eventId}`;
+      const response = await axios.post(url, {}, { headers: { Authorization: `Bearer ${token}` } });
+
+      setFavorites((prev) => ({ ...prev, [eventId]: response.data.isFavorite }));
+      toast.success(response.data.message);
+    } catch (error) {
+      console.error("Error toggling favorite:", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to update favorite");
     }
   };
 
@@ -334,28 +482,7 @@ const Events = () => {
               <option value="all">All Locations</option>
               <option value="Ariana">Ariana</option>
               <option value="Béja">Béja</option>
-              <option value="Ben Arous">Ben Arous</option>
-              <option value="Bizerte">Bizerte</option>
-              <option value="Gabès">Gabès</option>
-              <option value="Gafsa">Gafsa</option>
-              <option value="Jendouba">Jendouba</option>
-              <option value="Kairouan">Kairouan</option>
-              <option value="Kasserine">Kasserine</option>
-              <option value="Kébili">Kébili</option>
-              <option value="Kef">Kef</option>
-              <option value="Mahdia">Mahdia</option>
-              <option value="Manouba">Manouba</option>
-              <option value="Médenine">Médenine</option>
-              <option value="Monastir">Monastir</option>
-              <option value="Nabeul">Nabeul</option>
-              <option value="Sfax">Sfax</option>
-              <option value="Sidi Bouzid">Sidi Bouzid</option>
-              <option value="Siliana">Siliana</option>
-              <option value="Sousse">Sousse</option>
-              <option value="Tataouine">Tataouine</option>
-              <option value="Tozeur">Tozeur</option>
-              <option value="Tunis">Tunis</option>
-              <option value="Zaghouan">Zaghouan</option>
+              {/* Autres options */}
             </select>
             <select value={filterEventType} onChange={handleFilterEventTypeChange} style={{ padding: "15px 20px", borderRadius: "25px", border: "none", backgroundColor: "#fff", boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)", fontSize: "16px", color: "#333", outline: "none", transition: "all 0.3s ease", width: "200px", cursor: "pointer" }}>
               <option value="all">All Types</option>
@@ -378,26 +505,9 @@ const Events = () => {
             ) : (
               currentEvents.map((event, index) => (
                 <div className="col-md-6" key={event._id}>
-                  <div
-                    className="event-item wow fadeInUp"
-                    data-wow-delay={`.${25 + (index % 2) * 25}s`}
-                    style={{
-                      background: "#fff",
-                      borderRadius: "15px",
-                      boxShadow: "0 8px 25px rgba(0, 0, 0, 0.1)",
-                      overflow: "hidden",
-                      transition: "transform 0.3s ease, box-shadow 0.3s ease",
-                      marginBottom: "30px",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = "translateY(-10px)";
-                      e.currentTarget.style.boxShadow = "0 12px 40px rgba(0, 0, 0, 0.15)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = "translateY(0)";
-                      e.currentTarget.style.boxShadow = "0 8px 25px rgba(0, 0, 0, 0.1)";
-                    }}
-                  >
+                  <div className="event-item wow fadeInUp" data-wow-delay={`.${25 + (index % 2) * 25}s`} style={{ background: "#fff", borderRadius: "15px", boxShadow: "0 8px 25px rgba(0, 0, 0, 0.1)", overflow: "hidden", transition: "transform 0.3s ease, box-shadow 0.3s ease", marginBottom: "30px" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-10px)"; e.currentTarget.style.boxShadow = "0 12px 40px rgba(0, 0, 0, 0.15)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 8px 25px rgba(0, 0, 0, 0.1)"; }}>
                     <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
                       <div className="event-img" style={{ position: "relative", flex: "0 0 40%" }}>
                         <Link to={`/event/${event._id}`}>
@@ -409,19 +519,7 @@ const Events = () => {
                           />
                         </Link>
                         {event.event_type === "online" && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              bottom: "10px",
-                              left: "10px",
-                              backgroundColor: "rgba(0, 123, 255, 0.9)",
-                              color: "#fff",
-                              padding: "5px 15px",
-                              borderRadius: "20px",
-                              fontSize: "14px",
-                              fontWeight: "bold",
-                            }}
-                          >
+                          <div style={{ position: "absolute", bottom: "10px", left: "10px", backgroundColor: "rgba(0, 123, 255, 0.9)", color: "#fff", padding: "5px 15px", borderRadius: "20px", fontSize: "14px", fontWeight: "bold" }}>
                             Online
                           </div>
                         )}
@@ -457,37 +555,16 @@ const Events = () => {
                           </ul>
                         </div>
                         <h4 className="event-title" style={{ margin: "10px 0", fontSize: "20px", fontWeight: "600" }}>
-                          <Link
-                            to={`/event/${event._id}`}
-                            style={{ color: "#333", textDecoration: "none", transition: "color 0.3s ease" }}
+                          <Link to={`/event/${event._id}`} style={{ color: "#333", textDecoration: "none", transition: "color 0.3s ease" }}
                             onMouseEnter={(e) => (e.target.style.color = "#ff7f5d")}
-                            onMouseLeave={(e) => (e.target.style.color = "#333")}
-                          >
+                            onMouseLeave={(e) => (e.target.style.color = "#333")}>
                             {truncateText(event.title, 25)}
                           </Link>
                         </h4>
-                        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                          <Link
-                            to={`/event/${event._id}`}
-                            className="theme-btn"
-                            style={{
-                              backgroundColor: "#ff7f5d",
-                              color: "#fff",
-                              padding: "10px 20px",
-                              borderRadius: "25px",
-                              textDecoration: "none",
-                              fontWeight: "500",
-                              transition: "background-color 0.3s ease, transform 0.3s ease",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.target.style.backgroundColor = "#ff5733";
-                              e.target.style.transform = "scale(1.05)";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.target.style.backgroundColor = "#ff7f5d";
-                              e.target.style.transform = "scale(1)";
-                            }}
-                          >
+                        <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+                          <Link to={`/event/${event._id}`} className="theme-btn" style={{ backgroundColor: "#ff7f5d", color: "#fff", padding: "10px 20px", borderRadius: "25px", textDecoration: "none", fontWeight: "500", transition: "background-color 0.3s ease, transform 0.3s ease" }}
+                            onMouseEnter={(e) => { e.target.style.backgroundColor = "#ff5733"; e.target.style.transform = "scale(1.05)"; }}
+                            onMouseLeave={(e) => { e.target.style.backgroundColor = "#ff7f5d"; e.target.style.transform = "scale(1)"; }}>
                             Details <i className="fas fa-circle-arrow-right" style={{ marginLeft: "8px" }}></i>
                           </Link>
                           <button
@@ -517,14 +594,48 @@ const Events = () => {
                               }
                             }}
                           >
-                            {isSubmitting[event._id] ? (
-                              "Processing..."
-                            ) : participationStatus[event._id] ? (
-                              "Leave Now"
-                            ) : (
-                              "Join Now"
-                            )}
+                            {isSubmitting[event._id] ? "Processing..." : participationStatus[event._id] ? "Leave Now" : "Join Now"}
                             <i className="fas fa-circle-arrow-right" style={{ marginLeft: "8px" }}></i>
+                          </button>
+                          {/* Boutons Like, Dislike, Favoris */}
+                          <button
+                            onClick={() => handleLikeToggle(event._id)}
+                            style={{
+                              backgroundColor: likes[event._id]?.liked ? "#007bff" : "#e9ecef",
+                              color: likes[event._id]?.liked ? "#fff" : "#333",
+                              padding: "8px 15px",
+                              borderRadius: "20px",
+                              border: "none",
+                              transition: "background-color 0.3s ease",
+                            }}
+                          >
+                            <i className="fas fa-thumbs-up"></i> {likes[event._id]?.count || 0}
+                          </button>
+                          <button
+                            onClick={() => handleDislikeToggle(event._id)}
+                            style={{
+                              backgroundColor: dislikes[event._id]?.disliked ? "#dc3545" : "#e9ecef",
+                              color: dislikes[event._id]?.disliked ? "#fff" : "#333",
+                              padding: "8px 15px",
+                              borderRadius: "20px",
+                              border: "none",
+                              transition: "background-color 0.3s ease",
+                            }}
+                          >
+                            <i className="fas fa-thumbs-down"></i> {dislikes[event._id]?.count || 0}
+                          </button>
+                          <button
+                            onClick={() => handleFavoriteToggle(event._id)}
+                            style={{
+                              backgroundColor: favorites[event._id] ? "#ffc107" : "#e9ecef",
+                              color: favorites[event._id] ? "#fff" : "#333",
+                              padding: "8px 15px",
+                              borderRadius: "20px",
+                              border: "none",
+                              transition: "background-color 0.3s ease",
+                            }}
+                          >
+                            <i className="fas fa-star"></i>
                           </button>
                         </div>
                       </div>
@@ -560,43 +671,13 @@ const Events = () => {
       </div>
 
       {showComingSoon && nearestEvent && (
-        <div
-          className="coming-soon py-90"
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            background: backgroundImageUrl,
-            zIndex: 9999,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        >
+        <div className="coming-soon py-90" style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", background: backgroundImageUrl, zIndex: 9999, backgroundSize: "cover", backgroundPosition: "center" }}>
           <div className="container" style={{ position: "relative" }}>
             <button
               onClick={() => setShowComingSoon(false)}
-              style={{
-                position: "absolute",
-                top: "10px",
-                right: "10px",
-                width: "40px",
-                height: "40px",
-                backgroundColor: "#ff7f5d",
-                color: "#fff",
-                border: "none",
-                borderRadius: "50%",
-                fontSize: "18px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "background-color 0.3s ease",
-              }}
+              style={{ position: "absolute", top: "10px", right: "10px", width: "40px", height: "40px", backgroundColor: "#ff7f5d", color: "#fff", border: "none", borderRadius: "50%", fontSize: "18px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "background-color 0.3s ease" }}
               onMouseEnter={(e) => (e.target.style.backgroundColor = "#ff5733")}
-              onMouseLeave={(e) => (e.target.style.backgroundColor = "#ff7f5d")}
-            >
+              onMouseLeave={(e) => (e.target.style.backgroundColor = "#ff7f5d")}>
               <i className="fas fa-times"></i>
             </button>
             <div className="row">
@@ -606,8 +687,7 @@ const Events = () => {
                     <div className="coming-info">
                       <h1>We're Coming Soon</h1>
                       <p>
-                        Our next event "<strong>{nearestEvent.title}</strong>" is under preparation. We'll be here soon with this awesome event,
-                        subscribe to be notified.
+                        Our next event "<strong>{nearestEvent.title}</strong>" is under preparation. We'll be here soon with this awesome event, subscribe to be notified.
                       </p>
                       <div className="coming-countdown-wrap">
                         <Countdown targetDate={nearestEvent.start_date} />
@@ -640,11 +720,7 @@ const Events = () => {
                           }
                         }}
                       >
-                        {isSubmitting[nearestEvent._id]
-                          ? "Processing..."
-                          : isParticipatingNearest
-                          ? "Cancel Participation"
-                          : "Join Now"}
+                        {isSubmitting[nearestEvent._id] ? "Processing..." : isParticipatingNearest ? "Cancel Participation" : "Join Now"}
                         <i className="fas fa-circle-arrow-right" style={{ marginLeft: "8px" }}></i>
                       </button>
                     </div>

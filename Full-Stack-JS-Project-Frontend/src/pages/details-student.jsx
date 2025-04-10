@@ -15,6 +15,7 @@ function DetailsStudents() {
   const [isChangingPhoto, setIsChangingPhoto] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [events, setEvents] = useState([]);
+  const [hasAssociation, setHasAssociation] = useState(false); // Nouvel état pour vérifier l'association
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -38,9 +39,9 @@ function DetailsStudents() {
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(""); // Full date (YYYY-MM-DD)
-  const [selectedStartTime, setSelectedStartTime] = useState("08:00"); // Default start time
-  const [selectedEndTime, setSelectedEndTime] = useState("17:00"); // Default end time
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedStartTime, setSelectedStartTime] = useState("08:00");
+  const [selectedEndTime, setSelectedEndTime] = useState("17:00");
   const [selectedDateInfo, setSelectedDateInfo] = useState(null);
 
   const BASE_URL = "http://localhost:5000";
@@ -68,22 +69,17 @@ function DetailsStudents() {
 
   const formatAvailabilitiesToEvents = (availabilities) => {
     if (!availabilities || !Array.isArray(availabilities)) return [];
-  
     return availabilities
       .map((slot, index) => {
         let date;
-  
-        // New schema with date
         if (slot.date) {
           date = new Date(slot.date);
           if (isNaN(date.getTime())) {
             console.error(`Invalid date in slot ${index}:`, slot);
             return null;
           }
-        }
-        // Old schema with day
-        else if (slot.day) {
-          const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        } else if (slot.day) {
+          const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
           const dayIndex = daysOfWeek.indexOf(slot.day);
           if (dayIndex === -1) {
             console.error(`Invalid day in slot ${index}:`, slot);
@@ -99,26 +95,20 @@ function DetailsStudents() {
           console.error(`Missing required fields in slot ${index}:`, slot);
           return null;
         }
-  
         if (!slot.startTime || !slot.endTime) {
           console.error(`Missing time fields in slot ${index}:`, slot);
           return null;
         }
-  
-        const [startHour, startMinute] = slot.startTime.split(':').map(Number);
-        const [endHour, endMinute] = slot.endTime.split(':').map(Number);
-  
+        const [startHour, startMinute] = slot.startTime.split(":").map(Number);
+        const [endHour, endMinute] = slot.endTime.split(":").map(Number);
         const startDate = new Date(date);
         startDate.setHours(startHour, startMinute, 0, 0);
-  
         const endDate = new Date(date);
         endDate.setHours(endHour, endMinute, 0, 0);
-  
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
           console.error(`Invalid time in slot ${index}:`, slot);
           return null;
         }
-  
         return {
           id: index,
           title: `Available - ${startDate.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`,
@@ -158,6 +148,19 @@ function DetailsStudents() {
               if (data.availability) {
                 const formattedEvents = formatAvailabilitiesToEvents(data.availability);
                 setEvents(formattedEvents);
+              }
+
+              // Vérifier si l'utilisateur a déjà une association
+              if (data.role === "association_member") {
+                const associationResponse = await fetch(`${BASE_URL}/association/check`, {
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                const associationData = await associationResponse.json();
+                if (associationResponse.ok) {
+                  setHasAssociation(associationData.hasAssociation);
+                } else {
+                  toast.error("Erreur lors de la vérification de l’association");
+                }
               }
             } else {
               toast.error(`Error: ${data.message || "Failed to fetch user data"}`);
@@ -379,7 +382,7 @@ function DetailsStudents() {
       const startDate = new Date(info.event.start);
       const endDate = new Date(info.event.end);
       const updatedAvailability = {
-        date: formatDateForInput(startDate), // YYYY-MM-DD
+        date: formatDateForInput(startDate),
         startTime: `${String(startDate.getHours()).padStart(2, "0")}:${String(startDate.getMinutes()).padStart(2, "0")}`,
         endTime: `${String(endDate.getHours()).padStart(2, "0")}:${String(endDate.getMinutes()).padStart(2, "0")}`,
       };
@@ -472,7 +475,7 @@ function DetailsStudents() {
     const token = localStorage.getItem("jwt-token");
     const decoded = jwtDecode(token);
     const newAvailability = {
-      date: selectedDate, // YYYY-MM-DD
+      date: selectedDate,
       startTime: selectedStartTime,
       endTime: selectedEndTime,
     };
@@ -541,25 +544,8 @@ function DetailsStudents() {
       )}
 
       {showAvailabilityModal && (
-        <div style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: "rgba(0,0,0,0.5)",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          zIndex: 2000,
-        }}>
-          <div style={{
-            backgroundColor: "white",
-            padding: "20px",
-            borderRadius: "5px",
-            width: "350px",
-            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-          }}>
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 2000 }}>
+          <div style={{ backgroundColor: "white", padding: "20px", borderRadius: "5px", width: "350px", boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}>
             <h3 style={{ textAlign: "center", marginBottom: "15px" }}>Add Availability</h3>
             <div style={{ marginBottom: "15px" }}>
               <label style={{ display: "block", marginBottom: "5px" }}>Date</label>
@@ -567,7 +553,7 @@ function DetailsStudents() {
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                min={formatDateForInput(new Date())} // Prevent past dates
+                min={formatDateForInput(new Date())}
                 style={{ width: "100%", padding: "8px", borderRadius: "3px", border: "1px solid #ccc" }}
               />
             </div>
@@ -594,18 +580,8 @@ function DetailsStudents() {
               />
             </div>
             <div style={{ display: "flex", justifyContent: "space-around" }}>
-              <button
-                onClick={handleAvailabilityConfirm}
-                style={{ backgroundColor: "#4CAF50", color: "white", padding: "8px 16px", border: "none", borderRadius: "3px", cursor: "pointer" }}
-              >
-                Confirm
-              </button>
-              <button
-                onClick={() => setShowAvailabilityModal(false)}
-                style={{ backgroundColor: "#f44336", color: "white", padding: "8px 16px", border: "none", borderRadius: "3px", cursor: "pointer" }}
-              >
-                Cancel
-              </button>
+              <button onClick={handleAvailabilityConfirm} style={{ backgroundColor: "#4CAF50", color: "white", padding: "8px 16px", border: "none", borderRadius: "3px", cursor: "pointer" }}>Confirm</button>
+              <button onClick={() => setShowAvailabilityModal(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "8px 16px", border: "none", borderRadius: "3px", cursor: "pointer" }}>Cancel</button>
             </div>
           </div>
         </div>
@@ -752,9 +728,11 @@ function DetailsStudents() {
                     )}
                     {user.role === "association_member" && (
                       <>
-                        <button onClick={handleAddAssociation} style={{ backgroundColor: "#00BCD4", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "8px" }}>
-                          <i className="fas fa-users" style={{ marginRight: "8px" }}></i> Add Association
-                        </button>
+                        {!hasAssociation && (
+                          <button onClick={handleAddAssociation} style={{ backgroundColor: "#00BCD4", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "8px" }}>
+                            <i className="fas fa-users" style={{ marginRight: "8px" }}></i> Add Association
+                          </button>
+                        )}
                         <button onClick={handleAddEvent} style={{ backgroundColor: "#8BC34A", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "8px" }}>
                           <i className="fas fa-calendar-plus" style={{ marginRight: "8px" }}></i> Add Event
                         </button>

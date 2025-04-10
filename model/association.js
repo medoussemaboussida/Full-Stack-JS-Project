@@ -35,7 +35,7 @@ const associationSchema = new mongoose.Schema(
         },
         logo_association: {
             type: String,
-            required: false,  // Logo n'est pas obligatoire
+            required: false,
             trim: true,
         },
         support_type: {
@@ -44,19 +44,26 @@ const associationSchema = new mongoose.Schema(
             enum: ["Financial", "Material", "Educational", "Other"],
             default: "Other",
         },
-        user_id: { 
-            type: mongoose.Schema.Types.ObjectId, 
-            ref: "User", 
-            required: false 
+        created_by: { // Changé de user_id à created_by
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: false
         },
+        isApproved: { 
+            type: Boolean, 
+            default: false 
+        },
+        events: [{ 
+            type: mongoose.Schema.Types.ObjectId, 
+            ref: "Event" 
+        }],
     },
     { timestamps: true }
 );
 
-// Middleware pour journaliser les actions principales
 associationSchema.post(["save", "findOneAndUpdate", "findOneAndDelete"], function (doc) {
     if (doc) {
-        const action = this.operation === 'delete' ? 'deleted' : this.operation === 'update' ? 'updated' : 'created';
+        const action = this._update ? 'updated' : this._conditions ? 'deleted' : 'created';
         console.log(`✅ Association "${doc.Name_association}" ${action} successfully.`);
     }
 });

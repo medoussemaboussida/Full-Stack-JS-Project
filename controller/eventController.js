@@ -2,11 +2,12 @@ const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const Event = require("../model/event");
 const User = require("../model/user");
+const Association = require("../model/association"); // Ajouter cette ligne
 const multer = require("multer");
 const path = require("path");
 const PDFDocument = require("pdfkit");
 const axios = require("axios");
-
+const sendEmail = require('../utils/emailSender');
 require("dotenv").config();
 
 const JWT_SECRET = process.env.JWT_SECRET || "randa";
@@ -74,8 +75,10 @@ exports.addEvent = (req, res) => {
     try {
       const {
         title, description, start_date, end_date, localisation, lieu, heure,
-        contact_email, event_type, online_link, max_participants
+        contact_email, event_type, online_link, max_participants, hasPartners
       } = req.body;
+
+      console.log("Request body:", req.body); // Log pour débogage
 
       const requiredFields = { title, description, start_date, end_date, heure, contact_email, event_type };
       const missingFields = Object.entries(requiredFields)
@@ -92,6 +95,9 @@ exports.addEvent = (req, res) => {
         return res.status(400).json({ message: "Online link is required for online events" });
       }
 
+      const wantsPartners = hasPartners === true || hasPartners === "true";
+      console.log("wantsPartners:", wantsPartners); // Log pour vérifier
+
       const eventStartDate = new Date(`${start_date}T${heure}:00Z`);
       const eventEndDate = new Date(`${end_date}T${heure}:00Z`);
       if (isNaN(eventStartDate.getTime()) || isNaN(eventEndDate.getTime())) {
@@ -106,7 +112,7 @@ exports.addEvent = (req, res) => {
         return res.status(400).json({ message: "Max participants must be a positive integer" });
       }
 
-      const user = await User.findById(req.userId, "role").lean();
+      const user = await User.findById(req.userId, "role username email").lean();
       if (!user) return res.status(404).json({ message: "User not found" });
       if (user.role !== "association_member") {
         return res.status(403).json({ message: "Only association members can create events" });
@@ -114,7 +120,6 @@ exports.addEvent = (req, res) => {
 
       const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
-      // Géocodage pour les événements en personne
       let coordinates = { lat: null, lng: null };
       if (event_type === "in-person" && localisation) {
         coordinates = await geocodeAddress(localisation.trim());
@@ -136,11 +141,57 @@ exports.addEvent = (req, res) => {
         max_participants: maxParticipants,
         participants: [],
         status: "upcoming",
-        coordinates, // Ajout des coordonnées géocodées
+        coordinates,
+        hasPartners: wantsPartners
       });
 
       const savedEvent = await newEvent.save();
       console.log(`✅ Event "${title}" created successfully. ID: ${savedEvent._id}`);
+
+      // Si l'événement recherche des partenaires, envoyer les emails
+      if (wantsPartners) {
+        const associationMembers = await User.find({ 
+          role: "association_member", 
+          _id: { $ne: req.userId } // Exclure le créateur
+        });
+        console.log("Association members found:", associationMembers.length);
+
+        if (associationMembers.length > 0) {
+          const eventLink = `http://localhost:3000/event/${savedEvent._id}`; // Ajustez selon votre frontend
+          const subject = "New Event Added - Partnership Opportunity";
+          const htmlContent = `
+            <h2>New Event Created!</h2>
+            <p>Hello Association Member,</p>
+            <p>A new event has been added by ${user.username} on our platform and is seeking partners:</p>
+            <ul>
+              <li><strong>Title:</strong> ${title}</li>
+              <li><strong>Description:</strong> ${description}</li>
+              <li><strong>Date:</strong> ${eventStartDate.toLocaleDateString()} - ${eventEndDate.toLocaleDateString()}</li>
+              <li><strong>Time:</strong> ${heure}</li>
+              ${event_type === "in-person" ? `<li><strong>Location:</strong> ${localisation}, ${lieu}</li>` : `<li><strong>Online Link:</strong> ${online_link}</li>`}
+            </ul>
+            <p>If you're interested in partnering, please review the event details:</p>
+            <a href="${eventLink}" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #0ea5e6; color: #fff; text-decoration: none; border-radius: 5px;">
+              View Event
+            </a>
+            <p>Contact the organizer at: ${contact_email}</p>
+            <p>Stay connected for more updates!</p>
+          `;
+
+          const emailPromises = associationMembers.map(member =>
+            sendEmail(member.email, subject, htmlContent)
+              .catch(err => console.error(`Erreur lors de l’envoi à ${member.email} :`, err))
+          );
+
+          await Promise.all(emailPromises);
+          console.log(`Emails envoyés à ${associationMembers.length} membres de l'association.`);
+        } else {
+          console.log("Aucun membre de l'association trouvé pour envoyer des emails.");
+        }
+      } else {
+        console.log("Aucun email envoyé (hasPartners est false).");
+      }
+
       res.status(201).json({ message: "Event added successfully", data: savedEvent });
     } catch (error) {
       console.error("Error adding event:", error.stack);
@@ -150,7 +201,6 @@ exports.addEvent = (req, res) => {
     }
   });
 };
-
 // Récupérer tous les événements pour le frontend (seulement approuvés)
 exports.getEvents = async (req, res) => {
   console.time("getEvents");
@@ -234,7 +284,8 @@ exports.updateEvent = async (req, res) => {
   console.time("updateEvent");
   try {
     const { id } = req.params;
-    const { title, description, start_date, end_date, localisation, lieu, heure, contact_email, event_type, online_link, max_participants } = req.body;
+    const { title, description, start_date, end_date, localisation, lieu, heure, 
+            contact_email, event_type, online_link, max_participants, hasPartners } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "Invalid ID" });
@@ -275,7 +326,6 @@ exports.updateEvent = async (req, res) => {
         if (!event.localisation || !event.lieu) {
           return res.status(400).json({ message: "Location and venue are required for in-person events" });
         }
-        // Mise à jour des coordonnées si localisation change
         if (localisation && localisation.trim() !== event.localisation) {
           const coordinates = await geocodeAddress(localisation.trim());
           event.coordinates = coordinates;
@@ -284,7 +334,7 @@ exports.updateEvent = async (req, res) => {
         event.online_link = online_link ? online_link.trim() : event.online_link;
         event.localisation = null;
         event.lieu = null;
-        event.coordinates = { lat: null, lng: null }; // Réinitialiser les coordonnées pour les événements en ligne
+        event.coordinates = { lat: null, lng: null };
         if (!event.online_link) {
           return res.status(400).json({ message: "Online link is required for online events" });
         }
@@ -300,6 +350,9 @@ exports.updateEvent = async (req, res) => {
         return res.status(400).json({ message: "Max participants cannot be less than current participants" });
       }
       event.max_participants = maxParticipants;
+    }
+    if (typeof hasPartners !== 'undefined') {
+      event.hasPartners = hasPartners === true || hasPartners === "true";
     }
 
     const updatedEvent = await event.save();
@@ -549,6 +602,7 @@ exports.generateEventPDF = async (req, res) => {
     doc.fontSize(12).text(`Organizer: ${event.created_by?.username || "Unknown"}`, { align: "left" }).moveDown(0.5);
     doc.fontSize(12).text(`Contact: ${event.contact_email || "N/A"}`, { align: "left" }).moveDown(0.5);
     doc.fontSize(12).text(`Participants: ${event.participants.length} / ${event.max_participants || "No limit"}`, { align: "left" });
+    doc.fontSize(12).text(`Accepts Partners: ${event.hasPartners ? "Yes" : "No"}`, { align: "left" }).moveDown(0.5);
 
     if (event.participants.length > 0) {
       doc.moveDown(0.5).fontSize(12).text("Participants List:", { align: "left" });
@@ -565,4 +619,180 @@ exports.generateEventPDF = async (req, res) => {
   }
 };
 
+exports.participateAsPartner = async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const userId = req.userId;
+    let { association_id } = req.body;
+
+    // Si association_id n'est pas fourni, le récupérer depuis l'utilisateur ou l'association créée
+    if (!association_id) {
+      const user = await User.findById(userId);
+      if (user.association_id) {
+        association_id = user.association_id;
+      } else {
+        const association = await Association.findOne({ createdBy: userId });
+        if (association) {
+          association_id = association._id;
+        }
+      }
+    }
+
+    console.log(`Participate as Partner - Event ID: ${eventId}, User ID: ${userId}, Association ID: ${association_id}`);
+
+    if (!eventId) {
+      console.log("No event ID provided in request parameters");
+      return res.status(400).json({ message: "Event ID is required" });
+    }
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      console.log(`Event ${eventId} not found in database`);
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    if (!Array.isArray(event.partners)) {
+      event.partners = [];
+    }
+
+    if (!event.partners.includes(userId)) {
+      event.partners.push(userId);
+      await event.save();
+
+      const user = await User.findById(userId);
+      if (association_id && !user.partneredEvents.includes(eventId)) {
+        user.partneredEvents.push(eventId);
+        user.association_id = association_id; // Mettre à jour l'association_id de l'utilisateur
+        await user.save();
+      }
+    } else {
+      console.log(`User ${userId} is already a partner for event ${eventId}`);
+    }
+
+    res.status(200).json({ message: "Joined as partner successfully" });
+  } catch (error) {
+    console.error("Error in participateAsPartner:", error.stack);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
+
+exports.likeEvent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
+
+    const event = await Event.findById(id);
+    if (!event) return res.status(404).json({ message: "Event not found" });
+
+    const hasLiked = event.likes.includes(userId);
+    if (hasLiked) {
+      event.likes = event.likes.filter((uid) => uid !== userId);
+    } else {
+      event.likes.push(userId);
+      event.dislikes = event.dislikes.filter((uid) => uid !== userId); // Supprimer dislike si existant
+    }
+    await event.save();
+
+    res.status(200).json({ message: hasLiked ? "Like removed" : "Event liked", liked: !hasLiked, likeCount: event.likes.length });
+  } catch (error) {
+    console.error("Error in likeEvent:", error.stack);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
+exports.dislikeEvent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
+
+    const event = await Event.findById(id);
+    if (!event) return res.status(404).json({ message: "Event not found" });
+
+    const hasDisliked = event.dislikes.includes(userId);
+    if (hasDisliked) {
+      event.dislikes = event.dislikes.filter((uid) => uid !== userId);
+    } else {
+      event.dislikes.push(userId);
+      event.likes = event.likes.filter((uid) => uid !== userId); // Supprimer like si existant
+    }
+    await event.save();
+
+    res.status(200).json({ message: hasDisliked ? "Dislike removed" : "Event disliked", disliked: !hasDisliked, dislikeCount: event.dislikes.length });
+  } catch (error) {
+    console.error("Error in dislikeEvent:", error.stack);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
+exports.favoriteEvent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
+
+    const event = await Event.findById(id);
+    if (!event) return res.status(404).json({ message: "Event not found" });
+
+    const isFavorite = event.favorites.includes(userId);
+    if (isFavorite) {
+      event.favorites = event.favorites.filter((uid) => uid !== userId);
+    } else {
+      event.favorites.push(userId);
+    }
+    await event.save();
+
+    res.status(200).json({ message: isFavorite ? "Removed from favorites" : "Added to favorites", isFavorite: !isFavorite });
+  } catch (error) {
+    console.error("Error in favoriteEvent:", error.stack);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
+exports.checkLike = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
+
+    const event = await Event.findById(id);
+    if (!event) return res.status(404).json({ message: "Event not found" });
+
+    const liked = event.likes.includes(userId);
+    res.status(200).json({ liked, likeCount: event.likes.length });
+  } catch (error) {
+    console.error("Error in checkLike:", error.stack);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
+exports.checkDislike = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
+
+    const event = await Event.findById(id);
+    if (!event) return res.status(404).json({ message: "Event not found" });
+
+    const disliked = event.dislikes.includes(userId);
+    res.status(200).json({ disliked, dislikeCount: event.dislikes.length });
+  } catch (error) {
+    console.error("Error in checkDislike:", error.stack);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
+
+exports.checkFavorite = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
+
+    const event = await Event.findById(id);
+    if (!event) return res.status(404).json({ message: "Event not found" });
+
+    const isFavorite = event.favorites.includes(userId);
+    res.status(200).json({ isFavorite });
+  } catch (error) {
+    console.error("Error in checkFavorite:", error.stack);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
 module.exports = exports;
