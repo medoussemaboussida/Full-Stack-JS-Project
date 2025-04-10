@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "nodemon app.js"
+    "dev": "nodemon app.js",
+    "test": "npx jest",
+    "build-dev": "nodemon app.js"
   },
   "dependencies": {
     "@fortawesome/free-regular-svg-icons": "^6.7.2",
