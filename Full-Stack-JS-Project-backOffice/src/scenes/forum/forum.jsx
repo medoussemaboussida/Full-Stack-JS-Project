@@ -407,30 +407,30 @@ const Forum = () => {
       doc.addImage(logo, "PNG", 160, 13, imgWidth, imgHeight);
 
       doc.setFontSize(18);
-      doc.text("Rapport Détaillé du Forum", 14, 20);
+      doc.text("Forums topics report", 14, 20);
 
       doc.setFontSize(14);
-      doc.text("Forums publiés par mois", 14, 30);
+      doc.text("Forums published per month", 14, 30);
       const monthlyData = Object.entries(monthlyForumPosts).map(([month, count]) => [
         month,
         count,
       ]);
       autoTable(doc, {
         startY: 35,
-        head: [["Mois", "Nombre de publications"]],
+        head: [["Month", "Number of topics"]],
         body: monthlyData,
       });
 
       let currentY = doc.lastAutoTable.finalY + 10;
       doc.setFontSize(14);
-      doc.text("Nombre de commentaires par forum", 14, currentY);
+      doc.text("Number of comments per forum", 14, currentY);
       const commentData = forums.map((forum) => [
         forum.title,
         forum.commentCount || 0,
       ]);
       autoTable(doc, {
         startY: currentY + 5,
-        head: [["Forum", "Nombre de commentaires"]],
+        head: [["Forum", "Number of comments"]],
         body: commentData,
       });
 
@@ -444,33 +444,33 @@ const Forum = () => {
       ];
       autoTable(doc, {
         startY: currentY + 5,
-        head: [["Catégorie", "Utilisateur", "Nombre"]],
+        head: [["Category", "User", "Number"]],
         body: topUsersData,
       });
 
       currentY = doc.lastAutoTable.finalY + 10;
       doc.setFontSize(14);
-      doc.text("Signalements par forum", 14, currentY);
+      doc.text("reports per forum", 14, currentY);
       const reportData = forums.map((forum) => [
         forum.title,
         forum.reportCount || 0,
       ]);
       autoTable(doc, {
         startY: currentY + 5,
-        head: [["Forum", "Nombre de signalements"]],
+        head: [["Forum", "Number of reports"]],
         body: reportData,
       });
 
       currentY = doc.lastAutoTable.finalY + 10;
       doc.setFontSize(14);
-      doc.text("Signalements des commentaires", 14, currentY);
+      doc.text("reports per comment", 14, currentY);
       const commentReportData = comments.map((comment) => [
         comment.content.substring(0, 30) + "...",
         comment.reportCount || 0,
       ]);
       autoTable(doc, {
         startY: currentY + 5,
-        head: [["Commentaire", "Nombre de signalements"]],
+        head: [["comment", "Number of reports"]],
         body: commentReportData,
       });
 
