@@ -13,6 +13,7 @@ pipeline {
     stage('Build application') {
       steps {
         script {
+            sh 'chmod -R +x node_modules/.bin/'
           sh 'npm run build-dev'
         }
       }
