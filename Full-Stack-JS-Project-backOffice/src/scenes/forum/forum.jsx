@@ -116,7 +116,6 @@ const Forum = () => {
           bannedUsers: statsData.bannedUsers || 0,
         });
 
-
         const monthlyResponse = await fetch("http://localhost:5000/forum/monthlyStats", {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -630,7 +629,17 @@ const Forum = () => {
           Download Report
         </Button>
       </Box>
-      <Box mt={4}>
+      <Box
+        mt={4}
+        sx={{
+          maxHeight: "430px", // Hauteur maximale du cadre
+          overflowY: "auto", // Activer le défilement vertical
+          padding: "10px", // Ajouter un peu de padding
+          border: `1px solid ${colors.grey[700]}`, // Ajouter une bordure
+          borderRadius: "8px", // Arrondir les coins
+          backgroundColor: colors.primary[500], // Fond cohérent avec le thème
+        }}
+      >
         {filteredForums.map((forum, index) => (
           <Box
             key={index}

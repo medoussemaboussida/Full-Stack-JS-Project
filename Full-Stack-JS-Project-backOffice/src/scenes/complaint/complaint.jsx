@@ -1094,7 +1094,14 @@ const AdminComplaints = () => {
         </Box>
       </Box>
 
-      <Box mt={4}>
+      <Box mt={4}sx={{
+    maxHeight: "450px", // Hauteur maximale du cadre (450px comme demandé)
+    overflowY: "auto", // Activer le défilement vertical
+    padding: "10px", // Ajouter un peu de padding pour l'esthétique
+    border: `1px solid ${colors.grey[700]}`, // Ajouter une bordure pour délimiter le cadre
+    borderRadius: "8px", // Arrondir les coins du cadre
+    backgroundColor: colors.primary[500], // Fond cohérent avec le thème
+  }}>
         {filteredComplaints.length > 0 ? (
           filteredComplaints.map((complaint, index) => (
             <Box
