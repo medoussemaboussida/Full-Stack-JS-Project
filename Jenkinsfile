@@ -12,7 +12,7 @@ pipeline {
     stage('Unit Test') {
       steps {
         script {
-          sh 'sudo npm test' // Changement de "npx test" à "npm test"
+          sh 'npm test' // Changement de "npx test" à "npm test"
         }
       }
     }
