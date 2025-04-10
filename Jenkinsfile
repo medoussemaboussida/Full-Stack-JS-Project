@@ -5,7 +5,9 @@ pipeline {
       steps {
         script {
           sh 'npm install'
-          sh 'chmod -R +x node_modules/.bin/' // Ajoute les droits d'exécution
+          sh 'npm rebuild bcrypt --build-from-source' // Recompile bcrypt
+          sh 'npm list jest || echo "Jest not found"'
+          sh 'chmod -R +x node_modules/.bin/'
         }
       }
     }
