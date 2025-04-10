@@ -269,6 +269,7 @@ const Activities = () => {
       })
       .then(() => {
         fetchActivities();
+        fetchCategories(); // Refresh categories to update counts
         handleClose();
       })
       .catch((err) => {
@@ -311,6 +312,7 @@ const Activities = () => {
       .then((res) => res.json())
       .then(() => {
         fetchActivities();
+        fetchCategories(); // Refresh categories
         setOpenArchiveModal(false);
         setActivityToToggleArchive(null);
       })
@@ -325,7 +327,10 @@ const Activities = () => {
       },
     })
       .then((res) => res.json())
-      .then(setCategories)
+      .then((data) => {
+        // The data now includes activityCount for each category
+        setCategories(data);
+      })
       .catch((err) => console.error("❌ Error loading categories", err));
   };
 
@@ -639,115 +644,116 @@ const Activities = () => {
 
       {/* Manage Categories Modal */}
       <Dialog open={openCategoriesModal} onClose={() => setOpenCategoriesModal(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Manage Categories</DialogTitle>
-        <DialogContent>
+  <DialogTitle>Manage Categories</DialogTitle>
+  <DialogContent>
+    <Box
+      display="flex"
+      backgroundColor={colors.primary[400]}
+      borderRadius="3px"
+      p={1}
+      mb={2}
+    >
+      <InputBase
+        sx={{ ml: 2, flex: 1, color: colors.grey[100] }}
+        placeholder="Search categories"
+        value={categorySearchQuery}
+        onChange={(e) => setCategorySearchQuery(e.target.value)}
+      />
+      <IconButton type="button" sx={{ p: 1, color: colors.grey[100] }}>
+        <SearchIcon />
+      </IconButton>
+    </Box>
+
+    <Box sx={{ maxHeight: 300, overflowY: "auto" }}>
+      {filteredCategories.length > 0 ? (
+        filteredCategories.map((cat) => (
           <Box
+            key={cat._id}
             display="flex"
-            backgroundColor={colors.primary[400]}
-            borderRadius="3px"
+            justifyContent="space-between"
+            alignItems="center"
             p={1}
-            mb={2}
+            mb={1}
+            bgcolor={colors.primary[500]}
+            borderRadius="4px"
           >
-            <InputBase
-              sx={{ ml: 2, flex: 1, color: colors.grey[100] }}
-              placeholder="Search categories"
-              value={categorySearchQuery}
-              onChange={(e) => setCategorySearchQuery(e.target.value)}
-            />
-            <IconButton type="button" sx={{ p: 1, color: colors.grey[100] }}>
-              <SearchIcon />
-            </IconButton>
-          </Box>
-
-          <Box sx={{ maxHeight: 300, overflowY: "auto" }}>
-            {filteredCategories.length > 0 ? (
-              filteredCategories.map((cat) => (
-                <Box
-                  key={cat._id}
-                  display="flex"
-                  justifyContent="space-between"
-                  alignItems="center"
-                  p={1}
-                  mb={1}
-                  bgcolor={colors.primary[500]}
-                  borderRadius="4px"
-                >
-                  <Typography sx={{ color: colors.grey[100] }}>{cat.name}</Typography>
-                  <Box>
-                    <IconButton
-                      color="secondary"
-                      onClick={() => openEditModalFunc({ id: cat._id, name: cat.name })}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      color="error"
-                      onClick={() => handleDelete(cat._id)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Box>
-                </Box>
-              ))
-            ) : (
-              <Typography sx={{ color: colors.grey[100] }}>No categories found</Typography>
-            )}
-          </Box>
-
-          {editedCategory && (
-            <Box mt={2}>
-              <TextField
-                fullWidth
-                label="Edit Category Name"
-                value={editedName}
-                onChange={(e) => setEditedName(e.target.value)}
-              />
-              <Box display="flex" gap={1} mt={1}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleUpdateCategory}
-                >
-                  Save
-                </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => setEditedCategory(null)}
-                >
-                  Cancel
-                </Button>
-              </Box>
+            <Typography sx={{ color: colors.grey[100] }}>
+              {cat.name} ({cat.activityCount} activities)
+            </Typography>
+            <Box>
+              <IconButton
+                color="secondary"
+                onClick={() => openEditModalFunc({ id: cat._id, name: cat.name })}
+              >
+                <EditIcon />
+              </IconButton>
+              <IconButton
+                color="error"
+                onClick={() => handleDelete(cat._id)}
+              >
+                <DeleteIcon />
+              </IconButton>
             </Box>
-          )}
+          </Box>
+        ))
+      ) : (
+        <Typography sx={{ color: colors.grey[100] }}>No categories found</Typography>
+      )}
+    </Box>
 
-          {categoryToDelete && (
-            <Box mt={2}>
-              <Typography>Are you sure you want to delete this category?</Typography>
-              <Box display="flex" gap={1} mt={1}>
-                <Button
-                  variant="contained"
-                  color="error"
-                  onClick={confirmDelete}
-                >
-                  Delete
-                </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => setCategoryToDelete(null)}
-                >
-                  Cancel
-                </Button>
-              </Box>
-            </Box>
-          )}
+    {editedCategory && (
+      <Box mt={2}>
+        <TextField
+          fullWidth
+          label="Edit Category Name"
+          value={editedName}
+          onChange={(e) => setEditedName(e.target.value)}
+        />
+        <Box display="flex" gap={1} mt={1}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleUpdateCategory}
+          >
+            Save
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => setEditedCategory(null)}
+          >
+            Cancel
+          </Button>
+        </Box>
+      </Box>
+    )}
 
-          {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenCategoriesModal(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+    {categoryToDelete && (
+      <Box mt={2}>
+        <Typography>Are you sure you want to delete this category?</Typography>
+        <Box display="flex" gap={1} mt={1}>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={confirmDelete}
+          >
+            Delete
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => setCategoryToDelete(null)}
+          >
+            Cancel
+          </Button>
+        </Box>
+      </Box>
+    )}
 
+    {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setOpenCategoriesModal(false)}>Close</Button>
+  </DialogActions>
+</Dialog>
       {/* Success Snackbar */}
       <Snackbar
         open={!!successMessage}

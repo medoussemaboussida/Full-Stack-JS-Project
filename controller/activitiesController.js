@@ -762,9 +762,27 @@ module.exports.saveNote = async (req, res) => {
 
   exports.getAllCategories = async (req, res) => {
     try {
-      const categories = await Category.find();
-      res.status(200).json(categories);
+      const categoriesWithCounts = await Category.aggregate([
+        {
+          $lookup: {
+            from: "activities",
+            localField: "_id",
+            foreignField: "category",
+            as: "activities",
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            name: 1,
+            createdBy: 1,
+            activityCount: { $size: "$activities" },
+          },
+        },
+      ]);
+      res.status(200).json(categoriesWithCounts);
     } catch (error) {
+      console.error("Error fetching categories:", error);
       res.status(500).json({ message: "Erreur serveur", error });
     }
   };
