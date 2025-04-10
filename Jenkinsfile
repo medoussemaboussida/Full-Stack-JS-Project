@@ -12,7 +12,7 @@ sh('npm install')
 stage('Unit Test') { 
 steps{ 
 script { 
-sh('npm test') 
+sh('npx test') 
 } 
 } 
 }  
