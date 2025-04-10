@@ -4,8 +4,11 @@ pipeline {
     stage('Install dependencies') {
       steps {
         script {
-      sh 'npm install'
-      sh 'chmod -R +x node_modules/.bin/' // Force les permissions
+     sh 'rm -rf node_modules package-lock.json' // Nettoie tout
+          sh 'npm install'
+          sh 'npm rebuild bcrypt --build-from-source' // Recompile bcrypt
+          sh 'ls -l node_modules/.bin/jest || echo "Jest binary not found"'
+          sh 'chmod -R +x node_modules/.bin/'
         }
       }
     }
