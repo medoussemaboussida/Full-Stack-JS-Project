@@ -5,13 +5,14 @@ pipeline {
       steps {
         script {
       sh 'npm install'
+      sh 'chmod -R +x node_modules/.bin/' // Force les permissions
         }
       }
     }
     stage('Unit Test') {
       steps {
         script {
-          sh 'npm test' // Changement de "npx test" à "npm test"
+          sh 'sudo npm test' // Changement de "npx test" à "npm test"
         }
       }
     }
