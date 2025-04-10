@@ -4,14 +4,14 @@ pipeline {
     stage('Install dependencies') {
       steps {
         script {
-        sh 'npm install'
+      sh 'npm install'
         }
       }
     }
     stage('Unit Test') {
       steps {
         script {
-          sh 'npx jest' 
+          sh 'npm test' // Changement de "npx test" à "npm test"
         }
       }
     }
