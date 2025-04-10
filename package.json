@@ -38,5 +38,8 @@
     "password-strength": "^0.0.1",
     "socket.io": "^4.8.1",
     "yup": "^1.6.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
   }
 }
