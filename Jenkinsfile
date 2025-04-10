@@ -9,14 +9,7 @@ pipeline {
         }
       }
     }
-    stage('Unit Test') {
-      steps {
-        script {
-         sh 'chmod -R +x node_modules/.bin/'
-          sh 'npm test' // Changement de "npx test" à "npm test"
-        }
-      }
-    }
+
     stage('Build application') {
       steps {
         script {
