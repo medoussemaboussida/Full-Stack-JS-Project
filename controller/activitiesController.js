@@ -6,6 +6,7 @@ const Schedule = require("../model/Schedule");
 const Mood = require("../model/Mood");
 const Note = require("../model/Note"); // New model for notes
 const Category = require("../model/Category");
+const axios = require('axios');
 
 // ✅ Récupérer les activités favorites d'un utilisateur
 module.exports.getFavoriteActivities = async (req, res) => {
@@ -95,6 +96,139 @@ const upload1 = multer({
     limits: { fileSize: 5 * 1024 * 1024 }
 }).single('image');  // ✅ Maintenant ça correspond au frontend
 
+// Générer une description à partir d'un titre
+module.exports.generateDescription = async (req, res) => {
+    const userId = req.userId; // Suppose une authentification préalable
+    const { title } = req.body;
+  
+    try {
+      // Vérifier que le titre est présent
+      if (!title) {
+        return res.status(400).json({ message: "Title is required" });
+      }
+  
+      // Générer la description avec l'API de Groq
+      const groqResponse = await axios.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          model: 'llama3-70b-8192',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a helpful assistant. Provide a concise but informative description (100-150 words) based on the given title.',
+            },
+            {
+              role: 'user',
+              content: `Generate a description for this title: "${title}"`,
+            },
+          ],
+          max_tokens: 200,
+          temperature: 0.7,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+          },
+        }
+      );
+  
+      console.log('Groq Response:', groqResponse.data);
+      const generatedDescription = groqResponse.data.choices[0].message.content.trim();
+  
+      // Créer l'objet réponse (vous pouvez adapter selon votre modèle de données)
+      const descriptionData = {
+        title,
+        userId,
+        description: generatedDescription,
+        generatedDate: new Date(),
+        status: 'generated',
+      };
+  
+      res.status(201).json({ 
+        message: 'Description generated successfully', 
+        description: descriptionData 
+      });
+  
+    } catch (error) {
+      console.error('Error generating description with Groq:', error.response ? error.response.data : error.message);
+      res.status(500).json({ 
+        message: 'Error generating description', 
+        error: error.response ? error.response.data : error.message 
+      });
+    }
+  };
+  
+  // Générer un titre à partir d'une description
+  module.exports.generateTitle = async (req, res) => {
+    const userId = req.userId; // Suppose une authentification préalable
+    const { description } = req.body;
+  
+    try {
+      // Vérifier que la description est présente
+      if (!description) {
+        return res.status(400).json({ message: "Description is required" });
+      }
+  
+      // Générer le titre avec l'API de Groq
+      const groqResponse = await axios.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          model: 'llama3-70b-8192',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a helpful assistant. Provide a very concise title (maximum 5 words) that captures the essence of the given description. Focus on the most impactful single word or short phrase.',
+            },
+            {
+              role: 'user',
+              content: `Generate a title for this description: "${description}"`,
+            },
+          ],
+          max_tokens: 20, // Réduit pour forcer une réponse courte
+          temperature: 0.7,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+          },
+        }
+      );
+  
+      console.log('Groq Response:', groqResponse.data);
+      let generatedTitle = groqResponse.data.choices[0].message.content.trim();
+      // Supprimer les guillemets s'ils sont présents dans la réponse
+    generatedTitle = generatedTitle.replace(/^"|"$/g, '');
+  
+      // Forcer la limite à 5 mots maximum
+      const words = generatedTitle.split(' ');
+      if (words.length > 5) {
+        generatedTitle = words.slice(0, 5).join(' ');
+      }
+  
+      // Créer l'objet réponse
+      const titleData = {
+        description,
+        userId,
+        title: generatedTitle,
+        generatedDate: new Date(),
+        status: 'generated',
+      };
+  
+      res.status(201).json({ 
+        message: 'Title generated successfully', 
+        title: titleData 
+      });
+  
+    } catch (error) {
+      console.error('Error generating title with Groq:', error.response ? error.response.data : error.message);
+      res.status(500).json({ 
+        message: 'Error generating title', 
+        error: error.response ? error.response.data : error.message 
+      });
+    }
+  };
 
 // ✅ Ajouter une activité (réservé aux psychiatres)
 module.exports.addActivity = (req, res) => {
@@ -180,46 +314,54 @@ exports.getActivityById = async (req, res) => {
 };
 // ✅ Modifier une activité (tous les psychiatres peuvent le faire)
 module.exports.updateActivity = (req, res) => {
-    upload1(req, res, async (err) => {
-      if (err) {
-        return res.status(400).json({ message: err.message });
+  upload1(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message });
+    }
+
+    try {
+      const { id, activityId } = req.params;
+      const { title, description, category, removeImage } = req.body;
+      let imageUrl = null;
+
+      // Vérifier si l'image doit être supprimée
+      if (removeImage === "true") {
+        imageUrl = "/assets/img/activity/03.jpg";  // L'image par défaut
+      } else if (req.file) {
+        imageUrl = `/uploads/activities/${req.file.filename}`; // Nouvelle image téléchargée
       }
-  
-      try {
-        const { id, activityId } = req.params;
-        const { title, description, category } = req.body;
-        const imageUrl = req.file ? `/uploads/activities/${req.file.filename}` : null;
-  
-        const user = await User.findById(id);
-        if (!user || (user.role !== "psychiatrist" && user.role !== "admin")) {
-          return res.status(403).json({ message: "Seuls les psychiatres peuvent modifier des activités" });
-        }
-  
-        const activity = await Activity.findById(activityId);
-        if (!activity) {
-          return res.status(404).json({ message: "Activité non trouvée" });
-        }
-  
-        activity.title = title || activity.title;
-        activity.description = description || activity.description;
-  
-        const foundCategory = await Category.findById(category);
-        if (!foundCategory) {
-          return res.status(400).json({ message: "Invalid category" });
-        }
-        activity.category = foundCategory._id;
-  
-        if (imageUrl) activity.imageUrl = imageUrl;
-  
-        await activity.save();
-        res.status(200).json({ message: "Activité mise à jour avec succès", activity });
-      } catch (error) {
-        console.error("❌ Erreur lors de la mise à jour:", error);
-        res.status(500).json({ message: "Erreur serveur", error });
+
+      const user = await User.findById(id);
+      if (!user || (user.role !== "psychiatrist" && user.role !== "admin")) {
+        return res.status(403).json({ message: "Seuls les psychiatres peuvent modifier des activités" });
       }
-    });
-  };
-  
+
+      const activity = await Activity.findById(activityId);
+      if (!activity) {
+        return res.status(404).json({ message: "Activité non trouvée" });
+      }
+
+      activity.title = title || activity.title;
+      activity.description = description || activity.description;
+
+      const foundCategory = await Category.findById(category);
+      if (!foundCategory) {
+        return res.status(400).json({ message: "Invalid category" });
+      }
+      activity.category = foundCategory._id;
+
+      // Mettre à jour l'image si nécessaire
+      if (imageUrl) activity.imageUrl = imageUrl;
+
+      await activity.save();
+      res.status(200).json({ message: "Activité mise à jour avec succès", activity });
+    } catch (error) {
+      console.error("❌ Erreur lors de la mise à jour:", error);
+      res.status(500).json({ message: "Erreur serveur", error });
+    }
+  });
+};
+
 
   exports.updateCategory = async (req, res) => {
     try {
@@ -620,9 +762,45 @@ module.exports.saveNote = async (req, res) => {
 
   exports.getAllCategories = async (req, res) => {
     try {
-      const categories = await Category.find();
-      res.status(200).json(categories);
+      // Use aggregation to join categories with activities and compute stats
+      const categoriesWithStats = await Category.aggregate([
+        {
+          $lookup: {
+            from: "activities", // The collection name for Activity model
+            localField: "_id",
+            foreignField: "category",
+            as: "activities",
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            name: 1,
+            createdBy: 1,
+            totalActivities: { $size: "$activities" }, // Total number of activities
+            publishedActivities: {
+              $size: {
+                $filter: {
+                  input: "$activities",
+                  cond: { $eq: ["$$this.isArchived", false] },
+                },
+              },
+            }, // Count of published activities
+            archivedActivities: {
+              $size: {
+                $filter: {
+                  input: "$activities",
+                  cond: { $eq: ["$$this.isArchived", true] },
+                },
+              },
+            }, // Count of archived activities
+          },
+        },
+      ]);
+  
+      res.status(200).json(categoriesWithStats);
     } catch (error) {
+      console.error("Error fetching categories with statistics:", error);
       res.status(500).json({ message: "Erreur serveur", error });
     }
   };

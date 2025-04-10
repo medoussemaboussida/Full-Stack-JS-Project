@@ -14,6 +14,7 @@ const complaintSchema = new mongoose.Schema({
         required: true
     }
 }, 
+
 {
     timestamps: true  // Automatically adds createdAt and updatedAt fields
 });

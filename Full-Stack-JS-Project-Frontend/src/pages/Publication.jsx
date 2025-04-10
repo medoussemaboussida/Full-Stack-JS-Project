@@ -1151,7 +1151,7 @@ function Publication() {
                                             htmlFor="editImageUpload"
                                             style={{
                                                 display: 'inline-block',
-                                                background: '#0ea5e6',
+                                                background: '#26bf04',
                                                 color: '#fff',
                                                 padding: '10px 20px',
                                                 borderRadius: '5px',

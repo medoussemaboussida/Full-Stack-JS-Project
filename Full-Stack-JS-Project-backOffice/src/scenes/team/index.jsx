@@ -348,6 +348,7 @@ onChange={(e) => handleEtatChange(params.row.id, e.target.value)}
       <MenuItem value="teacher">Teacher</MenuItem>
       <MenuItem value="psychiatrist">Psychiatrist</MenuItem>
       <MenuItem value="association_member">Association Member</MenuItem>
+      <MenuItem value="student">Student</MenuItem>
     </Select>
   </FormControl>
 
@@ -428,6 +429,7 @@ onChange={(e) => handleEtatChange(params.row.id, e.target.value)}
               <MenuItem value="teacher">Teacher</MenuItem>
               <MenuItem value="psychiatrist">Psychiatrist</MenuItem>
               <MenuItem value="association_member">Association member</MenuItem>
+              <MenuItem value="student">Student</MenuItem>
             </Select>
           </FormControl>
 

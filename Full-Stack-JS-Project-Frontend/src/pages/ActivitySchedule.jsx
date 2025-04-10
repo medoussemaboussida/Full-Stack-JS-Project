@@ -64,6 +64,7 @@ function ActivitySchedule() {
   const [moods, setMoods] = useState([]); // State for moods
   const [notes, setNotes] = useState({}); // State to store notes for each date
   const [showNoteModal, setShowNoteModal] = useState(false);
+  const [isLoadingSchedule, setIsLoadingSchedule] = useState(false);
   const [currentNoteDate, setCurrentNoteDate] = useState(null);
   const [currentNote, setCurrentNote] = useState("");
   const [isLoadingNotes, setIsLoadingNotes] = useState(true); // New state for notes loading
@@ -485,34 +486,59 @@ function ActivitySchedule() {
 
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
-    if (token) {
-      try {
-        const decoded = jwtDecode(token);
-        if (decoded.id) {
-          setUserId(decoded.id);
-          setIsLoading(true);
-          Promise.all([
-            fetchActivities(),
-            fetchFavoriteActivities(decoded.id),
-            fetchScheduledActivities(decoded.id),
-            fetchNotes(),
-            fetchMoods().then((moodsData) => setMoods(moodsData)),
-          ]).finally(() => setIsLoading(false));
-        }
-      } catch (error) {
-        console.error("Invalid token:", error);
-        toast.error("Invalid session, please log in again.");
-        navigate("/login");
-        setIsLoading(false);
-        setIsLoadingNotes(false);
-      }
-    } else {
+    if (!token) {
       toast.error("You must be logged in to access this page.");
       navigate("/login");
       setIsLoading(false);
       setIsLoadingNotes(false);
+      return;
     }
-  }, [navigate, userId]);
+  
+    try {
+      const decoded = jwtDecode(token);
+      if (!decoded.id) {
+        throw new Error("Invalid token: No user ID found");
+      }
+  
+      setUserId(decoded.id); // Définir userId immédiatement
+      setIsLoading(true);
+  
+      // Charger toutes les données
+      Promise.all([
+        fetchActivities(),
+        fetchFavoriteActivities(decoded.id),
+        fetchScheduledActivities(decoded.id), // Pas de notification ici
+        fetchNotes(),
+        fetchMoods().then((moodsData) => setMoods(moodsData)),
+      ]).finally(() => {
+        setIsLoading(false);
+        setIsLoadingNotes(false);
+      });
+    } catch (error) {
+      console.error("Invalid token:", error);
+      toast.error("Invalid session, please log in again.");
+      navigate("/login");
+      setIsLoading(false);
+      setIsLoadingNotes(false);
+    }
+  }, [navigate]); // Dépendance uniquement sur navigate
+  
+  // Second useEffect pour la notification
+  useEffect(() => {
+    let hasShownNotification = false; // Variable pour éviter plusieurs notifications
+  
+    return () => {
+      if (!hasShownNotification && Object.keys(scheduledActivities).length > 0) {
+        const today = new Date().toISOString().split("T")[0];
+        const todayActivities = scheduledActivities[today];
+        if (todayActivities && todayActivities.length > 0) {
+          toast.info(`You have ${todayActivities.length} activity(ies) scheduled for today!`);
+          hasShownNotification = true; // Marquer comme affiché
+        }
+      }
+    };
+  }, [scheduledActivities]); // Déclencher quand scheduledActivities change
+  
 
   if (isLoading || isLoadingNotes) {
     return <div style={{ textAlign: "center", padding: "20px", fontSize: "18px" }}>Loading...</div>;

@@ -28,27 +28,25 @@ export const NotificationProvider = ({ children }) => {
   }, [viewedComments]);
 
   const addReportedPublication = (publication) => {
-    if (viewedPublications.has(publication.id)) {
-      return;
-    }
-
     setReportedPublications((prev) => {
       if (prev.some(pub => pub.id === publication.id)) {
-        return prev;
+        return prev; // Évite les doublons
       }
+      console.log("Ajout de la publication signalée:", publication); // Débogage
       return [...prev, publication];
     });
   };
 
   const addReportedComment = (comment) => {
     if (viewedComments.has(comment._id)) {
-      return;
+      return; // Garde la logique pour les commentaires
     }
 
     setReportedComments((prev) => {
       if (prev.some(c => c._id === comment._id)) {
-        return prev;
+        return prev; // Évite les doublons
       }
+      console.log("Ajout du commentaire signalé:", comment); // Débogage
       return [...prev, comment];
     });
   };
@@ -70,7 +68,7 @@ export const NotificationProvider = ({ children }) => {
       addReportedPublication,
       addReportedComment,
       removeReportedPublication,
-      removeReportedComment
+      removeReportedComment,
     }}>
       {children}
     </NotificationContext.Provider>

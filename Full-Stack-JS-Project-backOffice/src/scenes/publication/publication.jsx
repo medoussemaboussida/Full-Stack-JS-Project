@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Box, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Select, MenuItem, InputLabel, FormControl, Alert, IconButton, InputBase,
-  Divider, Chip, Avatar, Badge, Tooltip, List, ListItem, ListItemText
+  Divider, Chip, Avatar, Badge, Tooltip, List, ListItem, ListItemText, ListItemAvatar
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import EditIcon from "@mui/icons-material/Edit";
@@ -14,12 +14,15 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import BlockIcon from "@mui/icons-material/Block";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import NotificationsOutlinedIcon from "@mui/icons-material/NotificationsOutlined";
+import LockOpenIcon from "@mui/icons-material/LockOpen"; // Icon for unbanning
 import Header from "../../components/Header";
 import SearchIcon from "@mui/icons-material/Search";
 import { useTheme } from "@mui/material";
 import Snackbar from '@mui/material/Snackbar';
 import html2pdf from "html2pdf.js";
 import { useNotification } from "../publication/NotificationContext";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
+import { QRCodeSVG } from "qrcode.react";
 
 const stripHtmlTags = (str) => {
   if (!str) return "";
@@ -43,6 +46,7 @@ const Publication = () => {
   const [openCommentReportsModal, setOpenCommentReportsModal] = useState(false);
   const [openDeleteConfirmModal, setOpenDeleteConfirmModal] = useState(false);
   const [openBanModal, setOpenBanModal] = useState(false);
+  const [openBannedUsersModal, setOpenBannedUsersModal] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState(null);
   const [selectedComment, setSelectedComment] = useState(null);
   const [comments, setComments] = useState([]);
@@ -57,6 +61,8 @@ const Publication = () => {
   const [userRole, setUserRole] = useState(null);
   const [banData, setBanData] = useState({ days: "", reason: "", customReason: "" });
   const [userToBan, setUserToBan] = useState(null);
+  const [authorStats, setAuthorStats] = useState(null);
+  const [bannedUsers, setBannedUsers] = useState([]);
   const navigate = useNavigate();
   const theme = useTheme();
 
@@ -215,9 +221,11 @@ const Publication = () => {
       );
 
       setComments(commentsWithReports);
+      return commentsWithReports;
     } catch (err) {
       console.error("❌ Error retrieving comments:", err);
       setNotification({ open: true, message: "Failed to load comments!", severity: "error" });
+      return [];
     }
   };
 
@@ -325,6 +333,7 @@ const Publication = () => {
         severity: "success",
       });
       handleCloseBanModal();
+      fetchBannedUsers(); // Refresh banned users list
     } catch (err) {
       console.error("❌ Erreur lors du bannissement:", err);
       setNotification({
@@ -332,6 +341,67 @@ const Publication = () => {
         message: err.message || "Échec du bannissement de l'utilisateur !",
         severity: "error",
       });
+    }
+  };
+
+  const handleUnbanUser = async (userId) => {
+    try {
+      const res = await fetch(`http://localhost:5000/users/unban/${userId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Échec du débannissement de l'utilisateur");
+      }
+
+      setNotification({
+        open: true,
+        message: "Utilisateur débanni avec succès !",
+        severity: "success",
+      });
+      fetchBannedUsers(); // Refresh banned users list
+    } catch (err) {
+      console.error("❌ Erreur lors du débannissement:", err);
+      setNotification({
+        open: true,
+        message: err.message || "Échec du débannissement de l'utilisateur !",
+        severity: "error",
+      });
+    }
+  };
+
+  const fetchBannedUsers = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/users/banned-users", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to fetch banned users");
+      const data = await res.json();
+
+      const detailedUsers = await Promise.all(
+        data.bannedUsers.map(async (user) => {
+          const userRes = await fetch(`http://localhost:5000/users/session/${user._id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!userRes.ok) return user;
+          const detailedUser = await userRes.json();
+          return {
+            ...user,
+            ...detailedUser,
+          };
+        })
+      );
+
+      setBannedUsers(detailedUsers);
+      setOpenBannedUsersModal(true);
+    } catch (err) {
+      console.error("❌ Error fetching banned users:", err);
+      setNotification({ open: true, message: "Failed to load banned users", severity: "error" });
     }
   };
 
@@ -344,6 +414,38 @@ const Publication = () => {
       filtered = filtered.filter(pub => pub.author_id?.username === author);
     }
     return filtered;
+  };
+
+  const calculateAuthorStats = async (author) => {
+    if (author === "all") {
+      setAuthorStats(null);
+      return;
+    }
+
+    const authorPublications = publications.filter(pub => pub.author_id?.username === author);
+    let totalPublished = 0;
+    let totalLikes = 0;
+    let totalDislikes = 0;
+    let totalReports = 0;
+    let totalComments = 0;
+
+    for (const pub of authorPublications) {
+      if (pub.status === "published") totalPublished++;
+      totalLikes += pub.likeCount || 0;
+      totalDislikes += pub.dislikeCount || 0;
+      totalReports += pub.reportCount || 0;
+
+      const comments = await fetchComments(pub.id);
+      totalComments += comments.length;
+    }
+
+    setAuthorStats([
+      { name: "Published", value: totalPublished, fill: "#4caf50" },
+      { name: "Likes", value: totalLikes, fill: "#81c784" },
+      { name: "Dislikes", value: totalDislikes, fill: "#ef5350" },
+      { name: "Reports", value: totalReports, fill: "#f44336" },
+      { name: "Comments", value: totalComments, fill: "#fab200" },
+    ]);
   };
 
   useEffect(() => {
@@ -361,6 +463,7 @@ const Publication = () => {
   useEffect(() => {
     const filtered = filterPublications(publications, statusFilter, authorFilter);
     setFilteredPublications(filtered);
+    calculateAuthorStats(authorFilter);
   }, [publications, statusFilter, authorFilter]);
 
   const handleOpen = (pub = null) => {
@@ -841,11 +944,61 @@ const Publication = () => {
         >
           Generate PDF
         </Button>
+        <Button
+          variant="contained"
+          startIcon={<BlockIcon />}
+          onClick={fetchBannedUsers}
+          sx={{
+            backgroundColor: "#ff9800",
+            color: "#fff",
+            "&:hover": { backgroundColor: "#f57c00" },
+            height: "48px",
+            padding: "0 20px",
+            borderRadius: "8px",
+            boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+            transition: "all 0.3s ease",
+            "&:hover": {
+              transform: "translateY(-2px)",
+              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+            },
+          }}
+        >
+          Banned Users
+        </Button>
       </Box>
 
       <Box sx={{ height: 500, width: "100%", minWidth: "1200px" }}>
         <DataGrid checkboxSelection rows={filteredPublications} columns={columns} />
       </Box>
+
+      {authorStats && authorFilter !== "all" && (
+        <Box
+          mt={2}
+          p={2}
+          sx={{
+            backgroundColor: "#424242",
+            borderRadius: "8px",
+            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+          }}
+        >
+          <Typography variant="h6" sx={{ color: "#fff", mb: 2 }}>
+            Statistiques pour {authorFilter}
+          </Typography>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={authorStats} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#616161" />
+              <XAxis dataKey="name" stroke="#fff" />
+              <YAxis stroke="#fff" />
+              <RechartsTooltip
+                contentStyle={{ backgroundColor: "#616161", border: "none", color: "#fff" }}
+                labelStyle={{ color: "#fff" }}
+              />
+              <Legend />
+              <Bar dataKey="value" name="Statistiques" />
+            </BarChart>
+          </ResponsiveContainer>
+        </Box>
+      )}
 
       <Dialog
         open={openProfileModal}
@@ -1723,50 +1876,305 @@ const Publication = () => {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={open} onClose={handleClose}>
-        <DialogTitle>{formData.id ? "Update Publication" : "Add Publication"}</DialogTitle>
-        <DialogContent>
+      <Dialog
+        open={openBannedUsersModal}
+        onClose={() => setOpenBannedUsersModal(false)}
+        maxWidth="md"
+        fullWidth
+        sx={{
+          "& .MuiDialog-paper": {
+            borderRadius: "12px",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+            backgroundColor: "#424242",
+            overflow: "hidden",
+            transition: "all 0.3s ease-in-out",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontSize: "1.5rem",
+            fontWeight: "600",
+            textAlign: "center",
+            backgroundColor: "#ff9800",
+            color: "#fff",
+            padding: "16px 24px",
+            borderBottom: "1px solid #616161",
+          }}
+        >
+          Utilisateurs Bannis
+        </DialogTitle>
+        <DialogContent
+          sx={{
+            padding: "24px",
+            backgroundColor: "#424242",
+            color: "#fff",
+            maxHeight: "60vh",
+            overflowY: "auto",
+          }}
+        >
+          {bannedUsers.length > 0 ? (
+            <List>
+              {bannedUsers.map((user) => {
+                const qrContent = `
+Username: ${user.username || "Non défini"}
+Email: ${user.email || "Non défini"}
+Date de naissance: ${user.dob ? new Date(user.dob).toLocaleDateString() : "Non défini"}
+Rôle: ${user.role || "Non défini"}
+Spécialité: ${user.speciality || "Non défini"}
+Niveau: ${user.level || "Non défini"}
+Raison du ban: ${user.banReason || "Non spécifiée"}
+Expiration du ban: ${user.banExpiration ? new Date(user.banExpiration).toLocaleString() : "Non défini"}
+État: ${user.etat || "Non défini"}
+Photo: ${user.user_photo ? "http://localhost:5000" + user.user_photo : "Aucune"}
+                `.trim();
+
+                return (
+                  <ListItem
+                    key={user._id}
+                    sx={{
+                      backgroundColor: "#616161",
+                      borderRadius: "8px",
+                      mb: "8px",
+                      "&:hover": { backgroundColor: "#757575" },
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Box sx={{ display: "flex", alignItems: "center" }}>
+                      <ListItemAvatar>
+                        <Avatar
+                          src={user.user_photo ? `http://localhost:5000${user.user_photo}` : null}
+                          alt={user.username}
+                          sx={{ width: 40, height: 40 }}
+                        />
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={user.username || "Utilisateur inconnu"}
+                        secondary={
+                          <>
+                            <Typography component="span" variant="body2" color="#bdbdbd">
+                              Email: {user.email || "Non défini"}
+                            </Typography>
+                            <br />
+                            <Typography component="span" variant="body2" color="#bdbdbd">
+                              Raison: {user.banReason || "Non spécifiée"}
+                            </Typography>
+                            <br />
+                            <Typography component="span" variant="body2" color="#bdbdbd">
+                              Expiration: {user.banExpiration ? new Date(user.banExpiration).toLocaleString() : "Non défini"}
+                            </Typography>
+                          </>
+                        }
+                        primaryTypographyProps={{ color: "#fff", fontWeight: "bold" }}
+                      />
+                    </Box>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                      <Tooltip title="Scanner pour voir les détails de l'utilisateur">
+                        <Box sx={{ p: 1 }}>
+                          <QRCodeSVG
+                            value={qrContent}
+                            size={100}
+                            bgColor="#616161"
+                            fgColor="#fff"
+                            level="H"
+                          />
+                        </Box>
+                      </Tooltip>
+                      <Tooltip title="Débannir cet utilisateur">
+                        <IconButton
+                          onClick={() => handleUnbanUser(user._id)}
+                          sx={{
+                            color: "#4caf50",
+                            "&:hover": { color: "#388e3c" },
+                          }}
+                        >
+                          <LockOpenIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </ListItem>
+                );
+              })}
+            </List>
+          ) : (
+            <Typography sx={{ textAlign: "center", color: "#bdbdbd", fontSize: "1.2rem" }}>
+              Aucun utilisateur banni pour le moment.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions
+          sx={{
+            padding: "16px 24px",
+            backgroundColor: "#424242",
+            borderTop: "1px solid #616161",
+          }}
+        >
+          <Button
+            onClick={() => setOpenBannedUsersModal(false)}
+            variant="outlined"
+            sx={{
+              fontSize: "1.1rem",
+              color: "#fff",
+              borderColor: "#616161",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              "&:hover": { backgroundColor: "#616161", borderColor: "#757575" },
+            }}
+          >
+            Fermer
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={open}
+        onClose={handleClose}
+        maxWidth="sm"
+        fullWidth
+        sx={{
+          "& .MuiDialog-paper": {
+            borderRadius: "12px",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+            backgroundColor: "#424242",
+            overflow: "hidden",
+            transition: "all 0.3s ease-in-out",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontSize: "1.5rem",
+            fontWeight: "600",
+            textAlign: "center",
+            backgroundColor: "#1976d2",
+            color: "#fff",
+            padding: "16px 24px",
+            borderBottom: "1px solid #616161",
+          }}
+        >
+          {formData.id ? "Modifier la Publication" : "Ajouter une Publication"}
+        </DialogTitle>
+        <DialogContent
+          sx={{
+            padding: "24px",
+            backgroundColor: "#424242",
+            color: "#fff",
+          }}
+        >
           <TextField
             fullWidth
             margin="dense"
-            label="Title"
+            label="Titre"
             name="titrePublication"
             value={formData.titrePublication}
             onChange={handleChange}
+            sx={{
+              "& .MuiInputLabel-root": { color: "#fff" },
+              "& .MuiOutlinedInput-root": {
+                color: "#fff",
+                "& fieldset": { borderColor: "#616161" },
+                "&:hover fieldset": { borderColor: "#4caf50" },
+                "&.Mui-focused fieldset": { borderColor: "#4caf50" },
+              },
+            }}
           />
           <TextField
             fullWidth
             margin="dense"
             label="Description"
             name="description"
-            value={formData.description}
-            onChange={handleChange}
             multiline
             rows={4}
+            value={formData.description}
+            onChange={handleChange}
+            sx={{
+              "& .MuiInputLabel-root": { color: "#fff" },
+              "& .MuiOutlinedInput-root": {
+                color: "#fff",
+                "& fieldset": { borderColor: "#616161" },
+                "&:hover fieldset": { borderColor: "#4caf50" },
+                "&.Mui-focused fieldset": { borderColor: "#4caf50" },
+              },
+            }}
           />
           <FormControl fullWidth margin="dense">
-            <InputLabel>Status</InputLabel>
-            <Select name="status" value={formData.status} onChange={handleChange}>
-              <MenuItem value="draft">Draft</MenuItem>
-              <MenuItem value="published">Published</MenuItem>
-              <MenuItem value="archived">Archived</MenuItem>
-              <MenuItem value="later">Scheduled</MenuItem>
+            <InputLabel sx={{ color: "#fff" }}>Statut</InputLabel>
+            <Select
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+              sx={{
+                color: "#fff",
+                "& .MuiOutlinedInput-notchedOutline": { borderColor: "#616161" },
+                "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#4caf50" },
+                "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#4caf50" },
+              }}
+            >
+              <MenuItem value="published">Publié</MenuItem>
+              <MenuItem value="archived">Archivé</MenuItem>
             </Select>
           </FormControl>
           <TextField
             fullWidth
             margin="dense"
-            label="Tags (comma-separated)"
+            label="Tags (séparés par des virgules)"
             name="tag"
             value={formData.tag}
             onChange={handleChange}
+            sx={{
+              "& .MuiInputLabel-root": { color: "#fff" },
+              "& .MuiOutlinedInput-root": {
+                color: "#fff",
+                "& fieldset": { borderColor: "#616161" },
+                "&:hover fieldset": { borderColor: "#4caf50" },
+                "&.Mui-focused fieldset": { borderColor: "#4caf50" },
+              },
+            }}
           />
-          {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+          {error && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {error}
+            </Alert>
+          )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose}>Cancel</Button>
-          <Button onClick={handleSubmit} variant="contained" color="primary">
-            {formData.id ? "Update" : "Add"}
+        <DialogActions
+          sx={{
+            padding: "16px 24px",
+            backgroundColor: "#424242",
+            borderTop: "1px solid #616161",
+            display: "flex",
+            justifyContent: "space-between",
+          }}
+        >
+          <Button
+            onClick={handleClose}
+            variant="outlined"
+            sx={{
+              fontSize: "1.1rem",
+              color: "#fff",
+              borderColor: "#616161",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              "&:hover": { backgroundColor: "#616161", borderColor: "#757575" },
+            }}
+          >
+            Annuler
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            variant="contained"
+            sx={{
+              fontSize: "1.1rem",
+              backgroundColor: "#4caf50",
+              color: "#fff",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              "&:hover": { backgroundColor: "#388e3c" },
+            }}
+          >
+            {formData.id ? "Mettre à jour" : "Ajouter"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1775,21 +2183,3 @@ const Publication = () => {
 };
 
 export default Publication;
-
-const styles = `
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  @keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); }
-  }
-`;
-
-const styleSheet = document.createElement("style");
-styleSheet.type = "text/css";
-styleSheet.innerText = styles;
-document.head.appendChild(styleSheet);

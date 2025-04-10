@@ -18,7 +18,7 @@ import {
   InputBase,
   Snackbar,
 } from "@mui/material";
-import { DataGrid } from "@mui/x-data-grid"; // Added missing import
+import { DataGrid } from "@mui/x-data-grid";
 import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import ArchiveIcon from "@mui/icons-material/Archive";
@@ -26,11 +26,13 @@ import UnarchiveIcon from "@mui/icons-material/Unarchive";
 import SearchIcon from "@mui/icons-material/Search";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import DeleteIcon from "@mui/icons-material/Delete";
+import BarChartIcon from "@mui/icons-material/BarChart";
 import Header from "../../components/Header";
 import { useTheme } from "@mui/material";
 import { tokens } from "../../theme";
 import { jwtDecode } from "jwt-decode";
 import jsPDF from "jspdf";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 const Activities = () => {
   const [activities, setActivities] = useState([]);
@@ -46,6 +48,7 @@ const Activities = () => {
   const [activityToToggleArchive, setActivityToToggleArchive] = useState(null);
   const [adminId, setAdminId] = useState(null);
   const [openCategoriesModal, setOpenCategoriesModal] = useState(false);
+  const [openStatsModal, setOpenStatsModal] = useState(false); // New state for Statistics modal
   const [categorySearchQuery, setCategorySearchQuery] = useState("");
   const [editedCategory, setEditedCategory] = useState(null);
   const [editedName, setEditedName] = useState("");
@@ -269,6 +272,7 @@ const Activities = () => {
       })
       .then(() => {
         fetchActivities();
+        fetchCategories();
         handleClose();
       })
       .catch((err) => {
@@ -311,6 +315,7 @@ const Activities = () => {
       .then((res) => res.json())
       .then(() => {
         fetchActivities();
+        fetchCategories();
         setOpenArchiveModal(false);
         setActivityToToggleArchive(null);
       })
@@ -325,7 +330,9 @@ const Activities = () => {
       },
     })
       .then((res) => res.json())
-      .then(setCategories)
+      .then((data) => {
+        setCategories(data);
+      })
       .catch((err) => console.error("❌ Error loading categories", err));
   };
 
@@ -477,6 +484,14 @@ const Activities = () => {
             onClick={generatePDF}
           >
             Generate PDF
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<BarChartIcon />}
+            onClick={() => setOpenStatsModal(true)} // Open Statistics modal
+          >
+            Statistics
           </Button>
         </Box>
 
@@ -638,113 +653,198 @@ const Activities = () => {
       </Dialog>
 
       {/* Manage Categories Modal */}
-      <Dialog open={openCategoriesModal} onClose={() => setOpenCategoriesModal(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Manage Categories</DialogTitle>
-        <DialogContent>
-          <Box
-            display="flex"
-            backgroundColor={colors.primary[400]}
-            borderRadius="3px"
-            p={1}
-            mb={2}
-          >
-            <InputBase
-              sx={{ ml: 2, flex: 1, color: colors.grey[100] }}
-              placeholder="Search categories"
-              value={categorySearchQuery}
-              onChange={(e) => setCategorySearchQuery(e.target.value)}
-            />
-            <IconButton type="button" sx={{ p: 1, color: colors.grey[100] }}>
-              <SearchIcon />
-            </IconButton>
-          </Box>
+      {/* Manage Categories Modal */}
+<Dialog open={openCategoriesModal} onClose={() => setOpenCategoriesModal(false)} maxWidth="sm" fullWidth>
+  <DialogTitle>Manage Categories</DialogTitle>
+  <DialogContent>
+    <Box
+      display="flex"
+      backgroundColor={colors.primary[400]}
+      borderRadius="3px"
+      p={1}
+      mb={2}
+    >
+      <InputBase
+        sx={{ ml: 2, flex: 1, color: colors.grey[100] }}
+        placeholder="Search categories"
+        value={categorySearchQuery}
+        onChange={(e) => setCategorySearchQuery(e.target.value)}
+      />
+      <IconButton type="button" sx={{ p: 1, color: colors.grey[100] }}>
+        <SearchIcon />
+      </IconButton>
+    </Box>
 
-          <Box sx={{ maxHeight: 300, overflowY: "auto" }}>
-            {filteredCategories.length > 0 ? (
-              filteredCategories.map((cat) => (
-                <Box
-                  key={cat._id}
-                  display="flex"
-                  justifyContent="space-between"
-                  alignItems="center"
-                  p={1}
-                  mb={1}
-                  bgcolor={colors.primary[500]}
-                  borderRadius="4px"
+    <Box sx={{ maxHeight: 300, overflowY: "auto" }}>
+      {filteredCategories.length > 0 ? (
+        filteredCategories.map((cat) => (
+          <Box
+            key={cat._id}
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+            p={1}
+            mb={1}
+            bgcolor={colors.primary[500]}
+            borderRadius="4px"
+          >
+            <Typography sx={{ color: colors.grey[100] }}>
+              {cat.name} ({cat.totalActivities} activities)
+            </Typography>
+            <Box>
+              <IconButton
+                color="secondary"
+                onClick={() => openEditModalFunc({ id: cat._id, name: cat.name })}
+              >
+                <EditIcon />
+              </IconButton>
+              <IconButton
+                color="error"
+                onClick={() => handleDelete(cat._id)}
+              >
+                <DeleteIcon />
+              </IconButton>
+            </Box>
+          </Box>
+        ))
+      ) : (
+        <Typography sx={{ color: colors.grey[100] }}>No categories found</Typography>
+      )}
+    </Box>
+
+    {editedCategory && (
+      <Box mt={2}>
+        <TextField
+          fullWidth
+          label="Edit Category Name"
+          value={editedName}
+          onChange={(e) => setEditedName(e.target.value)}
+        />
+        <Box display="flex" gap={1} mt={1}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleUpdateCategory}
+          >
+            Save
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => setEditedCategory(null)}
+          >
+            Cancel
+          </Button>
+        </Box>
+      </Box>
+    )}
+
+    {categoryToDelete && (
+      <Box mt={2}>
+        <Typography>Are you sure you want to delete this category?</Typography>
+        <Box display="flex" gap={1} mt={1}>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={confirmDelete}
+          >
+            Delete
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => setCategoryToDelete(null)}
+          >
+            Cancel
+          </Button>
+        </Box>
+      </Box>
+    )}
+
+    {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setOpenCategoriesModal(false)}>Close</Button>
+  </DialogActions>
+</Dialog>
+
+      {/* Statistics Modal */}
+      <Dialog open={openStatsModal} onClose={() => setOpenStatsModal(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Activity Statistics</DialogTitle>
+        <DialogContent>
+          <Box sx={{ maxHeight: 400, overflowY: "auto" }}>
+            {categories.length > 0 ? (
+              <Box
+                backgroundColor={colors.primary[400]}
+                p={3}
+                borderRadius="8px"
+                boxShadow="0 2px 10px rgba(0,0,0,0.2)"
+              >
+                <Typography
+                  variant="h6"
+                  color={colors.blueAccent[300]}
+                  fontWeight="bold"
+                  mb={2}
                 >
-                  <Typography sx={{ color: colors.grey[100] }}>{cat.name}</Typography>
-                  <Box>
-                    <IconButton
-                      color="secondary"
-                      onClick={() => openEditModalFunc({ id: cat._id, name: cat.name })}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      color="error"
-                      onClick={() => handleDelete(cat._id)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Box>
-                </Box>
-              ))
+                  Activities per Category (Total, Published, Archived)
+                </Typography>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart
+                    data={categories.map((cat) => ({
+                      name: cat.name,
+                      totalActivities: cat.totalActivities,
+                      publishedActivities: cat.publishedActivities,
+                      archivedActivities: cat.archivedActivities,
+                    }))}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke={colors.grey[500]} />
+                    <XAxis
+                      dataKey="name"
+                      stroke={colors.grey[100]}
+                      tick={{ fill: colors.grey[100] }}
+                    />
+                    <YAxis
+                      stroke={colors.grey[100]}
+                      tick={{ fill: colors.grey[100] }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: colors.primary[500],
+                        border: `1px solid ${colors.grey[700]}`,
+                        borderRadius: "4px",
+                        color: colors.grey[100],
+                      }}
+                    />
+                    <Legend />
+                    <Bar
+                      dataKey="totalActivities"
+                      fill={colors.blueAccent[500]}
+                      barSize={20}
+                      name="Total Activities"
+                    />
+                    <Bar
+                      dataKey="publishedActivities"
+                      fill={colors.greenAccent[500]}
+                      barSize={20}
+                      name="Published Activities"
+                    />
+                    <Bar
+                      dataKey="archivedActivities"
+                      fill={colors.redAccent[500]}
+                      barSize={20}
+                      name="Archived Activities"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Box>
             ) : (
-              <Typography sx={{ color: colors.grey[100] }}>No categories found</Typography>
+              <Typography sx={{ color: colors.grey[100] }}>
+                No statistics available
+              </Typography>
             )}
           </Box>
-
-          {editedCategory && (
-            <Box mt={2}>
-              <TextField
-                fullWidth
-                label="Edit Category Name"
-                value={editedName}
-                onChange={(e) => setEditedName(e.target.value)}
-              />
-              <Box display="flex" gap={1} mt={1}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleUpdateCategory}
-                >
-                  Save
-                </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => setEditedCategory(null)}
-                >
-                  Cancel
-                </Button>
-              </Box>
-            </Box>
-          )}
-
-          {categoryToDelete && (
-            <Box mt={2}>
-              <Typography>Are you sure you want to delete this category?</Typography>
-              <Box display="flex" gap={1} mt={1}>
-                <Button
-                  variant="contained"
-                  color="error"
-                  onClick={confirmDelete}
-                >
-                  Delete
-                </Button>
-                <Button
-                  variant="outlined"
-                  onClick={() => setCategoryToDelete(null)}
-                >
-                  Cancel
-                </Button>
-              </Box>
-            </Box>
-          )}
-
-          {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenCategoriesModal(false)}>Close</Button>
+          <Button onClick={() => setOpenStatsModal(false)}>Close</Button>
         </DialogActions>
       </Dialog>
 
@@ -766,5 +866,4 @@ const Activities = () => {
     </Box>
   );
 };
-
 export default Activities;

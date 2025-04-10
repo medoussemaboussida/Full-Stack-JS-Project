@@ -189,8 +189,15 @@ const Sidebar = () => {
               setSelected={setSelected}
             />
                    <Item
-              title="Appointment Management"
+              title="Appointment"
               to="/appointment"
+              icon={<ContactsOutlinedIcon />}
+              selected={selected}
+              setSelected={setSelected}
+            />
+            <Item
+              title="Chat"
+              to="/chat"
               icon={<ContactsOutlinedIcon />}
               selected={selected}
               setSelected={setSelected}

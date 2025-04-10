@@ -49,12 +49,14 @@ router.get('/comment/reports', userController.verifyToken, userController.getAll
 router.get('/comment/reports/:commentId', userController.verifyToken, userController.getReportsByComment);
 router.delete('/deleteCommentAdmin/:commentId', userController.deleteCommentaireAdmin);
 router.post('/ban/:userId', userController.verifyToken, userController.banUser);
+router.get('/banned-users', userController.verifyToken, userController.getBannedUsers);
+router.put('/unban/:userId', userController.verifyToken, userController.unbanUser);
 
 
 
 
 
-
+router.put("/psychiatrists/update-description/:id", userController.updatePsychiatristDescription);
 router.get('/psychiatrists', userController.verifyToken, userController.getPsychiatrists);
 router.put('/psychiatrists/add-availability/:id', userController.verifyToken, userController.addAvailability);
 router.delete('/psychiatrists/delete-availability/:id/:index', userController.verifyToken, userController.deleteAvailability);
@@ -74,6 +76,10 @@ router.get('/me', userController.verifyToken, userController.photo);
 router.get('/allappoint', userController.getAllAppoint);
 router.delete('/chat/:messageId', userController.verifyToken, userController.deletechat);
 router.put('/chat/:messageId', userController.verifyToken, userController.updatechat);
+router.get('/users/chat/rooms', userController.verifyToken, userController.getAllchat);
+router.put('/notifications/:notificationId/read', userController.verifyToken, userController.markNotificationAsRead);
+router.get('/notifications', userController.verifyToken, userController.getUserNotifications);
+
 
 
 
@@ -127,7 +133,6 @@ router.get("/activities/category", activitiesController.getActivitiesByCategory)
 router.delete("/psychiatrist/:id/delete-activity/:activityId", activitiesController.deleteActivity);
 
 router.put("/psychiatrist/:id/archive-activity/:activityId", activitiesController.archiveActivity);
-
 // ✅ Récupérer les activités favorites d'un utilisateur
 router.get("/favorite-activities/:id", activitiesController.getFavoriteActivities);
 
@@ -137,7 +142,8 @@ router.post("/favorite-activity/:id", activitiesController.toggleFavoriteActivit
 // ✅ Supprimer toutes les activités favorites
 router.delete("/clear-favorite/:id", activitiesController.clearFavoriteActivities);
 
-
+router.post('/generate-description', activitiesController.generateDescription);
+router.post('/generate-title', activitiesController.generateTitle);
 
 //schedule
 // POST /users/schedule/:userId - Save or update scheduled activities
@@ -166,6 +172,8 @@ router.post('/problems', userController.verifyToken, userController.createProble
 router.get('/problems/:userId', userController.verifyToken, userController.getProblems);
 router.put('/problems/:userId/:problemId', userController.verifyToken, userController.updateProblem);
 router.delete('/problems/:userId/:problemId', userController.verifyToken, userController.deleteProblem);
+//generate solution
+router.post('/problems/:problemId/solution', userController.verifyToken, userController.generateSolution);
 // Attendance routes
 router.post(
     '/attendance/:userId',

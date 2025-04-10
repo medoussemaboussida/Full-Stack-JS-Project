@@ -89,6 +89,12 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Publication', // Référence au modèle Publication
     }],
+    description: { 
+        type: String, 
+        required: false, 
+        default: function() { return this.role === 'psychiatrist' ? 'No description provided yet.' : undefined; },
+        maxlength: [500, 'Description cannot exceed 500 characters'] // Optional limit
+    },
     receiveEmails: { type: Boolean, default: true },
     
     attendanceSheets: [{

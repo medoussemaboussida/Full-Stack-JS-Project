@@ -23,7 +23,7 @@ const PsychiatristList = () => {
     useEffect(() => {
         axios.get('http://localhost:5000/users/psychiatrists', {
             headers: {
-                Authorization: `Bearer ${localStorage.getItem('jwt-token')}`, // Added for authentication
+                Authorization: `Bearer ${localStorage.getItem('jwt-token')}`,
             },
         })
             .then(response => {
@@ -40,6 +40,8 @@ const PsychiatristList = () => {
 
     const formatAvailabilitiesToEvents = (availabilities) => {
         const eventsArray = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Set to start of day for comparison
 
         availabilities.forEach((slot, slotIndex) => {
             let startDate;
@@ -55,6 +57,9 @@ const PsychiatristList = () => {
                 const daysToAdd = (dayIndex - currentDate.getDay() + 7) % 7;
                 startDate.setDate(currentDate.getDate() + daysToAdd);
             }
+
+            // Skip if the date is before today
+            if (startDate < today) return;
 
             const startHour = parseInt(slot.startTime.split(':')[0]);
             const startMinute = parseInt(slot.startTime.split(':')[1]);
@@ -84,13 +89,16 @@ const PsychiatristList = () => {
                     eventEnd.setDate(eventEnd.getDate() + 1);
                 }
 
-                eventsArray.push({
-                    id: `${slotIndex}-${time}`,
-                    title: slot.title || `Available - ${slot.day}`,
-                    start: eventStart.toISOString(),
-                    end: eventEnd.toISOString(),
-                    extendedProps: { slotIndex, originalSlot: slot }, // Added slotIndex for booking
-                });
+                // Only add event if it starts on or after today
+                if (eventStart >= today) {
+                    eventsArray.push({
+                        id: `${slotIndex}-${time}`,
+                        title: slot.title || `Available - ${slot.day || new Date(slot.date).toLocaleDateString()}`,
+                        start: eventStart.toISOString(),
+                        end: eventEnd.toISOString(),
+                        extendedProps: { slotIndex, originalSlot: slot },
+                    });
+                }
             }
         });
 
@@ -119,7 +127,6 @@ const PsychiatristList = () => {
         const eventStart = new Date(eventInfo.start);
         const eventEnd = new Date(eventInfo.end);
 
-        // Format date as DD/MM/YYYY (e.g., "01/08/2024")
         const formatDate = (date) => {
             const day = String(date.getDate()).padStart(2, '0');
             const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -129,14 +136,14 @@ const PsychiatristList = () => {
 
         const bookingData = {
             psychiatristId: selectedPsychiatrist._id,
-            date: formatDate(eventStart), // Full date like "01/08/2024"
-            startTime: eventStart.toTimeString().slice(0, 5), // e.g., "10:00"
-            endTime: eventEnd.toTimeString().slice(0, 5),     // e.g., "10:30"
+            date: formatDate(eventStart),
+            startTime: eventStart.toTimeString().slice(0, 5),
+            endTime: eventEnd.toTimeString().slice(0, 5),
         };
 
         try {
             const response = await axios.post(
-                'http://localhost:5000/users/appointments/book', // Updated endpoint
+                'http://localhost:5000/users/appointments/book',
                 bookingData,
                 {
                     headers: {
@@ -147,8 +154,6 @@ const PsychiatristList = () => {
             );
 
             toast.success('Appointment booked successfully!');
-
-            // Update local state with new availability
             const updatedAvailability = selectedPsychiatrist.availability.filter(
                 (_, index) => index !== eventInfo.extendedProps.slotIndex
             );
@@ -169,8 +174,9 @@ const PsychiatristList = () => {
         if (!searchTerm.trim()) return psychiatrists;
         return psychiatrists.filter(psy =>
             psy.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            psy.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             psy.availability.some(slot =>
-                slot.day.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                slot.day?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 slot.startTime.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 slot.endTime.toLowerCase().includes(searchTerm.toLowerCase())
             )
@@ -194,13 +200,34 @@ const PsychiatristList = () => {
                             </div>
                         </div>
                     </div>
-                    <div className="search-container text-center mb-4">
+                    <div className="search-container text-center mb-4" style={{
+                        margin: '30px 0'
+                    }}>
                         <input
                             type="text"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Search by name or availability (e.g., Monday, 10:00)"
+                            placeholder="Search by name, description, or availability (e.g., Monday, 10:00)"
                             className="search-input"
+                            style={{
+                                width: '60%',
+                                maxWidth: '500px',
+                                padding: '12px 20px',
+                                fontSize: '16px',
+                                borderRadius: '25px',
+                                border: '2px solid #6CB4EE',
+                                boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+                                outline: 'none',
+                                transition: 'all 0.3s ease',
+                            }}
+                            onFocus={(e) => {
+                                e.target.style.borderColor = '#5AA0D8';
+                                e.target.style.boxShadow = '0 2px 8px rgba(90,160,216,0.3)';
+                            }}
+                            onBlur={(e) => {
+                                e.target.style.borderColor = '#6CB4EE';
+                                e.target.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)';
+                            }}
                         />
                     </div>
                     <Swiper
@@ -219,20 +246,26 @@ const PsychiatristList = () => {
                         {filterPsychiatrists().length > 0 ? (
                             filterPsychiatrists().map((psychiatrist) => (
                                 <SwiperSlide key={psychiatrist._id}>
-                                    <div className="psychiatrist-card">
+                                    <div className="psychiatrist-card" style={{ padding: '20px', textAlign: 'center' }}>
                                         <div className="psychiatrist-img">
                                             {psychiatrist.user_photo ? (
                                                 <img
                                                     src={`http://localhost:5000${psychiatrist.user_photo}`}
                                                     alt={psychiatrist.username}
+                                                    style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', margin: '0 auto' }}
                                                 />
                                             ) : (
-                                                <div className="no-image">No Image</div>
+                                                <div className="no-image" style={{ width: '100px', height: '100px', borderRadius: '50%', backgroundColor: '#e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
+                                                    No Image
+                                                </div>
                                             )}
                                         </div>
                                         <div className="psychiatrist-info">
-                                            <h4>{psychiatrist.username}</h4>
-                                            <p>Psychiatrist</p>
+                                            <h4 style={{ margin: '10px 0', fontSize: '1.5rem' }}>{psychiatrist.username}</h4>
+                                            <p style={{ margin: '5px 0', color: '#555', fontWeight: 'bold' }}>Psychiatrist</p>
+                                            <p style={{ margin: '10px 0', color: '#666', fontSize: '0.9rem', lineHeight: '1.4' }}>
+                                                {psychiatrist.description || 'No description available.'}
+                                            </p>
                                             <button
                                                 className="view-availability-btn"
                                                 onClick={() => handleViewAvailability(psychiatrist)}
@@ -244,13 +277,12 @@ const PsychiatristList = () => {
                                                     borderRadius: '5px',
                                                     cursor: 'pointer',
                                                     opacity: 0.7,
-                                                    position: 'relative',
-                                                    top: '-10px',
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
                                                     gap: '8px',
                                                     transition: 'all 0.3s ease',
+                                                    margin: '10px auto 0',
                                                 }}
                                                 onMouseEnter={(e) => {
                                                     e.target.style.opacity = '1';
