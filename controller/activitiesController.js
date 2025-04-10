@@ -762,10 +762,11 @@ module.exports.saveNote = async (req, res) => {
 
   exports.getAllCategories = async (req, res) => {
     try {
-      const categoriesWithCounts = await Category.aggregate([
+      // Use aggregation to join categories with activities and compute stats
+      const categoriesWithStats = await Category.aggregate([
         {
           $lookup: {
-            from: "activities",
+            from: "activities", // The collection name for Activity model
             localField: "_id",
             foreignField: "category",
             as: "activities",
@@ -776,13 +777,30 @@ module.exports.saveNote = async (req, res) => {
             _id: 1,
             name: 1,
             createdBy: 1,
-            activityCount: { $size: "$activities" },
+            totalActivities: { $size: "$activities" }, // Total number of activities
+            publishedActivities: {
+              $size: {
+                $filter: {
+                  input: "$activities",
+                  cond: { $eq: ["$$this.isArchived", false] },
+                },
+              },
+            }, // Count of published activities
+            archivedActivities: {
+              $size: {
+                $filter: {
+                  input: "$activities",
+                  cond: { $eq: ["$$this.isArchived", true] },
+                },
+              },
+            }, // Count of archived activities
           },
         },
       ]);
-      res.status(200).json(categoriesWithCounts);
+  
+      res.status(200).json(categoriesWithStats);
     } catch (error) {
-      console.error("Error fetching categories:", error);
+      console.error("Error fetching categories with statistics:", error);
       res.status(500).json({ message: "Erreur serveur", error });
     }
   };

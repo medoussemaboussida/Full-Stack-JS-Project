@@ -18,7 +18,7 @@ import {
   InputBase,
   Snackbar,
 } from "@mui/material";
-import { DataGrid } from "@mui/x-data-grid"; // Added missing import
+import { DataGrid } from "@mui/x-data-grid";
 import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import ArchiveIcon from "@mui/icons-material/Archive";
@@ -26,6 +26,7 @@ import UnarchiveIcon from "@mui/icons-material/Unarchive";
 import SearchIcon from "@mui/icons-material/Search";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import DeleteIcon from "@mui/icons-material/Delete";
+import BarChartIcon from "@mui/icons-material/BarChart"; // Icon for Statistics button
 import Header from "../../components/Header";
 import { useTheme } from "@mui/material";
 import { tokens } from "../../theme";
@@ -46,6 +47,7 @@ const Activities = () => {
   const [activityToToggleArchive, setActivityToToggleArchive] = useState(null);
   const [adminId, setAdminId] = useState(null);
   const [openCategoriesModal, setOpenCategoriesModal] = useState(false);
+  const [openStatsModal, setOpenStatsModal] = useState(false); // New state for Statistics modal
   const [categorySearchQuery, setCategorySearchQuery] = useState("");
   const [editedCategory, setEditedCategory] = useState(null);
   const [editedName, setEditedName] = useState("");
@@ -269,7 +271,7 @@ const Activities = () => {
       })
       .then(() => {
         fetchActivities();
-        fetchCategories(); // Refresh categories to update counts
+        fetchCategories();
         handleClose();
       })
       .catch((err) => {
@@ -312,7 +314,7 @@ const Activities = () => {
       .then((res) => res.json())
       .then(() => {
         fetchActivities();
-        fetchCategories(); // Refresh categories
+        fetchCategories();
         setOpenArchiveModal(false);
         setActivityToToggleArchive(null);
       })
@@ -328,7 +330,6 @@ const Activities = () => {
     })
       .then((res) => res.json())
       .then((data) => {
-        // The data now includes activityCount for each category
         setCategories(data);
       })
       .catch((err) => console.error("❌ Error loading categories", err));
@@ -482,6 +483,14 @@ const Activities = () => {
             onClick={generatePDF}
           >
             Generate PDF
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<BarChartIcon />}
+            onClick={() => setOpenStatsModal(true)} // Open Statistics modal
+          >
+            Statistics
           </Button>
         </Box>
 
@@ -643,7 +652,8 @@ const Activities = () => {
       </Dialog>
 
       {/* Manage Categories Modal */}
-      <Dialog open={openCategoriesModal} onClose={() => setOpenCategoriesModal(false)} maxWidth="sm" fullWidth>
+      {/* Manage Categories Modal */}
+<Dialog open={openCategoriesModal} onClose={() => setOpenCategoriesModal(false)} maxWidth="sm" fullWidth>
   <DialogTitle>Manage Categories</DialogTitle>
   <DialogContent>
     <Box
@@ -678,7 +688,7 @@ const Activities = () => {
             borderRadius="4px"
           >
             <Typography sx={{ color: colors.grey[100] }}>
-              {cat.name} ({cat.activityCount} activities)
+              {cat.name} ({cat.totalActivities} activities)
             </Typography>
             <Box>
               <IconButton
@@ -754,6 +764,45 @@ const Activities = () => {
     <Button onClick={() => setOpenCategoriesModal(false)}>Close</Button>
   </DialogActions>
 </Dialog>
+
+      {/* Statistics Modal */}
+      <Dialog open={openStatsModal} onClose={() => setOpenStatsModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Activity Statistics</DialogTitle>
+        <DialogContent>
+          <Box sx={{ maxHeight: 400, overflowY: "auto" }}>
+            {categories.length > 0 ? (
+              categories.map((cat) => (
+                <Box
+                  key={cat._id}
+                  p={2}
+                  mb={1}
+                  bgcolor={colors.primary[500]}
+                  borderRadius="4px"
+                >
+                  <Typography sx={{ color: colors.grey[100], fontWeight: "bold" }}>
+                    {cat.name}
+                  </Typography>
+                  <Typography sx={{ color: colors.grey[100] }}>
+                    Total Activities: {cat.totalActivities}
+                  </Typography>
+                  <Typography sx={{ color: colors.greenAccent[500] }}>
+                    Published: {cat.publishedActivities}
+                  </Typography>
+                  <Typography sx={{ color: colors.redAccent[500] }}>
+                    Archived: {cat.archivedActivities}
+                  </Typography>
+                </Box>
+              ))
+            ) : (
+              <Typography sx={{ color: colors.grey[100] }}>No statistics available</Typography>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenStatsModal(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Success Snackbar */}
       <Snackbar
         open={!!successMessage}
