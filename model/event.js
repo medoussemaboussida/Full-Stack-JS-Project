@@ -127,6 +127,13 @@ const eventSchema = new mongoose.Schema({
             type: Number,
             default: null // Longitude, null par défaut si non géocodée
         }
+    },
+    likes: { type: [String], default: [] },      // Liste des utilisateurs ayant aimé
+  dislikes: { type: [String], default: [] },   // Liste des utilisateurs ayant désapprouvé
+  favorites: { type: [String], default: [] },
+    hasPartners: {
+        type: Boolean,
+        default: false // Par défaut, pas de partenaires
     }
 }, {
     timestamps: true // Ajoute createdAt et updatedAt automatiquement

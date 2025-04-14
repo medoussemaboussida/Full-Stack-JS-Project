@@ -20,6 +20,8 @@ import Forum from "./scenes/forum/forum";
 import Appointment from "./scenes/Appointment/Appointment";
 import Chat from "./scenes/Chat/Chat";
 import Events from "./scenes/events/events"; 
+import Associations from "./scenes/associations/associations";
+
 import { NotificationProvider } from "./scenes/publication/NotificationContext"; // Importer le NotificationProvider
 import Activities from "./scenes/passtime/activities";
 import AdminComplaints from "./scenes/complaint/complaint";
@@ -76,10 +78,14 @@ function App() {
                 <Route path="/forum" element={<Forum />} />
                 <Route path="/appointment" element={<Appointment />} />
                 <Route path="/chat" element={<Chat />} />
-
-                <Route path="/activities" element={<Activities />} />
                 <Route path="/complaint" element={<AdminComplaints />} />
 
+                <Route path="/activities" element={<Activities />} />
+
+
+
+<Route path="/events" element={<Events />} />
+<Route path="/associations" element={<Associations />} />
               </Routes>
             </main>
           </div>

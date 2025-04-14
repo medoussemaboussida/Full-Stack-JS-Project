@@ -18,17 +18,23 @@ const Associations = () => {
   const [sortOrder, setSortOrder] = useState('name-asc');
   const associationsPerPage = 8;
 
-  // Fetch all associations
+  // Fetch approved associations for the front-end
   const fetchAssociations = async () => {
     try {
-      console.log('Fetching associations from API...');
-      const response = await axios.get('http://localhost:5000/association/getAssociations');
+      console.log('Fetching approved associations from API...');
+      const token = localStorage.getItem('jwt-token');
+      if (!token) throw new Error('No token found in localStorage');
+      const response = await axios.get('http://localhost:5000/association/getApprovedAssociations', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
       console.log('API Response:', response.data);
       setAssociations(response.data);
       setIsLoading(false);
     } catch (err) {
-      console.error('Error fetching associations:', err);
-      setError(`Erreur lors de la récupération des associations : ${err.message}`);
+      console.error('Error fetching associations:', err.response || err);
+      setError(`Erreur lors de la récupération des associations : ${err.response?.data?.message || err.message}`);
       setIsLoading(false);
     }
   };
@@ -51,7 +57,7 @@ const Associations = () => {
   };
 
   // Handle deletion of an association
-  const handleDelete = (associationId) => {
+  const handleDelete = async (associationId) => {
     const token = localStorage.getItem('jwt-token');
     if (!token || userRole !== 'admin') {
       toast.error('Vous devez être administrateur pour supprimer une association');
@@ -64,7 +70,7 @@ const Associations = () => {
         <button
           onClick={async () => {
             try {
-              const response = await axios.delete(`http://localhost:5000/association/deleteAssociation/${associationId}`, {
+              const response = await axios.delete(`http://localhost:5000/association/${associationId}`, {
                 headers: {
                   'Authorization': `Bearer ${token}`,
                 },
@@ -74,7 +80,7 @@ const Associations = () => {
                 toast.success('Association supprimée avec succès', { autoClose: 3000 });
               }
             } catch (err) {
-              toast.error(`Erreur lors de la suppression : ${err.message}`, { autoClose: 3000 });
+              toast.error(`Erreur lors de la suppression : ${err.response?.data?.message || err.message}`, { autoClose: 3000 });
             } finally {
               toast.dismiss(toastId);
             }
@@ -96,6 +102,7 @@ const Associations = () => {
 
   // Function to truncate long text
   const truncateText = (text, maxLength) => {
+    if (!text) return '';
     if (text.length > maxLength) {
       return text.substring(0, maxLength) + '...';
     }
@@ -123,18 +130,17 @@ const Associations = () => {
   // Filter and sort associations
   const filteredAssociations = associations
     .filter((assoc) => {
-      const name = assoc.Name_association.toLowerCase();
+      const name = assoc.Name_association?.toLowerCase() || '';
       const term = searchTerm.toLowerCase();
       const matchesSearch = name.includes(term);
-      const matchesFilter =
-        filterType === 'all' || assoc.support_type === filterType;
+      const matchesFilter = filterType === 'all' || assoc.support_type === filterType;
       return matchesSearch && matchesFilter;
     })
     .sort((a, b) => {
       if (sortOrder === 'name-asc') {
-        return a.Name_association.localeCompare(b.Name_association);
+        return (a.Name_association || '').localeCompare(b.Name_association || '');
       } else if (sortOrder === 'name-desc') {
-        return b.Name_association.localeCompare(a.Name_association);
+        return (b.Name_association || '').localeCompare(a.Name_association || '');
       } else if (sortOrder === 'recent') {
         return new Date(b.createdAt) - new Date(a.createdAt);
       } else if (sortOrder === 'oldest') {
@@ -169,7 +175,7 @@ const Associations = () => {
   }, []);
 
   if (isLoading) return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Chargement...</div>;
-  if (error) return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>{error}</div>;
+  if (error) return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px', color: 'red' }}>{error}</div>;
 
   return (
     <>
@@ -308,7 +314,7 @@ const Associations = () => {
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
-                      height: '350px', // Fixed height for the entire container
+                      height: '350px',
                       overflow: 'hidden',
                     }}
                   >
@@ -316,18 +322,18 @@ const Associations = () => {
                       className="team-img"
                       style={{
                         position: 'relative',
-                        height: '200px', // Fixed height for the image section
+                        height: '200px',
                         overflow: 'hidden',
                       }}
                     >
                       <img
                         src={association.logo_association ? `http://localhost:5000${association.logo_association}` : '/assets/img/team/default.jpg'}
-                        alt={association.Name_association}
+                        alt={association.Name_association || 'Association'}
                         onError={(e) => (e.target.src = '/assets/img/team/default.jpg')}
                         style={{
                           width: '100%',
                           height: '100%',
-                          objectFit: 'cover', // Ensure image fits without distortion
+                          objectFit: 'cover',
                           objectPosition: 'center',
                         }}
                       />
@@ -370,15 +376,15 @@ const Associations = () => {
                         justifyContent: 'space-between',
                         padding: '15px',
                         textAlign: 'center',
-                        height: '150px', // Fixed height for the content section
+                        height: '150px',
                         overflow: 'hidden',
                       }}
                     >
                       <div>
                         <h4 style={{ margin: 0, fontSize: '16px', lineHeight: '1.2' }}>
-                          <Link to={`/AssociationDetails/${association._id}`}>
-                            {truncateText(association.Name_association, 20)}
-                          </Link>
+                        <Link to={`/AssociationDetails/${association._id}`}>
+  {truncateText(association.Name_association, 20)}
+</Link>
                         </h4>
                         <span style={{ fontSize: '14px', color: '#666', margin: '5px 0', display: 'block' }}>
                           {truncateText(association.support_type || 'Association', 15)}
@@ -395,6 +401,7 @@ const Associations = () => {
                             padding: '5px 10px',
                             borderRadius: '3px',
                             fontSize: '14px',
+                            cursor: 'pointer',
                           }}
                         >
                           Supprimer

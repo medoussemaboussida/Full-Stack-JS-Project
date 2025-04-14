@@ -18,7 +18,7 @@ import AppointmentHistory from './pages/AppointmentHistory';
 import Chat from './pages/Chat';
 import AddActivity from './pages/add-activity';
 import Associations from './pages/Associations';
-import AssociationDetails from './pages/AssociationDetails';
+import AssociationDetails from './pages/AssociationDetails'; // Chemin vers votre composant
 import AddAssociation from './pages/AddAssociation';
 import AddEvent from './pages/AddEvent';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
@@ -39,7 +39,7 @@ import Problem from './pages/Problem';
 import ProblemList from './pages/ProblemList';
 import AddReclamation from './pages/AddComplaint';
 import Complaint from './pages/Complaint';
-
+//import Statistics from './pages/Statistics';
 
 const Layout = ({ children }) => {
   const location = useLocation();
@@ -114,10 +114,11 @@ function App(){
         <Route path="/add-association" element={<AddAssociation />} />
         <Route path="/Associations" element={<Associations />} />
         <Route path="/AssociationDetails/:id" element={<AssociationDetails />} />
-        <Route path="/add-event" element={<AddEvent />} />
+                <Route path="/add-event" element={<AddEvent />} />
         <Route path="/Events" element={<Events />} />
         <Route path="/event/:id" element={<EventDetails />} /> 
 
+      {/* //  <Route path="/Statistics" element={<Statistics />} /> */}
 
         <Route path="/complaint" element={<Complaint/>} />
         <Route path="/addcomplaint" element={<AddReclamation/>} />

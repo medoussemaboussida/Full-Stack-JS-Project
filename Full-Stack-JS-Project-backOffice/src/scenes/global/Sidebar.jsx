@@ -18,8 +18,8 @@ import MenuOutlinedIcon from "@mui/icons-material/MenuOutlined";
 import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import useAuth from "../../Authentification";  
 import FeedOutlinedIcon from "@mui/icons-material/FeedOutlined";
-import EventOutlinedIcon from "@mui/icons-material/EventOutlined"; // Icône pour les événements
-
+import EventOutlinedIcon from "@mui/icons-material/EventOutlined"; 
+import GroupOutlinedIcon from "@mui/icons-material/GroupOutlined";
 const Item = ({ title, to, icon, selected, setSelected }) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
@@ -161,6 +161,15 @@ const Sidebar = () => {
               title="Events"
               to="/events"
               icon={<EventOutlinedIcon />}
+              selected={selected}
+              setSelected={setSelected}
+             />
+
+
+             <Item
+              title="Associations"
+              to="/associations"
+              icon={<GroupOutlinedIcon />}
               selected={selected}
               setSelected={setSelected}
              />

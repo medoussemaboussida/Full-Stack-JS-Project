@@ -24,7 +24,7 @@ const AssociationDetails = () => {
       try {
         const decoded = jwtDecode(token);
         setUserId(decoded.id);
-        console.log("User ID from token:", decoded.id); // Log pour débogage
+        console.log("User ID from token:", decoded.id);
       } catch (error) {
         console.error("Erreur lors du décodage du token:", error);
         toast.error("Session invalide, veuillez vous reconnecter");
@@ -35,18 +35,24 @@ const AssociationDetails = () => {
 
     const fetchAssociationDetails = async () => {
       try {
+        const token = localStorage.getItem("jwt-token");
+        if (!token) throw new Error("Aucun token trouvé dans localStorage");
         console.log(`Fetching association details for ID: ${id}`);
-        const response = await axios.get(`${BASE_URL}/association/getAssociationById/${id}`);
+        const response = await axios.get(`${BASE_URL}/association/getAssociationById/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         console.log('API Response:', response.data);
         setAssociation(response.data);
         setFormData(response.data);
-        console.log("Created by ID:", response.data.created_by?._id); // Log pour débogage
+        console.log("User ID from association:", response.data.user_id?._id);
         setIsLoading(false);
       } catch (err) {
-        console.error('Error fetching association details:', err);
-        setError(`Erreur: ${err.message}`);
+        console.error('Error fetching association details:', err.response || err);
+        setError(`Erreur: ${err.response?.data?.message || err.message}`);
         setIsLoading(false);
-        toast.error(`Erreur: ${err.message}`);
+        toast.error(`Erreur: ${err.response?.data?.message || err.message}`);
       }
     };
 
@@ -69,8 +75,8 @@ const AssociationDetails = () => {
       const response = await axios.put(`${BASE_URL}/association/updateAssociation/${id}`, updatedData, {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
-      setAssociation(response.data.data);
-      setFormData(response.data.data);
+      setAssociation(response.data);
+      setFormData(response.data);
       setIsEditing(false);
       toast.success("Mise à jour réussie !");
     } catch (error) {
@@ -101,8 +107,8 @@ const AssociationDetails = () => {
   if (error) return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>{error}</div>;
   if (!association) return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Association non trouvée</div>;
 
-  const isCreator = userId && association.created_by?._id === userId;
-  console.log("isCreator:", isCreator); // Log pour vérifier
+  const isCreator = userId && association.user_id?._id === userId;
+  console.log("isCreator:", isCreator);
 
   return (
     <>

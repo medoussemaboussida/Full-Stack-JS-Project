@@ -807,23 +807,23 @@ const AdminComplaints = () => {
       doc.addImage(logo, "PNG", 160, 13, imgWidth, imgHeight);
 
       doc.setFontSize(18);
-      doc.text("Rapport Détaillé des Réclamations", 14, 20);
+      doc.text("Complaint Report", 14, 20);
 
       doc.setFontSize(14);
-      doc.text("Réclamations par mois", 14, 30);
+      doc.text("Réclamations per month", 14, 30);
       const monthlyData = advancedStats.complaintsByMonth.map((item) => [
         `${item.month}/${item.year}`,
         item.count,
       ]);
       autoTable(doc, {
         startY: 35,
-        head: [["Mois/Année", "Nombre de réclamations"]],
+        head: [["Month/year", "number of Complaints"]],
         body: monthlyData,
       });
 
       let currentY = doc.lastAutoTable.finalY + 10;
       doc.setFontSize(14);
-      doc.text("Statistiques des réclamations", 14, currentY);
+      doc.text("Complaints statistics", 14, currentY);
       const statsData = [
         ["Total", stats.totalComplaints],
         ["Pending", stats.pendingComplaints],
@@ -832,13 +832,13 @@ const AdminComplaints = () => {
       ];
       autoTable(doc, {
         startY: currentY + 5,
-        head: [["Statut", "Nombre"]],
+        head: [["Statut", "Number"]],
         body: statsData,
       });
 
       currentY = doc.lastAutoTable.finalY + 10;
       doc.setFontSize(14);
-      doc.text("Top Utilisateur", 14, currentY);
+      doc.text("Top Users", 14, currentY);
       const topUserData = [
         [
           advancedStats.topUser.username,
@@ -847,13 +847,13 @@ const AdminComplaints = () => {
       ];
       autoTable(doc, {
         startY: currentY + 5,
-        head: [["Utilisateur", "Nombre de réclamations"]],
+        head: [["User", "number of Complaints"]],
         body: topUserData,
       });
 
       currentY = doc.lastAutoTable.finalY + 10;
       doc.setFontSize(14);
-      doc.text("Liste des réclamations", 14, currentY);
+      doc.text("list of Complaints", 14, currentY);
       const complaintData = complaints.map((complaint) => [
         complaint.user_id?.username || "Unknown",
         complaint.subject,
@@ -869,7 +869,7 @@ const AdminComplaints = () => {
       ]);
       autoTable(doc, {
         startY: currentY + 5,
-        head: [["Utilisateur", "Sujet", "Description", "Statut", "Date de création"]],
+        head: [["User", "Sujet", "Description", "Statut", "Date of creation"]],
         body: complaintData,
       });
 
@@ -1094,7 +1094,14 @@ const AdminComplaints = () => {
         </Box>
       </Box>
 
-      <Box mt={4}>
+      <Box mt={4}sx={{
+    maxHeight: "450px", // Hauteur maximale du cadre (450px comme demandé)
+    overflowY: "auto", // Activer le défilement vertical
+    padding: "10px", // Ajouter un peu de padding pour l'esthétique
+    border: `1px solid ${colors.grey[700]}`, // Ajouter une bordure pour délimiter le cadre
+    borderRadius: "8px", // Arrondir les coins du cadre
+    backgroundColor: colors.primary[500], // Fond cohérent avec le thème
+  }}>
         {filteredComplaints.length > 0 ? (
           filteredComplaints.map((complaint, index) => (
             <Box

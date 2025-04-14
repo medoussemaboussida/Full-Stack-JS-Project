@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Box, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Select, MenuItem, InputLabel, FormControl, Alert, IconButton, InputBase,
-  Divider, Chip, Badge, Tooltip, List, ListItem, ListItemText
+  Divider, Chip, Badge, Tooltip
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import EditIcon from "@mui/icons-material/Edit";
@@ -11,9 +11,9 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import DeleteIcon from "@mui/icons-material/Delete";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import PeopleIcon from "@mui/icons-material/People";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle"; // Icône pour approuver
-import CancelIcon from "@mui/icons-material/Cancel"; // Icône pour désactiver
-import Header from "../../components/Header"; // Assurez-vous que ce composant existe
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
+import Header from "../../components/Header";
 import SearchIcon from "@mui/icons-material/Search";
 import { useTheme } from "@mui/material";
 import Snackbar from '@mui/material/Snackbar';
@@ -40,8 +40,8 @@ const Events = () => {
   // Récupérer tous les événements pour le backoffice
   const fetchEvents = async (query = "") => {
     let url = query
-      ? `http://localhost:5000/events/searchEvents?searchTerm=${query}` // À implémenter côté backend si besoin
-      : "http://localhost:5000/events/getAllEvents"; // Route pour admin (tous les événements)
+      ? `http://localhost:5000/events/searchEvents?searchTerm=${query}`
+      : "http://localhost:5000/events/getAllEvents";
 
     try {
       const res = await fetch(url, {
@@ -57,6 +57,8 @@ const Events = () => {
           id: event._id,
           ...event,
           participantCount: event.participants?.length || 0,
+          created_by_username: event.created_by?.username || "Unknown",
+          isApproved: event.isApproved !== undefined ? event.isApproved : false, // Valeur par défaut
         }));
         setEvents(eventsWithParticipantCount);
       } else {
@@ -99,7 +101,7 @@ const Events = () => {
     setFormData(event ? {
       title: event.title,
       description: event.description,
-      start_date: event.start_date.slice(0, 16), // Format pour datetime-local
+      start_date: event.start_date.slice(0, 16),
       end_date: event.end_date.slice(0, 16),
       event_type: event.event_type,
       status: event.status,
@@ -158,7 +160,11 @@ const Events = () => {
         return res.json();
       })
       .then((data) => {
-        setSelectedEvent({ ...data, participantCount: data.participants?.length || 0 });
+        setSelectedEvent({
+          ...data,
+          participantCount: data.participants?.length || 0,
+          created_by_username: data.created_by?.username || "Unknown",
+        });
         setOpenDetailsModal(true);
       })
       .catch((err) => {
@@ -271,6 +277,7 @@ const Events = () => {
               Type: ${event.event_type} | 
               Status: ${event.status} | 
               Approved: ${event.isApproved ? "Yes" : "No"} | 
+              Created By: ${event.created_by_username} | 
               Participants: ${event.participantCount}
             </div>
           </div>
@@ -314,6 +321,14 @@ const Events = () => {
     },
     { field: "event_type", headerName: "Event Type", flex: 1 },
     {
+      field: "created_by_username",
+      headerName: "Created By",
+      flex: 1,
+      renderCell: (params) => (
+        <Typography>{params.value || "Unknown"}</Typography>
+      ),
+    },
+    {
       field: "participantCount",
       headerName: "Participants",
       flex: 1,
@@ -331,98 +346,46 @@ const Events = () => {
       headerName: "Approval",
       flex: 1,
       renderCell: (params) => (
-        <Chip
-          label={params.value ? "Approved" : "Pending"}
-          color={params.value ? "success" : "warning"}
-        />
+        <Tooltip title={params.value ? "Disable Event" : "Approve Event"}>
+          <IconButton
+            color={params.value ? "success" : "warning"}
+            onClick={() => handleToggleApproval(params.row.id, !params.value)}
+          >
+            {params.value ? <CheckCircleIcon /> : <CancelIcon />}
+          </IconButton>
+        </Tooltip>
       ),
     },
     {
       field: "actions",
       headerName: "Actions",
-      flex: 2,
+      flex: 1.5,
       renderCell: (params) => (
-        <Box display="flex" gap={0.5} flexWrap="wrap" sx={{ alignItems: "center" }}>
-          <Button
-            variant="contained"
-            color="info"
-            size="small"
-            startIcon={<VisibilityIcon />}
-            onClick={() => handleViewDetails(params.row.id)}
-            sx={{
-              padding: "4px 8px",
-              fontSize: "0.75rem",
-              borderRadius: "8px",
-              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-              transition: "all 0.3s ease",
-              "&:hover": {
-                transform: "translateY(-2px)",
-                boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
-              },
-            }}
-          >
-            View
-          </Button>
-          <Button
-            variant="contained"
-            color="warning"
-            size="small"
-            startIcon={<EditIcon />}
-            onClick={() => handleOpen(params.row)}
-            sx={{
-              padding: "4px 8px",
-              fontSize: "0.75rem",
-              borderRadius: "8px",
-              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-              transition: "all 0.3s ease",
-              "&:hover": {
-                transform: "translateY(-2px)",
-                boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
-              },
-            }}
-          >
-            Edit
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            size="small"
-            startIcon={<DeleteIcon />}
-            onClick={() => handleOpenDeleteConfirm(params.row.id)}
-            sx={{
-              padding: "4px 8px",
-              fontSize: "0.75rem",
-              borderRadius: "8px",
-              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-              transition: "all 0.3s ease",
-              "&:hover": {
-                transform: "translateY(-2px)",
-                boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
-              },
-            }}
-          >
-            Delete
-          </Button>
-          <Button
-            variant="contained"
-            color={params.row.isApproved ? "warning" : "success"}
-            size="small"
-            startIcon={params.row.isApproved ? <CancelIcon /> : <CheckCircleIcon />}
-            onClick={() => handleToggleApproval(params.row.id, !params.row.isApproved)}
-            sx={{
-              padding: "4px 8px",
-              fontSize: "0.75rem",
-              borderRadius: "8px",
-              boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-              transition: "all 0.3s ease",
-              "&:hover": {
-                transform: "translateY(-2px)",
-                boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
-              },
-            }}
-          >
-            {params.row.isApproved ? "Disable" : "Approve"}
-          </Button>
+        <Box display="flex" gap={1} sx={{ alignItems: "center" }}>
+          <Tooltip title="View Details">
+            <IconButton
+              color="info"
+              onClick={() => handleViewDetails(params.row.id)}
+            >
+              <VisibilityIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Edit Event">
+            <IconButton
+              color="warning"
+              onClick={() => handleOpen(params.row)}
+            >
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete Event">
+            <IconButton
+              color="error"
+              onClick={() => handleOpenDeleteConfirm(params.row.id)}
+            >
+              <DeleteIcon />
+            </IconButton>
+          </Tooltip>
         </Box>
       ),
     },
@@ -642,6 +605,9 @@ const Events = () => {
                   <strong>Type:</strong> {selectedEvent.event_type}
                 </Typography>
               </Box>
+              <Typography sx={{ fontSize: "1rem", color: "#bdbdbd" }}>
+                <strong>Created By:</strong> {selectedEvent.created_by_username}
+              </Typography>
               <Chip
                 icon={<PeopleIcon />}
                 label={`Participants: ${selectedEvent.participantCount}`}
