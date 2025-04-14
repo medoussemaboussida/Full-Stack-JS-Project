@@ -514,13 +514,7 @@ function EditActivity() {
         </div>
       </div>
 
-      <footer className="footer-area">
-        <div className="container">
-          <div className="copyright text-center">
-            <p>© {new Date().getFullYear()} <a href="#">Lovcare</a> - All Rights Reserved.</p>
-          </div>
-        </div>
-      </footer>
+    
     </div>
   );
 }
