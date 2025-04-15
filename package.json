@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "nodemon app.js"
+    "dev": "nodemon app.js",
+    "test": "npx jest",
+    "build-dev": "nodemon app.js"
   },
   "dependencies": {
     "@ckeditor/ckeditor5-build-classic": "^40.2.0",
@@ -56,5 +58,8 @@
     "socket.io": "^4.8.1",
     "swiper": "^11.2.5",
     "yup": "^1.6.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
   }
 }
