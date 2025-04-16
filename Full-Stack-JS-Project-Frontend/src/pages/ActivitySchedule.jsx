@@ -66,6 +66,7 @@ function ActivitySchedule() {
   const [currentNoteDate, setCurrentNoteDate] = useState(null);
   const [currentNote, setCurrentNote] = useState("");
   const [showMoodHistoryModal, setShowMoodHistoryModal] = useState(false);
+  const [weatherData, setWeatherData] = useState({});
   const dates = generateDatesForMonth(currentDate);
   const navigate = useNavigate();
 
@@ -76,6 +77,19 @@ function ActivitySchedule() {
     Neutral: "😐",
     Happy: "🙂",
     "Very Happy": "😊",
+  };
+
+  // Weather emoji mapping based on OpenWeatherMap weather codes
+  const weatherIcons = {
+    "01": "☀️", // clear sky
+    "02": "⛅", // few clouds
+    "03": "☁️", // scattered clouds
+    "04": "☁️", // broken clouds
+    "09": "🌧️", // shower rain
+    "10": "🌦️", // rain
+    "11": "⛈️", // thunderstorm
+    "13": "❄️", // snow
+    "50": "🌫️", // mist
   };
 
   // Fetch favorite activities
@@ -180,6 +194,24 @@ function ActivitySchedule() {
     }
   };
 
+  // Fetch weather data from backend
+
+const fetchWeatherData = async () => {
+  try {
+    const token = localStorage.getItem("jwt-token");
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const response = await fetch('http://localhost:5000/users/weather', { headers });
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(`Failed to fetch weather data: ${response.status} ${response.statusText} - ${errorData}`);
+    }
+    const data = await response.json();
+    setWeatherData(data);
+  } catch (error) {
+    console.error("Error fetching weather data:", error.message);
+    toast.error(`Erreur lors de la récupération des données météo : ${error.message}`);
+  }
+};
   // Save scheduled activities (including note)
   const saveScheduledActivities = async (date, activities, note = '') => {
     try {
@@ -373,6 +405,7 @@ function ActivitySchedule() {
     if (selectedMood !== null && currentActivity) {
       await saveMood(currentActivity._id, selectedMood);
       fetchMoods().then((moodsData) => {
+        console.log("Updated moods:", moodsData); // Debug log
         setMoods(moodsData);
       });
     }
@@ -448,6 +481,7 @@ function ActivitySchedule() {
         fetchFavoriteActivities(decoded.id),
         fetchScheduledActivities(decoded.id),
         fetchMoods().then((moodsData) => setMoods(moodsData)),
+        fetchWeatherData(),
       ]).finally(() => {
         setIsLoading(false);
       });
@@ -457,7 +491,7 @@ function ActivitySchedule() {
       navigate("/login");
       setIsLoading(false);
     }
-  }, [navigate]);
+  }, [navigate, currentDate]);
 
   // Notification for today's activities
   useEffect(() => {
@@ -596,15 +630,15 @@ function ActivitySchedule() {
         </div>
       </div>
 
-      {/* My Favorite Activities Button */}
-      <div style={{ textAlign: "center", margin: "20px 0" }}>
+      {/* My Favorite Activities and Mood History Buttons */}
+      <div style={{ textAlign: "center", margin: "20px 0", display: "flex", justifyContent: "center", gap: "20px" }}>
         <button
           onClick={() => {
             setShowFavoriteList(!showFavoriteList);
             if (!showFavoriteList) fetchFavoriteActivities(userId);
           }}
           style={{
-            backgroundColor: "#e68600",
+            backgroundColor: "#ff9500",
             color: "white",
             padding: "10px 20px",
             borderRadius: "5px",
@@ -617,6 +651,27 @@ function ActivitySchedule() {
           onMouseLeave={(e) => (e.target.style.backgroundColor = "#ff9500")}
         >
           Open My Favorite Activities
+        </button>
+        <button
+          onClick={handleOpenMoodHistoryModal}
+          style={{
+            backgroundColor: "#ff9500",
+            color: "white",
+            padding: "10px 20px",
+            borderRadius: "5px",
+            fontWeight: "bold",
+            border: "none",
+            cursor: "pointer",
+            transition: "background-color 0.3s ease",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "5px",
+          }}
+          onMouseEnter={(e) => (e.target.style.backgroundColor = "#e68600")}
+          onMouseLeave={(e) => (e.target.style.backgroundColor = "#ff9500")}
+        >
+          <FontAwesomeIcon icon={faHistory} />
+          Mood History
         </button>
       </div>
 
@@ -879,7 +934,7 @@ function ActivitySchedule() {
             }}
           >
             <p style={{ color: "#00aaff", fontStyle: "italic", marginBottom: "10px" }}>
-              //{selectedActivity.category || "Uncategorized"}
+              ** {selectedActivity.category?.name || "Uncategorized"} **
             </p>
             <img
               src={
@@ -1111,6 +1166,118 @@ function ActivitySchedule() {
         </div>
       )}
 
+      {/* Mood History Modal */}
+      {showMoodHistoryModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "500px",
+              maxWidth: "90%",
+              maxHeight: "80vh",
+              overflowY: "auto",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              textAlign: "center",
+              position: "relative",
+            }}
+          >
+            <button
+              onClick={closeMoodHistoryModal}
+              style={{
+                position: "absolute",
+                top: "10px",
+                right: "10px",
+                background: "none",
+                border: "none",
+                fontSize: "20px",
+                cursor: "pointer",
+                color: "#666",
+              }}
+            >
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+            <h3 style={{ fontSize: "24px", marginBottom: "20px" }}>Mood History</h3>
+            {moods.length === 0 ? (
+              <p style={{ color: "#666" }}>
+                No moods recorded yet. Go to the{" "}
+                <a href="/Activities" style={{ color: "#0ea5e6", textDecoration: "underline" }}>
+                  Activities page
+                </a>{" "}
+                to favorite and schedule activities, then complete them to record your mood!
+              </p>
+            ) : (
+              <ul style={{ listStyle: "none", padding: "0" }}>
+                {moods.map((mood, index) => {
+                  const activityId =
+                    mood.activityId && typeof mood.activityId === "object"
+                      ? mood.activityId._id
+                      : mood.activityId;
+                  const activity = activities.find((act) => act._id === activityId);
+                  return (
+                    <li
+                      key={index}
+                      style={{
+                        padding: "10px 0",
+                        borderBottom: index < moods.length - 1 ? "1px solid #ddd" : "none",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        fontSize: "14px",
+                      }}
+                    >
+                      <span>
+                        <strong>{activity ? activity.title : "Unknown Activity"}</strong> -{" "}
+                        {moodIcons[mood.mood]} {mood.mood}
+                      </span>
+                      <span style={{ color: "#666", fontSize: "12px" }}>
+                        {new Date(mood.date).toLocaleDateString("en-US", {
+                          month: "long",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <button
+              onClick={closeMoodHistoryModal}
+              style={{
+                backgroundColor: "#0ea5e6",
+                color: "white",
+                padding: "10px 20px",
+                borderRadius: "5px",
+                marginTop: "20px",
+                fontWeight: "bold",
+                border: "none",
+                cursor: "pointer",
+                transition: "background-color 0.3s ease",
+              }}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Schedule Section - Calendar View */}
       <div style={{ padding: "40px", backgroundColor: "#f9f9f9", textAlign: "center" }}>
         <h2 style={{ fontSize: "32px", fontWeight: "700", marginBottom: "20px" }}>
@@ -1127,7 +1294,7 @@ function ActivitySchedule() {
           </p>
         ) : (
           <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
-            {/* Calendar Header with Pagination and Mood History Button */}
+            {/* Calendar Header with Pagination */}
             <div
               style={{
                 marginBottom: "20px",
@@ -1155,44 +1322,22 @@ function ActivitySchedule() {
               <h3 style={{ fontSize: "24px", color: "#333" }}>
                 {monthName} {year}
               </h3>
-              <div style={{ display: "flex", gap: "10px" }}>
-                <button
-                  onClick={handleOpenMoodHistoryModal}
-                  style={{
-                    backgroundColor: "#ff9500",
-                    color: "white",
-                    padding: "8px 16px",
-                    borderRadius: "5px",
-                    border: "none",
-                    cursor: "pointer",
-                    transition: "background-color 0.3s ease",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "5px",
-                  }}
-                  onMouseEnter={(e) => (e.target.style.backgroundColor = "#e68600")}
-                  onMouseLeave={(e) => (e.target.style.backgroundColor = "#ff9500")}
-                >
-                  <FontAwesomeIcon icon={faHistory} />
-                  Mood History
-                </button>
-                <button
-                  onClick={handleNextMonth}
-                  style={{
-                    backgroundColor: "#0ea5e6",
-                    color: "white",
-                    padding: "8px 16px",
-                    borderRadius: "5px",
-                    border: "none",
-                    cursor: "pointer",
-                    transition: "background-color 0.3s ease",
-                  }}
-                  onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
-                  onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
-                >
-                  Next
-                </button>
-              </div>
+              <button
+                onClick={handleNextMonth}
+                style={{
+                  backgroundColor: "#0ea5e6",
+                  color: "white",
+                  padding: "8px 16px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s ease",
+                }}
+                onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
+                onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
+              >
+                Next
+              </button>
             </div>
 
             {/* Calendar Grid */}
@@ -1241,7 +1386,7 @@ function ActivitySchedule() {
                       background: day ? "#fff" : "#f0f0f0",
                       borderRadius: "8px",
                       padding: "10px",
-                      minHeight: "120px",
+                      minHeight: "140px",
                       border: isToday ? "2px solid #ff5a5f" : "1px solid #ddd",
                       position: "relative",
                       transition: "transform 0.2s ease",
@@ -1252,6 +1397,11 @@ function ActivitySchedule() {
                     {day && (
                       <>
                         <div style={{ fontWeight: "bold", color: "#333", marginBottom: "5px" }}>{day}</div>
+                        {weatherData[dateStr] && (
+                          <div style={{ fontSize: "12px", color: "#666", marginBottom: "5px" }}>
+                            {weatherIcons[weatherData[dateStr].weatherCode] || "☁️"} {weatherData[dateStr].temp}°C
+                          </div>
+                        )}
                         <div style={{ display: "flex", justifyContent: "center", gap: "5px", marginBottom: "5px" }}>
                           <button
                             onClick={(e) => {
@@ -1372,8 +1522,8 @@ function ActivitySchedule() {
         )}
       </div>
 
-      {/* Mood History Modal */}
-      {showMoodHistoryModal && (
+      {/* Modal for scheduling activities */}
+      {showScheduleModal && (
         <div
           style={{
             position: "fixed",
@@ -1393,122 +1543,30 @@ function ActivitySchedule() {
               backgroundColor: "white",
               padding: "20px",
               borderRadius: "8px",
-              width: "500px",
+              width: "400px",
               maxWidth: "90%",
-              maxHeight: "80vh",
-              overflowY: "auto",
               boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
               textAlign: "center",
             }}
           >
-            <h3 style={{ fontSize: "24px", marginBottom: "20px" }}>Mood History</h3>
-            {moods.length === 0 ? (
-              <p style={{ color: "#666" }}>
-                No moods recorded yet. Complete some activities to record your mood!
-              </p>
-            ) : (
-              <ul style={{ listStyle: "none", padding: "0" }}>
-                {moods.map((mood, index) => {
-                  const activityId =
-                    mood.activityId && typeof mood.activityId === "object"
-                      ? mood.activityId._id
-                      : mood.activityId;
-                  const activity = activities.find((act) => act._id === activityId);
-                  return (
-                    <li
-                      key={index}
-                      style={{
-                        padding: "10px 0",
-                        borderBottom: index < moods.length - 1 ? "1px solid #ddd" : "none",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        fontSize: "14px",
-                      }}
-                    >
-                      <span>
-                        <strong>{activity ? activity.title : "Unknown Activity"}</strong> -{" "}
-                        {moodIcons[mood.mood]} {mood.mood}
-                      </span>
-                      <span style={{ color: "#666", fontSize: "12px" }}>
-                        {new Date(mood.date).toLocaleDateString("en-US", {
-                          month: "long",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            <button
-              onClick={closeMoodHistoryModal}
-              style={{
-                backgroundColor: "#0ea5e6",
-                color: "white",
-                padding: "10px 20px",
-                borderRadius: "5px",
-                marginTop: "20px",
-                fontWeight: "bold",
-                border: "none",
-                cursor: "pointer",
-                transition: "background-color 0.3s ease",
-              }}
-              onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
-              onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
-            >
-              Close
-            </button>
+            <h3 style={{ marginBottom: "20px" }}>
+              Schedule Activities for{" "}
+              {new Date(selectedDate).toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+              })}
+            </h3>
+            <ScheduleModalContent
+              activities={activities}
+              favoriteActivities={favoriteActivities}
+              scheduledActivities={scheduledActivities}
+              selectedDate={selectedDate}
+              onConfirm={handleConfirmSchedule}
+              onCancel={closeScheduleModal}
+            />
           </div>
         </div>
       )}
-
-      {/* Modal for scheduling activities */}
-{showScheduleModal && (
-  <div
-    style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      width: "100%",
-      height: "100%",
-      backgroundColor: "rgba(0, 0, 0, 0.5)",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      zIndex: 1000,
-    }}
-  >
-    <div
-      style={{
-        backgroundColor: "white",
-        padding: "20px",
-        borderRadius: "8px",
-        width: "400px",
-        maxWidth: "90%",
-        boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-        textAlign: "center",
-      }}
-    >
-      <h3 style={{ marginBottom: "20px" }}>
-        Schedule Activities for{" "}
-        {new Date(selectedDate).toLocaleDateString("en-US", {
-          month: "long",
-          day: "numeric",
-        })}
-      </h3>
-      <ScheduleModalContent
-        activities={activities}
-        favoriteActivities={favoriteActivities}
-        scheduledActivities={scheduledActivities}
-        selectedDate={selectedDate}
-        onConfirm={handleConfirmSchedule}
-        onCancel={closeScheduleModal}
-      />
-    </div>
-  </div>
-)}
     </div>
   );
 }
@@ -1530,7 +1588,6 @@ function ScheduleModalContent({ activities, favoriteActivities, scheduledActivit
   const favoriteActivitiesList = activities.filter((activity) =>
     favoriteActivities.includes(activity._id)
   );
-
 
   return (
     <div>
@@ -1609,4 +1666,5 @@ function ScheduleModalContent({ activities, favoriteActivities, scheduledActivit
     </div>
   );
 }
+
 export default ActivitySchedule;

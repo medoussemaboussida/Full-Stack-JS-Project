@@ -6,6 +6,8 @@ const validate = require('../middleware/validate')
 const { updateStudentProfile, updateStudentPhoto } = require('../controller/userController');
 
 
+//weather 
+router.get('/weather', activitiesController.getweather);
 
 router.put('/students/update/:id', updateStudentProfile);
 router.put('/students/update-photo/:id', updateStudentPhoto);
@@ -144,6 +146,7 @@ router.delete("/clear-favorite/:id", activitiesController.clearFavoriteActivitie
 
 router.post('/generate-description', activitiesController.generateDescription);
 router.post('/generate-title', activitiesController.generateTitle);
+
 
 //schedule
 // POST /users/schedule/:userId - Save or update scheduled activities

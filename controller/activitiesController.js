@@ -800,3 +800,53 @@ exports.togglePinActivity = async (req, res) => {
       res.status(500).json({ message: "Erreur serveur", error });
     }
   };
+
+  // Route pour récupérer les données météo
+  exports.getweather = async (req, res) => {
+    try {
+      console.log('Handling /users/weather request');
+      const apiKey = process.env.OPENWEATHER_API_KEY;
+      if (!apiKey) {
+        console.error('OPENWEATHER_API_KEY is missing in .env');
+        return res.status(500).json({ message: 'Clé API OpenWeatherMap non configurée.' });
+      }
+  
+      const lat = 36.858898; // Latitude pour Tunis
+      const lon = 10.196500; // Longitude pour Tunis
+      const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}`;
+      console.log('Calling OpenWeatherMap API:', url);
+  
+      const response = await axios.get(url);
+      if (!response.data || !response.data.list) {
+        console.error('Invalid response from OpenWeatherMap:', response.data);
+        return res.status(500).json({ message: 'Données météo invalides reçues.' });
+      }
+  
+      const dailyWeather = {};
+      response.data.list.forEach((forecast) => {
+        const date = forecast.dt_txt.split(' ')[0]; // Format: YYYY-MM-DD
+        if (!dailyWeather[date]) {
+          dailyWeather[date] = {
+            temp: Math.round(forecast.main.temp),
+            weatherCode: forecast.weather[0].icon.slice(0, 2), // e.g., "01" from "01d"
+          };
+        }
+      });
+  
+      console.log('Weather data formatted:', dailyWeather);
+      res.json(dailyWeather);
+    } catch (error) {
+      console.error('Error in getweather:', {
+        message: error.message,
+        stack: error.stack,
+        response: error.response ? {
+          status: error.response.status,
+          data: error.response.data
+        } : null
+      });
+      res.status(500).json({
+        message: 'Erreur lors de la récupération des données météo.',
+        error: error.message
+      });
+    }
+  };
