@@ -1465,55 +1465,56 @@ function ActivitySchedule() {
       )}
 
       {/* Modal for scheduling activities */}
-      {showScheduleModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "white",
-              padding: "20px",
-              borderRadius: "8px",
-              width: "400px",
-              maxWidth: "90%",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-              textAlign: "center",
-            }}
-          >
-            <h3 style={{ marginBottom: "20px" }}>
-              Schedule Activities for{" "}
-              {new Date(selectedDate).toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-              })}
-            </h3>
-            <ScheduleModalContent
-              activities={activities}
-              scheduledActivities={scheduledActivities}
-              selectedDate={selectedDate}
-              onConfirm={handleConfirmSchedule}
-              onCancel={closeScheduleModal}
-            />
-          </div>
-        </div>
-      )}
+{showScheduleModal && (
+  <div
+    style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      zIndex: 1000,
+    }}
+  >
+    <div
+      style={{
+        backgroundColor: "white",
+        padding: "20px",
+        borderRadius: "8px",
+        width: "400px",
+        maxWidth: "90%",
+        boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+        textAlign: "center",
+      }}
+    >
+      <h3 style={{ marginBottom: "20px" }}>
+        Schedule Activities for{" "}
+        {new Date(selectedDate).toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+        })}
+      </h3>
+      <ScheduleModalContent
+        activities={activities}
+        favoriteActivities={favoriteActivities}
+        scheduledActivities={scheduledActivities}
+        selectedDate={selectedDate}
+        onConfirm={handleConfirmSchedule}
+        onCancel={closeScheduleModal}
+      />
+    </div>
+  </div>
+)}
     </div>
   );
 }
 
 // Component for the modal content to select activities
-function ScheduleModalContent({ activities, scheduledActivities, selectedDate, onConfirm, onCancel }) {
+function ScheduleModalContent({ activities, favoriteActivities, scheduledActivities, selectedDate, onConfirm, onCancel }) {
   const [selectedActivities, setSelectedActivities] = useState(() => {
     const existingActivities = scheduledActivities[selectedDate] || [];
     return existingActivities.map((activity) => activity.activityId);
@@ -1525,45 +1526,65 @@ function ScheduleModalContent({ activities, scheduledActivities, selectedDate, o
     );
   };
 
+  // Define favoriteActivitiesList to filter activities
+  const favoriteActivitiesList = activities.filter((activity) =>
+    favoriteActivities.includes(activity._id)
+  );
+
+
   return (
     <div>
-      <ul style={{ listStyle: "none", padding: "0", maxHeight: "200px", overflowY: "auto" }}>
-        {activities.map((activity) => (
-          <li
-            key={activity._id}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              padding: "10px",
-              borderBottom: "1px solid #ddd",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={selectedActivities.includes(activity._id)}
-              onChange={() => handleToggleActivity(activity._id)}
-              style={{ cursor: "pointer" }}
-            />
-            <span>{activity.title}</span>
-          </li>
-        ))}
-      </ul>
+      {favoriteActivitiesList.length === 0 ? (
+        <p style={{ color: "#666", fontSize: "14px", textAlign: "center" }}>
+          No favorite activities available.{" "}
+          <a href="/Activities" style={{ color: "#0ea5e6", textDecoration: "underline" }}>
+            Add some favorites first!
+          </a>
+        </p>
+      ) : (
+        <ul style={{ listStyle: "none", padding: "0", maxHeight: "200px", overflowY: "auto" }}>
+          {favoriteActivitiesList.map((activity) => (
+            <li
+              key={activity._id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                padding: "10px",
+                borderBottom: "1px solid #ddd",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={selectedActivities.includes(activity._id)}
+                onChange={() => handleToggleActivity(activity._id)}
+                style={{ cursor: "pointer" }}
+              />
+              <span>{activity.title}</span>
+            </li>
+          ))}
+        </ul>
+      )}
       <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginTop: "20px" }}>
         <button
           onClick={() => onConfirm(selectedActivities)}
+          disabled={favoriteActivitiesList.length === 0}
           style={{
-            backgroundColor: "#0ea5e6",
+            backgroundColor: favoriteActivitiesList.length === 0 ? "#ccc" : "#0ea5e6",
             color: "white",
             padding: "10px 20px",
             borderRadius: "5px",
             fontWeight: "bold",
             border: "none",
-            cursor: "pointer",
+            cursor: favoriteActivitiesList.length === 0 ? "not-allowed" : "pointer",
             transition: "background-color 0.3s ease",
           }}
-          onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
-          onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
+          onMouseEnter={(e) =>
+            favoriteActivitiesList.length !== 0 && (e.target.style.backgroundColor = "#0d8bc2")
+          }
+          onMouseLeave={(e) =>
+            favoriteActivitiesList.length !== 0 && (e.target.style.backgroundColor = "#0ea5e6")
+          }
         >
           Schedule
         </button>
@@ -1588,5 +1609,4 @@ function ScheduleModalContent({ activities, scheduledActivities, selectedDate, o
     </div>
   );
 }
-
 export default ActivitySchedule;
