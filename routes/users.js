@@ -89,6 +89,7 @@ router.get('/notifications', userController.verifyToken, userController.getUserN
 
 
 
+
 //ghassen
 router.get("/categories" , userController.verifyToken, activitiesController.getAllCategories);
 router.post("/categories/:id" , userController.verifyToken, activitiesController.createCategory);

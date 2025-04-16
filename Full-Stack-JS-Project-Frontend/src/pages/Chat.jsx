@@ -6,7 +6,7 @@ import { jsPDF } from 'jspdf';
 import { jwtDecode } from 'jwt-decode';
 import VideoChat from './VideoChat';
 
-// Crypto utilities (unchanged)
+// Crypto utilities
 const importKeyFromRoomCode = async (roomCode) => {
   const encoder = new TextEncoder();
   const keyMaterial = encoder.encode(roomCode);
@@ -69,16 +69,19 @@ const Chat = () => {
   });
   const [prevMessageCount, setPrevMessageCount] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
-  const [recordingState, setRecordingState] = useState('idle'); // idle, recording, paused, stopped
+  const [recordingState, setRecordingState] = useState('idle');
   const [audioBlob, setAudioBlob] = useState(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [summary, setSummary] = useState('');
+  const [isSummarizing, setIsSummarizing] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
-  const intervalRef = useRef(null); // For polling
-  const timerRef = useRef(null); // For recording duration
-  const [activeDropdown, setActiveDropdown] = useState(null); // Tracks which message's dropdown is open
-  const [editMessageId, setEditMessageId] = useState(null); // Tracks which message is being edited
-  const [editMessageContent, setEditMessageContent] = useState(''); // Content of the message being edited
+  const intervalRef = useRef(null);
+  const timerRef = useRef(null);
+  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [editMessageId, setEditMessageId] = useState(null);
+  const [editMessageContent, setEditMessageContent] = useState('');
 
   useEffect(() => {
     const storedToken = localStorage.getItem('jwt-token');
@@ -222,6 +225,79 @@ const Chat = () => {
     } catch (err) {
       console.error('Error sending message:', err.response?.data || err.message);
       setError('Failed to send message: ' + (err.response?.data?.message || err.message || 'Network error'));
+    }
+  };
+
+  const summarizeConversation = async () => {
+    console.log('Starting summarizeConversation');
+    
+    if (messages.length === 0) {
+      setSummary('No messages to summarize.');
+      setShowSummaryModal(true);
+      return;
+    }
+  
+    setIsSummarizing(true);
+    setError(null);
+  
+    const conversationText = messages
+      .filter((msg) => !msg.isVoice)
+      .map((msg) => `${msg.sender.username || 'Unknown'}: ${msg.message}`)
+      .join('\n');
+  
+    if (!conversationText.trim()) {
+      setSummary('No text messages available to summarize.');
+      setShowSummaryModal(true);
+      setIsSummarizing(false);
+      return;
+    }
+  
+    const hfToken = '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'; // Hardcoding temporaire
+    // const hfToken = process.env.REACT_APP_HF_TOKEN; // Commentez cette ligne
+  
+    try {
+      console.log('Sending summarization request to Hugging Face API');
+      const response = await axios.post(
+        'https://api-inference.huggingface.co/models/facebook/bart-large-cnn',
+        {
+          inputs: conversationText,
+          parameters: {
+            max_length: 100,
+            min_length: 30,
+            do_sample: false,
+          },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${hfToken}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+  
+      console.log('Summarization response:', response.data);
+      const summaryText = response.data[0]?.summary_text || 'Failed to generate summary.';
+      setSummary(summaryText);
+      setShowSummaryModal(true);
+    } catch (err) {
+      console.error('Error summarizing conversation:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message,
+      });
+      let errorMessage = 'Failed to summarize conversation.';
+      if (err.response?.status === 401) {
+        errorMessage = 'Unauthorized: Invalid Hugging Face API token.';
+      } else if (err.response?.data?.error) {
+        errorMessage = `Hugging Face API error: ${err.response.data.error}`;
+      } else {
+        errorMessage = `Error: ${err.message}`;
+      }
+      setError(errorMessage);
+      setSummary('An error occurred while summarizing. Please try again.');
+      setShowSummaryModal(true);
+    } finally {
+      setIsSummarizing(false);
     }
   };
 
@@ -458,14 +534,42 @@ const Chat = () => {
       });
       yOffset += 3;
     });
+
+    // Ajouter le résumé s'il existe et n'est pas un message par défaut
+    if (summary && !['No messages to summarize.', 'No text messages available to summarize.', 'Failed to generate summary.', 'An error occurred while summarizing. Please try again.'].includes(summary)) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(0, 102, 204);
+      doc.text('Conversation Summary', 15, yOffset);
+      yOffset += 10;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      const splitSummary = doc.splitTextToSize(summary, pageWidth - 40);
+      splitSummary.forEach((line) => {
+        if (yOffset > pageHeight - 20) {
+          doc.addPage();
+          doc.addImage(logoImg, 'PNG', 10, 10, 30, 30);
+          doc.setFontSize(18);
+          doc.setTextColor(0, 51, 102);
+          doc.text(`Chat Room: ${joinedRoom} (Continued)`, pageWidth / 2, 25, { align: 'center' });
+          doc.line(10, 45, pageWidth - 10, 45);
+          yOffset = 55;
+        }
+        doc.text(line, 15, yOffset);
+        yOffset += 7;
+      });
+      yOffset += 5;
+    }
   
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
-    doc.text(' EspritCare - Chat History', pageWidth / 2, pageHeight - 10, { align: 'center' });
+    doc.text('EspritCare - Chat History', pageWidth / 2, pageHeight - 10, { align: 'center' });
   
     doc.save(`chat_room_${joinedRoom}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
-  
+
   const joinVideoChat = () => {
     if (!joinedRoom || !userId) {
       setError('Please join a room and ensure you are logged in.');
@@ -703,7 +807,7 @@ const Chat = () => {
             right: 20px;
             z-index: 10;
           }
-          .export-pdf-icon, .leave-room-icon {
+          .export-pdf-icon, .leave-room-icon, .summary-button {
             background: none;
             border: none;
             font-size: 1.2rem;
@@ -717,6 +821,9 @@ const Chat = () => {
           }
           .leave-room-icon:hover {
             color: #dc3545;
+          }
+          .summary-button:hover {
+            color: #28a745;
           }
           .encryption-text {
             color: #a2aab7;
@@ -760,6 +867,50 @@ const Chat = () => {
           }
           .close-video-call:hover {
             background: #e55a5a;
+          }
+          .summary-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+          }
+          .summary-content {
+            background: white;
+            width: 80%;
+            max-width: 600px;
+            padding: 20px;
+            border-radius: 10px;
+            position: relative;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+          }
+          .close-summary {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+          }
+          .close-summary:hover {
+            background: #e55a5a;
+          }
+          .summary-text {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 20px;
           }
           .audio-recorder {
             display: flex;
@@ -814,30 +965,30 @@ const Chat = () => {
           }
           .message-content {
             max-width: 80%;
-            padding: 8px 12px !important; /* Adjusted padding to match reference */
-            font-size: 0.9rem; /* Slightly larger font size */
-            line-height: 1.2; /* Adjusted line height */
-            margin-bottom: 4px !important; /* Small margin below message */
-            position: relative; /* Needed for dropdown positioning */
+            padding: 8px 12px !important;
+            font-size: 0.9rem;
+            line-height: 1.2;
+            margin-bottom: 4px !important;
+            position: relative;
           }
           .timestamp {
             max-width: 80%;
-            font-size: 0.75rem; /* Slightly larger timestamp font */
-            line-height: 1; /* Reduced line height */
-            margin-top: 2px !important; /* Small spacing between message and timestamp */
-            margin-bottom: 0 !important; /* No margin below timestamp */
+            font-size: 0.75rem;
+            line-height: 1;
+            margin-top: 2px !important;
+            margin-bottom: 0 !important;
           }
           .message-wrapper {
             display: flex;
             flex-direction: column;
           }
           .d-flex.flex-row {
-            align-items: flex-start; /* Align items to the top to accommodate username */
-            margin-bottom: 20px !important; /* Increased spacing between messages */
+            align-items: flex-start;
+            margin-bottom: 20px !important;
           }
           .divider {
-            margin-bottom: 1rem !important; /* Adjusted divider margin */
-            display: none; /* Hide divider to match screenshot */
+            margin-bottom: 1rem !important;
+            display: none;
           }
           .dropdown-toggle::after {
             display: none;
@@ -854,12 +1005,10 @@ const Chat = () => {
             flex-grow: 1;
             margin-right: 10px;
           }
-          /* Hide dropdown button by default */
           .message-content .dropdown-toggle {
             opacity: 0;
             transition: opacity 0.2s ease;
           }
-          /* Show dropdown button on hover */
           .message-content:hover .dropdown-toggle {
             opacity: 1;
           }
@@ -899,13 +1048,23 @@ const Chat = () => {
                       </div>
                       <div>
                         {userRole === 'psychiatrist' && (
-                          <button
-                            onClick={exportToPDF}
-                            className="export-pdf-icon me-2"
-                            title="Export to PDF"
-                          >
-                            <i className="fas fa-file-pdf"></i>
-                          </button>
+                          <>
+                            <button
+                              onClick={summarizeConversation}
+                              className="summary-button me-2"
+                              title="Summarize Conversation"
+                              disabled={isSummarizing}
+                            >
+                              <i className="fas fa-book-open"></i>
+                            </button>
+                            <button
+                              onClick={exportToPDF}
+                              className="export-pdf-icon me-2"
+                              title="Export to PDF"
+                            >
+                              <i className="fas fa-file-pdf"></i>
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={() => setJoinedRoom(null)}
@@ -1303,6 +1462,41 @@ const Chat = () => {
               Close
             </button>
             <VideoChat userId={userId} roomCode={joinedRoom} onClose={closeVideoChat} />
+          </div>
+        </div>
+      )}
+      {showSummaryModal && (
+        <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Conversation Summary</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowSummaryModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                {isSummarizing ? (
+                  <p>Summarizing conversation...</p>
+                ) : (
+                  <>
+                    {error && <p className="text-danger">{error}</p>}
+                    <p>{summary}</p>
+                  </>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowSummaryModal(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
