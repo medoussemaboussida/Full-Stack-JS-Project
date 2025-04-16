@@ -145,7 +145,6 @@ function Complaint() {
   const [sortOption, setSortOption] = useState("newest");
   const navigate = useNavigate();
   const chatEndRef = useRef(null);
-
   // Charger le token, l'ID utilisateur et le nom d'utilisateur
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
@@ -437,7 +436,6 @@ function Complaint() {
       toast.success("Complaint updated successfully!");
     } catch (error) {
       console.error("Erreur lors de la mise à jour de la réclamation:", error);
-      toast.error("Error updating complaint. Please try again.");
     }
   };
 
@@ -460,7 +458,6 @@ function Complaint() {
       return await response.json();
     } catch (error) {
       console.error("Erreur lors de la récupération des réponses:", error);
-      toast.error(`Error loading responses: ${error.message}`);
       return [];
     }
   };

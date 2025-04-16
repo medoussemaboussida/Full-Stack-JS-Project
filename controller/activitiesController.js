@@ -4,7 +4,6 @@ const multer = require("multer");
 const path = require("path");
 const Schedule = require("../model/Schedule");
 const Mood = require("../model/Mood");
-const Note = require("../model/Note"); // New model for notes
 const Category = require("../model/Category");
 const axios = require('axios');
 
@@ -509,143 +508,218 @@ module.exports.getActivitiesByCategory = async (req, res) => {
 
 
 exports.saveSchedule = async (req, res) => {
-    try {
-        console.log("Request Headers:", req.headers);
-        console.log("req.userId:", req.userId); // Log req.userId to debug
+  try {
+      console.log("Request Headers:", req.headers);
+      console.log("req.userId:", req.userId); // Log req.userId to debug
 
-        const userId = req.params.userId;
-        const { date, activities } = req.body;
+      const userId = req.params.userId;
+      const { date, activities, note } = req.body;
 
-        // Validate input
-        if (!date || !activities || !Array.isArray(activities)) {
-            return res.status(400).json({ message: "Date and activities array are required." });
-        }
+      // Validate input
+      if (!date || !activities || !Array.isArray(activities)) {
+          return res.status(400).json({ message: "Date and activities array are required." });
+      }
 
-        // Ensure the authenticated user matches the requested userId
-        if (!req.userId) {
-            return res.status(401).json({ message: "User not authenticated." });
-        }
-        if (req.userId !== userId) {
-            return res.status(403).json({ message: "Unauthorized access." });
-        }
+      // Ensure the authenticated user matches the requested userId
+      if (!req.userId) {
+          return res.status(401).json({ message: "User not authenticated." });
+      }
+      if (req.userId !== userId) {
+          return res.status(403).json({ message: "Unauthorized access." });
+      }
 
-        // Check if a schedule exists for this user and date
-        let schedule = await Schedule.findOne({ userId, date });
+      // Check if a schedule exists for this user and date
+      let schedule = await Schedule.findOne({ userId, date });
 
-        if (schedule) {
-            // Update existing schedule
-            schedule.activities = activities;
-            await schedule.save();
-        } else {
-            // Create new schedule
-            schedule = new Schedule({ userId, date, activities });
-            await schedule.save();
-        }
+      if (schedule) {
+          // Update existing schedule
+          schedule.activities = activities;
+          schedule.note = note || ''; // Save note, default to empty string if not provided
+          await schedule.save();
+      } else {
+          // Create new schedule
+          schedule = new Schedule({
+              userId,
+              date,
+              activities,
+              note: note || '', // Save note, default to empty string if not provided
+          });
+          await schedule.save();
+      }
 
-        res.status(200).json({ message: "Schedule saved successfully", schedule });
-    } catch (error) {
-        console.error("Error saving schedule:", error);
-        res.status(500).json({ message: "Error saving schedule", error: error.message });
-    }
+      res.status(200).json({ message: "Schedule saved successfully", schedule });
+  } catch (error) {
+      console.error("Error saving schedule:", error);
+      res.status(500).json({ message: "Error saving schedule", error: error.message });
+  }
 };
 
 exports.getSchedule = async (req, res) => {
-    try {
-        console.log("Request Headers:", req.headers);
-        console.log("req.userId:", req.userId); // Log req.userId to debug
+  try {
+      console.log("Request Headers:", req.headers);
+      console.log("req.userId:", req.userId); // Log req.userId to debug
 
-        const userId = req.params.userId;
+      const userId = req.params.userId;
 
-        if (!req.userId) {
-            return res.status(401).json({ message: "User not authenticated." });
-        }
-        if (req.userId !== userId) {
-            return res.status(403).json({ message: "Unauthorized access." });
-        }
+      if (!req.userId) {
+          return res.status(401).json({ message: "User not authenticated." });
+      }
+      if (req.userId !== userId) {
+          return res.status(403).json({ message: "Unauthorized access." });
+      }
 
-        const schedules = await Schedule.find({ userId });
+      const schedules = await Schedule.find({ userId });
 
-        const formattedSchedules = schedules.reduce((acc, schedule) => {
-            acc[schedule.date] = schedule.activities;
-            return acc;
-        }, {});
+      const formattedSchedules = schedules.reduce((acc, schedule) => {
+          acc[schedule.date] = {
+              activities: schedule.activities,
+              note: schedule.note || '', // Include note, default to empty string
+          };
+          return acc;
+      }, {});
 
-        res.status(200).json({ schedules: formattedSchedules });
-    } catch (error) {
-        console.error("Error fetching schedules:", error);
-        res.status(500).json({ message: "Error fetching schedules", error: error.message });
-    }
+      res.status(200).json({ schedules: formattedSchedules });
+  } catch (error) {
+      console.error("Error fetching schedules:", error);
+      res.status(500).json({ message: "Error fetching schedules", error: error.message });
+  }
 };
 
 // Sauvegarder une nouvelle humeur
+// Sauvegarder une nouvelle humeur
 exports.saveMood = async (req, res) => {
-    const { userId } = req.params;
-    const { activityId, mood, date } = req.body;
+  const { userId } = req.params;
+  const { activityId, mood, date, latitude, longitude } = req.body; // Added latitude, longitude
 
-    try {
-        // Vérifier si req.userId est défini
-        if (!req.userId) {
-            return res.status(401).json({ message: "Unauthorized: User not authenticated" });
-        }
-
-        // Vérifier si l'utilisateur dans le token correspond à l'userId
-        if (req.userId !== userId) {
-            return res.status(403).json({ message: "Unauthorized: User ID does not match" });
-        }
-
-        // Vérifier que les champs requis sont présents
-        if (!activityId || !mood) {
-            return res.status(400).json({ message: "Activity ID and mood are required" });
-        }
-
-        // Vérifier que l'humeur est valide
-        const validMoods = ["Very Sad", "Sad", "Neutral", "Happy", "Very Happy"];
-        if (!validMoods.includes(mood)) {
-            return res.status(400).json({ message: "Invalid mood value" });
-        }
-
-        // Créer une nouvelle entrée d'humeur
-        const moodEntry = new Mood({
-            userId,
-            activityId,
-            mood,
-            date: date || Date.now(),
-        });
-
-        // Sauvegarder dans la base de données
-        await moodEntry.save();
-
-        res.status(200).json({ message: "Mood saved successfully", mood: moodEntry });
-    } catch (error) {
-        console.error("Error saving mood:", error);
-        res.status(500).json({ message: "Error saving mood", error: error.message });
+  try {
+    // Vérifier si req.userId est défini
+    if (!req.userId) {
+      return res.status(401).json({ message: "Unauthorized: User not authenticated" });
     }
+
+    // Vérifier si l'utilisateur dans le token correspond à l'userId
+    if (req.userId !== userId) {
+      return res.status(403).json({ message: "Unauthorized: User ID does not match" });
+    }
+
+    // Vérifier que les champs requis sont présents
+    if (!activityId || !mood) {
+      return res.status(400).json({ message: "Activity ID and mood are required" });
+    }
+
+    // Vérifier que l'humeur est valide
+    const validMoods = ["Very Sad", "Sad", "Neutral", "Happy", "Very Happy"];
+    if (!validMoods.includes(mood)) {
+      return res.status(400).json({ message: "Invalid mood value" });
+    }
+
+    // Récupérer les informations de l'utilisateur pour la localisation
+    let lat, lon;
+    if (latitude && longitude) {
+      lat = latitude;
+      lon = longitude;
+      console.log(`Using location from req.body: lat=${lat}, lon=${lon}`);
+    } else {
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      if (!user.latitude || !user.longitude) {
+        console.warn(`No location data for user ${userId}, saving mood without weather`);
+      } else {
+        lat = user.latitude;
+        lon = user.longitude;
+        console.log(`Using user location: lat=${lat}, lon=${lon}`);
+      }
+    }
+
+    let weatherCode = null;
+    let temp = null;
+
+    // Récupérer les données météo si la localisation est disponible
+    if (lat && lon) {
+      try {
+        const apiKey = process.env.OPENWEATHER_API_KEY;
+        if (!apiKey) {
+          throw new Error("OpenWeather API key not configured");
+        }
+
+        // Utiliser l'endpoint /weather pour la météo actuelle ou du jour
+        const weatherResponse = await axios.get(
+          `https://api.openweathermap.org/data/2.5/weather`,
+          {
+            params: {
+              lat,
+              lon,
+              appid: apiKey,
+              units: 'metric', // Température en Celsius
+            },
+          }
+        );
+
+        console.log('Weather API response:', weatherResponse.data);
+
+        // Extraire weatherCode et temp
+        weatherCode = weatherResponse.data.weather[0].icon; // e.g., "01d"
+        temp = weatherResponse.data.main.temp; // e.g., 20.5
+      } catch (weatherError) {
+        console.error('Error fetching weather data:', weatherError.message);
+        console.error('Weather API error details:', weatherError.response?.data);
+        // Continuer sans météo en cas d'erreur
+      }
+    } else {
+      console.log('No location available, skipping weather fetch');
+    }
+
+    // Créer une nouvelle entrée d'humeur
+    const moodEntry = new Mood({
+      userId,
+      activityId,
+      mood,
+      date: date || Date.now(),
+      weatherCode,
+      temp,
+    });
+
+    // Sauvegarder dans la base de données
+    await moodEntry.save();
+
+    console.log('Saved mood entry:', moodEntry);
+
+    res.status(200).json({ message: "Mood saved successfully", mood: moodEntry });
+  } catch (error) {
+    console.error("Error saving mood:", error);
+    res.status(500).json({ message: "Error saving mood", error: error.message });
+  }
 };
-  // Récupérer les humeurs d'un utilisateur
-  exports.getMoods = async (req, res) => {
-    const { userId } = req.params;
 
-    try {
-        // Vérifier si req.userId est défini
-        if (!req.userId) {
-            return res.status(401).json({ message: "Unauthorized: User not authenticated" });
-        }
+// Récupérer les humeurs d'un utilisateur
+exports.getMoods = async (req, res) => {
+  const { userId } = req.params;
 
-        // Vérifier si l'utilisateur dans le token correspond à l'userId
-        if (req.userId !== userId) {
-            return res.status(403).json({ message: "Unauthorized: User ID does not match" });
-        }
-
-        // Récupérer toutes les humeurs de l'utilisateur
-        const moods = await Mood.find({ userId })
-            .populate("activityId", "title")
-            .sort({ date: -1 });
-
-        res.status(200).json(moods);
-    } catch (error) {
-        console.error("Error fetching moods:", error);
-        res.status(500).json({ message: "Error fetching moods", error: error.message });
+  try {
+    // Vérifier si req.userId est défini
+    if (!req.userId) {
+      return res.status(401).json({ message: "Unauthorized: User not authenticated" });
     }
+
+    // Vérifier si l'utilisateur dans le token correspond à l'userId
+    if (req.userId !== userId) {
+      return res.status(403).json({ message: "Unauthorized: User ID does not match" });
+    }
+
+    // Récupérer toutes les humeurs de l'utilisateur
+    const moods = await Mood.find({ userId })
+      .populate("activityId", "title")
+      .sort({ date: -1 });
+
+    console.log('Fetched moods:', moods);
+
+    res.status(200).json(moods);
+  } catch (error) {
+    console.error("Error fetching moods:", error);
+    res.status(500).json({ message: "Error fetching moods", error: error.message });
+  }
 };
 
 // ✅ Récupérer les activités épinglées d'un utilisateur
@@ -720,45 +794,6 @@ exports.togglePinActivity = async (req, res) => {
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
-// ✅ Save note (New)
-module.exports.saveNote = async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const { date, note } = req.body;
-  
-      if (!date || !note) {
-        return res.status(400).json({ message: "Date or note missing" });
-      }
-  
-      const existingNote = await Note.findOneAndUpdate(
-        { userId, date },
-        { note },
-        { upsert: true, new: true }
-      );
-  
-      res.status(200).json({ message: "Note saved successfully", note: existingNote });
-    } catch (error) {
-      res.status(500).json({ message: "Erreur serveur", error });
-    }
-  };
-  
-  // ✅ Get notes (New)
-  module.exports.getNotes = async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const notes = await Note.find({ userId });
-  
-      // Transform into an object with date as key
-      const notesObj = notes.reduce((acc, note) => {
-        acc[note.date] = note.note;
-        return acc;
-      }, {});
-  
-      res.status(200).json({ notes: notesObj });
-    } catch (error) {
-      res.status(500).json({ message: "Erreur serveur", error });
-    }
-  };
 
   exports.getAllCategories = async (req, res) => {
     try {
@@ -829,5 +864,55 @@ module.exports.saveNote = async (req, res) => {
       res.status(201).json(category);
     } catch (error) {
       res.status(500).json({ message: "Erreur serveur", error });
+    }
+  };
+
+  // Route pour récupérer les données météo
+  exports.getweather = async (req, res) => {
+    try {
+      console.log('Handling /users/weather request');
+      const apiKey = process.env.OPENWEATHER_API_KEY;
+      if (!apiKey) {
+        console.error('OPENWEATHER_API_KEY is missing in .env');
+        return res.status(500).json({ message: 'Clé API OpenWeatherMap non configurée.' });
+      }
+  
+      const lat = 36.858898; // Latitude pour Tunis
+      const lon = 10.196500; // Longitude pour Tunis
+      const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}`;
+      console.log('Calling OpenWeatherMap API:', url);
+  
+      const response = await axios.get(url);
+      if (!response.data || !response.data.list) {
+        console.error('Invalid response from OpenWeatherMap:', response.data);
+        return res.status(500).json({ message: 'Données météo invalides reçues.' });
+      }
+  
+      const dailyWeather = {};
+      response.data.list.forEach((forecast) => {
+        const date = forecast.dt_txt.split(' ')[0]; // Format: YYYY-MM-DD
+        if (!dailyWeather[date]) {
+          dailyWeather[date] = {
+            temp: Math.round(forecast.main.temp),
+            weatherCode: forecast.weather[0].icon.slice(0, 2), // e.g., "01" from "01d"
+          };
+        }
+      });
+  
+      console.log('Weather data formatted:', dailyWeather);
+      res.json(dailyWeather);
+    } catch (error) {
+      console.error('Error in getweather:', {
+        message: error.message,
+        stack: error.stack,
+        response: error.response ? {
+          status: error.response.status,
+          data: error.response.data
+        } : null
+      });
+      res.status(500).json({
+        message: 'Erreur lors de la récupération des données météo.',
+        error: error.message
+      });
     }
   };

@@ -44,11 +44,8 @@ const associationSchema = new mongoose.Schema(
             enum: ["Financial", "Material", "Educational", "Other"],
             default: "Other",
         },
-        created_by: { // Changé de user_id à created_by
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-            required: false
-        },
+        created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: false },
+        
         isApproved: { 
             type: Boolean, 
             default: false 

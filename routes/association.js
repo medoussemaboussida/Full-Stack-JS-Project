@@ -10,7 +10,7 @@ router.post('/addAssociation', userController.verifyToken, associationController
 router.get('/getAssociations', userController.verifyToken, associationController.getAssociations);
 
 // Récupérer uniquement les associations approuvées (pour le front-end, protégée par token)
-router.get('/getApprovedAssociations', userController.verifyToken, associationController.getApprovedAssociations);
+router.get('/getApprovedAssociations',  associationController.getApprovedAssociations);
 
 // Récupérer une association par son ID (protégée par token)
 router.get('/getAssociationById/:id', userController.verifyToken, associationController.getAssociationById);
