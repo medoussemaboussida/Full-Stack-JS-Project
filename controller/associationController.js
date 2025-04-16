@@ -84,15 +84,25 @@ exports.addAssociation = async (req, res) => {
 // Récupérer toutes les associations (pour le back-office)
 exports.getAssociations = async (req, res) => {
     try {
-        const associations = await Association.find()
-            .populate("user_id", "username")
-            .sort({ createdAt: -1 });
-
-        res.status(200).json(associations);
-    } catch (err) {
-        res.status(500).json({ message: err.message });
+      console.log('Fetching all associations for user:', req.userId);
+      
+      const associations = await Association.find({})
+        .select('Name_association Description_association contact_email_association logo_association support_type isApproved created_by createdAt')
+        .populate('created_by', 'username email') // Remplacer user_id par created_by
+        .sort({ createdAt: -1 })
+        .lean();
+      
+      console.log('Associations found:', associations.length, associations);
+      
+      res.status(200).json(associations || []);
+    } catch (error) {
+      console.error('Error in getAssociations:', error.message, error.stack);
+      res.status(500).json({
+        message: 'Failed to fetch associations',
+        error: error.message,
+      });
     }
-};
+  };
 
 // Récupérer une association par ID
 exports.getAssociationById = async (req, res) => {
@@ -161,14 +171,24 @@ exports.deleteAssociation = async (req, res) => {
 // Récupérer uniquement les associations approuvées
 exports.getApprovedAssociations = async (req, res) => {
     try {
-        const associations = await Association.find({ isApproved: true })
-            .populate("user_id", "username")
-            .sort({ createdAt: -1 });
-        res.status(200).json(associations);
-    } catch (err) {
-        res.status(500).json({ message: err.message });
+      console.log('Fetching approved associations for user:', req.userId);
+      
+      const associations = await Association.find({ isApproved: true })
+        .select('Name_association Description_association contact_email_association logo_association support_type createdAt')
+        .sort({ createdAt: -1 })
+        .lean();
+      
+      console.log('Approved associations found:', associations.length, associations);
+      
+      res.status(200).json(associations || []);
+    } catch (error) {
+      console.error('Error in getApprovedAssociations:', error.message, error.stack);
+      res.status(500).json({
+        message: 'Failed to fetch approved associations',
+        error: error.message,
+      });
     }
-};
+  };
 
 // Basculer l’approbation d’une association
 exports.toggleApproval = async (req, res) => {
