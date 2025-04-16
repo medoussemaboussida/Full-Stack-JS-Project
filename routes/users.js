@@ -164,10 +164,6 @@ router.get("/pinned-activities/:userId", userController.verifyToken, activitiesC
 router.post("/pin-activity/:userId", userController.verifyToken, activitiesController.togglePinActivity);
 
 
-// ✅ Note Routes (New for your frontend)
-router.post("/notes/:userId", userController.verifyToken, activitiesController.saveNote);
-router.get("/notes/:userId", userController.verifyToken, activitiesController.getNotes);
-
 router.post('/problems', userController.verifyToken, userController.createProblem);
 router.get('/problems/:userId', userController.verifyToken, userController.getProblems);
 router.put('/problems/:userId/:problemId', userController.verifyToken, userController.updateProblem);

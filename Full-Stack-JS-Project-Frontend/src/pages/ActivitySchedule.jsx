@@ -11,7 +11,7 @@ import {
   faTrash,
   faCalendarPlus,
   faStickyNote,
-  faHistory, // Ajouté pour le bouton Mood History
+  faHistory,
 } from "@fortawesome/free-solid-svg-icons";
 
 // Function to generate a list of dates for the specified month
@@ -61,14 +61,11 @@ function ActivitySchedule() {
   const [showMoodModal, setShowMoodModal] = useState(false);
   const [selectedMood, setSelectedMood] = useState(null);
   const [currentActivity, setCurrentActivity] = useState(null);
-  const [moods, setMoods] = useState([]); // State for moods
-  const [notes, setNotes] = useState({}); // State to store notes for each date
+  const [moods, setMoods] = useState([]);
   const [showNoteModal, setShowNoteModal] = useState(false);
-  const [isLoadingSchedule, setIsLoadingSchedule] = useState(false);
   const [currentNoteDate, setCurrentNoteDate] = useState(null);
   const [currentNote, setCurrentNote] = useState("");
-  const [isLoadingNotes, setIsLoadingNotes] = useState(true); // New state for notes loading
-  const [showMoodHistoryModal, setShowMoodHistoryModal] = useState(false); // Nouvel état pour le modal Mood History
+  const [showMoodHistoryModal, setShowMoodHistoryModal] = useState(false);
   const dates = generateDatesForMonth(currentDate);
   const navigate = useNavigate();
 
@@ -123,7 +120,7 @@ function ActivitySchedule() {
     }
   };
 
-  // Fetch scheduled activities
+  // Fetch scheduled activities (including notes)
   const fetchScheduledActivities = async (userId) => {
     try {
       const token = localStorage.getItem("jwt-token");
@@ -134,7 +131,17 @@ function ActivitySchedule() {
       });
       const data = await response.json();
       if (response.ok) {
-        setScheduledActivities(data.schedules || {});
+        const schedules = data.schedules || {};
+        setScheduledActivities(
+          Object.keys(schedules).reduce((acc, date) => {
+            acc[date] = schedules[date].activities.map((act) => ({
+              activityId: act.activityId,
+              completed: act.completed,
+              note: schedules[date].note || '',
+            }));
+            return acc;
+          }, {})
+        );
       } else {
         toast.error(`Failed to fetch scheduled activities: ${data.message}`);
       }
@@ -173,45 +180,8 @@ function ActivitySchedule() {
     }
   };
 
-  // Fetch notes for the user
-  const fetchNotes = async () => {
-    try {
-      const token = localStorage.getItem("jwt-token");
-      if (!token || !userId) {
-        toast.error("You must be logged in!");
-        return;
-      }
-
-      setIsLoadingNotes(true);
-      const response = await fetch(`http://localhost:5000/users/notes/${userId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-      console.log("Fetched notes from API:", JSON.stringify(data, null, 2));
-      if (response.ok) {
-        if (data.notes && typeof data.notes === "object") {
-          setNotes(data.notes);
-          console.log("Notes set to state:", JSON.stringify(data.notes, null, 2));
-        } else {
-          console.warn("Notes data is not in the expected format:", data.notes);
-          setNotes({});
-        }
-      } else {
-        toast.error(`Failed to fetch notes: ${data.message}`);
-      }
-    } catch (error) {
-      console.error("Error fetching notes:", error);
-      toast.error("An error occurred while fetching notes.");
-    } finally {
-      setIsLoadingNotes(false);
-    }
-  };
-
-  // Save scheduled activities
-  const saveScheduledActivities = async (date, activities) => {
+  // Save scheduled activities (including note)
+  const saveScheduledActivities = async (date, activities, note = '') => {
     try {
       const token = localStorage.getItem("jwt-token");
       if (!token) {
@@ -228,7 +198,7 @@ function ActivitySchedule() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ date, activities }),
+        body: JSON.stringify({ date, activities, note }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Failed to save schedule");
@@ -269,39 +239,6 @@ function ActivitySchedule() {
     } catch (error) {
       console.error("Error saving mood:", error);
       toast.error(`Error saving mood: ${error.message}`);
-    }
-  };
-
-  // Save note to the server
-  const saveNote = async (date, note) => {
-    try {
-      const token = localStorage.getItem("jwt-token");
-      if (!token) {
-        toast.error("No authentication token found. Please log in.");
-        navigate("/login");
-        return;
-      }
-
-      const response = await fetch(`http://localhost:5000/users/notes/${userId}`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ date, note }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Failed to save note");
-
-      setNotes((prev) => ({
-        ...prev,
-        [date]: note,
-      }));
-      toast.success("Note saved successfully!");
-    } catch (error) {
-      console.error("Error saving note:", error);
-      toast.error(`Error saving note: ${error.message}`);
     }
   };
 
@@ -437,7 +374,6 @@ function ActivitySchedule() {
       await saveMood(currentActivity._id, selectedMood);
       fetchMoods().then((moodsData) => {
         setMoods(moodsData);
-        console.log("Moods:", moodsData);
       });
     }
     setShowMoodModal(false);
@@ -455,7 +391,7 @@ function ActivitySchedule() {
   // Open note modal
   const handleOpenNoteModal = (date) => {
     setCurrentNoteDate(date);
-    setCurrentNote(notes[date] || "");
+    setCurrentNote(scheduledActivities[date]?.[0]?.note || "");
     setShowNoteModal(true);
   };
 
@@ -469,7 +405,12 @@ function ActivitySchedule() {
   // Save note
   const handleSaveNote = async () => {
     if (currentNoteDate) {
-      await saveNote(currentNoteDate, currentNote);
+      const existingActivities = scheduledActivities[currentNoteDate] || [];
+      await saveScheduledActivities(currentNoteDate, existingActivities, currentNote);
+      setScheduledActivities((prev) => ({
+        ...prev,
+        [currentNoteDate]: existingActivities.map((act) => ({ ...act, note: currentNote })),
+      }));
     }
     closeNoteModal();
   };
@@ -490,57 +431,51 @@ function ActivitySchedule() {
       toast.error("You must be logged in to access this page.");
       navigate("/login");
       setIsLoading(false);
-      setIsLoadingNotes(false);
       return;
     }
-  
+
     try {
       const decoded = jwtDecode(token);
       if (!decoded.id) {
         throw new Error("Invalid token: No user ID found");
       }
-  
-      setUserId(decoded.id); // Définir userId immédiatement
+
+      setUserId(decoded.id);
       setIsLoading(true);
-  
-      // Charger toutes les données
+
       Promise.all([
         fetchActivities(),
         fetchFavoriteActivities(decoded.id),
-        fetchScheduledActivities(decoded.id), // Pas de notification ici
-        fetchNotes(),
+        fetchScheduledActivities(decoded.id),
         fetchMoods().then((moodsData) => setMoods(moodsData)),
       ]).finally(() => {
         setIsLoading(false);
-        setIsLoadingNotes(false);
       });
     } catch (error) {
       console.error("Invalid token:", error);
       toast.error("Invalid session, please log in again.");
       navigate("/login");
       setIsLoading(false);
-      setIsLoadingNotes(false);
     }
-  }, [navigate]); // Dépendance uniquement sur navigate
-  
-  // Second useEffect pour la notification
+  }, [navigate]);
+
+  // Notification for today's activities
   useEffect(() => {
-    let hasShownNotification = false; // Variable pour éviter plusieurs notifications
-  
+    let hasShownNotification = false;
+
     return () => {
       if (!hasShownNotification && Object.keys(scheduledActivities).length > 0) {
         const today = new Date().toISOString().split("T")[0];
         const todayActivities = scheduledActivities[today];
         if (todayActivities && todayActivities.length > 0) {
           toast.info(`You have ${todayActivities.length} activity(ies) scheduled for today!`);
-          hasShownNotification = true; // Marquer comme affiché
+          hasShownNotification = true;
         }
       }
     };
-  }, [scheduledActivities]); // Déclencher quand scheduledActivities change
-  
+  }, [scheduledActivities]);
 
-  if (isLoading || isLoadingNotes) {
+  if (isLoading) {
     return <div style={{ textAlign: "center", padding: "20px", fontSize: "18px" }}>Loading...</div>;
   }
 
@@ -566,7 +501,7 @@ function ActivitySchedule() {
     const existingActivities = scheduledActivities[selectedDate] || [];
     const newActivities = selectedActivityIds.map((activityId) => {
       const existingActivity = existingActivities.find((act) => act.activityId === activityId);
-      return existingActivity ? existingActivity : { activityId, completed: false };
+      return existingActivity ? existingActivity : { activityId, completed: false, note: existingActivities[0]?.note || '' };
     });
 
     setScheduledActivities((prev) => ({
@@ -574,7 +509,7 @@ function ActivitySchedule() {
       [selectedDate]: newActivities,
     }));
 
-    await saveScheduledActivities(selectedDate, newActivities);
+    await saveScheduledActivities(selectedDate, newActivities, newActivities[0]?.note || '');
     toast.success(`Activities scheduled for ${selectedDate}!`);
     closeScheduleModal();
   };
@@ -592,7 +527,7 @@ function ActivitySchedule() {
 
     const newCompletedStatus = updatedActivities.find((act) => act.activityId === activityId).completed;
 
-    await saveScheduledActivities(date, updatedActivities);
+    await saveScheduledActivities(date, updatedActivities, updatedActivities[0]?.note || '');
     toast.info(`Activity marked as ${newCompletedStatus ? "completed" : "incomplete"}!`);
 
     if (newCompletedStatus) {
@@ -759,7 +694,7 @@ function ActivitySchedule() {
                   <div style={{ padding: "20px" }}>
                     <h4>{activity.title}</h4>
                     <p style={{ color: "#00aaff", fontStyle: "italic", margin: 0 }}>
-                    ** {activity.category?.name || "Uncategorized"} **
+                      ** {activity.category?.name || "Uncategorized"} **
                     </p>
                     <p>{activity.description}</p>
                     <button
@@ -1417,11 +1352,13 @@ function ActivitySchedule() {
                             })}
                           </ul>
                         )}
-                        {notes[dateStr] && (
+                        {scheduledActivities[dateStr]?.[0]?.note && (
                           <div style={{ fontSize: "10px", color: "#666", marginTop: "5px" }}>
                             <FontAwesomeIcon icon={faStickyNote} />{" "}
-                            <span title={notes[dateStr]}>
-                              {notes[dateStr].length > 20 ? `${notes[dateStr].slice(0, 20)}...` : notes[dateStr]}
+                            <span title={scheduledActivities[dateStr][0].note}>
+                              {scheduledActivities[dateStr][0].note.length > 20
+                                ? `${scheduledActivities[dateStr][0].note.slice(0, 20)}...`
+                                : scheduledActivities[dateStr][0].note}
                             </span>
                           </div>
                         )}
@@ -1527,7 +1464,6 @@ function ActivitySchedule() {
         </div>
       )}
 
-     
       {/* Modal for scheduling activities */}
       {showScheduleModal && (
         <div

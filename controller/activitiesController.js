@@ -4,7 +4,6 @@ const multer = require("multer");
 const path = require("path");
 const Schedule = require("../model/Schedule");
 const Mood = require("../model/Mood");
-const Note = require("../model/Note"); // New model for notes
 const Category = require("../model/Category");
 const axios = require('axios');
 
@@ -509,72 +508,81 @@ module.exports.getActivitiesByCategory = async (req, res) => {
 
 
 exports.saveSchedule = async (req, res) => {
-    try {
-        console.log("Request Headers:", req.headers);
-        console.log("req.userId:", req.userId); // Log req.userId to debug
+  try {
+      console.log("Request Headers:", req.headers);
+      console.log("req.userId:", req.userId); // Log req.userId to debug
 
-        const userId = req.params.userId;
-        const { date, activities } = req.body;
+      const userId = req.params.userId;
+      const { date, activities, note } = req.body;
 
-        // Validate input
-        if (!date || !activities || !Array.isArray(activities)) {
-            return res.status(400).json({ message: "Date and activities array are required." });
-        }
+      // Validate input
+      if (!date || !activities || !Array.isArray(activities)) {
+          return res.status(400).json({ message: "Date and activities array are required." });
+      }
 
-        // Ensure the authenticated user matches the requested userId
-        if (!req.userId) {
-            return res.status(401).json({ message: "User not authenticated." });
-        }
-        if (req.userId !== userId) {
-            return res.status(403).json({ message: "Unauthorized access." });
-        }
+      // Ensure the authenticated user matches the requested userId
+      if (!req.userId) {
+          return res.status(401).json({ message: "User not authenticated." });
+      }
+      if (req.userId !== userId) {
+          return res.status(403).json({ message: "Unauthorized access." });
+      }
 
-        // Check if a schedule exists for this user and date
-        let schedule = await Schedule.findOne({ userId, date });
+      // Check if a schedule exists for this user and date
+      let schedule = await Schedule.findOne({ userId, date });
 
-        if (schedule) {
-            // Update existing schedule
-            schedule.activities = activities;
-            await schedule.save();
-        } else {
-            // Create new schedule
-            schedule = new Schedule({ userId, date, activities });
-            await schedule.save();
-        }
+      if (schedule) {
+          // Update existing schedule
+          schedule.activities = activities;
+          schedule.note = note || ''; // Save note, default to empty string if not provided
+          await schedule.save();
+      } else {
+          // Create new schedule
+          schedule = new Schedule({
+              userId,
+              date,
+              activities,
+              note: note || '', // Save note, default to empty string if not provided
+          });
+          await schedule.save();
+      }
 
-        res.status(200).json({ message: "Schedule saved successfully", schedule });
-    } catch (error) {
-        console.error("Error saving schedule:", error);
-        res.status(500).json({ message: "Error saving schedule", error: error.message });
-    }
+      res.status(200).json({ message: "Schedule saved successfully", schedule });
+  } catch (error) {
+      console.error("Error saving schedule:", error);
+      res.status(500).json({ message: "Error saving schedule", error: error.message });
+  }
 };
 
 exports.getSchedule = async (req, res) => {
-    try {
-        console.log("Request Headers:", req.headers);
-        console.log("req.userId:", req.userId); // Log req.userId to debug
+  try {
+      console.log("Request Headers:", req.headers);
+      console.log("req.userId:", req.userId); // Log req.userId to debug
 
-        const userId = req.params.userId;
+      const userId = req.params.userId;
 
-        if (!req.userId) {
-            return res.status(401).json({ message: "User not authenticated." });
-        }
-        if (req.userId !== userId) {
-            return res.status(403).json({ message: "Unauthorized access." });
-        }
+      if (!req.userId) {
+          return res.status(401).json({ message: "User not authenticated." });
+      }
+      if (req.userId !== userId) {
+          return res.status(403).json({ message: "Unauthorized access." });
+      }
 
-        const schedules = await Schedule.find({ userId });
+      const schedules = await Schedule.find({ userId });
 
-        const formattedSchedules = schedules.reduce((acc, schedule) => {
-            acc[schedule.date] = schedule.activities;
-            return acc;
-        }, {});
+      const formattedSchedules = schedules.reduce((acc, schedule) => {
+          acc[schedule.date] = {
+              activities: schedule.activities,
+              note: schedule.note || '', // Include note, default to empty string
+          };
+          return acc;
+      }, {});
 
-        res.status(200).json({ schedules: formattedSchedules });
-    } catch (error) {
-        console.error("Error fetching schedules:", error);
-        res.status(500).json({ message: "Error fetching schedules", error: error.message });
-    }
+      res.status(200).json({ schedules: formattedSchedules });
+  } catch (error) {
+      console.error("Error fetching schedules:", error);
+      res.status(500).json({ message: "Error fetching schedules", error: error.message });
+  }
 };
 
 // Sauvegarder une nouvelle humeur
@@ -720,45 +728,6 @@ exports.togglePinActivity = async (req, res) => {
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
-// ✅ Save note (New)
-module.exports.saveNote = async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const { date, note } = req.body;
-  
-      if (!date || !note) {
-        return res.status(400).json({ message: "Date or note missing" });
-      }
-  
-      const existingNote = await Note.findOneAndUpdate(
-        { userId, date },
-        { note },
-        { upsert: true, new: true }
-      );
-  
-      res.status(200).json({ message: "Note saved successfully", note: existingNote });
-    } catch (error) {
-      res.status(500).json({ message: "Erreur serveur", error });
-    }
-  };
-  
-  // ✅ Get notes (New)
-  module.exports.getNotes = async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const notes = await Note.find({ userId });
-  
-      // Transform into an object with date as key
-      const notesObj = notes.reduce((acc, note) => {
-        acc[note.date] = note.note;
-        return acc;
-      }, {});
-  
-      res.status(200).json({ notes: notesObj });
-    } catch (error) {
-      res.status(500).json({ message: "Erreur serveur", error });
-    }
-  };
 
   exports.getAllCategories = async (req, res) => {
     try {
