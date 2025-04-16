@@ -184,7 +184,43 @@ const AdminComplaints = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const chatEndRef = useRef(null);
-  const [processedResponseIds, setProcessedResponseIds] = useState(new Set()); // Pour suivre les réponses déjà traitées
+  const [processedResponseIds, setProcessedResponseIds] = useState(new Set());
+
+  // Fonction pour appeler l'API Hugging Face avec mise en cache
+  const classifyText = async (text) => {
+    const cacheKey = `sentiment_${text}`;
+    const cachedResult = localStorage.getItem(cacheKey);
+    if (cachedResult) {
+      return cachedResult;
+    }
+
+    try {
+      const response = await fetch(
+        "https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.REACT_APP_HUGGINGFACE_API_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ inputs: text }),
+        }
+      );
+      const data = await response.json();
+      if (data && data[0] && data[0][0]) {
+        const sentiment = data[0][0].label;
+        localStorage.setItem(cacheKey, sentiment);
+        return sentiment;
+      }
+      return "UNKNOWN";
+    } catch (error) {
+      console.error("Erreur lors de la classification:", error);
+      return "UNKNOWN";
+    }
+  };
+
+  // Fonction pour ajouter un délai entre les requêtes
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
   // Récupérer toutes les réclamations, l'ID de l'admin, les statistiques et les notifications
   useEffect(() => {
@@ -268,7 +304,6 @@ const AdminComplaints = () => {
           toast.error("Failed to load advanced stats: " + advancedStatsData.message);
         }
 
-        // Charger les notifications de l'admin
         const adminNotifications = getNotifications(decodedToken.id, true);
         setNotifications(adminNotifications);
       } catch (error) {
@@ -280,18 +315,35 @@ const AdminComplaints = () => {
     };
 
     fetchComplaints();
-  }, []); // Pas de dépendance sur adminId pour éviter des rechargements inutiles
+  }, []);
+
+  // Ajouter l'analyse de sentiment aux réclamations avec un délai entre les requêtes
+  useEffect(() => {
+    const addSentimentToComplaints = async () => {
+      const updatedComplaints = [];
+      for (let i = 0; i < complaints.length; i++) {
+        const complaint = complaints[i];
+        const sentiment = await classifyText(complaint.description);
+        updatedComplaints.push({ ...complaint, sentiment });
+        await delay(8000); // Attendre 2 secondes entre chaque requête
+      }
+      setComplaints(updatedComplaints);
+      setFilteredComplaints(updatedComplaints);
+    };
+
+    if (complaints.length > 0) {
+      addSentimentToComplaints();
+    }
+  }, [complaints]);
 
   // Vérifier les nouvelles réponses des utilisateurs et charger les notifications
   useEffect(() => {
     if (!adminId || complaints.length === 0) return;
 
     const fetchAllResponsesAndNotifications = async () => {
-      // Charger les notifications actuelles
       const adminNotifications = getNotifications(adminId, true);
       setNotifications(adminNotifications);
 
-      // Vérifier les nouvelles réponses pour chaque réclamation
       for (const complaint of complaints) {
         const previousResponses = JSON.parse(
           localStorage.getItem(`admin_responses_${complaint._id}_${adminId}`) || "[]"
@@ -299,26 +351,22 @@ const AdminComplaints = () => {
 
         const currentResponses = await fetchResponses(complaint._id);
 
-        // Mettre à jour les réponses dans localStorage
         localStorage.setItem(
           `admin_responses_${complaint._id}_${adminId}`,
           JSON.stringify(currentResponses)
         );
 
-        // Filtrer les nouvelles réponses
         const newResponses = currentResponses.filter(
           (response) =>
             !previousResponses.some((prev) => prev._id === response._id) &&
             response.user_id._id !== adminId &&
-            !processedResponseIds.has(response._id) // Vérifier si la réponse a déjà été traitée
+            !processedResponseIds.has(response._id)
         );
 
-        // Ajouter les nouvelles réponses à processedResponseIds
         newResponses.forEach((response) => {
           setProcessedResponseIds((prev) => new Set(prev).add(response._id));
         });
 
-        // Ajouter une notification pour chaque nouvelle réponse
         if (newResponses.length > 0) {
           newResponses.forEach((response) => {
             addNotification(
@@ -332,10 +380,7 @@ const AdminComplaints = () => {
       }
     };
 
-    // Exécuter immédiatement au montage
     fetchAllResponsesAndNotifications();
-
-    // Exécuter toutes les 5 secondes
     const interval = setInterval(fetchAllResponsesAndNotifications, 1000);
 
     return () => clearInterval(interval);
@@ -402,7 +447,6 @@ const AdminComplaints = () => {
     setFilteredComplaints(updatedComplaints);
   }, [searchQuery, sortOption, statusFilter, complaints]);
 
-  // Supprimer une réclamation et ajouter une notification
   const handleDeleteComplaint = async (complaintId) => {
     try {
       const token = localStorage.getItem("jwt-token");
@@ -453,7 +497,6 @@ const AdminComplaints = () => {
     }
   };
 
-  // Mettre à jour le statut d'une réclamation
   const handleUpdateStatus = async (complaintId, newStatus) => {
     try {
       const token = localStorage.getItem("jwt-token");
@@ -496,7 +539,6 @@ const AdminComplaints = () => {
     }
   };
 
-  // Récupérer les réponses pour une réclamation spécifique
   const fetchResponses = async (complaintId) => {
     try {
       const token = localStorage.getItem("jwt-token");
@@ -527,7 +569,6 @@ const AdminComplaints = () => {
     }
   };
 
-  // Supprimer toutes les réponses d'une réclamation
   const handleClearDiscussion = async () => {
     try {
       const token = localStorage.getItem("jwt-token");
@@ -559,7 +600,6 @@ const AdminComplaints = () => {
     }
   };
 
-  // Ouvrir le modal de conversation et initialiser les réponses
   const handleOpenResponsesModal = async (complaint) => {
     const responsesData = await fetchResponses(complaint._id);
     setSelectedComplaint(complaint);
@@ -572,7 +612,6 @@ const AdminComplaints = () => {
     );
   };
 
-  // Fermer le modal de conversation
   const handleCloseResponsesModal = () => {
     setOpenResponsesModal(false);
     setSelectedComplaint(null);
@@ -580,7 +619,6 @@ const AdminComplaints = () => {
     setNewResponse("");
   };
 
-  // Rafraîchir automatiquement les réponses lorsque le modal est ouvert
   useEffect(() => {
     if (!openResponsesModal || !selectedComplaint) return;
 
@@ -598,7 +636,6 @@ const AdminComplaints = () => {
     return () => clearInterval(interval);
   }, [openResponsesModal, selectedComplaint, responses]);
 
-  // Ajouter une nouvelle réponse et notifier l'utilisateur
   const handleAddResponse = async () => {
     if (!newResponse.trim()) {
       toast.error("Response cannot be empty!");
@@ -665,14 +702,12 @@ const AdminComplaints = () => {
     }
   };
 
-  // Scroller automatiquement vers le bas du chat
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [responses]);
 
-  // Formater la date/heure
   const formatMessageTime = (date) => {
     const now = new Date();
     const messageDate = new Date(date);
@@ -694,10 +729,8 @@ const AdminComplaints = () => {
     }
   };
 
-  // Calculer le nombre de notifications non lues
   const unreadNotificationsCount = notifications.filter((notif) => !notif.read).length;
 
-  // Fonctions pour gérer les notifications
   const handleOpenNotifications = () => {
     setOpenNotificationsModal(true);
   };
@@ -712,7 +745,6 @@ const AdminComplaints = () => {
     setNotifications(getNotifications(adminId, true));
   };
 
-  // Données pour le graphique à barres
   const chartData = {
     labels: ["Complaints"],
     datasets: [
@@ -747,7 +779,6 @@ const AdminComplaints = () => {
     ],
   };
 
-  // Options pour le graphique
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -794,7 +825,6 @@ const AdminComplaints = () => {
     },
   };
 
-  // Fonction pour générer le PDF
   const generatePDF = () => {
     const doc = new jsPDF();
 
@@ -991,7 +1021,6 @@ const AdminComplaints = () => {
         pauseOnHover
       />
 
-      {/* Bulle de notification flottante */}
       <Box
         sx={{
           position: "fixed",
@@ -1094,14 +1123,17 @@ const AdminComplaints = () => {
         </Box>
       </Box>
 
-      <Box mt={4}sx={{
-    maxHeight: "450px", // Hauteur maximale du cadre (450px comme demandé)
-    overflowY: "auto", // Activer le défilement vertical
-    padding: "10px", // Ajouter un peu de padding pour l'esthétique
-    border: `1px solid ${colors.grey[700]}`, // Ajouter une bordure pour délimiter le cadre
-    borderRadius: "8px", // Arrondir les coins du cadre
-    backgroundColor: colors.primary[500], // Fond cohérent avec le thème
-  }}>
+      <Box
+        mt={4}
+        sx={{
+          maxHeight: "450px",
+          overflowY: "auto",
+          padding: "10px",
+          border: `1px solid ${colors.grey[700]}`,
+          borderRadius: "8px",
+          backgroundColor: colors.primary[500],
+        }}
+      >
         {filteredComplaints.length > 0 ? (
           filteredComplaints.map((complaint, index) => (
             <Box
@@ -1206,6 +1238,11 @@ const AdminComplaints = () => {
                     </Select>
                   </FormControl>
                 </Box>
+                <br />
+                <Typography variant="body2">
+                  <strong>Sentiment: </strong>
+                  {complaint.sentiment || "Loading..."}
+                </Typography>
                 <br />
                 <Box display="flex" justifyContent="flex-end" gap={1}>
                   <Button
@@ -1485,7 +1522,6 @@ const AdminComplaints = () => {
         </Box>
       </Modal>
 
-      {/* Modal pour les notifications */}
       <Modal
         open={openNotificationsModal}
         onClose={() => setOpenNotificationsModal(false)}
