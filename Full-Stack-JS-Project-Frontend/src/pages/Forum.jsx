@@ -74,7 +74,55 @@ function Forum() {
   const [likedTopics, setLikedTopics] = useState(new Set());
   const [likedComments, setLikedComments] = useState(new Set());
   const [commentSentiments, setCommentSentiments] = useState({}); // Nouvel état pour les sentiments
+  const [showChatbotModal, setShowChatbotModal] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [userMessage, setUserMessage] = useState("");
   const navigate = useNavigate();
+  // Fonction pour interagir avec l'API Gemini
+  const interactWithGemini = async (message) => {
+    const GEMINI_API_KEY = "AIzaSyCfw_jacNIo7ORhBYWXr9b6uYDeeOc4C7o"; // Remplacez par votre clé API réelle
+
+    try {
+      const response = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" +
+          GEMINI_API_KEY,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: message,
+                  },
+                ],
+              },
+            ],
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        console.error("Erreur HTTP:", response.status, response.statusText);
+        const errorData = await response.json();
+        console.error("Détails de l'erreur:", errorData);
+        return "Sorry, I couldn't process your request.";
+      }
+
+      const data = await response.json();
+      const reply = data.candidates[0].content.parts[0].text;
+      return reply;
+    } catch (error) {
+      console.error("Erreur lors de l'interaction avec Gemini:", error);
+      return "An error occurred while interacting with the chatbot.";
+    }
+  };
+  useEffect(() => {
+    localStorage.setItem("chatMessages", JSON.stringify(chatMessages));
+  }, [chatMessages]);
 
   const classifyText = async (text) => {
     const cacheKey = `sentiment_${text}`;
@@ -2574,6 +2622,243 @@ function Forum() {
                 }}
               >
                 Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Bouton flottant pour ouvrir le modal du chatbot */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: "20px",
+          right: "90px",
+          zIndex: 1000,
+          cursor: "pointer",
+        }}
+        onClick={() => setShowChatbotModal(true)}
+      >
+        <div
+          style={{
+            backgroundColor: "#28a745",
+            borderRadius: "50%",
+            width: "60px",
+            height: "60px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+            transition: "transform 0.3s ease",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+        >
+          <span style={{ fontSize: "24px", color: "white" }}>🤖</span>
+        </div>
+      </div>
+
+      {/* Bouton flottant pour ouvrir le modal du chatbot */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: "20px",
+          right: "90px",
+          zIndex: 1000,
+          cursor: "pointer",
+        }}
+        onClick={() => setShowChatbotModal(true)}
+      >
+        <div
+          style={{
+            backgroundColor: "#28a745",
+            borderRadius: "50%",
+            width: "60px",
+            height: "60px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+            transition: "transform 0.3s ease",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+        >
+          <span style={{ fontSize: "24px", color: "white" }}>🤖</span>
+        </div>
+      </div>
+
+      {/* Modal du chatbot */}
+      {showChatbotModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "600px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              display: "flex",
+              flexDirection: "column",
+              maxHeight: "80vh",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+              Chatbot (Gemini)
+            </h3>
+            <div
+              style={{
+                flex: 1,
+                maxHeight: "60vh",
+                overflowY: "auto",
+                marginBottom: "20px",
+                padding: "10px",
+                border: "1px solid #ddd",
+                borderRadius: "8px",
+              }}
+            >
+              {chatMessages.length > 0 ? (
+                chatMessages.map((msg, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      marginBottom: "10px",
+                      padding: "10px",
+                      borderRadius: "8px",
+                      backgroundColor:
+                        msg.sender === "user" ? "#e6f3ff" : "#f9f9f9",
+                      alignSelf:
+                        msg.sender === "user" ? "flex-end" : "flex-start",
+                      maxWidth: "80%",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    <strong>{msg.sender === "user" ? "You" : "Bot"}:</strong>{" "}
+                    {msg.text}
+                  </div>
+                ))
+              ) : (
+                <p style={{ textAlign: "center", color: "#666" }}>
+                  Start a conversation with the chatbot!
+                </p>
+              )}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                gap: "10px",
+                alignItems: "center",
+              }}
+            >
+              <input
+                type="text"
+                value={userMessage}
+                onChange={(e) => setUserMessage(e.target.value)}
+                placeholder="Type your message..."
+                style={{
+                  flex: 1,
+                  padding: "10px",
+                  borderRadius: "50px",
+                  border: "1px solid #ddd",
+                  outline: "none",
+                }}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter" && userMessage.trim()) {
+                    setChatMessages((prev) => [
+                      ...prev,
+                      { sender: "user", text: userMessage },
+                    ]);
+                    interactWithGemini(userMessage).then((reply) => {
+                      setChatMessages((prev) => [
+                        ...prev,
+                        { sender: "bot", text: reply },
+                      ]);
+                    });
+                    setUserMessage("");
+                  }
+                }}
+              />
+              <button
+                onClick={() => {
+                  if (userMessage.trim()) {
+                    setChatMessages((prev) => [
+                      ...prev,
+                      { sender: "user", text: userMessage },
+                    ]);
+                    interactWithGemini(userMessage).then((reply) => {
+                      setChatMessages((prev) => [
+                        ...prev,
+                        { sender: "bot", text: reply },
+                      ]);
+                    });
+                    setUserMessage("");
+                  }
+                }}
+                style={{
+                  backgroundColor: "#007bff",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "50px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Send
+              </button>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                marginTop: "20px",
+              }}
+            >
+              <button
+                onClick={() => {
+                  setShowChatbotModal(false);
+                  setUserMessage(""); // On réinitialise uniquement le champ de saisie
+                  // On ne réinitialise plus chatMessages pour conserver la discussion
+                }}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  setChatMessages([]);
+                  localStorage.removeItem("chatMessages");
+                }}
+                style={{
+                  backgroundColor: "#ff9800",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                  marginLeft: "10px",
+                }}
+              >
+                Clear Chat
               </button>
             </div>
           </div>
