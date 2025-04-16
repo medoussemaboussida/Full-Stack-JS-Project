@@ -67,6 +67,7 @@ function ActivitySchedule() {
   const [currentNote, setCurrentNote] = useState("");
   const [showMoodHistoryModal, setShowMoodHistoryModal] = useState(false);
   const [weatherData, setWeatherData] = useState({});
+  const [currentMoodDate, setCurrentMoodDate] = useState(null); // New state for mood date
   const dates = generateDatesForMonth(currentDate);
   const navigate = useNavigate();
 
@@ -195,23 +196,23 @@ function ActivitySchedule() {
   };
 
   // Fetch weather data from backend
-
-const fetchWeatherData = async () => {
-  try {
-    const token = localStorage.getItem("jwt-token");
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const response = await fetch('http://localhost:5000/users/weather', { headers });
-    if (!response.ok) {
-      const errorData = await response.text();
-      throw new Error(`Failed to fetch weather data: ${response.status} ${response.statusText} - ${errorData}`);
+  const fetchWeatherData = async () => {
+    try {
+      const token = localStorage.getItem("jwt-token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const response = await fetch('http://localhost:5000/users/weather', { headers });
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(`Failed to fetch weather data: ${response.status} ${response.statusText} - ${errorData}`);
+      }
+      const data = await response.json();
+      setWeatherData(data);
+    } catch (error) {
+      console.error("Error fetching weather data:", error.message);
+      toast.error(`Erreur lors de la récupération des données météo : ${error.message}`);
     }
-    const data = await response.json();
-    setWeatherData(data);
-  } catch (error) {
-    console.error("Error fetching weather data:", error.message);
-    toast.error(`Erreur lors de la récupération des données météo : ${error.message}`);
-  }
-};
+  };
+
   // Save scheduled activities (including note)
   const saveScheduledActivities = async (date, activities, note = '') => {
     try {
@@ -242,7 +243,7 @@ const fetchWeatherData = async () => {
   };
 
   // Save mood to the server
-  const saveMood = async (activityId, mood) => {
+  const saveMood = async (activityId, mood, moodDate) => {
     try {
       const token = localStorage.getItem("jwt-token");
       if (!token) {
@@ -260,7 +261,7 @@ const fetchWeatherData = async () => {
         body: JSON.stringify({
           activityId,
           mood,
-          date: new Date().toISOString(),
+          date: moodDate ? `${moodDate}T00:00:00.000Z` : new Date().toISOString(), // Use calendar date if provided
         }),
       });
 
@@ -403,7 +404,7 @@ const fetchWeatherData = async () => {
   // Confirm mood and save to server
   const handleMoodConfirm = async () => {
     if (selectedMood !== null && currentActivity) {
-      await saveMood(currentActivity._id, selectedMood);
+      await saveMood(currentActivity._id, selectedMood, currentMoodDate);
       fetchMoods().then((moodsData) => {
         console.log("Updated moods:", moodsData); // Debug log
         setMoods(moodsData);
@@ -412,6 +413,7 @@ const fetchWeatherData = async () => {
     setShowMoodModal(false);
     setSelectedMood(null);
     setCurrentActivity(null);
+    setCurrentMoodDate(null); // Reset mood date
   };
 
   // Cancel and close the mood modal
@@ -419,6 +421,7 @@ const fetchWeatherData = async () => {
     setShowMoodModal(false);
     setSelectedMood(null);
     setCurrentActivity(null);
+    setCurrentMoodDate(null); // Reset mood date
   };
 
   // Open note modal
@@ -567,6 +570,7 @@ const fetchWeatherData = async () => {
     if (newCompletedStatus) {
       const activity = activities.find((act) => act._id === activityId);
       setCurrentActivity(activity);
+      setCurrentMoodDate(date); // Store the calendar date
       setShowMoodModal(true);
     }
   };
@@ -742,7 +746,7 @@ const fetchWeatherData = async () => {
                         ? `http://localhost:5000${activity.imageUrl}`
                         : "/assets/img/activities/default.png"
                     }
-                    alt="Favorite Activity"
+                    Drought tolerant plantsalt="Favorite Activity"
                     style={{ width: "100%", height: "250px", objectFit: "cover" }}
                     onClick={() => handleViewActivityModal(activity)}
                   />
@@ -1206,7 +1210,7 @@ const fetchWeatherData = async () => {
                 border: "none",
                 fontSize: "20px",
                 cursor: "pointer",
-                color: "#666",
+                color: "#f44336",
               }}
             >
               <FontAwesomeIcon icon={faTimes} />
@@ -1228,6 +1232,8 @@ const fetchWeatherData = async () => {
                       ? mood.activityId._id
                       : mood.activityId;
                   const activity = activities.find((act) => act._id === activityId);
+                  const moodDate = new Date(mood.date).toISOString().split("T")[0];
+                  const weather = weatherData[moodDate];
                   return (
                     <li
                       key={index}
@@ -1243,6 +1249,11 @@ const fetchWeatherData = async () => {
                       <span>
                         <strong>{activity ? activity.title : "Unknown Activity"}</strong> -{" "}
                         {moodIcons[mood.mood]} {mood.mood}
+                        {weather && (
+                          <span style={{ marginLeft: "10px", color: "#666" }}>
+                            ({weatherIcons[weather.weatherCode] || "☁️"} {weather.temp}°C)
+                          </span>
+                        )}
                       </span>
                       <span style={{ color: "#666", fontSize: "12px" }}>
                         {new Date(mood.date).toLocaleDateString("en-US", {

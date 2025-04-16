@@ -586,74 +586,140 @@ exports.getSchedule = async (req, res) => {
 };
 
 // Sauvegarder une nouvelle humeur
+// Sauvegarder une nouvelle humeur
 exports.saveMood = async (req, res) => {
-    const { userId } = req.params;
-    const { activityId, mood, date } = req.body;
+  const { userId } = req.params;
+  const { activityId, mood, date, latitude, longitude } = req.body; // Added latitude, longitude
 
-    try {
-        // Vérifier si req.userId est défini
-        if (!req.userId) {
-            return res.status(401).json({ message: "Unauthorized: User not authenticated" });
-        }
-
-        // Vérifier si l'utilisateur dans le token correspond à l'userId
-        if (req.userId !== userId) {
-            return res.status(403).json({ message: "Unauthorized: User ID does not match" });
-        }
-
-        // Vérifier que les champs requis sont présents
-        if (!activityId || !mood) {
-            return res.status(400).json({ message: "Activity ID and mood are required" });
-        }
-
-        // Vérifier que l'humeur est valide
-        const validMoods = ["Very Sad", "Sad", "Neutral", "Happy", "Very Happy"];
-        if (!validMoods.includes(mood)) {
-            return res.status(400).json({ message: "Invalid mood value" });
-        }
-
-        // Créer une nouvelle entrée d'humeur
-        const moodEntry = new Mood({
-            userId,
-            activityId,
-            mood,
-            date: date || Date.now(),
-        });
-
-        // Sauvegarder dans la base de données
-        await moodEntry.save();
-
-        res.status(200).json({ message: "Mood saved successfully", mood: moodEntry });
-    } catch (error) {
-        console.error("Error saving mood:", error);
-        res.status(500).json({ message: "Error saving mood", error: error.message });
+  try {
+    // Vérifier si req.userId est défini
+    if (!req.userId) {
+      return res.status(401).json({ message: "Unauthorized: User not authenticated" });
     }
+
+    // Vérifier si l'utilisateur dans le token correspond à l'userId
+    if (req.userId !== userId) {
+      return res.status(403).json({ message: "Unauthorized: User ID does not match" });
+    }
+
+    // Vérifier que les champs requis sont présents
+    if (!activityId || !mood) {
+      return res.status(400).json({ message: "Activity ID and mood are required" });
+    }
+
+    // Vérifier que l'humeur est valide
+    const validMoods = ["Very Sad", "Sad", "Neutral", "Happy", "Very Happy"];
+    if (!validMoods.includes(mood)) {
+      return res.status(400).json({ message: "Invalid mood value" });
+    }
+
+    // Récupérer les informations de l'utilisateur pour la localisation
+    let lat, lon;
+    if (latitude && longitude) {
+      lat = latitude;
+      lon = longitude;
+      console.log(`Using location from req.body: lat=${lat}, lon=${lon}`);
+    } else {
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      if (!user.latitude || !user.longitude) {
+        console.warn(`No location data for user ${userId}, saving mood without weather`);
+      } else {
+        lat = user.latitude;
+        lon = user.longitude;
+        console.log(`Using user location: lat=${lat}, lon=${lon}`);
+      }
+    }
+
+    let weatherCode = null;
+    let temp = null;
+
+    // Récupérer les données météo si la localisation est disponible
+    if (lat && lon) {
+      try {
+        const apiKey = process.env.OPENWEATHER_API_KEY;
+        if (!apiKey) {
+          throw new Error("OpenWeather API key not configured");
+        }
+
+        // Utiliser l'endpoint /weather pour la météo actuelle ou du jour
+        const weatherResponse = await axios.get(
+          `https://api.openweathermap.org/data/2.5/weather`,
+          {
+            params: {
+              lat,
+              lon,
+              appid: apiKey,
+              units: 'metric', // Température en Celsius
+            },
+          }
+        );
+
+        console.log('Weather API response:', weatherResponse.data);
+
+        // Extraire weatherCode et temp
+        weatherCode = weatherResponse.data.weather[0].icon; // e.g., "01d"
+        temp = weatherResponse.data.main.temp; // e.g., 20.5
+      } catch (weatherError) {
+        console.error('Error fetching weather data:', weatherError.message);
+        console.error('Weather API error details:', weatherError.response?.data);
+        // Continuer sans météo en cas d'erreur
+      }
+    } else {
+      console.log('No location available, skipping weather fetch');
+    }
+
+    // Créer une nouvelle entrée d'humeur
+    const moodEntry = new Mood({
+      userId,
+      activityId,
+      mood,
+      date: date || Date.now(),
+      weatherCode,
+      temp,
+    });
+
+    // Sauvegarder dans la base de données
+    await moodEntry.save();
+
+    console.log('Saved mood entry:', moodEntry);
+
+    res.status(200).json({ message: "Mood saved successfully", mood: moodEntry });
+  } catch (error) {
+    console.error("Error saving mood:", error);
+    res.status(500).json({ message: "Error saving mood", error: error.message });
+  }
 };
-  // Récupérer les humeurs d'un utilisateur
-  exports.getMoods = async (req, res) => {
-    const { userId } = req.params;
 
-    try {
-        // Vérifier si req.userId est défini
-        if (!req.userId) {
-            return res.status(401).json({ message: "Unauthorized: User not authenticated" });
-        }
+// Récupérer les humeurs d'un utilisateur
+exports.getMoods = async (req, res) => {
+  const { userId } = req.params;
 
-        // Vérifier si l'utilisateur dans le token correspond à l'userId
-        if (req.userId !== userId) {
-            return res.status(403).json({ message: "Unauthorized: User ID does not match" });
-        }
-
-        // Récupérer toutes les humeurs de l'utilisateur
-        const moods = await Mood.find({ userId })
-            .populate("activityId", "title")
-            .sort({ date: -1 });
-
-        res.status(200).json(moods);
-    } catch (error) {
-        console.error("Error fetching moods:", error);
-        res.status(500).json({ message: "Error fetching moods", error: error.message });
+  try {
+    // Vérifier si req.userId est défini
+    if (!req.userId) {
+      return res.status(401).json({ message: "Unauthorized: User not authenticated" });
     }
+
+    // Vérifier si l'utilisateur dans le token correspond à l'userId
+    if (req.userId !== userId) {
+      return res.status(403).json({ message: "Unauthorized: User ID does not match" });
+    }
+
+    // Récupérer toutes les humeurs de l'utilisateur
+    const moods = await Mood.find({ userId })
+      .populate("activityId", "title")
+      .sort({ date: -1 });
+
+    console.log('Fetched moods:', moods);
+
+    res.status(200).json(moods);
+  } catch (error) {
+    console.error("Error fetching moods:", error);
+    res.status(500).json({ message: "Error fetching moods", error: error.message });
+  }
 };
 
 // ✅ Récupérer les activités épinglées d'un utilisateur

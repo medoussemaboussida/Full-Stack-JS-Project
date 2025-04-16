@@ -20,6 +20,8 @@ const moodSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  weatherCode: { type: String, default: null }, // e.g., "01d"
+  temp: { type: Number, default: null }, // e.g., 20.5
 });
 
 module.exports = mongoose.model("Mood", moodSchema);
