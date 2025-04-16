@@ -252,7 +252,7 @@ const Chat = () => {
       return;
     }
   
-    const hfToken = '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'; // Hardcoding temporaire
+    //const hfToken = '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'; // Hardcoding temporaire
     // const hfToken = process.env.REACT_APP_HF_TOKEN; // Commentez cette ligne
   
     try {
