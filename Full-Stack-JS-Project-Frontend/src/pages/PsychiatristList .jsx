@@ -19,7 +19,26 @@ const PsychiatristList = () => {
     const [showCalendarModal, setShowCalendarModal] = useState(false);
     const [events, setEvents] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [appointments, setAppointments] = useState([]);
+    const [currentUserId, setCurrentUserId] = useState(null);
 
+    // Fetch current user ID
+    useEffect(() => {
+        const token = localStorage.getItem('jwt-token');
+        if (token) {
+            axios.get('http://localhost:5000/users/me', {
+                headers: { Authorization: `Bearer ${token}` },
+            })
+                .then(response => {
+                    setCurrentUserId(response.data._id);
+                })
+                .catch(error => {
+                    console.error('Error fetching user:', error);
+                });
+        }
+    }, []);
+
+    // Fetch psychiatrists
     useEffect(() => {
         axios.get('http://localhost:5000/users/psychiatrists', {
             headers: {
@@ -38,11 +57,32 @@ const PsychiatristList = () => {
             });
     }, []);
 
-    const formatAvailabilitiesToEvents = (availabilities) => {
+    // Fetch appointments for the selected psychiatrist
+    useEffect(() => {
+        if (selectedPsychiatrist) {
+            axios.get(`http://localhost:5000/users/appointments/psychiatrist/${selectedPsychiatrist._id}`, {
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem('jwt-token')}`,
+                },
+            })
+                .then(response => {
+                    setAppointments(response.data);
+                    const formattedEvents = formatAvailabilitiesToEvents(selectedPsychiatrist.availability, response.data);
+                    setEvents(formattedEvents);
+                })
+                .catch(error => {
+                    console.error('Error fetching appointments:', error);
+                    toast.error('Error fetching appointments: ' + error.message);
+                });
+        }
+    }, [selectedPsychiatrist]);
+
+    const formatAvailabilitiesToEvents = (availabilities, appointments = []) => {
         const eventsArray = [];
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Set to start of day for comparison
+        today.setHours(0, 0, 0, 0);
 
+        // Step 1: Generate events from availability (available slots)
         availabilities.forEach((slot, slotIndex) => {
             let startDate;
 
@@ -58,7 +98,6 @@ const PsychiatristList = () => {
                 startDate.setDate(currentDate.getDate() + daysToAdd);
             }
 
-            // Skip if the date is before today
             if (startDate < today) return;
 
             const startHour = parseInt(slot.startTime.split(':')[0]);
@@ -89,17 +128,84 @@ const PsychiatristList = () => {
                     eventEnd.setDate(eventEnd.getDate() + 1);
                 }
 
-                // Only add event if it starts on or after today
-                if (eventStart >= today) {
-                    eventsArray.push({
-                        id: `${slotIndex}-${time}`,
-                        title: slot.title || `Available - ${slot.day || new Date(slot.date).toLocaleDateString()}`,
-                        start: eventStart.toISOString(),
-                        end: eventEnd.toISOString(),
-                        extendedProps: { slotIndex, originalSlot: slot },
-                    });
+                if (eventStart < today) continue;
+
+                // Check if this slot is already booked by comparing with appointments
+                const matchingAppointment = appointments.find(apt => {
+                    const aptStart = new Date(apt.date);
+                    const [aptStartHour, aptStartMinute] = apt.startTime.split(':').map(Number);
+                    aptStart.setHours(aptStartHour, aptStartMinute, 0, 0);
+                    return aptStart.getTime() === eventStart.getTime();
+                });
+
+                if (matchingAppointment) {
+                    // Skip this slot since it will be handled by the appointments loop below
+                    continue;
                 }
+
+                const startTimeStr = eventStart.toTimeString().slice(0, 5);
+                const endTimeStr = eventEnd.toTimeString().slice(0, 5);
+                const title = `${startTimeStr} - ${endTimeStr} - Available`;
+
+                eventsArray.push({
+                    id: `avail-${slotIndex}-${time}`,
+                    title,
+                    start: eventStart.toISOString(),
+                    end: eventEnd.toISOString(),
+                    backgroundColor: '#3788d8', // Blue for available
+                    borderColor: '#3788d8',
+                    extendedProps: {
+                        slotIndex,
+                        originalSlot: slot,
+                        status: 'Available',
+                        studentId: null,
+                    },
+                });
             }
+        });
+
+        // Step 2: Generate events from appointments (booked slots)
+        appointments.forEach((appointment, aptIndex) => {
+            const eventStart = new Date(appointment.date);
+            const [startHour, startMinute] = appointment.startTime.split(':').map(Number);
+            eventStart.setHours(startHour, startMinute, 0, 0);
+
+            const eventEnd = new Date(appointment.date);
+            const [endHour, endMinute] = appointment.endTime.split(':').map(Number);
+            eventEnd.setHours(endHour, endMinute, 0, 0);
+
+            if (eventStart < today) return;
+
+            let status = appointment.status; // Use the status from the appointment
+            let backgroundColor = '#d3d3d3'; // Grey for booked/pending
+            let studentId = appointment.student;
+
+            // For the booking user, show the actual status; for others, show "Booked"
+            if (studentId !== currentUserId) {
+                status = 'Booked';
+            } else {
+                // Capitalize the status for display (e.g., "pending" → "Pending")
+                status = status.charAt(0).toUpperCase() + status.slice(1);
+            }
+
+            const startTimeStr = eventStart.toTimeString().slice(0, 5);
+            const endTimeStr = eventEnd.toTimeString().slice(0, 5);
+            const title = `${startTimeStr} - ${endTimeStr} - ${status}`;
+
+            eventsArray.push({
+                id: `apt-${aptIndex}`,
+                title,
+                start: eventStart.toISOString(),
+                end: eventEnd.toISOString(),
+                backgroundColor,
+                borderColor: backgroundColor,
+                extendedProps: {
+                    slotIndex: null,
+                    originalSlot: null,
+                    status,
+                    studentId,
+                },
+            });
         });
 
         return eventsArray;
@@ -107,14 +213,18 @@ const PsychiatristList = () => {
 
     const handleViewAvailability = (psychiatrist) => {
         setSelectedPsychiatrist(psychiatrist);
-        const formattedEvents = formatAvailabilitiesToEvents(psychiatrist.availability);
-        setEvents(formattedEvents);
         setShowCalendarModal(true);
     };
 
     const handleBookAppointment = async (eventInfo) => {
         if (!eventInfo) {
             toast.error('Please select an availability slot from the calendar!');
+            return;
+        }
+
+        const { status, studentId } = eventInfo.extendedProps;
+        if (status !== 'Available') {
+            toast.error('This slot is not available for booking!');
             return;
         }
 
@@ -154,17 +264,19 @@ const PsychiatristList = () => {
             );
 
             toast.success('Appointment booked successfully!');
-            const updatedAvailability = selectedPsychiatrist.availability.filter(
-                (_, index) => index !== eventInfo.extendedProps.slotIndex
-            );
+            // Update appointments state
+            setAppointments(prev => [...prev, response.data.appointment]);
+            // Update psychiatrists state with the new availability
             setPsychiatrists(prev =>
                 prev.map(psy =>
                     psy._id === selectedPsychiatrist._id
-                        ? { ...psy, availability: updatedAvailability }
+                        ? { ...psy, availability: response.data.updatedAvailability }
                         : psy
                 )
             );
-            setEvents(formatAvailabilitiesToEvents(updatedAvailability));
+            // Refresh events
+            const updatedEvents = formatAvailabilitiesToEvents(response.data.updatedAvailability, [...appointments, response.data.appointment]);
+            setEvents(updatedEvents);
         } catch (error) {
             toast.error(`Error booking appointment: ${error.response?.data?.message || error.message}`);
         }
@@ -333,7 +445,7 @@ const PsychiatristList = () => {
                             {selectedPsychiatrist.username}'s Availability
                         </h3>
                         <p style={{ textAlign: 'center', color: '#555', marginBottom: '20px' }}>
-                            Click an event to book a 30-minute appointment
+                            Click an available slot to book a 30-minute appointment
                         </p>
                         <FullCalendar
                             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -350,6 +462,21 @@ const PsychiatristList = () => {
                                 right: 'dayGridMonth,timeGridWeek,timeGridDay'
                             }}
                             selectable={false}
+                            eventContent={(eventInfo) => {
+                                return (
+                                    <div style={{
+                                        width: '100%',
+                                        height: '100%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '12px',
+                                        color: eventInfo.event.extendedProps.status === 'Available' ? 'white' : '#333',
+                                    }}>
+                                        {eventInfo.event.title}
+                                    </div>
+                                );
+                            }}
                         />
                         <button
                             onClick={() => setShowCalendarModal(false)}

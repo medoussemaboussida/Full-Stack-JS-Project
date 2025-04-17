@@ -2139,34 +2139,48 @@ const scheduleReminder = async (appointment, studentId) => {
   };
 
 
-
-
-module.exports.bookAppointment = async (req, res) => {
+  module.exports.bookAppointment = async (req, res) => {
     const { psychiatristId, date, startTime, endTime } = req.body;
     const studentId = req.userId;
 
     console.log('Request received:', { psychiatristId, date, startTime, endTime, studentId });
 
     try {
+        // Validate input fields
         if (!psychiatristId || !date || !startTime || !endTime) {
             return res.status(400).json({ message: 'All fields (psychiatristId, date, startTime, endTime) are required' });
         }
 
+        // Validate studentId from token
+        if (!studentId) {
+            return res.status(401).json({ message: 'Unauthorized: No user ID found' });
+        }
+
+        // Validate time format (HH:MM)
+        const timeRegex = /^\d{2}:\d{2}$/;
+        if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
+            return res.status(400).json({ message: 'Invalid time format. Use HH:MM' });
+        }
+
+        // Find psychiatrist and student
         const psychiatrist = await User.findById(psychiatristId);
-        if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
-            return res.status(404).json({ message: "Psychiatrist not found" });
+        if (!psychiatrist || psychiatrist.role !== 'psychiatrist') {
+            return res.status(404).json({ message: 'Psychiatrist not found' });
         }
 
         const student = await User.findById(studentId);
-        if (!student || student.role !== "student") {
-            return res.status(404).json({ message: "Student not found" });
+        if (!student || student.role !== 'student') {
+            return res.status(404).json({ message: 'Student not found' });
         }
 
-        // Parse the date (assuming "DD/MM/YYYY" format from frontend)
+        // Parse the date (expecting DD/MM/YYYY)
         const [day, month, year] = date.split('/').map(Number);
+        if (!day || !month || !year || isNaN(day) || isNaN(month) || isNaN(year)) {
+            return res.status(400).json({ message: 'Invalid date format. Use DD/MM/YYYY' });
+        }
         const parsedDate = new Date(year, month - 1, day);
         if (isNaN(parsedDate.getTime())) {
-            return res.status(400).json({ message: "Invalid date format. Use DD/MM/YYYY" });
+            return res.status(400).json({ message: 'Invalid date. Use DD/MM/YYYY' });
         }
 
         // Convert requested times to minutes for comparison
@@ -2175,9 +2189,22 @@ module.exports.bookAppointment = async (req, res) => {
         const requestedStartMinutes = startHour * 60 + startMinute;
         const requestedEndMinutes = endHour * 60 + endMinute;
 
+        // Validate time range
+        if (requestedEndMinutes <= requestedStartMinutes) {
+            return res.status(400).json({ message: 'End time must be after start time' });
+        }
+
         // Check if the requested slot falls within an available slot
         const slotIndex = psychiatrist.availability.findIndex(slot => {
-            const slotDate = new Date(slot.date || slot.day);
+            if (!slot.startTime || !slot.endTime || !slot.date) {
+                console.warn('Invalid slot:', slot);
+                return false;
+            }
+            const slotDate = new Date(slot.date);
+            if (isNaN(slotDate.getTime())) {
+                console.warn('Invalid slot date:', slot);
+                return false;
+            }
             const [slotStartHour, slotStartMinute] = slot.startTime.split(':').map(Number);
             const [slotEndHour, slotEndMinute] = slot.endTime.split(':').map(Number);
             const slotStartMinutes = slotStartHour * 60 + slotStartMinute;
@@ -2191,7 +2218,7 @@ module.exports.bookAppointment = async (req, res) => {
         });
 
         if (slotIndex === -1) {
-            return res.status(400).json({ message: "This slot is not available" });
+            return res.status(400).json({ message: 'This slot is not available' });
         }
 
         // Check for existing appointment
@@ -2212,6 +2239,7 @@ module.exports.bookAppointment = async (req, res) => {
             date: parsedDate,
             startTime,
             endTime,
+            status: 'pending',
         });
 
         // Update the availability: split the original slot if necessary
@@ -2240,28 +2268,69 @@ module.exports.bookAppointment = async (req, res) => {
             });
         }
 
-        // Save the appointment first to get its ID
+        // Save the appointment
         await appointment.save();
 
-        // Create a notification for the psychiatrist
+        // Create a notification
         const notification = new Notification({
-            userId: psychiatristId, // Changed from "user" to "userId"
+            userId: psychiatristId,
             message: `A new appointment has been booked by ${student.username || 'a student'} on ${parsedDate.toLocaleDateString()} from ${startTime} to ${endTime}.`,
-            type: 'new_appointment', // Required field, set to "new_appointment"
-            appointmentId: appointment._id, // Link to the appointment
-            read: false, // Default value, optional since schema sets it
+            type: 'new_appointment',
+            appointmentId: appointment._id,
+            read: false,
         });
 
-        // Save the psychiatrist's updated availability and the notification
+        // Save psychiatrist and notification
         await Promise.all([psychiatrist.save(), notification.save()]);
 
         res.status(201).json({
-            message: "Appointment booked successfully",
-            appointment,
+            message: 'Appointment booked successfully',
+            appointment: {
+                _id: appointment._id,
+                psychiatrist: appointment.psychiatrist,
+                student: appointment.student,
+                date: appointment.date,
+                startTime: appointment.startTime,
+                endTime: appointment.endTime,
+                status: appointment.status,
+            },
+            updatedAvailability: psychiatrist.availability,
         });
     } catch (error) {
-        console.error('Error in bookAppointment:', error);
-        res.status(500).json({ message: "Server error", error: error.message });
+        console.error('Error in bookAppointment:', error.stack);
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: 'Validation error', error: error.message });
+        }
+        if (error.code === 11000) {
+            return res.status(400).json({ message: 'This slot is already booked (duplicate key error)' });
+        }
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+module.exports.getAppointmentsByPsychiatrist = async (req, res) => {
+    const { psychiatristId } = req.params;
+
+    try {
+        // Validate psychiatristId
+        if (!psychiatristId) {
+            return res.status(400).json({ message: 'Psychiatrist ID is required' });
+        }
+
+        // Fetch appointments, optionally filter by status
+        const appointments = await Appointment.find({
+            psychiatrist: psychiatristId,
+            // Optional: Uncomment to filter out canceled/completed appointments
+            // status: { $in: ['pending', 'confirmed'] },
+        }).lean();
+
+        res.status(200).json(appointments);
+    } catch (error) {
+        console.error('Error fetching appointments:', error.stack);
+        if (error.name === 'CastError') {
+            return res.status(400).json({ message: 'Invalid psychiatrist ID' });
+        }
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
 // Récupérer l'historique des rendez-vous pour un étudiant

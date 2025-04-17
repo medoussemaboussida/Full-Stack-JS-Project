@@ -661,3 +661,24 @@
 .stats-button:hover {
   transform: scale(1.05);
 }
+.fc-event.booked {
+  background-color: #d3d3d3 !important;
+  border-color: #d3d3d3 !important;
+  color: #000000 !important;
+  cursor: not-allowed;
+}
+
+.fc-event.available {
+  background-color: #7da3ea !important;
+  border-color: #7da3ea !important;
+  color: #000000 !important;
+}
+.fc-event-main {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+}
+.fc-timegrid-event {
+  padding: 2px 4px;
+}
