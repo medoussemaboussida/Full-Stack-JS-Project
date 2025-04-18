@@ -2483,39 +2483,78 @@ module.exports.updateAppointmentStatus = async (req, res) => {
         await Notification.create({
           userId: studentId,
           message,
-          type: status, // e.g., "confirmed", "canceled"
+          type: status,
           appointmentId: appointment._id,
         });
   
-        // If status is "confirmed", send email and schedule reminder
+        // If status is "confirmed", send immediate confirmation email and schedule detailed email
         if (status === 'confirmed') {
           const studentEmail = appointment.student.email;
           const psychiatristEmail = appointment.psychiatrist.email;
-          const subject = "Your Appointment is Confirmed on EspritCare";
-          const htmlContent = `
+          
+          // Immediate confirmation email without chat code
+          const immediateSubject = "Your Appointment is Confirmed on EspritCare";
+          const immediateHtmlContent = `
             <h2>Your Appointment is Confirmed</h2>
-            <p>Hello ${appointment.student.username} and Dr. ${appointment.psychiatrist.username},</p>
-            <p>The appointment has been successfully confirmed.</p>
+            <p>Hello ${appointment.student.username},</p>
+            <p>Your appointment with Dr. ${appointment.psychiatrist.username} has been confirmed.</p>
+            <p>You will receive another email with the chat code and full details at the appointment start time.</p>
             <ul>
-              <li><strong>Date :</strong> ${new Date(appointment.date).toLocaleDateString()}</li>
-              <li><strong>Time :</strong> ${appointment.startTime} - ${appointment.endTime}</li>
-              <li><strong>Psychiatrist :</strong> ${appointment.psychiatrist.username}</li>
-              <li><strong>Student :</strong> ${appointment.student.username}</li>
+              <li><strong>Date:</strong> ${new Date(appointment.date).toLocaleDateString()}</li>
+              <li><strong>Time:</strong> ${appointment.startTime} - ${appointment.endTime}</li>
             </ul>
-            <p>Please make sure to be available on time.</p>
-            <p>Use this unique code to access the chat:</p>
-            <h3 style="text-align: center; background-color: #0ea5e6; color: white; padding: 10px; border-radius: 5px;">
-              ${chatCode}
-            </h3>
             <p>Thank you for using EspritCare!</p>
           `;
   
           try {
-            await Promise.all([
-              sendEmail(studentEmail, subject, htmlContent),
-              sendEmail(psychiatristEmail, subject, htmlContent),
-            ]);
-            console.log(`Emails sent to ${studentEmail} and ${psychiatristEmail} with code: ${chatCode}`);
+            await sendEmail(studentEmail, immediateSubject, immediateHtmlContent);
+            console.log(`Immediate confirmation email sent to ${studentEmail}`);
+  
+            // Schedule detailed email with chat code at start time
+            const detailedSubject = "Your Appointment Details and Chat Code";
+            const detailedHtmlContent = `
+              <h2>Your Appointment Starts Now</h2>
+              <p>Hello ${appointment.student.username} and Dr. ${appointment.psychiatrist.username},</p>
+              <p>Your appointment is starting now. Here are the details:</p>
+              <ul>
+                <li><strong>Date:</strong> ${new Date(appointment.date).toLocaleDateString()}</li>
+                <li><strong>Time:</strong> ${appointment.startTime} - ${appointment.endTime}</li>
+                <li><strong>Psychiatrist:</strong> ${appointment.psychiatrist.username}</li>
+                <li><strong>Student:</strong> ${appointment.student.username}</li>
+              </ul>
+              <p>Use this unique code to access the chat:</p>
+              <h3 style="text-align: center; background-color: #0ea5e6; color: white; padding: 10px; border-radius: 5px;">
+                ${chatCode}
+              </h3>
+              <p>Please make sure to be available now.</p>
+              <p>Thank you for using EspritCare!</p>
+            `;
+  
+            // Schedule the detailed email at appointment start time
+            const appointmentDateTime = new Date(`${appointment.date.toDateString()} ${appointment.startTime}`);
+            const now = new Date();
+            const delay = appointmentDateTime - now;
+  
+            if (delay > 0) {
+              setTimeout(async () => {
+                try {
+                  await Promise.all([
+                    sendEmail(studentEmail, detailedSubject, detailedHtmlContent),
+                    sendEmail(psychiatristEmail, detailedSubject, detailedHtmlContent),
+                  ]);
+                  console.log(`Detailed emails with chat code sent to ${studentEmail} and ${psychiatristEmail}`);
+                } catch (emailError) {
+                  console.error("Error sending detailed emails:", emailError);
+                }
+              }, delay);
+            } else {
+              // If appointment time is in the past, send immediately
+              await Promise.all([
+                sendEmail(studentEmail, detailedSubject, detailedHtmlContent),
+                sendEmail(psychiatristEmail, detailedSubject, detailedHtmlContent),
+              ]);
+              console.log(`Detailed emails with chat code sent immediately to ${studentEmail} and ${psychiatristEmail}`);
+            }
   
             // Schedule the 5-minute reminder
             scheduleReminder(appointment, studentId);
@@ -2530,7 +2569,7 @@ module.exports.updateAppointmentStatus = async (req, res) => {
       console.error('Error in updateAppointmentStatus:', error);
       res.status(500).json({ message: "Server error", error: error.message });
     }
-  };
+};
 
   module.exports.markNotificationAsRead = async (req, res) => {
     try {
