@@ -756,6 +756,26 @@ module.exports.updatePublication = (req, res) => {
     });
 };
 
+// Récupérer tous les tags uniques
+module.exports.getAllTags = async (req, res) => {
+    try {
+        const tags = await Publication.aggregate([
+            { $unwind: '$tag' }, // Décomposer le tableau de tags
+            { $group: { _id: '$tag' } }, // Grouper par tag unique
+            { $project: { _id: 0, tag: '$_id' } }, // Reformater pour retourner uniquement le tag
+            { $sort: { tag: 1 } }, // Trier par ordre alphabétique
+        ]);
+
+        // Extraire les tags dans un tableau et filtrer les valeurs vides
+        const uniqueTags = tags.map(item => item.tag).filter(tag => tag && tag.trim() !== '');
+
+        res.status(200).json(uniqueTags);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des tags:', error);
+        res.status(500).json({ message: 'Erreur serveur lors de la récupération des tags', error: error.message });
+    }
+};
+
 
 //ban
 module.exports.banUser = async (req, res) => {

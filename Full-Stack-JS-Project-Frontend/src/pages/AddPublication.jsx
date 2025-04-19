@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import EmojiPicker from 'emoji-picker-react';
@@ -32,6 +32,8 @@ function AddPublication() {
     const [showDescEmojiPicker, setShowDescEmojiPicker] = useState(false);
     const [isLoadingTags, setIsLoadingTags] = useState(false);
     const [isLoadingImage, setIsLoadingImage] = useState(false);
+    const [existingTags, setExistingTags] = useState([]);
+    const [showExistingTags, setShowExistingTags] = useState(false);
     const navigate = useNavigate();
 
     let CKEditorComponent, ClassicEditor;
@@ -42,6 +44,37 @@ function AddPublication() {
     } catch (error) {
         console.error('Failed to load CKEditor:', error);
     }
+
+    // Récupérer les tags existants depuis le backend
+    const fetchExistingTags = async () => {
+        try {
+            const token = localStorage.getItem('jwt-token');
+            if (!token) {
+                throw new Error('Vous devez être connecté pour récupérer les tags.');
+            }
+            const response = await fetch('http://localhost:5000/users/tags', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Erreur lors de la récupération des tags : ${errorData.message || 'Erreur inconnue'}`);
+            }
+            const tags = await response.json();
+            setExistingTags(tags);
+        } catch (error) {
+            console.error('Erreur lors de la récupération des tags existants:', error);
+            toast.error(`Erreur lors de la récupération des tags existants : ${error.message}`);
+        }
+    };
+
+    // Charger les tags au montage du composant
+    useEffect(() => {
+        fetchExistingTags();
+    }, []);
 
     // Fonction pour traduire le texte en anglais avec l'API de Groq
     const translateToEnglish = async (text) => {
@@ -201,6 +234,22 @@ function AddPublication() {
         }
     };
 
+    // Ajouter un tag existant
+    const addExistingTag = (tag) => {
+        const currentTags = formData.tags.filter(t => t.trim() !== '');
+        if (currentTags.includes(tag)) {
+            toast.info(`Tag "${tag}" is already selected.`);
+            return;
+        }
+        if (currentTags.length >= 5) {
+            toast.error('You cannot add more than 5 tags.');
+            return;
+        }
+        const newTags = [...currentTags, tag];
+        setFormData((prev) => ({ ...prev, tags: newTags }));
+        toast.success(`Tag "${tag}" Added.`);
+    };
+
     const calculateProgress = () => {
         let filledFields = 0;
         const totalFields = 5;
@@ -245,6 +294,11 @@ function AddPublication() {
     };
 
     const addTagField = () => {
+        const currentTags = formData.tags.filter(tag => tag.trim() !== '');
+        if (currentTags.length >= 5) {
+            toast.error('Vous ne pouvez pas ajouter plus de 5 tags.');
+            return;
+        }
         setFormData((prev) => ({ ...prev, tags: [...prev.tags, ''] }));
     };
 
@@ -616,6 +670,110 @@ function AddPublication() {
                                         </div>
 
                                         <h5>Tags {isLoadingTags ? ' - Loading...' : ''}</h5>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowExistingTags(!showExistingTags)}
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                background: showExistingTags ? '#ccc' : '#0ea5e6',
+                                                color: '#fff',
+                                                padding: '10px 20px',
+                                                borderRadius: '8px',
+                                                border: 'none',
+                                                fontSize: '16px',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                boxShadow: '0 4px 12px rgba(14, 165, 230, 0.3)',
+                                                transition: 'all 0.3s ease',
+                                                gap: '8px',
+                                                marginBottom: '15px',
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!showExistingTags) {
+                                                    e.target.style.background = '#0c84b8';
+                                                    e.target.style.transform = 'scale(1.05)';
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (!showExistingTags) {
+                                                    e.target.style.background = '#0ea5e6';
+                                                    e.target.style.transform = 'scale(1)';
+                                                }
+                                            }}
+                                        >
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width="20"
+                                                height="20"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            >
+                                                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                                                <line x1="4" y1="22" x2="4" y2="15" />
+                                            </svg>
+                                            {showExistingTags ? 'Hide existing tags' : 'Show existing tags'}
+                                        </button>
+                                        {showExistingTags && (
+                                            <div
+                                                style={{
+                                                    maxHeight: '150px',
+                                                    overflowY: 'auto',
+                                                    background: '#f9f9f9',
+                                                    borderRadius: '8px',
+                                                    padding: '10px',
+                                                    border: '1px solid #ddd',
+                                                    marginBottom: '15px',
+                                                    display: 'flex',
+                                                    flexWrap: 'wrap',
+                                                    gap: '8px',
+                                                }}
+                                            >
+                                                {existingTags.length > 0 ? (
+                                                    existingTags.map((tag, index) => (
+                                                        <button
+                                                            key={index}
+                                                            type="button"
+                                                            onClick={() => addExistingTag(tag)}
+                                                            style={{
+                                                                background: formData.tags.includes(tag) ? '#6b48ff' : '#e0e0e0',
+                                                                color: formData.tags.includes(tag) ? '#fff' : '#333',
+                                                                padding: '8px 12px',
+                                                                borderRadius: '20px',
+                                                                border: 'none',
+                                                                fontSize: '14px',
+                                                                fontWeight: '500',
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.3s ease',
+                                                                boxShadow: formData.tags.includes(tag)
+                                                                    ? '0 2px 8px rgba(107, 72, 255, 0.3)'
+                                                                    : 'none',
+                                                            }}
+                                                            onMouseEnter={(e) => {
+                                                                if (!formData.tags.includes(tag)) {
+                                                                    e.target.style.background = '#d0d0d0';
+                                                                    e.target.style.transform = 'scale(1.05)';
+                                                                }
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                if (!formData.tags.includes(tag)) {
+                                                                    e.target.style.background = '#e0e0e0';
+                                                                    e.target.style.transform = 'scale(1)';
+                                                                }
+                                                            }}
+                                                        >
+                                                            {tag}
+                                                        </button>
+                                                    ))
+                                                ) : (
+                                                    <p style={{ color: '#888', fontSize: '14px' }}>Aucun tag existant trouvé.</p>
+                                                )}
+                                            </div>
+                                        )}
                                         {formData.tags.map((tag, index) => (
                                             <div key={index} style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
                                                 <input
