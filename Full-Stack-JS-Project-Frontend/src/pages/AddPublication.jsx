@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import EmojiPicker from 'emoji-picker-react';
@@ -31,6 +31,7 @@ function AddPublication() {
     const [showTitleEmojiPicker, setShowTitleEmojiPicker] = useState(false);
     const [showDescEmojiPicker, setShowDescEmojiPicker] = useState(false);
     const [isLoadingTags, setIsLoadingTags] = useState(false);
+    const [isLoadingImage, setIsLoadingImage] = useState(false);
     const navigate = useNavigate();
 
     let CKEditorComponent, ClassicEditor;
@@ -42,11 +43,46 @@ function AddPublication() {
         console.error('Failed to load CKEditor:', error);
     }
 
+    // Fonction pour traduire le texte en anglais avec l'API de Groq
+    const translateToEnglish = async (text) => {
+        try {
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer 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',
+                },
+                body: JSON.stringify({
+                    model: 'llama-3.3-70b-versatile',
+                    messages: [
+                        {
+                            role: 'user',
+                            content: `Traduisez ce texte du français vers l'anglais : "${text}". Retourne uniquement la traduction, sans texte supplémentaire.`,
+                        },
+                    ],
+                    max_tokens: 200,
+                    temperature: 0.5,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Erreur API Groq : ${errorData.error?.message || 'Erreur inconnue'}`);
+            }
+
+            const data = await response.json();
+            return data.choices[0].message.content.trim();
+        } catch (error) {
+            console.error('Erreur lors de la traduction:', error);
+            throw new Error(`Erreur lors de la traduction : ${error.message}`);
+        }
+    };
+
     // Fonction pour générer des tags avec l'API de Groq
     const generateTagsFromDescription = async () => {
         if (!formData.description || formData.description.trim() === '') {
-            toast.error('Veuillez entrer une description pour générer des tags.');
-            return [''];
+            toast.error('Please enter a description to generate tags.');
+            return;
         }
 
         const plainText = formData.description.replace(/<[^>]+>/g, '').trim();
@@ -93,6 +129,75 @@ function AddPublication() {
             setFormData((prev) => ({ ...prev, tags: [''] }));
         } finally {
             setIsLoadingTags(false);
+        }
+    };
+
+    // Fonction pour générer une image avec l'API de Stability AI
+    const generateImageFromDescription = async () => {
+        if (!formData.description || formData.description.trim() === '') {
+            toast.error('Please enter a description to generate an image.');
+            return;
+        }
+
+        const plainText = formData.description.replace(/<[^>]+>/g, '').trim();
+        const prompt = plainText.slice(0, 200); // Limiter à 200 caractères pour éviter des prompts trop longs
+
+        try {
+            setIsLoadingImage(true);
+            toast.info('Translation of the description into English');
+
+            // Traduire le prompt en anglais
+            const translatedPrompt = await translateToEnglish(prompt);
+
+            // Requête à l'API de Stability AI
+            const response = await fetch('https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer sk-nnlzUOu4LBf5acAo4HYKFWITeBn9Gs7Y1nIxROiTQ03Uu3JN',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    text_prompts: [
+                        {
+                            text: `A realistic image based on this description: ${translatedPrompt}`,
+                            weight: 1,
+                        },
+                    ],
+                    cfg_scale: 7, // Contrôle la fidélité au prompt
+                    height: 768, // Hauteur de l'image (dimension autorisée)
+                    width: 1344, // Largeur de l'image (dimension autorisée)
+                    steps: 30, // Nombre d'itérations pour la génération
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Erreur API Stability AI : ${errorData.message || 'Erreur inconnue'}`);
+            }
+
+            const data = await response.json();
+            const imageBase64 = data.artifacts[0].base64; // L'image est retournée en base64
+
+            // Convertir l'image base64 en fichier
+            const byteCharacters = atob(imageBase64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const imageBlob = new Blob([byteArray], { type: 'image/png' });
+            const imageFile = new File([imageBlob], 'generated-image.png', { type: 'image/png' });
+
+            // Mettre à jour l'état
+            setFormData((prev) => ({ ...prev, imagePublication: imageFile }));
+            setPreviewImage(URL.createObjectURL(imageFile));
+            toast.success('Image successfully generated via Stability AI !');
+        } catch (error) {
+            console.error('Erreur lors de la génération de l’image:', error);
+            toast.error(`Erreur lors de la génération de l’image : ${error.message}`);
+        } finally {
+            setIsLoadingImage(false);
         }
     };
 
@@ -408,59 +513,109 @@ function AddPublication() {
                                                     )}
                                                 </>
                                             )}
-                                            <button
-                                                type="button"
-                                                onClick={generateTagsFromDescription}
-                                                disabled={isLoadingTags}
-                                                style={{
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    background: isLoadingTags ? '#ccc' : '#6b48ff',
-                                                    color: '#fff',
-                                                    padding: '10px 20px',
-                                                    borderRadius: '8px',
-                                                    border: 'none',
-                                                    fontSize: '16px',
-                                                    fontWeight: '600',
-                                                    cursor: isLoadingTags ? 'not-allowed' : 'pointer',
-                                                    marginTop: '10px',
-                                                    boxShadow: '0 4px 12px rgba(107, 72, 255, 0.3)',
-                                                    transition: 'all 0.3s ease',
-                                                    gap: '8px',
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    if (!isLoadingTags) {
-                                                        e.target.style.background = '#5439cc';
-                                                        e.target.style.transform = 'scale(1.05)';
-                                                    }
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    if (!isLoadingTags) {
-                                                        e.target.style.background = '#6b48ff';
-                                                        e.target.style.transform = 'scale(1)';
-                                                    }
-                                                }}
-                                            >
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    width="20"
-                                                    height="20"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    strokeWidth="2"
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
+                                            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={generateTagsFromDescription}
+                                                    disabled={isLoadingTags}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        background: isLoadingTags ? '#ccc' : '#6b48ff',
+                                                        color: '#fff',
+                                                        padding: '10px 20px',
+                                                        borderRadius: '8px',
+                                                        border: 'none',
+                                                        fontSize: '16px',
+                                                        fontWeight: '600',
+                                                        cursor: isLoadingTags ? 'not-allowed' : 'pointer',
+                                                        boxShadow: '0 4px 12px rgba(107, 72, 255, 0.3)',
+                                                        transition: 'all 0.3s ease',
+                                                        gap: '8px',
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        if (!isLoadingTags) {
+                                                            e.target.style.background = '#5439cc';
+                                                            e.target.style.transform = 'scale(1.05)';
+                                                        }
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        if (!isLoadingTags) {
+                                                            e.target.style.background = '#6b48ff';
+                                                            e.target.style.transform = 'scale(1)';
+                                                        }
+                                                    }}
                                                 >
-                                                    <path d="M12 2a10 10 0 0 1 10 10 10 10 0 0 1-10 10 10 10 0 0 1-10-10 10 10 0 0 1 10-10z" />
-                                                    <path d="M12 8v8" />
-                                                    <path d="M8 12h8" />
-                                                </svg>
-                                                {isLoadingTags ? 'Génération...' : 'Générer les tags avec IA'}
-                                            </button>
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        width="20"
+                                                        height="20"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        strokeWidth="2"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                    >
+                                                        <path d="M12 2a10 10 0 0 1 10 10 10 10 0 0 1-10 10 10 10 0 0 1-10-10 10 10 0 0 1 10-10z" />
+                                                        <path d="M12 8v8" />
+                                                        <path d="M8 12h8" />
+                                                    </svg>
+                                                    {isLoadingTags ? 'Génération...' : 'Generate tags using AI'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={generateImageFromDescription}
+                                                    disabled={isLoadingImage}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        background: isLoadingImage ? '#ccc' : '#ff6f61',
+                                                        color: '#fff',
+                                                        padding: '10px 20px',
+                                                        borderRadius: '8px',
+                                                        border: 'none',
+                                                        fontSize: '16px',
+                                                        fontWeight: '600',
+                                                        cursor: isLoadingImage ? 'not-allowed' : 'pointer',
+                                                        boxShadow: '0 4px 12px rgba(255, 111, 97, 0.3)',
+                                                        transition: 'all 0.3s ease',
+                                                        gap: '8px',
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        if (!isLoadingImage) {
+                                                            e.target.style.background = '#e55a4f';
+                                                            e.target.style.transform = 'scale(1.05)';
+                                                        }
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        if (!isLoadingImage) {
+                                                            e.target.style.background = '#ff6f61';
+                                                            e.target.style.transform = 'scale(1)';
+                                                        }
+                                                    }}
+                                                >
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        width="20"
+                                                        height="20"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        strokeWidth="2"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                    >
+                                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                                        <circle cx="8.5" cy="8.5" r="1.5" />
+                                                        <polyline points="21 15 16 10 5 21" />
+                                                    </svg>
+                                                    {isLoadingImage ? 'Loading...' : 'Get an image using AI'}
+                                                </button>
+                                            </div>
                                         </div>
 
-                                        <h5>Tags {isLoadingTags ? ' - Chargement...' : ''}</h5>
+                                        <h5>Tags {isLoadingTags ? ' - Loading...' : ''}</h5>
                                         {formData.tags.map((tag, index) => (
                                             <div key={index} style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
                                                 <input
@@ -682,16 +837,16 @@ function AddPublication() {
                                     </div>
                                     <button
                                         type="submit"
-                                        disabled={isSubmitting || isLoadingTags}
+                                        disabled={isSubmitting || isLoadingTags || isLoadingImage}
                                         style={{
-                                            background: isSubmitting || isLoadingTags ? '#ccc' : '#0ea5e6',
+                                            background: isSubmitting || isLoadingTags || isLoadingImage ? '#ccc' : '#0ea5e6',
                                             color: '#fff',
                                             padding: '12px 24px',
                                             borderRadius: '5px',
                                             border: 'none',
                                             fontSize: '16px',
                                             fontWeight: '600',
-                                            cursor: isSubmitting || isLoadingTags ? 'not-allowed' : 'pointer',
+                                            cursor: isSubmitting || isLoadingTags || isLoadingImage ? 'not-allowed' : 'pointer',
                                         }}
                                     >
                                         {isSubmitting ? 'Submitting...' : 'Submit Publication'}
