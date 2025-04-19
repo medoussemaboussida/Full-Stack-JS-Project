@@ -32,6 +32,7 @@ function AddPublication() {
     const [showDescEmojiPicker, setShowDescEmojiPicker] = useState(false);
     const [isLoadingTags, setIsLoadingTags] = useState(false);
     const [isLoadingImage, setIsLoadingImage] = useState(false);
+    const [isCorrecting, setIsCorrecting] = useState(false); // Nouvel état pour la correction
     const [existingTags, setExistingTags] = useState([]);
     const [showExistingTags, setShowExistingTags] = useState(false);
     const navigate = useNavigate();
@@ -108,6 +109,53 @@ function AddPublication() {
         } catch (error) {
             console.error('Erreur lors de la traduction:', error);
             throw new Error(`Erreur lors de la traduction : ${error.message}`);
+        }
+    };
+
+    // Fonction pour corriger les fautes dans la description avec l'API de Groq
+    const correctDescription = async () => {
+        if (!formData.description || formData.description.trim() === '') {
+            toast.error('Please enter a description to correct the mistakes.');
+            return;
+        }
+
+        const plainText = formData.description.replace(/<[^>]+>/g, '').trim();
+
+        try {
+            setIsCorrecting(true);
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer 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',
+                },
+                body: JSON.stringify({
+                    model: 'llama-3.3-70b-versatile',
+                    messages: [
+                        {
+                            role: 'user',
+                            content: `Corrigez les fautes d'orthographe, de grammaire et de ponctuation dans ce texte en français, et améliorez sa clarté si nécessaire. Retournez uniquement le texte corrigé, sans explication ni texte supplémentaire : "${plainText}"`,
+                        },
+                    ],
+                    max_tokens: 1000,
+                    temperature: 0.3,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Erreur API Groq : ${errorData.error?.message || 'Erreur inconnue'}`);
+            }
+
+            const data = await response.json();
+            const correctedText = data.choices[0].message.content.trim();
+            setFormData((prev) => ({ ...prev, description: correctedText }));
+            toast.success('Description corrigée avec succès !');
+        } catch (error) {
+            console.error('Erreur lors de la correction de la description:', error);
+            toast.error(`Erreur lors de la correction : ${error.message}`);
+        } finally {
+            setIsCorrecting(false);
         }
     };
 
@@ -665,6 +713,53 @@ function AddPublication() {
                                                         <polyline points="21 15 16 10 5 21" />
                                                     </svg>
                                                     {isLoadingImage ? 'Loading...' : 'Get an image using AI'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={correctDescription}
+                                                    disabled={isCorrecting}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        background: isCorrecting ? '#ccc' : '#10b981',
+                                                        color: '#fff',
+                                                        padding: '10px 20px',
+                                                        borderRadius: '8px',
+                                                        border: 'none',
+                                                        fontSize: '16px',
+                                                        fontWeight: '600',
+                                                        cursor: isCorrecting ? 'not-allowed' : 'pointer',
+                                                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                                                        transition: 'all 0.3s ease',
+                                                        gap: '8px',
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        if (!isCorrecting) {
+                                                            e.target.style.background = '#0d9488';
+                                                            e.target.style.transform = 'scale(1.05)';
+                                                        }
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        if (!isCorrecting) {
+                                                            e.target.style.background = '#10b981';
+                                                            e.target.style.transform = 'scale(1)';
+                                                        }
+                                                    }}
+                                                >
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        width="20"
+                                                        height="20"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        strokeWidth="2"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                    >
+                                                        <path d="M20 6L9 17l-5-5" />
+                                                    </svg>
+                                                    {isCorrecting ? 'Correct...' : 'Correct the description'}
                                                 </button>
                                             </div>
                                         </div>
