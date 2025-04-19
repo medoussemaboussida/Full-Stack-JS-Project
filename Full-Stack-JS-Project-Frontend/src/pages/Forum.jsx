@@ -1601,8 +1601,8 @@ function Forum() {
         <div
           style={{
             position: "fixed",
-            bottom: "20px",
-            right: "20px",
+            bottom: "18px",
+            right: "160px",
             zIndex: 1000,
             cursor: "pointer",
           }}
@@ -2120,7 +2120,7 @@ function Forum() {
                           </p>
                         ) : (
                           <p style={{ margin: 0, fontWeight: "bold" }}>
-                            {comment.user_id.username}
+                            {comment.user_id.username} &nbsp;
                             <span
                               className="badge"
                               style={{
@@ -2141,17 +2141,36 @@ function Forum() {
                                 className="badge"
                                 style={{
                                   marginLeft: "10px",
-                                  backgroundColor:
+                                  backgroundColor: "transparent",
+                                  border: `1px solid ${
                                     commentSentiments[comment._id] ===
                                     "POSITIVE"
-                                      ? "green"
+                                      ? "#28a745" // Vert pour POSITIVE
                                       : commentSentiments[comment._id] ===
                                         "NEGATIVE"
-                                      ? "red"
-                                      : "gray",
-                                  color: "white",
+                                      ? "#dc3545" // Rouge pour NEGATIVE
+                                      : "#6c757d" // Gris pour NEUTRAL
+                                  }`,
+                                  color: `${
+                                    commentSentiments[comment._id] ===
+                                    "POSITIVE"
+                                      ? "#28a745"
+                                      : commentSentiments[comment._id] ===
+                                        "NEGATIVE"
+                                      ? "#dc3545"
+                                      : "#6c757d"
+                                  }`,
                                   padding: "2px 8px",
                                   borderRadius: "20px",
+                                  boxShadow: `0 0 10px ${
+                                    commentSentiments[comment._id] ===
+                                    "POSITIVE"
+                                      ? "rgba(40, 167, 69, 0.5)" // Lueur verte
+                                      : commentSentiments[comment._id] ===
+                                        "NEGATIVE"
+                                      ? "rgba(220, 53, 69, 0.5)" // Lueur rouge
+                                      : "rgba(108, 117, 125, 0.5)" // Lueur grise
+                                  }`,
                                   fontSize: "0.875rem",
                                 }}
                               >
@@ -2631,7 +2650,7 @@ function Forum() {
       <div
         style={{
           position: "fixed",
-          bottom: "20px",
+          bottom: "18px",
           right: "90px",
           zIndex: 1000,
           cursor: "pointer",
