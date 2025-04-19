@@ -2,7 +2,13 @@ import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSearch, faEdit, faTrashAlt, faComment, faBell } from "@fortawesome/free-solid-svg-icons";
+import {
+  faSearch,
+  faEdit,
+  faTrashAlt,
+  faComment,
+  faBell,
+} from "@fortawesome/free-solid-svg-icons";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
 import { CKEditor } from "@ckeditor/ckeditor5-react";
@@ -39,7 +45,11 @@ const parseHTMLToJSX = (htmlString) => {
 
     switch (node.tagName.toLowerCase()) {
       case "p":
-        return <p key={index} style={{ margin: "0 0 10px 0" }}>{children}</p>;
+        return (
+          <p key={index} style={{ margin: "0 0 10px 0" }}>
+            {children}
+          </p>
+        );
       case "ul":
         return (
           <ul
@@ -67,12 +77,20 @@ const parseHTMLToJSX = (htmlString) => {
           </ol>
         );
       case "li":
-        return <li key={index} style={{ margin: "0 0 5px 0" }}>{children}</li>;
+        return (
+          <li key={index} style={{ margin: "0 0 5px 0" }}>
+            {children}
+          </li>
+        );
       case "h1":
         return (
           <h1
             key={index}
-            style={{ fontSize: "2em", fontWeight: "bold", margin: "0 0 10px 0" }}
+            style={{
+              fontSize: "2em",
+              fontWeight: "bold",
+              margin: "0 0 10px 0",
+            }}
           >
             {children}
           </h1>
@@ -81,7 +99,11 @@ const parseHTMLToJSX = (htmlString) => {
         return (
           <h2
             key={index}
-            style={{ fontSize: "1.5em", fontWeight: "bold", margin: "0 0 10px 0" }}
+            style={{
+              fontSize: "1.5em",
+              fontWeight: "bold",
+              margin: "0 0 10px 0",
+            }}
           >
             {children}
           </h2>
@@ -90,7 +112,11 @@ const parseHTMLToJSX = (htmlString) => {
         return (
           <h3
             key={index}
-            style={{ fontSize: "1.17em", fontWeight: "bold", margin: "0 0 10px 0" }}
+            style={{
+              fontSize: "1.17em",
+              fontWeight: "bold",
+              margin: "0 0 10px 0",
+            }}
           >
             {children}
           </h3>
@@ -143,6 +169,7 @@ function Complaint() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [sortOption, setSortOption] = useState("newest");
+  const [showComplaintRulesModal, setShowComplaintRulesModal] = useState(false);
   const navigate = useNavigate();
   const chatEndRef = useRef(null);
 
@@ -251,7 +278,9 @@ function Complaint() {
         );
 
         // Vérifier les suppressions
-        const currentComplaintIds = complaints.map((complaint) => complaint._id);
+        const currentComplaintIds = complaints.map(
+          (complaint) => complaint._id
+        );
         const newComplaintIds = data.map((complaint) => complaint._id);
         const deletedComplaints = complaints.filter(
           (complaint) => !newComplaintIds.includes(complaint._id)
@@ -342,7 +371,9 @@ function Complaint() {
   }, [responses]);
 
   // Calculer le nombre de notifications non lues
-  const unreadNotificationsCount = notifications.filter((notif) => !notif.read).length;
+  const unreadNotificationsCount = notifications.filter(
+    (notif) => !notif.read
+  ).length;
 
   // Fonctions utilitaires
   const toggleSearch = () => {
@@ -382,11 +413,15 @@ function Complaint() {
         throw new Error(`Erreur HTTP: ${response.status}`);
       }
 
-      setComplaints(complaints.filter((complaint) => complaint._id !== complaintId));
+      setComplaints(
+        complaints.filter((complaint) => complaint._id !== complaintId)
+      );
       setShowDeleteModal(false);
       toast.success("Complaint deleted successfully!");
 
-      const deletedComplaint = complaints.find((complaint) => complaint._id === complaintId);
+      const deletedComplaint = complaints.find(
+        (complaint) => complaint._id === complaintId
+      );
       if (deletedComplaint) {
         addNotification(
           userId,
@@ -429,7 +464,11 @@ function Complaint() {
       setComplaints(
         complaints.map((complaint) =>
           complaint._id === complaintId
-            ? { ...complaint, subject: updatedSubject, description: updatedDescription }
+            ? {
+                ...complaint,
+                subject: updatedSubject,
+                description: updatedDescription,
+              }
             : complaint
         )
       );
@@ -454,7 +493,11 @@ function Complaint() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(`Erreur HTTP: ${response.status} - ${errorData.message || "Unknown error"}`);
+        throw new Error(
+          `Erreur HTTP: ${response.status} - ${
+            errorData.message || "Unknown error"
+          }`
+        );
       }
 
       return await response.json();
@@ -512,7 +555,11 @@ function Complaint() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(`Erreur HTTP: ${response.status} - ${errorData.message || "Unknown error"}`);
+        throw new Error(
+          `Erreur HTTP: ${response.status} - ${
+            errorData.message || "Unknown error"
+          }`
+        );
       }
 
       const newResponseData = await response.json();
@@ -544,7 +591,10 @@ function Complaint() {
     const isToday = now.toDateString() === messageDate.toDateString();
 
     if (isToday) {
-      return messageDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+      return messageDate.toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
     } else {
       return messageDate.toLocaleString("fr-FR", {
         day: "2-digit",
@@ -702,7 +752,7 @@ function Complaint() {
           style={{
             position: "fixed",
             bottom: "20px",
-            right: "20px",
+            right: "90px",
             zIndex: 1000,
             cursor: "pointer",
           }}
@@ -712,21 +762,23 @@ function Complaint() {
             style={{
               backgroundColor: "#007bff",
               borderRadius: "50%",
-              width: "60px",
-              height: "60px",
+              width: "50px",
+              height: "50px",
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
               boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
               transition: "transform 0.3s ease",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.transform = "scale(1.1)")
+            }
             onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
           >
             <FontAwesomeIcon
               icon={faBell}
               style={{
-                fontSize: "24px",
+                fontSize: "22px",
                 color: "white",
               }}
             />
@@ -739,8 +791,8 @@ function Complaint() {
                   backgroundColor: "red",
                   color: "white",
                   borderRadius: "50%",
-                  padding: "5px 8px",
-                  fontSize: "12px",
+                  padding: "5px 10px",
+                  fontSize: "10px",
                   fontWeight: "bold",
                 }}
               >
@@ -768,7 +820,10 @@ function Complaint() {
         </div>
 
         <div className="complaint-area py-100">
-          <div className="container" style={{ maxWidth: "800px", margin: "0 auto" }}>
+          <div
+            className="container"
+            style={{ maxWidth: "800px", margin: "0 auto" }}
+          >
             <div className="complaint-header d-flex justify-content-between align-items-center mb-4">
               <div
                 style={{
@@ -859,7 +914,38 @@ function Complaint() {
                 </button>
               </div>
             </div>
-
+            <div
+              style={{
+                position: "fixed",
+                bottom: "18px",
+                left: "20px", // Positionné à gauche, comme dans le forum
+                zIndex: 1000,
+                cursor: "pointer",
+              }}
+              onClick={() => setShowComplaintRulesModal(true)}
+            >
+              <div
+                style={{
+                  backgroundColor: "#ff9800", // Orange pour se démarquer
+                  borderRadius: "50%",
+                  width: "60px",
+                  height: "60px",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+                  transition: "transform 0.3s ease",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.transform = "scale(1.1)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.transform = "scale(1)")
+                }
+              >
+                <span style={{ fontSize: "24px", color: "white" }}>❓</span>
+              </div>
+            </div>
             <div
               className="complaint-list"
               style={{
@@ -926,13 +1012,16 @@ function Complaint() {
                       <div className="text-muted" style={{ fontSize: "14px" }}>
                         <p style={{ margin: 0 }}>
                           Posted at:{" "}
-                          {new Date(complaint.createdAt).toLocaleString("fr-FR", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {new Date(complaint.createdAt).toLocaleString(
+                            "fr-FR",
+                            {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}
                         </p>
                         <p style={{ margin: "0" }}>
                           Status: {complaint.status || "Unknown"}
@@ -1021,13 +1110,28 @@ function Complaint() {
               boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center", color: "#333" }}>
+            <h3
+              style={{
+                marginBottom: "20px",
+                textAlign: "center",
+                color: "#333",
+              }}
+            >
               Confirm Deletion
             </h3>
-            <p style={{ marginBottom: "20px", textAlign: "center", color: "#666" }}>
-              Are you sure you want to delete this complaint? This action cannot be undone.
+            <p
+              style={{
+                marginBottom: "20px",
+                textAlign: "center",
+                color: "#666",
+              }}
+            >
+              Are you sure you want to delete this complaint? This action cannot
+              be undone.
             </p>
-            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+            <div
+              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+            >
               <button
                 onClick={() => setShowDeleteModal(false)}
                 style={{
@@ -1084,11 +1188,23 @@ function Complaint() {
               boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center", color: "#333" }}>
+            <h3
+              style={{
+                marginBottom: "20px",
+                textAlign: "center",
+                color: "#333",
+              }}
+            >
               Update Complaint
             </h3>
             <div style={{ marginBottom: "15px" }}>
-              <label style={{ color: "black", display: "block", marginBottom: "5px" }}>
+              <label
+                style={{
+                  color: "black",
+                  display: "block",
+                  marginBottom: "5px",
+                }}
+              >
                 Subject:
               </label>
               <input
@@ -1105,7 +1221,13 @@ function Complaint() {
               />
             </div>
             <div style={{ marginBottom: "15px" }}>
-              <label style={{ color: "black", display: "block", marginBottom: "5px" }}>
+              <label
+                style={{
+                  color: "black",
+                  display: "block",
+                  marginBottom: "5px",
+                }}
+              >
                 Description:
               </label>
               <CKEditor
@@ -1131,7 +1253,9 @@ function Complaint() {
                 }}
               />
             </div>
-            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+            <div
+              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+            >
               <button
                 onClick={() => setShowUpdateModal(false)}
                 style={{
@@ -1218,7 +1342,9 @@ function Complaint() {
                         {response.user_id._id === userId ? "You" : "Admin"}
                       </p>
                       <p>{response.content}</p>
-                      <p className="timestamp">{formatMessageTime(response.createdAt)}</p>
+                      <p className="timestamp">
+                        {formatMessageTime(response.createdAt)}
+                      </p>
                     </div>
                   </div>
                 ))
@@ -1391,7 +1517,9 @@ function Complaint() {
                     </div>
                   ))
               ) : (
-                <p style={{ textAlign: "center" }}>No notifications available.</p>
+                <p style={{ textAlign: "center" }}>
+                  No notifications available.
+                </p>
               )}
             </div>
             <div
@@ -1404,6 +1532,97 @@ function Complaint() {
             >
               <button
                 onClick={() => setShowNotificationsModal(false)}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showComplaintRulesModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "500px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+              Complaint Guidelines 📜
+            </h3>
+            <ul
+              style={{
+                listStyleType: "none",
+                padding: 0,
+                marginBottom: "20px",
+                fontSize: "16px",
+                color: "#333",
+              }}
+            >
+              <li style={{ marginBottom: "10px" }}>
+                <span role="img" aria-label="memo">
+                  📝
+                </span>{" "}
+                Complaints allow you to report issues or concerns within the
+                platform.
+              </li>
+              <li style={{ marginBottom: "10px" }}>
+                <span role="img" aria-label="clock">
+                  ⏰
+                </span>{" "}
+                An admin will review and respond to your complaint as soon as
+                possible.
+              </li>
+              <li style={{ marginBottom: "10px" }}>
+                <span role="img" aria-label="robot">
+                  🤖
+                </span>{" "}
+                Use the chatbot Gemini to help you draft and submit a new
+                complaint easily.
+              </li>
+              <li style={{ marginBottom: "10px" }}>
+                <span role="img" aria-label="check">
+                  ✅
+                </span>{" "}
+                Track the status of your complaint (Pending, Resolved, Rejected)
+                in real-time.
+              </li>
+              <li>
+                <span role="img" aria-label="envelope">
+                  ✉️
+                </span>{" "}
+                You'll receive notifications when an admin responds or updates
+                your complaint.
+              </li>
+            </ul>
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <button
+                onClick={() => setShowComplaintRulesModal(false)}
                 style={{
                   backgroundColor: "#f44336",
                   color: "white",
