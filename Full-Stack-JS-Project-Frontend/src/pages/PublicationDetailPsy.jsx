@@ -202,7 +202,7 @@ function PublicationDetailPsy() {
             const result = await response.json();
             if (response.ok) {
                 setCommentaires(commentaires.map(c => 
-                    c._id === commentId ? { ...c, contenu: editCommentContent } : c
+                    c._id === commentId ? { ...c, contenu: editCommentContent, sentiment: result.commentaire.sentiment } : c
                 ));
                 setEditCommentId(null);
                 setEditCommentContent('');
@@ -595,7 +595,27 @@ function PublicationDetailPsy() {
                                                                     style={{ width: '50px', height: '50px', borderRadius: '50%' }}
                                                                 />
                                                                 <div className="blog-comment-content">
-                                                                    <h5>{comment.isAnonymous ? 'Anonymous' : (comment.auteur_id?.username || 'Unknown')}</h5>
+                                                                    <h5>
+                                                                        {comment.isAnonymous ? 'Anonymous' : (comment.auteur_id?.username || 'Unknown')}
+                                                                        {userRole === 'psychiatrist' && comment.sentiment && (
+                                                                            <span
+                                                                                className="sentiment-badge"
+                                                                                style={{
+                                                                                    marginLeft: '10px',
+                                                                                    padding: '3px 10px',
+                                                                                    borderRadius: '15px',
+                                                                                    fontSize: '12px',
+                                                                                    color: 'white',
+                                                                                    backgroundColor: 
+                                                                                        comment.sentiment === 'POSITIVE' ? '#28a745' :
+                                                                                        comment.sentiment === 'NEGATIVE' ? '#dc3545' : '#6c757d',
+                                                                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                                                                }}
+                                                                            >
+                                                                                {comment.sentiment}
+                                                                            </span>
+                                                                        )}
+                                                                    </h5>
                                                                     <span><i className="far fa-clock"></i> {new Date(comment.dateCreation).toLocaleDateString()}</span>
                                                                     {editCommentId === comment._id ? (
                                                                         <div style={{ position: 'relative' }}>
@@ -644,7 +664,6 @@ function PublicationDetailPsy() {
                                                                         <p>{comment.contenu}</p>
                                                                     )}
                                                                     <div style={{ display: 'flex', gap: '10px' }}>
-                                                                       
                                                                         {userId && comment.auteur_id && comment.auteur_id._id && comment.auteur_id._id.toString() === userId && (
                                                                             <>
                                                                                 <a href="#" onClick={(e) => handleEditComment(e, comment)}>
@@ -657,17 +676,17 @@ function PublicationDetailPsy() {
                                                                         )}
                                                                         {/* Icône de signalement pour tous les utilisateurs connectés */}
                                                                         {userId && comment.auteur_id && comment.auteur_id._id && comment.auteur_id._id.toString() !== userId && (
-                                <a
-                                    href="#"
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        setSelectedCommentId(comment._id);
-                                        setShowCommentReportModal(true);
-                                    }}
-                                >
-                                    <i className="far fa-flag" title="Signaler ce commentaire"></i>
-                                </a>
-                            )}
+                                                                            <a
+                                                                                href="#"
+                                                                                onClick={(e) => {
+                                                                                    e.preventDefault();
+                                                                                    setSelectedCommentId(comment._id);
+                                                                                    setShowCommentReportModal(true);
+                                                                                }}
+                                                                            >
+                                                                                <i className="far fa-flag" title="Signaler ce commentaire"></i>
+                                                                            </a>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             </div>

@@ -756,6 +756,26 @@ module.exports.updatePublication = (req, res) => {
     });
 };
 
+// Récupérer tous les tags uniques
+module.exports.getAllTags = async (req, res) => {
+    try {
+        const tags = await Publication.aggregate([
+            { $unwind: '$tag' }, // Décomposer le tableau de tags
+            { $group: { _id: '$tag' } }, // Grouper par tag unique
+            { $project: { _id: 0, tag: '$_id' } }, // Reformater pour retourner uniquement le tag
+            { $sort: { tag: 1 } }, // Trier par ordre alphabétique
+        ]);
+
+        // Extraire les tags dans un tableau et filtrer les valeurs vides
+        const uniqueTags = tags.map(item => item.tag).filter(tag => tag && tag.trim() !== '');
+
+        res.status(200).json(uniqueTags);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des tags:', error);
+        res.status(500).json({ message: 'Erreur serveur lors de la récupération des tags', error: error.message });
+    }
+};
+
 
 //ban
 module.exports.banUser = async (req, res) => {
@@ -843,6 +863,7 @@ module.exports.banUser = async (req, res) => {
 };
 
 // Vérifier le statut de bannissement avant d'ajouter un commentaire
+
 module.exports.addCommentaire = async (req, res) => {
     try {
         const token = req.headers.authorization.split(' ')[1];
@@ -863,11 +884,44 @@ module.exports.addCommentaire = async (req, res) => {
             return res.status(400).json({ message: "Le contenu et l'ID de la publication sont requis" });
         }
 
+        // Vérifier si la publication existe
+        const publication = await Publication.findById(publication_id);
+        if (!publication) {
+            return res.status(404).json({ message: "Publication non trouvée" });
+        }
+
+        // Analyser le sentiment du commentaire
+        let sentiment = 'NEUTRAL';
+        let sentimentScore = null;
+        try {
+            const response = await axios.post(
+                'https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english',
+                { inputs: contenu },
+                {
+                    headers: {
+                        Authorization: `Bearer ${process.env.REACT_APP_HUGGINGFACE_API_TOKEN}`,
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+
+            if (response.data && response.data[0] && response.data[0][0]) {
+                sentiment = response.data[0][0].label;
+                sentimentScore = response.data[0][0].score;
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'analyse de sentiment:', error.message);
+            // Continuer avec sentiment NEUTRAL en cas d'erreur
+        }
+
+        // Créer le commentaire avec les champs sentiment et sentimentScore
         const commentaire = new Commentaire({
             contenu,
             publication_id,
             auteur_id: userId,
             isAnonymous: isAnonymous || false,
+            sentiment,
+            sentimentScore,
         });
 
         const savedCommentaire = await commentaire.save();
@@ -997,17 +1051,23 @@ module.exports.getCommentairesByPublication = async (req, res) => {
             .sort({ dateCreation: -1 });
 
         const formattedCommentaires = commentaires.map(comment => {
+            const commentObject = {
+                ...comment.toObject(),
+                sentiment: comment.sentiment || 'NEUTRAL', // S'assurer que le sentiment est inclus
+                sentimentScore: comment.sentimentScore || null, // S'assurer que le score est inclus
+            };
+
             if (comment.isAnonymous) {
                 return {
-                    ...comment.toObject(), // Convertir en objet JS
+                    ...commentObject,
                     auteur_id: {
-                        _id: comment.auteur_id._id, // Conserver l'_id
+                        _id: comment.auteur_id._id,
                         username: 'Anonyme',
-                        user_photo: null
-                    }
+                        user_photo: null,
+                    },
                 };
             }
-            return comment;
+            return commentObject;
         });
 
         res.status(200).json(formattedCommentaires);
@@ -1035,10 +1095,54 @@ module.exports.updateCommentaire = async (req, res) => {
             return res.status(404).json({ message: 'Commentaire non trouvé ou vous n’êtes pas autorisé à le modifier' });
         }
 
-        commentaire.contenu = contenu;
-        const updatedCommentaire = await commentaire.save();
+        // Analyser le sentiment du commentaire mis à jour
+        let sentiment = 'NEUTRAL';
+        let sentimentScore = null;
+        try {
+            const response = await axios.post(
+                'https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english',
+                { inputs: contenu },
+                {
+                    headers: {
+                        Authorization: `Bearer ${process.env.HUGGINGFACE_API_TOKEN}`,
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
 
-        res.status(200).json({ message: 'Commentaire mis à jour avec succès', commentaire: updatedCommentaire });
+            if (response.data && response.data[0] && response.data[0][0]) {
+                sentiment = response.data[0][0].label;
+                sentimentScore = response.data[0][0].score;
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'analyse de sentiment:', error.message);
+            // Continuer avec sentiment NEUTRAL en cas d'erreur
+        }
+
+        // Mettre à jour le commentaire
+        commentaire.contenu = contenu;
+        commentaire.sentiment = sentiment;
+        commentaire.sentimentScore = sentimentScore;
+
+        const updatedCommentaire = await commentaire.save();
+        const populatedCommentaire = await Commentaire.findById(updatedCommentaire._id)
+            .populate('auteur_id', 'username user_photo');
+
+        const responseCommentaire = populatedCommentaire.isAnonymous
+            ? {
+                ...populatedCommentaire.toObject(),
+                auteur_id: {
+                    _id: populatedCommentaire.auteur_id._id,
+                    username: 'Anonyme',
+                    user_photo: null,
+                },
+            }
+            : populatedCommentaire;
+
+        res.status(200).json({
+            message: 'Commentaire mis à jour avec succès',
+            commentaire: responseCommentaire,
+        });
     } catch (error) {
         console.error('Erreur lors de la mise à jour du commentaire:', error);
         res.status(500).json({ message: 'Erreur serveur', error: error.message });

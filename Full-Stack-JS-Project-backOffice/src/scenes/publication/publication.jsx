@@ -1975,7 +1975,7 @@ Photo: ${user.user_photo ? "http://localhost:5000" + user.user_photo : "Aucune"}
                         <Box sx={{ p: 1 }}>
                           <QRCodeSVG
                             value={qrContent}
-                            size={100}
+                            size={190}
                             bgColor="#616161"
                             fgColor="#fff"
                             level="H"

@@ -53,6 +53,7 @@ router.delete('/deleteCommentAdmin/:commentId', userController.deleteCommentaire
 router.post('/ban/:userId', userController.verifyToken, userController.banUser);
 router.get('/banned-users', userController.verifyToken, userController.getBannedUsers);
 router.put('/unban/:userId', userController.verifyToken, userController.unbanUser);
+router.get('/tags', userController.verifyToken , userController.getAllTags);
 
 
 

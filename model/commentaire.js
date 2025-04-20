@@ -21,6 +21,15 @@ const commentaireSchema = new mongoose.Schema({
         default: Date.now,
     },
     isAnonymous: { type: Boolean, default: false }, // Nouveau champ
+    sentiment: {
+        type: String,
+        enum: ['POSITIVE', 'NEGATIVE', 'NEUTRAL'],
+        default: null,
+      },
+      sentimentScore: {
+        type: Number,
+        default: null,
+      },
 });
 
 const Commentaire = mongoose.model('Commentaire', commentaireSchema);

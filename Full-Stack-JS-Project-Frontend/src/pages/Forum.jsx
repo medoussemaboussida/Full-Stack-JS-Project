@@ -76,7 +76,10 @@ function Forum() {
   const [commentSentiments, setCommentSentiments] = useState({}); // Nouvel état pour les sentiments
   const [showChatbotModal, setShowChatbotModal] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
+  const [showForumRulesModal, setShowForumRulesModal] = useState(false);
   const [userMessage, setUserMessage] = useState("");
+  const [showBanModal, setShowBanModal] = useState(false);
+  const [banDetails, setBanDetails] = useState({ reason: "", expiresAt: "" });
   const navigate = useNavigate();
   // Fonction pour interagir avec l'API Gemini
   const interactWithGemini = async (message) => {
@@ -330,11 +333,18 @@ function Forum() {
               const expiresAt = new Date(data.ban.expiresAt);
               if (expiresAt > currentDate) {
                 setIsBanned(true);
+                setBanDetails({
+                  reason: data.ban.reason || "No reason provided",
+                  expiresAt: expiresAt.toLocaleString("fr-FR"),
+                });
+                setShowBanModal(true); // Ouvre le modal automatiquement
               } else {
                 setIsBanned(false);
+                setShowBanModal(false);
               }
             } else {
               setIsBanned(false);
+              setShowBanModal(false);
             }
           } catch (error) {
             console.error("Erreur lors de la vérification du ban:", error);
@@ -1052,6 +1062,38 @@ function Forum() {
                   </>
                 )}
               </div>
+              <div
+                style={{
+                  position: "fixed",
+                  bottom: "18px",
+                  left: "20px",
+                  zIndex: 1000,
+                  cursor: "pointer",
+                }}
+                onClick={() => setShowForumRulesModal(true)}
+              >
+                <div
+                  style={{
+                    backgroundColor: "#ff9800", // Orange pour se démarquer
+                    borderRadius: "50%",
+                    width: "50px",
+                    height: "50px",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+                    transition: "transform 0.3s ease",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.transform = "scale(1.1)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.transform = "scale(1)")
+                  }
+                >
+                  <span style={{ fontSize: "24px", color: "white" }}>❓</span>
+                </div>
+              </div>
               {/* Conteneur pour la liste déroulante et les boutons */}
               <div className="d-flex align-items-center">
                 {/* Liste déroulante à gauche */}
@@ -1602,7 +1644,7 @@ function Forum() {
           style={{
             position: "fixed",
             bottom: "20px",
-            right: "20px",
+            right: "160px",
             zIndex: 1000,
             cursor: "pointer",
           }}
@@ -1612,8 +1654,8 @@ function Forum() {
             style={{
               backgroundColor: "#007bff",
               borderRadius: "50%",
-              width: "60px",
-              height: "60px",
+              width: "50px",
+              height: "50px",
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
@@ -1628,7 +1670,7 @@ function Forum() {
             <FontAwesomeIcon
               icon={faBell}
               style={{
-                fontSize: "24px",
+                fontSize: "22px",
                 color: "white",
               }}
             />
@@ -1636,13 +1678,13 @@ function Forum() {
               <span
                 style={{
                   position: "absolute",
-                  top: "-5px",
+                  top: "-7px",
                   right: "-5px",
                   backgroundColor: "red",
                   color: "white",
                   borderRadius: "50%",
-                  padding: "5px 8px",
-                  fontSize: "12px",
+                  padding: "5px 10px",
+                  fontSize: "10px",
                   fontWeight: "bold",
                 }}
               >
@@ -2120,7 +2162,7 @@ function Forum() {
                           </p>
                         ) : (
                           <p style={{ margin: 0, fontWeight: "bold" }}>
-                            {comment.user_id.username}
+                            {comment.user_id.username} &nbsp;
                             <span
                               className="badge"
                               style={{
@@ -2141,17 +2183,36 @@ function Forum() {
                                 className="badge"
                                 style={{
                                   marginLeft: "10px",
-                                  backgroundColor:
+                                  backgroundColor: "transparent",
+                                  border: `1px solid ${
                                     commentSentiments[comment._id] ===
                                     "POSITIVE"
-                                      ? "green"
+                                      ? "#28a745" // Vert pour POSITIVE
                                       : commentSentiments[comment._id] ===
                                         "NEGATIVE"
-                                      ? "red"
-                                      : "gray",
-                                  color: "white",
+                                      ? "#dc3545" // Rouge pour NEGATIVE
+                                      : "#6c757d" // Gris pour NEUTRAL
+                                  }`,
+                                  color: `${
+                                    commentSentiments[comment._id] ===
+                                    "POSITIVE"
+                                      ? "#28a745"
+                                      : commentSentiments[comment._id] ===
+                                        "NEGATIVE"
+                                      ? "#dc3545"
+                                      : "#6c757d"
+                                  }`,
                                   padding: "2px 8px",
                                   borderRadius: "20px",
+                                  boxShadow: `0 0 10px ${
+                                    commentSentiments[comment._id] ===
+                                    "POSITIVE"
+                                      ? "rgba(40, 167, 69, 0.5)" // Lueur verte
+                                      : commentSentiments[comment._id] ===
+                                        "NEGATIVE"
+                                      ? "rgba(220, 53, 69, 0.5)" // Lueur rouge
+                                      : "rgba(108, 117, 125, 0.5)" // Lueur grise
+                                  }`,
                                   fontSize: "0.875rem",
                                 }}
                               >
@@ -2627,42 +2688,13 @@ function Forum() {
           </div>
         </div>
       )}
-      {/* Bouton flottant pour ouvrir le modal du chatbot */}
-      <div
-        style={{
-          position: "fixed",
-          bottom: "20px",
-          right: "90px",
-          zIndex: 1000,
-          cursor: "pointer",
-        }}
-        onClick={() => setShowChatbotModal(true)}
-      >
-        <div
-          style={{
-            backgroundColor: "#28a745",
-            borderRadius: "50%",
-            width: "60px",
-            height: "60px",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
-            transition: "transform 0.3s ease",
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
-          onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-        >
-          <span style={{ fontSize: "24px", color: "white" }}>🤖</span>
-        </div>
-      </div>
 
       {/* Bouton flottant pour ouvrir le modal du chatbot */}
       <div
         style={{
           position: "fixed",
           bottom: "20px",
-          right: "90px",
+          right: "100px",
           zIndex: 1000,
           cursor: "pointer",
         }}
@@ -2672,8 +2704,8 @@ function Forum() {
           style={{
             backgroundColor: "#28a745",
             borderRadius: "50%",
-            width: "60px",
-            height: "60px",
+            width: "50px",
+            height: "50px",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
@@ -2859,6 +2891,155 @@ function Forum() {
                 }}
               >
                 Clear Chat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showForumRulesModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "500px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+              Forum Rules 📜
+            </h3>
+            <ul
+              style={{
+                listStyleType: "none",
+                padding: 0,
+                marginBottom: "20px",
+                fontSize: "16px",
+                color: "#333",
+              }}
+            >
+              <li style={{ marginBottom: "10px" }}>
+                <span role="img" aria-label="handshake">
+                  🤝
+                </span>{" "}
+                Respect the chat – Be kind and considerate to others.
+              </li>
+              <li style={{ marginBottom: "10px" }}>
+                <span role="img" aria-label="warning">
+                  ⚠️
+                </span>{" "}
+                Inappropriate behavior will result in a ban.
+              </li>
+              <li style={{ marginBottom: "10px" }}>
+                <span role="img" aria-label="flag">
+                  🚩
+                </span>{" "}
+                You can report any comment or topic if it violates the rules.
+              </li>
+              <li style={{ marginBottom: "10px" }}>
+                <span role="img" aria-label="robot">
+                  🤖
+                </span>{" "}
+                Use the chatbot Gemini to help you add topics or find
+                information.
+              </li>
+              <li>
+                <span role="img" aria-label="smile">
+                  😊
+                </span>{" "}
+                Keep the community positive and supportive!
+              </li>
+            </ul>
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <button
+                onClick={() => setShowForumRulesModal(false)}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showBanModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "500px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              textAlign: "center",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", color: "#dc3545" }}>
+              You Are Banned 🚫
+            </h3>
+            <p
+              style={{ marginBottom: "10px", fontSize: "16px", color: "#333" }}
+            >
+              <strong>you can't do any action for now !</strong>
+            </p>
+            <p
+              style={{ marginBottom: "10px", fontSize: "16px", color: "#333" }}
+            >
+              <strong>Reason:</strong> {banDetails.reason}
+            </p>
+            <p
+              style={{ marginBottom: "20px", fontSize: "16px", color: "#333" }}
+            >
+              <strong>Ban Expires:</strong> {banDetails.expiresAt}
+            </p>
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <button
+                onClick={() => setShowBanModal(false)}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Close
               </button>
             </div>
           </div>
