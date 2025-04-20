@@ -252,9 +252,7 @@ const Chat = () => {
       return;
     }
   
-    const hfToken = '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'; // Hardcoding temporaire
-    // const hfToken = process.env.REACT_APP_HF_TOKEN; // Commentez cette ligne
-  
+    const hfToken = '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';
     try {
       console.log('Sending summarization request to Hugging Face API');
       const response = await axios.post(
@@ -535,7 +533,6 @@ const Chat = () => {
       yOffset += 3;
     });
 
-    // Ajouter le résumé s'il existe et n'est pas un message par défaut
     if (summary && !['No messages to summarize.', 'No text messages available to summarize.', 'Failed to generate summary.', 'An error occurred while summarizing. Please try again.'].includes(summary)) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
@@ -624,7 +621,7 @@ const Chat = () => {
     try {
       const key = await importKeyFromRoomCode(joinedRoom);
       const { encryptedMessage, iv } = await encryptMessage(key, editMessageContent);
-      const response = await axios.put(
+      await axios.put(
         `http://localhost:5000/users/chat/${editMessageId}`,
         { encryptedMessage, iv },
         { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
@@ -652,11 +649,11 @@ const Chat = () => {
 
   if (!token) {
     return (
-      <section>
+      <section className="auth-section">
         <div className="container py-5">
           <div className="row d-flex justify-content-center">
             <div className="col-md-10 col-lg-8 col-xl-6">
-              <div className="card" id="chat2">
+              <div className="card auth-card">
                 <div className="card-header d-flex justify-content-between align-items-center p-3">
                   <h5 className="mb-0">Please Log In</h5>
                 </div>
@@ -678,35 +675,104 @@ const Chat = () => {
     <>
       <style>
         {`
-          #chat2 .form-control {
-            border-color: transparent;
+          :root {
+            --primary-blue: #87CEEB; /* Sky Blue */
+            --dark-blue: #4682B4; /* Steel Blue */
+            --light-blue: #B0E0E6; /* Powder Blue */
+            --accent-blue: #00B7EB; /* Cyan */
+            --primary-gradient: linear-gradient(135deg, #87CEEB 0%, #4682B4 100%);
+            --secondary-gradient: linear-gradient(135deg, #B0E0E6 0%, #87CEEB 100%);
+            --bg-dark: #1a2a44; /* Dark Slate Blue */
+            --bg-light: #f5faff; /* Light Blue Background */
+            --text-dark: #16213e;
+            --text-light: #ffffff;
+            --error-color: #ff4757;
           }
-          #chat2 .form-control:focus {
-            border-color: transparent;
-            box-shadow: inset 0px 0px 0px 1px transparent;
+
+          body {
+            background: var(--bg-light);
+            font-family: 'Inter', sans-serif;
+            color: var(--text-dark);
           }
-          .divider:after,
-          .divider:before {
-            content: "";
-            flex: 1;
-            height: 1px;
-            background: #eee;
+
+          .auth-section, .chat-section {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            background: var(--bg-light);
           }
+
+          .card {
+            border: none;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            background: #ffffff;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+          }
+
+          .card:hover {
+            transform: translateY(-5px);
+          }
+
+          .auth-card {
+            background: var(--primary-gradient);
+            color: var(--text-light);
+          }
+
+          .card-header {
+            background: var(--primary-gradient);
+            color: var(--text-light);
+            padding: 1.5rem;
+            border-radius: 20px 20px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+
+          .card-header .chat-icon {
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
+          }
+
+          .card-body {
+            background: #ffffff;
+            padding: 2rem;
+            position: relative;
+            height: 500px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-blue) #e0e0e0;
+          }
+
+          .card-body::-webkit-scrollbar {
+            width: 8px;
+          }
+
+          .card-body::-webkit-scrollbar-track {
+            background: #e0e0e0;
+            border-radius: 10px;
+          }
+
+          .card-body::-webkit-scrollbar-thumb {
+            background: var(--accent-blue);
+            border-radius: 10px;
+          }
+
           .join-container {
             text-align: center;
-            padding: 40px;
-            background-image: url('/assets/img/background.jpg');
-            background-size: cover;
-            background-position: center;
-            border-radius: 10px;
+            padding: 3rem;
+            background: var(--secondary-gradient);
+            border-radius: 20px;
             height: 100%;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             position: relative;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
           }
+
           .join-container::before {
             content: '';
             position: absolute;
@@ -714,314 +780,476 @@ const Chat = () => {
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(103, 153, 214, 0.4);
-            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
             z-index: 1;
           }
+
           .join-container h5 {
-            color: #fff;
-            font-size: 1.8rem;
-            margin-bottom: 20px;
+            color: var(--text-light);
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
             z-index: 2;
-            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
           }
+
+          .join-container .chat-icon {
+            font-size: 2rem;
+            margin-right: 0.5rem;
+          }
+
           .join-container input[type="text"] {
-            width: 70%;
-            max-width: 350px;
-            padding: 12px;
+            width: 80%;
+            max-width: 400px;
+            padding: 0.75rem;
             border: none;
-            border-radius: 5px;
+            border-radius: 10px;
             font-size: 1rem;
-            background-color: rgba(255, 255, 255, 0.9);
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
             z-index: 2;
-            transition: background-color 0.3s ease;
+            transition: all 0.3s ease;
           }
+
           .join-container input[type="text"]:focus {
-            background-color: #fff;
+            background: #ffffff;
+            box-shadow: 0 0 15px rgba(0, 183, 235, 0.5);
             outline: none;
-            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
           }
+
           .join-container button {
-            padding: 12px 25px;
-            background-color: #007bff;
+            padding: 0.75rem 2rem;
+            background: var(--accent-blue);
             border: none;
-            border-radius: 5px;
-            color: white;
+            border-radius: 10px;
+            color: var(--text-dark);
             font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
-            margin-top: 15px;
+            margin-top: 1rem;
             z-index: 2;
-            transition: background-color 0.3s ease, transform 0.2s ease;
+            transition: all 0.3s ease;
           }
+
           .join-container button:hover {
-            background-color: #0056b3;
-            transform: translateY(-2px);
+            background: #0099c7;
+            transform: scale(1.05);
           }
+
           .join-container button:disabled {
-            background-color: #6c757d;
+            background: #6c757d;
             cursor: not-allowed;
             transform: none;
           }
+
           .error {
-            color: #ff6b6b;
+            color: var(--error-color);
             font-size: 0.9rem;
-            margin-top: 15px;
+            margin-top: 1rem;
             z-index: 2;
-            background-color: rgba(255, 255, 255, 0.8);
-            padding: 5px 10px;
-            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
           }
+
+          .encryption-text {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9rem;
+            margin: 0;
+            font-style: italic;
+          }
+
+          .message-wrapper {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1.5rem;
+            animation: slideIn 0.3s ease;
+          }
+
+          @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+
+          .username {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+            color: var(--text-dark);
+          }
+
+          .message-content {
+            max-width: 70%;
+            padding: 0.75rem 1rem;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            border-radius: 15px;
+            position: relative;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            transition: background 0.3s ease;
+          }
+
+          .message-content.bg-primary {
+            background: var(--primary-gradient);
+            color: var(--text-light);
+          }
+
+          .message-content.bg-body-tertiary {
+            background: var(--light-blue);
+            color: var(--text-dark);
+          }
+
+          .message-content:hover {
+            filter: brightness(1.05);
+          }
+
+          .timestamp {
+            font-size: 0.7rem;
+            color: #6c757d;
+            margin-top: 0.2rem;
+          }
+
+          .dropdown-toggle::after {
+            display: none;
+          }
+
+          .dropdown-menu {
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            min-width: 120px;
+            background: #ffffff;
+          }
+
+          .dropdown-item {
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
+            transition: background 0.2s ease;
+          }
+
+          .dropdown-item:hover {
+            background: var(--accent-blue);
+            color: var(--text-dark);
+          }
+
+          .edit-input-container {
+            display: flex;
+            align-items: center;
+            max-width: 70%;
+          }
+
+          .edit-input {
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+          }
+
+          .card-footer {
+            background: #ffffff;
+            border-top: 1px solid #e0e0e0;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            position: relative;
+          }
+
+          .form-control {
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+          }
+
+          .form-control:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 10px rgba(0, 183, 235, 0.3);
+          }
+
           .emoji-button, .video-button, .voice-button, .refresh-button, .send-button {
             background: none;
             border: none;
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             cursor: pointer;
-            padding: 0 10px;
-            color: #666;
-            transition: color 0.3s ease;
+            padding: 0.5rem;
+            color: var(--dark-blue);
+            transition: all 0.3s ease;
           }
+
           .emoji-button:hover, .video-button:hover, .refresh-button:hover, .send-button:hover {
-            color: #007bff;
+            color: var(--accent-blue);
+            transform: scale(1.1);
           }
+
           .voice-button {
-            color: ${isRecording ? '#ff6b6b' : '#666'};
+            color: ${isRecording ? 'var(--error-color)' : 'var(--dark-blue)'};
           }
+
           .voice-button:hover {
-            color: ${isRecording ? '#e55a5a' : '#007bff'};
+            color: ${isRecording ? '#e63946' : 'var(--accent-blue)'};
           }
+
           .play-voice-button {
             background: none;
             border: none;
             font-size: 1rem;
             cursor: pointer;
-            color: #28a745;
-            margin-left: 5px;
+            color: var(--accent-blue);
+            margin-left: 0.5rem;
+            transition: color 0.3s ease;
           }
+
           .play-voice-button:hover {
-            color: #218838;
+            color: #0099c7;
           }
+
           .emoji-picker-container {
             position: absolute;
-            bottom: 60px;
+            bottom: 70px;
             right: 20px;
-            z-index: 10;
+            z-index: 100;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
           }
+
           .export-pdf-icon, .leave-room-icon, .summary-button {
             background: none;
             border: none;
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             cursor: pointer;
-            padding: 0 10px;
-            color: #666;
-            transition: color 0.3s ease;
+            padding: 0.5rem;
+            color: var(--dark-blue);
+            transition: all 0.3s ease;
           }
+
           .export-pdf-icon:hover {
-            color: #28a745;
+            color: var(--accent-blue);
+            transform: scale(1.1);
           }
+
           .leave-room-icon:hover {
-            color: #dc3545;
+            color: var(--error-color);
+            transform: scale(1.1);
           }
+
           .summary-button:hover {
-            color: #28a745;
+            color: var(--accent-blue);
+            transform: scale(1.1);
           }
-          .encryption-text {
-            color: #a2aab7;
-            font-size: 0.9rem;
-            margin: 0;
-          }
+
           .video-call-modal {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.7);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 1000;
           }
+
           .video-call-content {
-            background: white;
-            width: 80%;
-            max-width: 800px;
+            background: #ffffff;
+            width: 90%;
+            max-width: 900px;
             height: 80%;
-            max-height: 600px;
-            border-radius: 10px;
+            max-height: 650px;
+            border-radius: 20px;
             position: relative;
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            padding: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
           }
+
           .close-video-call {
             position: absolute;
-            top: 10px;
-            right: 10px;
-            background: #ff6b6b;
-            color: white;
+            top: 15px;
+            right: 15px;
+            background: var(--error-color);
+            color: var(--text-light);
             border: none;
-            border-radius: 5px;
-            padding: 5px 10px;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
             cursor: pointer;
-            transition: background-color 0.3s ease;
+            transition: all 0.3s ease;
           }
+
           .close-video-call:hover {
-            background: #e55a5a;
+            background: #e63946;
+            transform: scale(1.05);
           }
+
           .summary-modal {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.7);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 1000;
           }
+
           .summary-content {
-            background: white;
-            width: 80%;
+            background: #ffffff;
+            width: 90%;
             max-width: 600px;
-            padding: 20px;
-            border-radius: 10px;
-            position: relative;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            padding: 1.5rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
           }
+
           .close-summary {
             position: absolute;
-            top: 10px;
-            right: 10px;
-            background: #ff6b6b;
-            color: white;
+            top: 15px;
+            right: 15px;
+            background: var(--error-color);
+            color: var(--text-light);
             border: none;
-            border-radius: 5px;
-            padding: 5px 10px;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
             cursor: pointer;
-            transition: background-color 0.3s ease;
+            transition: all 0.3s ease;
           }
+
           .close-summary:hover {
-            background: #e55a5a;
+            background: #e63946;
+            transform: scale(1.05);
           }
+
           .summary-text {
             max-height: 400px;
             overflow-y: auto;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            margin-bottom: 20px;
+            padding: 1rem;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            background: var(--light-blue);
           }
+
           .audio-recorder {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: #f8f9fa;
-            border-radius: 5px;
-            padding: 10px;
+            background: var(--light-blue);
+            border-radius: 10px;
+            padding: 0.75rem;
             width: 100%;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
           }
+
+          .audio-recorder:hover {
+            background: #a0d6e0;
+          }
+
           .audio-recorder button {
             background: none;
             border: none;
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             cursor: pointer;
-            padding: 5px 10px;
-            color: #666;
-            transition: color 0.3s ease;
+            padding: 0.5rem;
+            color: var(--dark-blue);
+            transition: all 0.3s ease;
           }
+
           .audio-recorder button:hover {
-            color: #007bff;
+            color: var(--accent-blue);
+            transform: scale(1.1);
           }
+
           .audio-recorder .cancel-button:hover {
-            color: #dc3545;
+            color: var(--error-color);
           }
+
           .audio-recorder .stop-button:hover {
-            color: #ff6b6b;
+            color: var(--error-color);
           }
+
           .audio-recorder .duration {
             font-size: 1rem;
-            color: #333;
-            margin: 0 10px;
+            color: var(--text-dark);
+            margin: 0 0.5rem;
+            font-weight: 500;
           }
+
           .audio-recorder .recording-indicator {
-            width: 10px;
-            height: 10px;
-            background: #ff6b6b;
+            width: 12px;
+            height: 12px;
+            background: var(--error-color);
             border-radius: 50%;
-            margin-right: 5px;
-            animation: blink 1s infinite;
+            margin-right: 0.5rem;
+            animation: pulse 1.5s infinite;
           }
-          @keyframes blink {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+
+          @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
           }
-          .username {
-            font-size: 0.9rem;
-            font-weight: bold;
-            margin-bottom: 5px;
-          }
-          .message-content {
-            max-width: 80%;
-            padding: 8px 12px !important;
-            font-size: 0.9rem;
-            line-height: 1.2;
-            margin-bottom: 4px !important;
-            position: relative;
-          }
-          .timestamp {
-            max-width: 80%;
-            font-size: 0.75rem;
-            line-height: 1;
-            margin-top: 2px !important;
-            margin-bottom: 0 !important;
-          }
-          .message-wrapper {
-            display: flex;
-            flex-direction: column;
-          }
-          .d-flex.flex-row {
-            align-items: flex-start;
-            margin-bottom: 20px !important;
-          }
+
           .divider {
-            margin-bottom: 1rem !important;
             display: none;
           }
-          .dropdown-toggle::after {
-            display: none;
-          }
-          .dropdown-menu {
-            min-width: 100px;
-          }
-          .edit-input-container {
-            display: flex;
-            align-items: center;
-            max-width: 80%;
-          }
-          .edit-input {
-            flex-grow: 1;
-            margin-right: 10px;
-          }
+
           .message-content .dropdown-toggle {
             opacity: 0;
-            transition: opacity 0.2s ease;
+            transition: opacity 0.3s ease;
           }
+
           .message-content:hover .dropdown-toggle {
             opacity: 1;
           }
+
+          .btn-primary {
+            background: var(--accent-blue);
+            border: none;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+          }
+
+          .btn-primary:hover {
+            background: #0099c7;
+            transform: scale(1.05);
+          }
+
+          .btn-secondary {
+            background: #6c757d;
+            border: none;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+          }
+
+          .btn-secondary:hover {
+            background: #5a6268;
+            transform: scale(1.05);
+          }
+
+          #user-avatar {
+            transition: all 0.3s ease;
+          }
+
+          #user-avatar:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 10px rgba(0, 183, 235, 0.5);
+          }
         `}
       </style>
-      <section>
+      <section className="chat-section">
         <div className="container py-5">
           <div className="row d-flex justify-content-center">
             <div className="col-md-10 col-lg-8 col-xl-6">
               <div className="card" id="chat2">
                 {!joinedRoom ? (
-                  <div className="card-body join-container" style={{ position: 'relative', height: '400px' }}>
-                    <h5 className="mb-4">Join a Chat Room</h5>
+                  <div className="card-body join-container">
+                    <h5>
+                      <i className="fas fa-comments chat-icon"></i> Join a Chat Room
+                    </h5>
                     <input
                       type="text"
                       value={roomCode}
@@ -1041,10 +1269,11 @@ const Chat = () => {
                   </div>
                 ) : (
                   <>
-                    <div className="card-header d-flex justify-content-between align-items-center p-3">
+                    <div className="card-header">
                       <div className="d-flex align-items-center">
+                        <i className="fas fa-comments chat-icon"></i>
                         <h5 className="mb-0 me-2">Chat Room</h5>
-                        <p className="encryption-text mb-0">This chat is end-to-end encrypted</p>
+                        <p className="encryption-text mb-0">End-to-end encrypted</p>
                       </div>
                       <div>
                         {userRole === 'psychiatrist' && (
@@ -1078,23 +1307,17 @@ const Chat = () => {
                     <div
                       className="card-body"
                       data-mdb-perfect-scrollbar-init
-                      style={{ position: 'relative', height: '400px', overflowY: 'auto' }}
                     >
                       {error && <p className="text-danger">{error}</p>}
                       {messages.length === 0 ? (
                         <p className="text-center">No messages yet</p>
                       ) : (
                         <>
-                          <div className="divider d-flex align-items-center mb-2">
-                            <p className="text-center mx-3 mb-0" style={{ color: '#a2aab7' }}>
-                              Today
-                            </p>
-                          </div>
                           {messages.map((msg) => (
                             <div
                               key={msg._id}
                               className={`d-flex flex-row ${
-                                msg.sender._id === userId ? 'justify-content-end pt-1' : 'justify-content-start'
+                                msg.sender._id === userId ? 'justify-content-end' : 'justify-content-start'
                               }`}
                             >
                               {msg.sender._id !== userId && (
@@ -1121,11 +1344,7 @@ const Chat = () => {
                               {msg.sender._id === userId ? (
                                 <>
                                   <div className="message-wrapper">
-                                    <p
-                                      className={`small username me-3 ${
-                                        msg.sender._id === userId ? 'text-white' : ''
-                                      }`}
-                                    >
+                                    <p className="small username me-3">
                                       {msg.sender.username || 'Unknown'}
                                     </p>
                                     {editMessageId === msg._id ? (
@@ -1153,12 +1372,8 @@ const Chat = () => {
                                     ) : (
                                       <>
                                         <p
-                                          className={`small message-content me-3 mb-0 rounded-3 ${
-                                            msg.sender._id === userId ? 'text-white bg-primary' : 'bg-body-tertiary'
-                                          }`}
-                                          style={{
-                                            alignSelf: 'flex-end',
-                                          }}
+                                          className={`small message-content me-3 mb-0 rounded-3 bg-primary`}
+                                          style={{ alignSelf: 'flex-end' }}
                                         >
                                           {msg.isVoice ? (
                                             <>
@@ -1173,7 +1388,7 @@ const Chat = () => {
                                           ) : (
                                             msg.message
                                           )}
-                                          {msg.sender._id === userId && !msg.isVoice && (
+                                          {!msg.isVoice && (
                                             <button
                                               className="btn btn-link p-0 ms-2 dropdown-toggle"
                                               onClick={() => toggleDropdown(msg._id)}
@@ -1183,7 +1398,7 @@ const Chat = () => {
                                             </button>
                                           )}
                                         </p>
-                                        {msg.sender._id === userId && !msg.isVoice && activeDropdown === msg._id && (
+                                        {activeDropdown === msg._id && !msg.isVoice && (
                                           <div
                                             className="dropdown-menu show"
                                             style={{
@@ -1207,10 +1422,8 @@ const Chat = () => {
                                           </div>
                                         )}
                                         <p
-                                          className={`small timestamp me-3 rounded-3 text-muted d-flex justify-content-end`}
-                                          style={{
-                                            alignSelf: 'flex-end',
-                                          }}
+                                          className="small timestamp me-3 text-muted d-flex justify-content-end"
+                                          style={{ alignSelf: 'flex-end' }}
                                         >
                                           {new Date(msg.createdAt).toLocaleTimeString()}
                                         </p>
@@ -1240,101 +1453,33 @@ const Chat = () => {
                               ) : (
                                 <>
                                   <div className="message-wrapper">
-                                    <p
-                                      className={`small username ms-3 ${
-                                        msg.sender._id === userId ? 'text-white' : ''
-                                      }`}
-                                    >
+                                    <p className="small username ms-3">
                                       {msg.sender.username || 'Unknown'}
                                     </p>
-                                    {editMessageId === msg._id ? (
-                                      <div className="edit-input-container">
-                                        <input
-                                          type="text"
-                                          className="form-control edit-input"
-                                          value={editMessageContent}
-                                          onChange={(e) => setEditMessageContent(e.target.value)}
-                                          onKeyPress={(e) => e.key === 'Enter' && updateMessage()}
-                                        />
-                                        <button onClick={updateMessage} className="btn btn-sm btn-primary">
-                                          Save
-                                        </button>
-                                        <button
-                                          onClick={() => {
-                                            setEditMessageId(null);
-                                            setEditMessageContent('');
-                                          }}
-                                          className="btn btn-sm btn-secondary ms-2"
-                                        >
-                                          Cancel
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <>
-                                        <p
-                                          className={`small message-content ms-3 mb-0 rounded-3 ${
-                                            msg.sender._id === userId ? 'text-white bg-primary' : 'bg-body-tertiary'
-                                          }`}
-                                          style={{
-                                            alignSelf: 'flex-start',
-                                          }}
-                                        >
-                                          {msg.isVoice ? (
-                                            <>
-                                              [Voice Message]
-                                              <button
-                                                className="play-voice-button"
-                                                onClick={() => playVoiceMessage(msg.voiceMessage)}
-                                              >
-                                                <i className="fas fa-play"></i>
-                                              </button>
-                                            </>
-                                          ) : (
-                                            msg.message
-                                          )}
-                                          {msg.sender._id === userId && !msg.isVoice && (
-                                            <button
-                                              className="btn btn-link p-0 ms-2 dropdown-toggle"
-                                              onClick={() => toggleDropdown(msg._id)}
-                                              style={{ color: 'inherit', textDecoration: 'none' }}
-                                            >
-                                              <i className="fas fa-ellipsis-v"></i>
-                                            </button>
-                                          )}
-                                        </p>
-                                        {msg.sender._id === userId && !msg.isVoice && activeDropdown === msg._id && (
-                                          <div
-                                            className="dropdown-menu show"
-                                            style={{
-                                              position: 'absolute',
-                                              left: '0',
-                                              zIndex: 10,
-                                            }}
+                                    <p
+                                      className={`small message-content ms-3 mb-0 rounded-3 bg-body-tertiary`}
+                                      style={{ alignSelf: 'flex-start' }}
+                                    >
+                                      {msg.isVoice ? (
+                                        <>
+                                          [Voice Message]
+                                          <button
+                                            className="play-voice-button"
+                                            onClick={() => playVoiceMessage(msg.voiceMessage)}
                                           >
-                                            <button
-                                              className="dropdown-item"
-                                              onClick={() => startEditing(msg._id, msg.message)}
-                                            >
-                                              Edit
-                                            </button>
-                                            <button
-                                              className="dropdown-item text-danger"
-                                              onClick={() => deleteMessage(msg._id)}
-                                            >
-                                              Delete
-                                            </button>
-                                          </div>
-                                        )}
-                                        <p
-                                          className={`small timestamp ms-3 rounded-3 text-muted`}
-                                          style={{
-                                            alignSelf: 'flex-start',
-                                          }}
-                                        >
-                                          {new Date(msg.createdAt).toLocaleTimeString()}
-                                        </p>
-                                      </>
-                                    )}
+                                            <i className="fas fa-play"></i>
+                                          </button>
+                                        </>
+                                      ) : (
+                                        msg.message
+                                      )}
+                                    </p>
+                                    <p
+                                      className="small timestamp ms-3 text-muted"
+                                      style={{ alignSelf: 'flex-start' }}
+                                    >
+                                      {new Date(msg.createdAt).toLocaleTimeString()}
+                                    </p>
                                   </div>
                                 </>
                               )}
@@ -1343,7 +1488,7 @@ const Chat = () => {
                         </>
                       )}
                     </div>
-                    <div className="card-footer text-muted d-flex justify-content-start align-items-center p-3 position-relative">
+                    <div className="card-footer">
                       {recordingState === 'idle' ? (
                         <>
                           <div style={{ display: 'flex', alignItems: 'center', marginRight: '15px' }}>
@@ -1466,36 +1611,24 @@ const Chat = () => {
         </div>
       )}
       {showSummaryModal && (
-        <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Conversation Summary</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowSummaryModal(false)}
-                ></button>
-              </div>
-              <div className="modal-body">
-                {isSummarizing ? (
-                  <p>Summarizing conversation...</p>
-                ) : (
-                  <>
-                    {error && <p className="text-danger">{error}</p>}
-                    <p>{summary}</p>
-                  </>
-                )}
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setShowSummaryModal(false)}
-                >
-                  Close
-                </button>
-              </div>
+        <div className="summary-modal">
+          <div className="summary-content">
+            <button
+              className="close-summary"
+              onClick={() => setShowSummaryModal(false)}
+            >
+              Close
+            </button>
+            <h5>Conversation Summary</h5>
+            <div className="summary-text">
+              {isSummarizing ? (
+                <p>Summarizing conversation...</p>
+              ) : (
+                <>
+                  {error && <p className="text-danger">{error}</p>}
+                  <p>{summary}</p>
+                </>
+              )}
             </div>
           </div>
         </div>
