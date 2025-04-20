@@ -10,9 +10,14 @@ import {
   MenuItem,
   TextField,
   InputAdornment,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  IconButton,
 } from '@mui/material';
 import SortIcon from '@mui/icons-material/Sort';
 import SearchIcon from '@mui/icons-material/Search';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import Header from '../../components/Header';
 import { tokens } from '../../theme';
 
@@ -72,8 +77,13 @@ const Chat = () => {
           p={3}
           borderRadius="8px"
           textAlign="center"
+          boxShadow={3}
         >
-          <Typography color={colors.redAccent[400]} fontSize="18px">
+          <Typography
+            color={colors.redAccent[400]}
+            fontSize="18px"
+            fontWeight="600"
+          >
             You need to be logged in to view the conversations.
           </Typography>
         </Box>
@@ -86,30 +96,27 @@ const Chat = () => {
       <Header title="Chat History" subtitle="All your previous conversations" />
 
       {/* Filters */}
-      <Box mb={2} display="flex" justifyContent="space-between" flexWrap="wrap" gap={2}>
-        {/* Search */}
+      <Box display="flex" alignItems="center" gap={2} mb={2}>
         <TextField
-          size="small"
+          label="Search by username..."
           variant="outlined"
-          placeholder="Search by username..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          sx={{ width: "300px" }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <SearchIcon />
+                <SearchIcon sx={{ color: colors.grey[400] }} />
               </InputAdornment>
             ),
           }}
         />
-
-        {/* Sort */}
-        <FormControl variant="outlined" size="small">
-          <InputLabel><SortIcon sx={{ mr: 1 }} /> Sort</InputLabel>
+        <FormControl sx={{ minWidth: 150 }}>
+          <InputLabel>Sort By</InputLabel>
           <Select
             value={sortOrder}
             onChange={(e) => setSortOrder(e.target.value)}
-            label="Sort"
+            label="Sort By"
           >
             <MenuItem value="desc">Most Recent First</MenuItem>
             <MenuItem value="asc">Oldest First</MenuItem>
@@ -118,22 +125,38 @@ const Chat = () => {
       </Box>
 
       <Box
-        backgroundColor={colors.primary[400]}
-        p={3}
-        borderRadius="8px"
-        maxHeight="70vh"
-        overflow="auto"
+        mt={4}
+        sx={{
+          maxHeight: "430px",
+          overflowY: "auto",
+          padding: "10px",
+          border: `1px solid ${colors.grey[700]}`,
+          borderRadius: "8px",
+          backgroundColor: colors.primary[500],
+        }}
       >
         {loading ? (
-          <Typography textAlign="center" color={colors.grey[300]}>
+          <Typography
+            textAlign="center"
+            color={colors.grey[100]}
+            fontWeight="500"
+          >
             Loading conversations...
           </Typography>
         ) : error ? (
-          <Typography textAlign="center" color={colors.redAccent[400]}>
+          <Typography
+            textAlign="center"
+            color={colors.redAccent[400]}
+            fontWeight="500"
+          >
             {error}
           </Typography>
         ) : filteredRooms.length === 0 ? (
-          <Typography textAlign="center" color={colors.grey[300]}>
+          <Typography
+            textAlign="center"
+            color={colors.grey[100]}
+            fontWeight="500"
+          >
             No conversations found.
           </Typography>
         ) : (
@@ -153,49 +176,92 @@ const Chat = () => {
               return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
             })
             .map(([roomCode, { messages, participants }]) => (
-              <Box
+              <Accordion
                 key={roomCode}
-                backgroundColor={colors.primary[600]}
-                borderRadius="12px"
-                p={2}
-                mb={3}
-                boxShadow="0 2px 10px rgba(0,0,0,0.2)"
+                sx={{
+                  backgroundColor: colors.primary[400],
+                  borderRadius: '8px !important',
+                  mb: 2,
+                  boxShadow: 3,
+                  '&:before': { display: 'none' },
+                }}
               >
-                <Typography color={colors.blueAccent[300]} fontSize="18px" fontWeight="bold" mb={1}>
-                  Room Code: {roomCode}
-                </Typography>
-                <Typography fontSize="14px" color={colors.grey[300]} mb={2}>
-                  Participants: {participants.map((p) => p.username || 'Unknown').join(', ')}
-                </Typography>
-
-                {messages.length === 0 ? (
-                  <Typography color={colors.grey[300]}>No messages in this room.</Typography>
-                ) : (
-                  messages.map((msg) => (
-                    <Box
-                      key={msg._id}
-                      backgroundColor={colors.primary[500]}
-                      borderRadius="8px"
-                      p={2}
-                      mb={1}
-                    >
-                      <Typography fontWeight="bold" color={colors.greenAccent[400]}>
-                        {
-                          participants.find(
-                            p => p._id === (msg.sender?._id || msg.sender)
-                          )?.username || 'Unknown'
-                        }
-                      </Typography>
-                      <Typography color={colors.grey[200]} mt={0.5}>
-                        🔒 Encrypted: {msg.encryptedMessage}
-                      </Typography>
-                      <Typography fontSize="12px" color={colors.grey[400]} mt={1}>
-                        {new Date(msg.createdAt).toLocaleString()}
+                <AccordionSummary
+                  expandIcon={
+                    <IconButton sx={{ color: colors.grey[400] }}>
+                      <ExpandMoreIcon />
+                    </IconButton>
+                  }
+                  aria-controls={`panel-${roomCode}-content`}
+                  id={`panel-${roomCode}-header`}
+                  sx={{
+                    borderRadius: '8px',
+                    py: 2,
+                    px: 3,
+                  }}
+                >
+                  <Box flex={1}>
+                    <Box display="flex" alignItems="center" gap={2}>
+                      <Typography variant="h4" color={colors.grey[100]}>
+                        <strong>Room Code: </strong> {roomCode}
                       </Typography>
                     </Box>
-                  ))
-                )}
-              </Box>
+                    <br />
+                    <Typography variant="h5" color={colors.grey[100]}>
+                      <strong>Participants: </strong>
+                      <span
+                        style={{
+                          backgroundColor: "transparent",
+                          border: `1px solid #00C4B4`,
+                          color: `#00C4B4`,
+                          padding: "2px 8px",
+                          borderRadius: "20px",
+                          boxShadow: theme.palette.mode === 'dark' ? "0 0 10px rgba(0, 196, 180, 0.5)" : "0 0 10px rgba(0, 196, 180, 0.3)",
+                          fontSize: "0.875rem",
+                          marginLeft: "8px",
+                        }}
+                      >
+                        {participants.map((p) => p.username || 'Unknown').join(', ')}
+                      </span>
+                    </Typography>
+                  </Box>
+                </AccordionSummary>
+                <AccordionDetails sx={{ px: 3, pb: 3 }}>
+                  {messages.length === 0 ? (
+                    <Typography color={colors.grey[100]} variant="body2">
+                      No messages in this room.
+                    </Typography>
+                  ) : (
+                    messages.map((msg) => (
+                      <Box
+                        key={msg._id}
+                        bgcolor={colors.primary[400]}
+                        p={2}
+                        borderRadius={2}
+                        mb={2}
+                        boxShadow={3}
+                        sx={{ maxHeight: 100, overflowY: "auto" }}
+                      >
+                        <Typography variant="h6" color={colors.grey[100]}>
+                          <strong>
+                            {
+                              participants.find(
+                                p => p._id === (msg.sender?._id || msg.sender)
+                              )?.username || 'Unknown'
+                            }
+                          </strong>
+                        </Typography>
+                        <Typography variant="body1" color={colors.grey[100]} mt={0.5}>
+                          🔒 Encrypted: {msg.encryptedMessage}
+                        </Typography>
+                        <Typography variant="caption" color={colors.grey[400]} mt={1}>
+                          {new Date(msg.createdAt).toLocaleString()}
+                        </Typography>
+                      </Box>
+                    ))
+                  )}
+                </AccordionDetails>
+              </Accordion>
             ))
         )}
       </Box>
