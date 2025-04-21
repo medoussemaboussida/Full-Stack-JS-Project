@@ -44,7 +44,12 @@ function PublicationPsychiatristAll() {
     const [sortOrder, setSortOrder] = useState('recent');
     const [filterStatus, setFilterStatus] = useState('all');
     const [showStatsModal, setShowStatsModal] = useState(false);
-    const [statsData, setStatsData] = useState({ comments: [], likesDislikes: [], views: [] });
+    const [statsData, setStatsData] = useState({ 
+        comments: [], 
+        likesDislikes: [], 
+        views: [], 
+        sentiments: [] // Nouvelle propriété pour les statistiques de sentiment
+    });
 
     const fetchMyPublications = async () => {
         try {
@@ -101,7 +106,35 @@ function PublicationPsychiatristAll() {
                 views: post.viewCount || 0,
             }));
 
-            setStatsData({ comments: commentsStats, likesDislikes: likesDislikesStats, views: viewsStats });
+            // Calcul des statistiques de sentiment
+            const sentimentStats = publications.map((post, index) => {
+                const comments = commentsData[index];
+                const sentimentCounts = {
+                    positive: 0,
+                    negative: 0,
+                    neutral: 0,
+                };
+
+                comments.forEach(comment => {
+                    if (comment.sentiment === 'POSITIVE') sentimentCounts.positive += 1;
+                    else if (comment.sentiment === 'NEGATIVE') sentimentCounts.negative += 1;
+                    else if (comment.sentiment === 'NEUTRAL') sentimentCounts.neutral += 1;
+                });
+
+                return {
+                    title: stripHtmlTags(post.titrePublication),
+                    positive: sentimentCounts.positive,
+                    negative: sentimentCounts.negative,
+                    neutral: sentimentCounts.neutral,
+                };
+            });
+
+            setStatsData({ 
+                comments: commentsStats, 
+                likesDislikes: likesDislikesStats, 
+                views: viewsStats, 
+                sentiments: sentimentStats 
+            });
         } catch (error) {
             console.error('Error fetching stats data:', error);
             toast.error('Failed to load statistics');
@@ -445,6 +478,27 @@ function PublicationPsychiatristAll() {
                 backgroundColor: 'rgba(255, 193, 7, 0.6)',
                 borderColor: 'rgba(255, 193, 7, 1)',
                 borderWidth: 1,
+            },
+        ],
+    };
+
+    const sentimentsChartData = {
+        labels: statsData.sentiments.map(stat => stat.title),
+        datasets: [
+            {
+                label: 'Positifs',
+                data: statsData.sentiments.map(stat => stat.positive),
+                backgroundColor: 'rgba(40, 167, 69, 0.6)',
+            },
+            {
+                label: 'Négatifs',
+                data: statsData.sentiments.map(stat => stat.negative),
+                backgroundColor: 'rgba(220, 53, 69, 0.6)',
+            },
+            {
+                label: 'Neutres',
+                data: statsData.sentiments.map(stat => stat.neutral),
+                backgroundColor: 'rgba(108, 117, 125, 0.6)',
             },
         ],
     };
@@ -1155,6 +1209,23 @@ function PublicationPsychiatristAll() {
                                     },
                                     scales: {
                                         y: { beginAtZero: true, title: { display: true, text: 'Nombre de vues' } },
+                                        x: { title: { display: true, text: 'Publications' } },
+                                    },
+                                }}
+                            />
+                        </div>
+                        <div style={{ marginBottom: '30px' }}>
+                            <h4>Sentiment Analysis of Comments</h4>
+                            <Bar
+                                data={sentimentsChartData}
+                                options={{
+                                    responsive: true,
+                                    plugins: {
+                                        legend: { position: 'top' },
+                                        title: { display: true, text: 'Sentiment des commentaires par publication' },
+                                    },
+                                    scales: {
+                                        y: { beginAtZero: true, title: { display: true, text: 'Nombre de commentaires' } },
                                         x: { title: { display: true, text: 'Publications' } },
                                     },
                                 }}
