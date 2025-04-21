@@ -3,13 +3,21 @@ import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { ToastContainer, toast } from "react-toastify";
+import { QRCodeCanvas } from "qrcode.react";
 import "react-toastify/dist/ReactToastify.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../App.css";
 
 const BASE_URL = "http://localhost:5000";
 
-// Countdown Component (unchanged)
+// Validate JWT token format
+const isValidJwt = (token) => {
+  if (!token || typeof token !== "string") return false;
+  const parts = token.split(".");
+  return parts.length === 3; // JWT should have 3 parts: header, payload, signature
+};
+
+// Countdown Component
 const Countdown = ({ targetDate }) => {
   const [timeLeft, setTimeLeft] = useState({});
 
@@ -51,6 +59,62 @@ const Countdown = ({ targetDate }) => {
   );
 };
 
+// Modal Component for QR Code
+const QRCodeModal = ({ isOpen, onClose, qrCodeValue, eventTitle }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 10000,
+      }}
+    >
+      <div
+        style={{
+          backgroundColor: "#fff",
+          padding: "20px",
+          borderRadius: "10px",
+          textAlign: "center",
+          maxWidth: "400px",
+          width: "90%",
+          boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
+        }}
+      >
+        <h3>Participation QR Code</h3>
+        <p>Scan this QR code for event: <strong>{eventTitle}</strong></p>
+        <QRCodeCanvas value={qrCodeValue} size={200} />
+        <div style={{ marginTop: "20px" }}>
+          <button
+            onClick={onClose}
+            style={{
+              backgroundColor: "#ff7f5d",
+              color: "#fff",
+              padding: "10px 20px",
+              borderRadius: "25px",
+              border: "none",
+              cursor: "pointer",
+              transition: "background-color 0.3s ease",
+            }}
+            onMouseEnter={(e) => (e.target.style.backgroundColor = "#ff5733")}
+            onMouseLeave={(e) => (e.target.style.backgroundColor = "#ff7f5d")}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Events = () => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -68,15 +132,36 @@ const Events = () => {
   const [likes, setLikes] = useState({});
   const [dislikes, setDislikes] = useState({});
   const [favorites, setFavorites] = useState({});
+  const [showQRCodeModal, setShowQRCodeModal] = useState(false);
+  const [qrCodeValue, setQRCodeValue] = useState("");
+  const [qrCodeEventTitle, setQRCodeEventTitle] = useState("");
+  const [userRole, setUserRole] = useState(null); // New state for user role
   const eventsPerPage = 6;
 
   const navigate = useNavigate();
+
+  // Initialize user role from JWT
+  useEffect(() => {
+    const token = localStorage.getItem("jwt-token");
+    if (token && isValidJwt(token)) {
+      try {
+        const decoded = jwtDecode(token);
+        setUserRole(decoded.role);
+      } catch (error) {
+        console.error("Failed to decode JWT for role:", error.message);
+        setUserRole(null);
+        localStorage.removeItem("jwt-token");
+        toast.error("Invalid session. Please log in again.");
+        setTimeout(() => navigate("/login"), 2000);
+      }
+    }
+  }, [navigate]);
 
   // Check participation status
   const checkParticipation = async (eventId, setStatusCallback) => {
     try {
       const token = localStorage.getItem("jwt-token");
-      if (!token) return;
+      if (!token || !isValidJwt(token)) return;
 
       const response = await axios.get(`${BASE_URL}/events/checkParticipation/${eventId}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -96,7 +181,7 @@ const Events = () => {
   const checkPartnerStatus = async (eventId) => {
     try {
       const token = localStorage.getItem("jwt-token");
-      if (!token) return false;
+      if (!token || !isValidJwt(token)) return false;
 
       const response = await axios.get(`${BASE_URL}/events/checkPartnerParticipation/${eventId}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -137,146 +222,151 @@ const Events = () => {
         }
 
         const token = localStorage.getItem("jwt-token");
-        if (token) {
-          let decoded;
-          try {
-            decoded = jwtDecode(token);
-            console.log("Decoded JWT:", { id: decoded.id, role: decoded.role, association_id: decoded.association_id });
-          } catch (error) {
-            console.error("Invalid JWT token:", error.message);
-            toast.error("Session expired. Please log in again.");
-            localStorage.removeItem("jwt-token");
-            setTimeout(() => navigate("/login"), 2000);
-            return;
-          }
+        if (!token || !isValidJwt(token)) {
+          console.warn("No valid JWT token found, skipping user-specific checks.");
+          setLoading(false);
+          return;
+        }
 
-          const participationPromises = eventsData.map((event) =>
-            axios
-              .get(`${BASE_URL}/events/checkParticipation/${event._id}`, {
-                headers: { Authorization: `Bearer ${token}` },
-              })
-              .then((res) => {
-                console.log(`Participation status for event ${event._id}:`, res.data);
-                return { id: event._id, status: res.data.isParticipating };
-              })
-              .catch((err) => {
-                console.error(`Error checking participation for event ${event._id}:`, {
-                  message: err.message,
-                  response: err.response?.data,
-                  status: err.response?.status,
-                });
-                return { id: event._id, status: false };
-              })
-          );
+        let decoded;
+        try {
+          decoded = jwtDecode(token);
+          console.log("Decoded JWT:", { id: decoded.id, role: decoded.role, association_id: decoded.association_id });
+        } catch (error) {
+          console.error("Failed to decode JWT token:", error.message);
+          toast.error("Invalid session. Please log in again.");
+          localStorage.removeItem("jwt-token");
+          setTimeout(() => navigate("/login"), 2000);
+          setLoading(false);
+          return;
+        }
 
-          const partnerPromises = eventsData.map((event) =>
-            axios
-              .get(`${BASE_URL}/events/checkPartnerParticipation/${event._id}`, {
-                headers: { Authorization: `Bearer ${token}` },
-              })
-              .then((res) => {
-                console.log(`Partner status for event ${event._id}:`, res.data);
-                return { id: event._id, status: res.data.isPartner };
-              })
-              .catch((err) => {
-                console.error(`Error checking partner status for event ${event._id}:`, {
-                  message: err.message,
-                  response: err.response?.data,
-                  status: err.response?.status,
-                });
-                return { id: event._id, status: false };
-              })
-          );
+        const participationPromises = eventsData.map((event) =>
+          axios
+            .get(`${BASE_URL}/events/checkParticipation/${event._id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => {
+              console.log(`Participation status for event ${event._id}:`, res.data);
+              return { id: event._id, status: res.data.isParticipating };
+            })
+            .catch((err) => {
+              console.error(`Error checking participation for event ${event._id}:`, {
+                message: err.message,
+                response: err.response?.data,
+                status: err.response?.status,
+              });
+              return { id: event._id, status: false };
+            })
+        );
 
-          const likePromises = eventsData.map((event) =>
-            axios
-              .get(`${BASE_URL}/events/checkLike/${event._id}`, {
-                headers: { Authorization: `Bearer ${token}` },
-              })
-              .then((res) => ({ id: event._id, liked: res.data.liked, count: res.data.likeCount }))
-              .catch((err) => {
-                console.error(`Error checking like for event ${event._id}:`, err.message);
-                return { id: event._id, liked: false, count: 0 };
-              })
-          );
+        const partnerPromises = eventsData.map((event) =>
+          axios
+            .get(`${BASE_URL}/events/checkPartnerParticipation/${event._id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => {
+              console.log(`Partner status for event ${event._id}:`, res.data);
+              return { id: event._id, status: res.data.isPartner };
+            })
+            .catch((err) => {
+              console.error(`Error checking partner status for event ${event._id}:`, {
+                message: err.message,
+                response: err.response?.data,
+                status: err.response?.status,
+              });
+              return { id: event._id, status: false };
+            })
+        );
 
-          const dislikePromises = eventsData.map((event) =>
-            axios
-              .get(`${BASE_URL}/events/checkDislike/${event._id}`, {
-                headers: { Authorization: `Bearer ${token}` },
-              })
-              .then((res) => ({ id: event._id, disliked: res.data.disliked, count: res.data.dislikeCount }))
-              .catch((err) => {
-                console.error(`Error checking dislike for event ${event._id}:`, err.message);
-                return { id: event._id, disliked: false, count: 0 };
-              })
-          );
+        const likePromises = eventsData.map((event) =>
+          axios
+            .get(`${BASE_URL}/events/checkLike/${event._id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => ({ id: event._id, liked: res.data.liked, count: res.data.likeCount }))
+            .catch((err) => {
+              console.error(`Error checking like for event ${event._id}:`, err.message);
+              return { id: event._id, liked: false, count: 0 };
+            })
+        );
 
-          const favoritePromises = eventsData.map((event) =>
-            axios
-              .get(`${BASE_URL}/events/checkFavorite/${event._id}`, {
-                headers: { Authorization: `Bearer ${token}` },
-              })
-              .then((res) => ({ id: event._id, favorited: res.data.isFavorite }))
-              .catch((err) => {
-                console.error(`Error checking favorite for event ${event._id}:`, err.message);
-                return { id: event._id, favorited: false };
-              })
-          );
+        const dislikePromises = eventsData.map((event) =>
+          axios
+            .get(`${BASE_URL}/events/checkDislike/${event._id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => ({ id: event._id, disliked: res.data.disliked, count: res.data.dislikeCount }))
+            .catch((err) => {
+              console.error(`Error checking dislike for event ${event._id}:`, err.message);
+              return { id: event._id, disliked: false, count: 0 };
+            })
+        );
 
-          const [participationResults, partnerResults, likeResults, dislikeResults, favoriteResults] = await Promise.all([
-            Promise.allSettled(participationPromises),
-            Promise.allSettled(partnerPromises),
-            Promise.allSettled(likePromises),
-            Promise.allSettled(dislikePromises),
-            Promise.allSettled(favoritePromises),
-          ]);
+        const favoritePromises = eventsData.map((event) =>
+          axios
+            .get(`${BASE_URL}/events/checkFavorite/${event._id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+            .then((res) => ({ id: event._id, favorited: res.data.isFavorite }))
+            .catch((err) => {
+              console.error(`Error checking favorite for event ${event._id}:`, err.message);
+              return { id: event._id, favorited: false };
+            })
+        );
 
-          const newParticipationStatus = {};
-          participationResults.forEach((result) => {
-            if (result.status === "fulfilled") newParticipationStatus[result.value.id] = result.value.status;
-          });
-          setParticipationStatus(newParticipationStatus);
+        const [participationResults, partnerResults, likeResults, dislikeResults, favoriteResults] = await Promise.all([
+          Promise.allSettled(participationPromises),
+          Promise.allSettled(partnerPromises),
+          Promise.allSettled(likePromises),
+          Promise.allSettled(dislikePromises),
+          Promise.allSettled(favoritePromises),
+        ]);
 
-          const newPartnerStatus = {};
-          partnerResults.forEach((result) => {
-            if (result.status === "fulfilled") newPartnerStatus[result.value.id] = result.value.status;
-          });
-          setPartnerStatus(newPartnerStatus);
+        const newParticipationStatus = {};
+        participationResults.forEach((result) => {
+          if (result.status === "fulfilled") newParticipationStatus[result.value.id] = result.value.status;
+        });
+        setParticipationStatus(newParticipationStatus);
 
-          const newLikes = {};
-          likeResults.forEach((result) => {
-            if (result.status === "fulfilled") newLikes[result.value.id] = { liked: result.value.liked, count: result.value.count };
-          });
-          setLikes(newLikes);
+        const newPartnerStatus = {};
+        partnerResults.forEach((result) => {
+          if (result.status === "fulfilled") newPartnerStatus[result.value.id] = result.value.status;
+        });
+        setPartnerStatus(newPartnerStatus);
 
-          const newDislikes = {};
-          dislikeResults.forEach((result) => {
-            if (result.status === "fulfilled") newDislikes[result.value.id] = { disliked: result.value.disliked, count: result.value.count };
-          });
-          setDislikes(newDislikes);
+        const newLikes = {};
+        likeResults.forEach((result) => {
+          if (result.status === "fulfilled") newLikes[result.value.id] = { liked: result.value.liked, count: result.value.count };
+        });
+        setLikes(newLikes);
 
-          const newFavorites = {};
-          favoriteResults.forEach((result) => {
-            if (result.status === "fulfilled") newFavorites[result.value.id] = result.value.favorited;
-          });
-          setFavorites(newFavorites);
+        const newDislikes = {};
+        dislikeResults.forEach((result) => {
+          if (result.status === "fulfilled") newDislikes[result.value.id] = { disliked: result.value.disliked, count: result.value.count };
+        });
+        setDislikes(newDislikes);
 
-          console.log("Participation status:", newParticipationStatus);
-          console.log("Partner status:", newPartnerStatus);
-          console.log("Likes:", newLikes);
-          console.log("Dislikes:", newDislikes);
-          console.log("Favorites:", newFavorites);
+        const newFavorites = {};
+        favoriteResults.forEach((result) => {
+          if (result.status === "fulfilled") newFavorites[result.value.id] = result.value.favorited;
+        });
+        setFavorites(newFavorites);
 
-          // Retry failed partner status checks for association members
-          if (decoded?.role === "association_member") {
-            const criticalEvents = eventsData.filter((event) => event.hasPartners);
-            for (const event of criticalEvents) {
-              const result = partnerResults.find((r) => r.status === "fulfilled" && r.value.id === event._id);
-              if (!result || !result.value.status) {
-                console.log(`Retrying partner status check for event ${event._id}`);
-                await checkPartnerStatus(event._id);
-              }
+        console.log("Participation status:", newParticipationStatus);
+        console.log("Partner status:", newPartnerStatus);
+        console.log("Likes:", newLikes);
+        console.log("Dislikes:", newDislikes);
+        console.log("Favorites:", newFavorites);
+
+        // Retry failed partner status checks for association members
+        if (decoded?.role === "association_member") {
+          const criticalEvents = eventsData.filter((event) => event.hasPartners);
+          for (const event of criticalEvents) {
+            const result = partnerResults.find((r) => r.status === "fulfilled" && r.value.id === event._id);
+            if (!result || !result.value.status) {
+              console.log(`Retrying partner status check for event ${event._id}`);
+              await checkPartnerStatus(event._id);
             }
           }
         }
@@ -298,59 +388,59 @@ const Events = () => {
 
   const handleParticipationToggle = async (eventId, setStatusCallback) => {
     if (isSubmitting[eventId]) return;
-  
+
     setIsSubmitting((prev) => ({ ...prev, [eventId]: true }));
     try {
       const token = localStorage.getItem("jwt-token");
-      if (!token) {
+      if (!token || !isValidJwt(token)) {
         toast.error("Please log in to participate");
         setTimeout(() => navigate("/login"), 2000);
         return;
       }
-  
+
       let decoded;
       try {
         decoded = jwtDecode(token);
       } catch (error) {
-        console.error("Invalid JWT token:", error.message);
-        toast.error("Session expired. Please log in again.");
+        console.error("Failed to decode JWT token:", error.message);
+        toast.error("Invalid session. Please log in again.");
         localStorage.removeItem("jwt-token");
         setTimeout(() => navigate("/login"), 2000);
         return;
       }
-  
+
       console.log("Decoded JWT:", decoded);
       const userRole = decoded.role;
       const userId = decoded.id;
       let associationId = decoded.association_id || null;
-  
+
       // Validate associationId for association members
       if (userRole === "association_member" && associationId && !/^[0-9a-fA-F]{24}$/.test(associationId)) {
         console.warn("Invalid association_id in JWT:", associationId);
         toast.error("Invalid association data. Please contact support.");
         return;
       }
-  
-      const eventExists = events.find((e) => e._id === eventId);
-      if (!eventExists) {
+
+      const event = events.find((e) => e._id === eventId);
+      if (!event) {
         toast.error("This event no longer exists");
         setEvents((prev) => prev.filter((e) => e._id !== eventId));
         return;
       }
-  
+
       const isParticipating = participationStatus[eventId] || false;
       const isPartner = partnerStatus[eventId] || false;
       let url, data, toastMessage;
-  
+
       // Verify partner status before proceeding
-      if (userRole === "association_member" && eventExists.hasPartners && !isPartner) {
+      if (userRole === "association_member" && event.hasPartners && !isPartner) {
         const isActuallyPartner = await checkPartnerStatus(eventId);
         if (isActuallyPartner) {
           toast.info("You are already a partner in this event");
           return;
         }
       }
-  
+
       // Determine API endpoint and action
       if (isPartner && userRole === "association_member") {
         url = `${BASE_URL}/events/cancelPartnerParticipation/${eventId}`;
@@ -361,7 +451,7 @@ const Events = () => {
         data = {};
         toastMessage = "You have successfully canceled your participation!";
       } else if (userRole === "association_member") {
-        if (!eventExists.hasPartners) {
+        if (!event.hasPartners) {
           toast.error("This event does not accept partners");
           return;
         }
@@ -373,12 +463,12 @@ const Events = () => {
         data = {};
         toastMessage = "You have successfully joined the event!";
       }
-  
+
       console.log(`API call: ${url} with eventId: ${eventId}, data:`, data, `userId: ${userId}, associationId: ${associationId}`);
       const response = await axios.post(url, data, {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
-  
+
       // Update state only after successful response
       const newStatus = !isParticipating && !isPartner;
       if (userRole === "association_member" && url.includes("participateAsPartner")) {
@@ -390,6 +480,11 @@ const Events = () => {
               : event
           )
         );
+        // Generate QR code for partner participation
+        const qrValue = `${BASE_URL}/events/verifyPartner/${eventId}/${userId}`;
+        setQRCodeValue(qrValue);
+        setQRCodeEventTitle(event.title);
+        setShowQRCodeModal(true);
       } else if (url.includes("cancelPartnerParticipation")) {
         setPartnerStatus((prev) => ({ ...prev, [eventId]: false }));
         setEvents((prevEvents) =>
@@ -399,6 +494,25 @@ const Events = () => {
               : event
           )
         );
+      } else if (url.includes("participate")) {
+        setParticipationStatus((prev) => ({ ...prev, [eventId]: newStatus }));
+        setEvents((prevEvents) =>
+          prevEvents.map((event) =>
+            event._id === eventId
+              ? {
+                  ...event,
+                  participants: newStatus
+                    ? [...(Array.isArray(event.participants) ? event.participants : []), userId]
+                    : (Array.isArray(event.participants) ? event.participants : []).filter((id) => id !== userId),
+                }
+              : event
+          )
+        );
+        // Generate QR code for regular participation
+        const qrValue = `${BASE_URL}/events/verifyParticipation/${eventId}/${userId}`;
+        setQRCodeValue(qrValue);
+        setQRCodeEventTitle(event.title);
+        setShowQRCodeModal(true);
       } else {
         setParticipationStatus((prev) => ({ ...prev, [eventId]: newStatus }));
         setEvents((prevEvents) =>
@@ -414,12 +528,12 @@ const Events = () => {
           )
         );
       }
-  
+
       if (eventId === nearestEvent?._id) setIsParticipatingNearest(newStatus);
-  
+
       setStatusCallback(newStatus);
       toast.success(response.data.message || toastMessage);
-  
+
       // Re-check status to ensure consistency
       if (url.includes("cancelPartnerParticipation") || url.includes("participateAsPartner")) {
         await checkPartnerStatus(eventId);
@@ -434,7 +548,7 @@ const Events = () => {
         eventId,
       });
       const errorMessage = error.response?.data?.message || "Failed to update participation";
-  
+
       if (error.response?.status === 400) {
         if (errorMessage.includes("already a partner")) {
           setPartnerStatus((prev) => ({ ...prev, [eventId]: true }));
@@ -445,7 +559,11 @@ const Events = () => {
         } else {
           toast.error(errorMessage);
         }
-      } else if (error.response?.status === 403 || error.response?.status === 401) {
+      } else if (error.response?.status === 403) {
+        toast.error("You are not authorized to perform this action. Please log in again.");
+        localStorage.removeItem("jwt-token");
+        setTimeout(() => navigate("/login"), 2000);
+      } else if (error.response?.status === 401) {
         toast.error("Session expired. Please log in again.");
         localStorage.removeItem("jwt-token");
         setTimeout(() => navigate("/login"), 2000);
@@ -464,10 +582,11 @@ const Events = () => {
       setIsSubmitting((prev) => ({ ...prev, [eventId]: false }));
     }
   };
+
   const handleLikeToggle = async (eventId) => {
     try {
       const token = localStorage.getItem("jwt-token");
-      if (!token) {
+      if (!token || !isValidJwt(token)) {
         toast.error("Please log in to like an event");
         setTimeout(() => navigate("/login"), 2000);
         return;
@@ -493,7 +612,7 @@ const Events = () => {
   const handleDislikeToggle = async (eventId) => {
     try {
       const token = localStorage.getItem("jwt-token");
-      if (!token) {
+      if (!token || !isValidJwt(token)) {
         toast.error("Please log in to dislike an event");
         setTimeout(() => navigate("/login"), 2000);
         return;
@@ -519,7 +638,7 @@ const Events = () => {
   const handleFavoriteToggle = async (eventId) => {
     try {
       const token = localStorage.getItem("jwt-token");
-      if (!token) {
+      if (!token || !isValidJwt(token)) {
         toast.error("Please log in to add to favorites");
         setTimeout(() => navigate("/login"), 2000);
         return;
@@ -885,8 +1004,7 @@ const Events = () => {
                             </Link>
                             <button
                               title={
-                                jwtDecode(localStorage.getItem("jwt-token") || "{}")?.role === "association_member" &&
-                                event.hasPartners
+                                userRole === "association_member" && event.hasPartners
                                   ? "Join this event as an association partner"
                                   : "Participate in this event"
                               }
@@ -938,8 +1056,7 @@ const Events = () => {
                                 ? "Cancel Partnership"
                                 : participationStatus[event._id]
                                 ? "Cancel Participation"
-                                : jwtDecode(localStorage.getItem("jwt-token") || "{}")?.role === "association_member" &&
-                                  event.hasPartners
+                                : userRole === "association_member" && event.hasPartners
                                 ? "Join as Partner"
                                 : "Join Now"}
                               <i className="fas fa-circle-arrow-right" style={{ marginLeft: "8px" }}></i>
@@ -1081,8 +1198,7 @@ const Events = () => {
                       </div>
                       <button
                         title={
-                          jwtDecode(localStorage.getItem("jwt-token") || "{}")?.role === "association_member" &&
-                          nearestEvent.hasPartners
+                          userRole === "association_member" && nearestEvent.hasPartners
                             ? "Join this event as an association partner"
                             : "Participate in this event"
                         }
@@ -1131,8 +1247,7 @@ const Events = () => {
                           ? "Cancel Partnership"
                           : isParticipatingNearest
                           ? "Cancel Participation"
-                          : jwtDecode(localStorage.getItem("jwt-token") || "{}")?.role === "association_member" &&
-                            nearestEvent.hasPartners
+                          : userRole === "association_member" && nearestEvent.hasPartners
                           ? "Join as Partner"
                           : "Join Now"}
                         <i className="fas fa-circle-arrow-right" style={{ marginLeft: "8px" }}></i>
@@ -1145,6 +1260,13 @@ const Events = () => {
           </div>
         </div>
       )}
+
+      <QRCodeModal
+        isOpen={showQRCodeModal}
+        onClose={() => setShowQRCodeModal(false)}
+        qrCodeValue={qrCodeValue}
+        eventTitle={qrCodeEventTitle}
+      />
 
       <ToastContainer />
     </>
