@@ -61,5 +61,9 @@ router.post("/favorite/:id", userController.verifyToken, eventController.favorit
 router.get("/checkLike/:id", userController.verifyToken, eventController.checkLike);
 router.get("/checkDislike/:id",userController.verifyToken, eventController.checkDislike);
 router.get("/checkFavorite/:id", userController.verifyToken, eventController.checkFavorite);
+router.post("/events/cancelPartnerParticipation/:eventId", userController.verifyToken, eventController.cancelPartnerParticipation);
+router.get("/events/checkPartnerParticipation/:eventId",  userController.verifyToken, eventController.checkPartnerParticipation);
+//router.post("/cancelPartnerParticipation/:id", userController.verifyToken, eventController.cancelPartnerParticipation);
+
 //router.get("/checkPartnerParticipation/:eventId", userController.verifyToken, eventController.checkPartnerParticipation); // Ajouté
 module.exports = router;
