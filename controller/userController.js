@@ -49,6 +49,7 @@ const verifyToken = (req, res, next) => {
         console.log('Token décodé:', decoded);
         req.userId = decoded.id;
         req.userRole = decoded.role; 
+        req.associationId = decoded.association_id;
         next();
     });
 };
