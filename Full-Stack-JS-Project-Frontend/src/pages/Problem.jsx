@@ -7,15 +7,20 @@ import 'react-toastify/dist/ReactToastify.css';
 const Problem = () => {
   const { userId } = useParams();
   const navigate = useNavigate();
+
+  // Get today's date in YYYY-MM-DD format
+  const today = new Date();
+  const defaultStartDate = today.toISOString().split('T')[0];
+
   const [formData, setFormData] = useState({
     what: '',
     source: '',
     reaction: '',
     resolved: false,
     satisfaction: '',
-    startDate: '',
+    startDate: defaultStartDate, // Default to today
     endDate: '',
-    notes: '', // Added notes field
+    notes: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -32,26 +37,39 @@ const Problem = () => {
 
     const token = localStorage.getItem('jwt-token');
     if (!token) {
-      toast.error('Vous devez être connecté pour soumettre un problème');
+      toast.error('You must be logged in to submit a problem');
       setTimeout(() => navigate('/login'), 2000);
       return;
     }
 
-    // Validation des champs
+    // Input validation
     if (!formData.what.trim()) {
-      toast.error('Veuillez remplir le champ "Quel est le problème ?"');
+      toast.error('Please fill in the "What is the problem?" field');
       return;
     }
     if (!formData.source.trim()) {
-      toast.error('Veuillez remplir le champ "D’où vient le problème ?"');
+      toast.error('Please fill in the "Where does the problem come from?" field');
       return;
     }
     if (!formData.reaction.trim()) {
-      toast.error('Veuillez remplir le champ "Comment avez-vous réagi ?"');
+      toast.error('Please fill in the "How did you react?" field');
       return;
     }
     if (!formData.satisfaction) {
-      toast.error('Veuillez sélectionner votre niveau de satisfaction');
+      toast.error('Please select your satisfaction level');
+      return;
+    }
+    if (!formData.startDate) {
+      toast.error('Please select a start date');
+      return;
+    }
+    // Validate startDate is not in the future
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize to midnight
+    const startDate = new Date(formData.startDate);
+    startDate.setHours(0, 0, 0, 0); // Normalize startDate for comparison
+    if (startDate > today) {
+      toast.error('Start date cannot be in the future');
       return;
     }
 
@@ -60,27 +78,27 @@ const Problem = () => {
     try {
       const response = await axios.post(
         `http://localhost:5000/users/problems`,
-        formData, // Includes notes in the payload
+        formData,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
 
-      toast.success('Problème soumis avec succès !');
+      toast.success('Problem submitted successfully!');
       setFormData({
         what: '',
         source: '',
         reaction: '',
         resolved: false,
         satisfaction: '',
-        startDate: '',
+        startDate: defaultStartDate, // Reset to today
         endDate: '',
-        notes: '', // Reset notes field
+        notes: '',
       });
       setTimeout(() => navigate('/list-problems'), 2000);
     } catch (error) {
-      console.error('Erreur:', error.response ? error.response.data : error.message);
-      toast.error(error.response?.data?.message || 'Erreur lors de la soumission');
+      console.error('Error:', error.response ? error.response.data : error.message);
+      toast.error(error.response?.data?.message || 'Error submitting the problem');
     } finally {
       setIsSubmitting(false);
     }

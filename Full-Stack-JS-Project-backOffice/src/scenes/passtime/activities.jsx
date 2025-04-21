@@ -27,6 +27,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import DeleteIcon from "@mui/icons-material/Delete";
 import BarChartIcon from "@mui/icons-material/BarChart";
+import CloseIcon from "@mui/icons-material/Close";
 import Header from "../../components/Header";
 import { useTheme } from "@mui/material";
 import { tokens } from "../../theme";
@@ -48,7 +49,7 @@ const Activities = () => {
   const [activityToToggleArchive, setActivityToToggleArchive] = useState(null);
   const [adminId, setAdminId] = useState(null);
   const [openCategoriesModal, setOpenCategoriesModal] = useState(false);
-  const [openStatsModal, setOpenStatsModal] = useState(false); // New state for Statistics modal
+  const [openStatsModal, setOpenStatsModal] = useState(false);
   const [categorySearchQuery, setCategorySearchQuery] = useState("");
   const [editedCategory, setEditedCategory] = useState(null);
   const [editedName, setEditedName] = useState("");
@@ -322,7 +323,6 @@ const Activities = () => {
       .catch((err) => console.error("❌ Error toggling archive status:", err));
   };
 
-  // Categories Modal Handlers
   const fetchCategories = () => {
     fetch("http://localhost:5000/users/categories", {
       headers: {
@@ -398,7 +398,6 @@ const Activities = () => {
       });
   };
 
-  // Filter categories based on search query
   const filteredCategories = categories.filter((cat) =>
     cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase())
   );
@@ -489,7 +488,7 @@ const Activities = () => {
             variant="contained"
             color="primary"
             startIcon={<BarChartIcon />}
-            onClick={() => setOpenStatsModal(true)} // Open Statistics modal
+            onClick={() => setOpenStatsModal(true)}
           >
             Statistics
           </Button>
@@ -545,7 +544,20 @@ const Activities = () => {
 
       {/* Activity Edit Modal */}
       <Dialog open={open} onClose={handleClose}>
-        <DialogTitle>{formData.id ? "Edit Activity" : "Add Activity"}</DialogTitle>
+        <DialogTitle sx={{ position: 'relative' }}>
+          {formData.id ? "Edit Activity" : "Add Activity"}
+          <IconButton
+            onClick={handleClose}
+            sx={{
+              position: 'absolute',
+              right: 8,
+              top: 8,
+              color: colors.redAccent[500],
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
@@ -600,7 +612,6 @@ const Activities = () => {
           {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose}>Cancel</Button>
           <Button onClick={handleSubmit} variant="contained" color="primary">
             {formData.id ? "Update" : "Add"}
           </Button>
@@ -609,7 +620,20 @@ const Activities = () => {
 
       {/* Activity View Modal */}
       <Dialog open={openViewModal} onClose={() => setOpenViewModal(false)}>
-        <DialogTitle>Activity Details</DialogTitle>
+        <DialogTitle sx={{ position: 'relative' }}>
+          Activity Details
+          <IconButton
+            onClick={() => setOpenViewModal(false)}
+            sx={{
+              position: 'absolute',
+              right: 8,
+              top: 8,
+              color: colors.redAccent[500],
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
         <DialogContent>
           {selectedActivity ? (
             <Box sx={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -629,15 +653,24 @@ const Activities = () => {
             <Typography>Loading...</Typography>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenViewModal(false)}>Close</Button>
-        </DialogActions>
+     
       </Dialog>
 
       {/* Archive Confirmation Modal */}
       <Dialog open={openArchiveModal} onClose={() => setOpenArchiveModal(false)}>
-        <DialogTitle>
+        <DialogTitle sx={{ position: 'relative' }}>
           {activities.find((a) => a.id === activityToToggleArchive)?.isArchived ? "Confirm Unarchiving" : "Confirm Archiving"}
+          <IconButton
+            onClick={() => setOpenArchiveModal(false)}
+            sx={{
+              position: 'absolute',
+              right: 8,
+              top: 8,
+              color: colors.redAccent[500],
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
         </DialogTitle>
         <DialogContent>
           <Typography>
@@ -645,7 +678,6 @@ const Activities = () => {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenArchiveModal(false)}>Cancel</Button>
           <Button onClick={confirmToggleArchive} variant="contained" color="warning">
             {activities.find((a) => a.id === activityToToggleArchive)?.isArchived ? "Unarchive" : "Archive"}
           </Button>
@@ -653,122 +685,148 @@ const Activities = () => {
       </Dialog>
 
       {/* Manage Categories Modal */}
-      {/* Manage Categories Modal */}
-<Dialog open={openCategoriesModal} onClose={() => setOpenCategoriesModal(false)} maxWidth="sm" fullWidth>
-  <DialogTitle>Manage Categories</DialogTitle>
-  <DialogContent>
-    <Box
-      display="flex"
-      backgroundColor={colors.primary[400]}
-      borderRadius="3px"
-      p={1}
-      mb={2}
-    >
-      <InputBase
-        sx={{ ml: 2, flex: 1, color: colors.grey[100] }}
-        placeholder="Search categories"
-        value={categorySearchQuery}
-        onChange={(e) => setCategorySearchQuery(e.target.value)}
-      />
-      <IconButton type="button" sx={{ p: 1, color: colors.grey[100] }}>
-        <SearchIcon />
-      </IconButton>
-    </Box>
-
-    <Box sx={{ maxHeight: 300, overflowY: "auto" }}>
-      {filteredCategories.length > 0 ? (
-        filteredCategories.map((cat) => (
+      <Dialog open={openCategoriesModal} onClose={() => setOpenCategoriesModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ position: 'relative' }}>
+          Manage Categories
+          <IconButton
+            aria-label="close"
+            onClick={() => setOpenCategoriesModal(false)}
+            sx={{
+              position: 'absolute',
+              right: 8,
+              top: 8,
+              color: colors.redAccent[500],
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
           <Box
-            key={cat._id}
             display="flex"
-            justifyContent="space-between"
-            alignItems="center"
+            backgroundColor={colors.primary[400]}
+            borderRadius="3px"
             p={1}
-            mb={1}
-            bgcolor={colors.primary[500]}
-            borderRadius="4px"
+            mb={2}
           >
-            <Typography sx={{ color: colors.grey[100] }}>
-              {cat.name} ({cat.totalActivities} activities)
-            </Typography>
-            <Box>
-              <IconButton
-                color="secondary"
-                onClick={() => openEditModalFunc({ id: cat._id, name: cat.name })}
-              >
-                <EditIcon />
-              </IconButton>
-              <IconButton
-                color="error"
-                onClick={() => handleDelete(cat._id)}
-              >
-                <DeleteIcon />
-              </IconButton>
-            </Box>
+            <InputBase
+              sx={{ ml: 2, flex: 1, color: colors.grey[100] }}
+              placeholder="Search categories"
+              value={categorySearchQuery}
+              onChange={(e) => setCategorySearchQuery(e.target.value)}
+            />
+            <IconButton type="button" sx={{ p: 1, color: colors.grey[100] }}>
+              <SearchIcon />
+            </IconButton>
           </Box>
-        ))
-      ) : (
-        <Typography sx={{ color: colors.grey[100] }}>No categories found</Typography>
-      )}
-    </Box>
 
-    {editedCategory && (
-      <Box mt={2}>
-        <TextField
-          fullWidth
-          label="Edit Category Name"
-          value={editedName}
-          onChange={(e) => setEditedName(e.target.value)}
-        />
-        <Box display="flex" gap={1} mt={1}>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleUpdateCategory}
-          >
-            Save
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={() => setEditedCategory(null)}
-          >
-            Cancel
-          </Button>
-        </Box>
-      </Box>
-    )}
+          <Box sx={{ maxHeight: 300, overflowY: "auto" }}>
+            {filteredCategories.length > 0 ? (
+              filteredCategories.map((cat) => (
+                <Box
+                  key={cat._id}
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  p={1}
+                  mb={1}
+                  bgcolor={colors.primary[500]}
+                  borderRadius="4px"
+                >
+                  <Typography sx={{ color: colors.grey[100] }}>
+                    {cat.name} ({cat.totalActivities} activities)
+                  </Typography>
+                  <Box>
+                    <IconButton
+                      color="secondary"
+                      onClick={() => openEditModalFunc({ id: cat._id, name: cat.name })}
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton
+                      color="error"
+                      onClick={() => handleDelete(cat._id)}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Box>
+                </Box>
+              ))
+            ) : (
+              <Typography sx={{ color: colors.grey[100] }}>No categories found</Typography>
+            )}
+          </Box>
 
-    {categoryToDelete && (
-      <Box mt={2}>
-        <Typography>Are you sure you want to delete this category?</Typography>
-        <Box display="flex" gap={1} mt={1}>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={confirmDelete}
-          >
-            Delete
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={() => setCategoryToDelete(null)}
-          >
-            Cancel
-          </Button>
-        </Box>
-      </Box>
-    )}
+          {editedCategory && (
+            <Box mt={2}>
+              <TextField
+                fullWidth
+                label="Edit Category Name"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+              />
+              <Box display="flex" gap={1} mt={1}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleUpdateCategory}
+                >
+                  Save
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => setEditedCategory(null)}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            </Box>
+          )}
 
-    {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
-  </DialogContent>
-  <DialogActions>
-    <Button onClick={() => setOpenCategoriesModal(false)}>Close</Button>
-  </DialogActions>
-</Dialog>
+          {categoryToDelete && (
+            <Box mt={2}>
+              <Typography>Are you sure you want to delete this category?</Typography>
+              <Box display="flex" gap={1} mt={1}>
+                <Button
+                  variant="contained"
+                  color="error"
+                  onClick={confirmDelete}
+                >
+                  Delete
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => setCategoryToDelete(null)}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            </Box>
+          )}
+
+          {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+        </DialogContent>
+        <DialogActions>
+        </DialogActions>
+      </Dialog>
 
       {/* Statistics Modal */}
       <Dialog open={openStatsModal} onClose={() => setOpenStatsModal(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Activity Statistics</DialogTitle>
+        <DialogTitle sx={{ position: 'relative' }}>
+          Activity Statistics
+          <IconButton
+            aria-label="close"
+            onClick={() => setOpenStatsModal(false)}
+            sx={{
+              position: 'absolute',
+              right: 8,
+              top: 8,
+              color: colors.redAccent[500],
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ maxHeight: 400, overflowY: "auto" }}>
             {categories.length > 0 ? (
@@ -844,7 +902,6 @@ const Activities = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenStatsModal(false)}>Close</Button>
         </DialogActions>
       </Dialog>
 
@@ -866,4 +923,5 @@ const Activities = () => {
     </Box>
   );
 };
+
 export default Activities;

@@ -10,16 +10,18 @@ import {
   faFlag,
   faSmile,
   faBell,
-  faHeart
+  faHeart,
 } from "@fortawesome/free-regular-svg-icons";
-import {
-  faSearch,
-  faThumbtack,
-} from "@fortawesome/free-solid-svg-icons";
+import { faSearch, faThumbtack } from "@fortawesome/free-solid-svg-icons";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
 import EmojiPicker from "emoji-picker-react";
-import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead, addNotification } from "../utils/notificationUtils";
+import {
+  getNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  addNotification,
+} from "../utils/notificationUtils";
 
 // Fonction pour couper la description à 3 lignes
 const truncateDescription = (text, isExpanded) => {
@@ -71,7 +73,125 @@ function Forum() {
   const [username, setUsername] = useState(null);
   const [likedTopics, setLikedTopics] = useState(new Set());
   const [likedComments, setLikedComments] = useState(new Set());
+  const [commentSentiments, setCommentSentiments] = useState({}); // Nouvel état pour les sentiments
+  const [showChatbotModal, setShowChatbotModal] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [showForumRulesModal, setShowForumRulesModal] = useState(false);
+  const [userMessage, setUserMessage] = useState("");
+  const [showBanModal, setShowBanModal] = useState(false);
+  const [banDetails, setBanDetails] = useState({ reason: "", expiresAt: "" });
   const navigate = useNavigate();
+  // Fonction pour interagir avec l'API Gemini
+  const interactWithGemini = async (message) => {
+    const GEMINI_API_KEY = "AIzaSyCfw_jacNIo7ORhBYWXr9b6uYDeeOc4C7o"; // Remplacez par votre clé API réelle
+
+    try {
+      const response = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" +
+          GEMINI_API_KEY,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: message,
+                  },
+                ],
+              },
+            ],
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        console.error("Erreur HTTP:", response.status, response.statusText);
+        const errorData = await response.json();
+        console.error("Détails de l'erreur:", errorData);
+        return "Sorry, I couldn't process your request.";
+      }
+
+      const data = await response.json();
+      const reply = data.candidates[0].content.parts[0].text;
+      return reply;
+    } catch (error) {
+      console.error("Erreur lors de l'interaction avec Gemini:", error);
+      return "An error occurred while interacting with the chatbot.";
+    }
+  };
+  useEffect(() => {
+    localStorage.setItem("chatMessages", JSON.stringify(chatMessages));
+  }, [chatMessages]);
+
+  const classifyText = async (text) => {
+    const cacheKey = `sentiment_${text}`;
+    const cachedResult = localStorage.getItem(cacheKey);
+    if (cachedResult) {
+      return cachedResult;
+    }
+
+    try {
+      const response = await fetch(
+        "https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.REACT_APP_HUGGINGFACE_API_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ inputs: text }),
+        }
+      );
+
+      // Vérifier le statut de la réponse
+      if (!response.ok) {
+        console.error("Erreur HTTP:", response.status, response.statusText);
+        const errorData = await response.json();
+        console.error("Détails de l'erreur:", errorData);
+        return "UNKNOWN";
+      }
+
+      const data = await response.json();
+      console.log("Réponse de l'API Hugging Face:", data); // Ajouter pour déboguer
+
+      if (data && data[0] && data[0][0] && data[0][0].label) {
+        const sentiment = data[0][0].label;
+        localStorage.setItem(cacheKey, sentiment);
+        return sentiment;
+      } else {
+        console.error("Structure inattendue de la réponse:", data);
+        return "UNKNOWN";
+      }
+    } catch (error) {
+      console.error("Erreur lors de la classification:", error);
+      return "UNKNOWN";
+    }
+  };
+
+  // Fonction pour ajouter un délai entre les requêtes
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  // Analyser le sentiment des commentaires
+  useEffect(() => {
+    const analyzeCommentSentiments = async () => {
+      const sentiments = {};
+      for (let i = 0; i < comments.length; i++) {
+        const comment = comments[i];
+        const sentiment = await classifyText(comment.content);
+        sentiments[comment._id] = sentiment;
+        await delay(2000); // Attendre 2 secondes entre chaque requête pour respecter les limites de l'API
+      }
+      setCommentSentiments(sentiments);
+    };
+
+    if (showCommentModal && comments.length > 0) {
+      analyzeCommentSentiments();
+    }
+  }, [comments, showCommentModal]);
 
   // Fonction pour basculer l'état d'expansion
   const toggleDescription = (forumId) => {
@@ -132,7 +252,8 @@ function Forum() {
       const titleMatch = forum.title.toLowerCase().includes(query);
       const descriptionMatch = forum.description.toLowerCase().includes(query);
       const tagsMatch =
-        forum.tags && forum.tags.some((tag) => tag.toLowerCase().includes(query));
+        forum.tags &&
+        forum.tags.some((tag) => tag.toLowerCase().includes(query));
       return titleMatch || descriptionMatch || tagsMatch;
     })
     .sort((a, b) => {
@@ -212,11 +333,18 @@ function Forum() {
               const expiresAt = new Date(data.ban.expiresAt);
               if (expiresAt > currentDate) {
                 setIsBanned(true);
+                setBanDetails({
+                  reason: data.ban.reason || "No reason provided",
+                  expiresAt: expiresAt.toLocaleString("fr-FR"),
+                });
+                setShowBanModal(true); // Ouvre le modal automatiquement
               } else {
                 setIsBanned(false);
+                setShowBanModal(false);
               }
             } else {
               setIsBanned(false);
+              setShowBanModal(false);
             }
           } catch (error) {
             console.error("Erreur lors de la vérification du ban:", error);
@@ -258,7 +386,9 @@ function Forum() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const forumsResponse = await fetch("http://localhost:5000/forum/getForum");
+        const forumsResponse = await fetch(
+          "http://localhost:5000/forum/getForum"
+        );
         const forumsData = await forumsResponse.json();
         setForums(forumsData);
 
@@ -297,7 +427,9 @@ function Forum() {
 
     const interval = setInterval(() => {
       const updatedNotifications = getNotifications(userId);
-      if (JSON.stringify(updatedNotifications) !== JSON.stringify(notifications)) {
+      if (
+        JSON.stringify(updatedNotifications) !== JSON.stringify(notifications)
+      ) {
         setNotifications(updatedNotifications);
       }
     }, 1000);
@@ -521,7 +653,10 @@ function Forum() {
         setShowUpdateCommentModal(false);
         toast.success("Your comment was updated successfully!");
       } else {
-        console.error("Erreur lors de la mise à jour du commentaire:", data.message);
+        console.error(
+          "Erreur lors de la mise à jour du commentaire:",
+          data.message
+        );
         toast.error("Failed to update your comment!");
       }
     } catch (error) {
@@ -674,7 +809,9 @@ function Forum() {
           // Mettre à jour les forums avec les nouvelles données du backend
           setForums((prevForums) =>
             prevForums.map((forum) =>
-              forum._id === forumId ? { ...forum, pinned: data.forum.pinned } : forum
+              forum._id === forumId
+                ? { ...forum, pinned: data.forum.pinned }
+                : forum
             )
           );
         } else {
@@ -734,7 +871,9 @@ function Forum() {
           // Mettre à jour les forums avec les nouvelles données du backend
           setForums((prevForums) =>
             prevForums.map((forum) =>
-              forum._id === forumId ? { ...forum, likes: data.forum.likes } : forum
+              forum._id === forumId
+                ? { ...forum, likes: data.forum.likes }
+                : forum
             )
           );
         } else {
@@ -753,12 +892,12 @@ function Forum() {
         toast.error("You are banned and cannot like comments!");
         return;
       }
-  
+
       if (!userId || !token) {
         toast.error("You must be logged in to like comments!");
         return;
       }
-  
+
       try {
         const response = await fetch(
           `http://localhost:5000/forumComment/toggleLikeComment/${commentId}/${userId}`,
@@ -770,9 +909,9 @@ function Forum() {
             },
           }
         );
-  
+
         const data = await response.json();
-  
+
         if (response.ok) {
           setLikedComments((prevLikedComments) => {
             const newLikedComments = new Set(prevLikedComments);
@@ -781,18 +920,24 @@ function Forum() {
             );
             if (isLiked) {
               newLikedComments.add(commentId);
-              toast.success("Comment liked!", { toastId: `like-comment-${commentId}` });
+              toast.success("Comment liked!", {
+                toastId: `like-comment-${commentId}`,
+              });
             } else {
               newLikedComments.delete(commentId);
-              toast.success("Comment unliked!", { toastId: `like-comment-${commentId}` });
+              toast.success("Comment unliked!", {
+                toastId: `like-comment-${commentId}`,
+              });
             }
             return newLikedComments;
           });
-  
+
           // Mettre à jour les commentaires avec les nouvelles données du backend
           setComments((prevComments) =>
             prevComments.map((comment) =>
-              comment._id === commentId ? { ...comment, likes: data.comment.likes } : comment
+              comment._id === commentId
+                ? { ...comment, likes: data.comment.likes }
+                : comment
             )
           );
         } else {
@@ -806,7 +951,9 @@ function Forum() {
     [isBanned, userId, token]
   );
   // Calculer le nombre de notifications non lues
-  const unreadNotificationsCount = notifications.filter((notif) => !notif.read).length;
+  const unreadNotificationsCount = notifications.filter(
+    (notif) => !notif.read
+  ).length;
 
   // Fonction pour ouvrir le modal des notifications
   const handleOpenNotifications = () => {
@@ -857,7 +1004,10 @@ function Forum() {
 
         {/* Forum Section */}
         <div className="forum-area py-100">
-          <div className="container" style={{ maxWidth: "800px", margin: "0 auto" }}>
+          <div
+            className="container"
+            style={{ maxWidth: "800px", margin: "0 auto" }}
+          >
             <div className="forum-header d-flex justify-content-between align-items-center mb-4">
               {/* Champ de recherche à gauche avec icône et animation */}
               <div
@@ -911,6 +1061,38 @@ function Forum() {
                     />
                   </>
                 )}
+              </div>
+              <div
+                style={{
+                  position: "fixed",
+                  bottom: "18px",
+                  left: "20px",
+                  zIndex: 1000,
+                  cursor: "pointer",
+                }}
+                onClick={() => setShowForumRulesModal(true)}
+              >
+                <div
+                  style={{
+                    backgroundColor: "#ff9800", // Orange pour se démarquer
+                    borderRadius: "50%",
+                    width: "50px",
+                    height: "50px",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+                    transition: "transform 0.3s ease",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.transform = "scale(1.1)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.transform = "scale(1)")
+                  }
+                >
+                  <span style={{ fontSize: "24px", color: "white" }}>❓</span>
+                </div>
               </div>
               {/* Conteneur pour la liste déroulante et les boutons */}
               <div className="d-flex align-items-center">
@@ -975,7 +1157,9 @@ function Forum() {
                     }}
                     onClick={() => {
                       if (isBanned) {
-                        toast.error("You are banned and cannot moderate forums!");
+                        toast.error(
+                          "You are banned and cannot moderate forums!"
+                        );
                         return;
                       }
                       navigate("/moderateForum");
@@ -1003,7 +1187,8 @@ function Forum() {
                     className="forum-item p-4 border rounded mb-4"
                     style={{
                       opacity: forum.status === "inactif" ? 0.5 : 1,
-                      filter: forum.status === "inactif" ? "grayscale(50%)" : "none",
+                      filter:
+                        forum.status === "inactif" ? "grayscale(50%)" : "none",
                     }}
                   >
                     <div className="d-flex justify-content-between align-items-center mb-2">
@@ -1078,7 +1263,9 @@ function Forum() {
                                 }}
                                 onClick={() => {
                                   if (isBanned) {
-                                    toast.error("You are banned and cannot edit topics!");
+                                    toast.error(
+                                      "You are banned and cannot edit topics!"
+                                    );
                                     return;
                                   }
                                   setForumToUpdate(forum);
@@ -1106,7 +1293,9 @@ function Forum() {
                                 }}
                                 onClick={() => {
                                   if (isBanned) {
-                                    toast.error("You are banned and cannot delete topics!");
+                                    toast.error(
+                                      "You are banned and cannot delete topics!"
+                                    );
                                     return;
                                   }
                                   setForumToDelete(forum._id);
@@ -1129,7 +1318,9 @@ function Forum() {
                             }}
                             onClick={() => {
                               if (isBanned) {
-                                toast.error("You are banned and cannot report forums!");
+                                toast.error(
+                                  "You are banned and cannot report forums!"
+                                );
                                 return;
                               }
                               setForumToReport(forum._id);
@@ -1171,7 +1362,9 @@ function Forum() {
                               style={{
                                 cursor: isBanned ? "not-allowed" : "pointer",
                                 fontSize: "20px",
-                                color: likedTopics.has(forum._id) ? "red" : "gray",
+                                color: likedTopics.has(forum._id)
+                                  ? "red"
+                                  : "gray",
                                 opacity: isBanned ? 0.5 : 1,
                                 marginRight: "5px",
                               }}
@@ -1245,7 +1438,10 @@ function Forum() {
                       />
                     )}
                     {forum.status === "inactif" ? (
-                      <div className="mt-3 text-muted" style={{ fontSize: "14px", color: "red" }}>
+                      <div
+                        className="mt-3 text-muted"
+                        style={{ fontSize: "14px", color: "red" }}
+                      >
                         <p style={{ margin: 0, fontStyle: "italic" }}>
                           This topic is inactive for now.
                         </p>
@@ -1298,7 +1494,9 @@ function Forum() {
                               }}
                             >
                               <EmojiPicker
-                                onEmojiClick={(emojiObject) => onEmojiClick(forum._id, emojiObject)}
+                                onEmojiClick={(emojiObject) =>
+                                  onEmojiClick(forum._id, emojiObject)
+                                }
                                 width={300}
                                 height={400}
                               />
@@ -1326,7 +1524,10 @@ function Forum() {
                             }}
                             disabled={isBanned}
                           >
-                            <FontAwesomeIcon icon={faPaperPlane} style={{ fontSize: "14px" }} />
+                            <FontAwesomeIcon
+                              icon={faPaperPlane}
+                              style={{ fontSize: "14px" }}
+                            />
                           </button>
                           <button
                             onClick={() => handleViewComments(forum._id)}
@@ -1344,7 +1545,10 @@ function Forum() {
                             }}
                             disabled={isBanned}
                           >
-                            <FontAwesomeIcon icon={faEye} style={{ fontSize: "14px" }} />
+                            <FontAwesomeIcon
+                              icon={faEye}
+                              style={{ fontSize: "14px" }}
+                            />
                           </button>
                         </div>
                         <div className="mt-2 d-flex align-items-center">
@@ -1360,12 +1564,16 @@ function Forum() {
                               cursor: isBanned ? "not-allowed" : "pointer",
                               marginRight: "10px",
                               transition: "background-color 0.3s ease",
-                              backgroundColor: anonymous ? "rgba(0, 128, 0, 0.2)" : "white",
+                              backgroundColor: anonymous
+                                ? "rgba(0, 128, 0, 0.2)"
+                                : "white",
                               opacity: isBanned ? 0.5 : 1,
                             }}
                             onClick={() => {
                               if (isBanned) {
-                                toast.error("You are banned and cannot perform this action!");
+                                toast.error(
+                                  "You are banned and cannot perform this action!"
+                                );
                                 return;
                               }
                               setAnonymous(!anonymous);
@@ -1392,7 +1600,9 @@ function Forum() {
                             }}
                             onClick={() => {
                               if (isBanned) {
-                                toast.error("You are banned and cannot perform this action!");
+                                toast.error(
+                                  "You are banned and cannot perform this action!"
+                                );
                                 return;
                               }
                               setAnonymous(!anonymous);
@@ -1403,7 +1613,10 @@ function Forum() {
                         </div>
                       </>
                     )}
-                    <div className="mt-3 text-muted" style={{ fontSize: "14px" }}>
+                    <div
+                      className="mt-3 text-muted"
+                      style={{ fontSize: "14px" }}
+                    >
                       <p style={{ margin: 0 }}>
                         Posted at :{" "}
                         {new Date(forum.createdAt).toLocaleString("fr-FR", {
@@ -1431,7 +1644,7 @@ function Forum() {
           style={{
             position: "fixed",
             bottom: "20px",
-            right: "20px",
+            right: "160px",
             zIndex: 1000,
             cursor: "pointer",
           }}
@@ -1441,21 +1654,23 @@ function Forum() {
             style={{
               backgroundColor: "#007bff",
               borderRadius: "50%",
-              width: "60px",
-              height: "60px",
+              width: "50px",
+              height: "50px",
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
               boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
               transition: "transform 0.3s ease",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.transform = "scale(1.1)")
+            }
             onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
           >
             <FontAwesomeIcon
               icon={faBell}
               style={{
-                fontSize: "24px",
+                fontSize: "22px",
                 color: "white",
               }}
             />
@@ -1463,13 +1678,13 @@ function Forum() {
               <span
                 style={{
                   position: "absolute",
-                  top: "-5px",
+                  top: "-7px",
                   right: "-5px",
                   backgroundColor: "red",
                   color: "white",
                   borderRadius: "50%",
-                  padding: "5px 8px",
-                  fontSize: "12px",
+                  padding: "5px 10px",
+                  fontSize: "10px",
                   fontWeight: "bold",
                 }}
               >
@@ -1594,7 +1809,9 @@ function Forum() {
                     </div>
                   ))
               ) : (
-                <p style={{ textAlign: "center" }}>No notifications available.</p>
+                <p style={{ textAlign: "center" }}>
+                  No notifications available.
+                </p>
               )}
             </div>
             <div
@@ -1656,7 +1873,9 @@ function Forum() {
               Are you sure you want to delete this forum? This action cannot be
               undone.
             </p>
-            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+            <div
+              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+            >
               <button
                 onClick={() => setShowDeleteModal(false)}
                 style={{
@@ -1808,7 +2027,9 @@ function Forum() {
                 </div>
               )}
             </div>
-            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+            <div
+              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+            >
               <button
                 onClick={() => setShowUpdateModal(false)}
                 style={{
@@ -1916,10 +2137,32 @@ function Forum() {
                         {comment.anonymous ? (
                           <p style={{ margin: 0, fontWeight: "bold" }}>
                             Anonymous Member
+                            {commentSentiments[comment._id] && (
+                              <span
+                                className="badge"
+                                style={{
+                                  marginLeft: "10px",
+                                  backgroundColor:
+                                    commentSentiments[comment._id] ===
+                                    "POSITIVE"
+                                      ? "green"
+                                      : commentSentiments[comment._id] ===
+                                        "NEGATIVE"
+                                      ? "red"
+                                      : "gray",
+                                  color: "white",
+                                  padding: "2px 8px",
+                                  borderRadius: "20px",
+                                  fontSize: "0.875rem",
+                                }}
+                              >
+                                {commentSentiments[comment._id]}
+                              </span>
+                            )}
                           </p>
                         ) : (
                           <p style={{ margin: 0, fontWeight: "bold" }}>
-                            {comment.user_id.username}
+                            {comment.user_id.username} &nbsp;
                             <span
                               className="badge"
                               style={{
@@ -1932,8 +2175,50 @@ function Forum() {
                                 fontSize: "0.875rem",
                               }}
                             >
-                              {comment.user_id.level} {comment.user_id.speciality}
+                              {comment.user_id.level}{" "}
+                              {comment.user_id.speciality}
                             </span>
+                            {commentSentiments[comment._id] && (
+                              <span
+                                className="badge"
+                                style={{
+                                  marginLeft: "10px",
+                                  backgroundColor: "transparent",
+                                  border: `1px solid ${
+                                    commentSentiments[comment._id] ===
+                                    "POSITIVE"
+                                      ? "#28a745" // Vert pour POSITIVE
+                                      : commentSentiments[comment._id] ===
+                                        "NEGATIVE"
+                                      ? "#dc3545" // Rouge pour NEGATIVE
+                                      : "#6c757d" // Gris pour NEUTRAL
+                                  }`,
+                                  color: `${
+                                    commentSentiments[comment._id] ===
+                                    "POSITIVE"
+                                      ? "#28a745"
+                                      : commentSentiments[comment._id] ===
+                                        "NEGATIVE"
+                                      ? "#dc3545"
+                                      : "#6c757d"
+                                  }`,
+                                  padding: "2px 8px",
+                                  borderRadius: "20px",
+                                  boxShadow: `0 0 10px ${
+                                    commentSentiments[comment._id] ===
+                                    "POSITIVE"
+                                      ? "rgba(40, 167, 69, 0.5)" // Lueur verte
+                                      : commentSentiments[comment._id] ===
+                                        "NEGATIVE"
+                                      ? "rgba(220, 53, 69, 0.5)" // Lueur rouge
+                                      : "rgba(108, 117, 125, 0.5)" // Lueur grise
+                                  }`,
+                                  fontSize: "0.875rem",
+                                }}
+                              >
+                                {commentSentiments[comment._id]}
+                              </span>
+                            )}
                           </p>
                         )}
                         <p
@@ -1949,7 +2234,13 @@ function Forum() {
                         </p>
                       </div>
                     </div>
-                    <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "10px",
+                        alignItems: "center",
+                      }}
+                    >
                       {userId === comment.user_id._id && (
                         <span
                           className="icon"
@@ -1961,7 +2252,9 @@ function Forum() {
                           }}
                           onClick={() => {
                             if (isBanned) {
-                              toast.error("You are banned and cannot edit comments!");
+                              toast.error(
+                                "You are banned and cannot edit comments!"
+                              );
                               return;
                             }
                             setCommentToUpdate(comment);
@@ -1983,7 +2276,9 @@ function Forum() {
                           }}
                           onClick={() => {
                             if (isBanned) {
-                              toast.error("You are banned and cannot delete comments!");
+                              toast.error(
+                                "You are banned and cannot delete comments!"
+                              );
                               return;
                             }
                             setCommentToDelete(comment._id);
@@ -2004,7 +2299,9 @@ function Forum() {
                           }}
                           onClick={() => {
                             if (isBanned) {
-                              toast.error("You are banned and cannot report comments!");
+                              toast.error(
+                                "You are banned and cannot report comments!"
+                              );
                               return;
                             }
                             setCommentToReport(comment._id);
@@ -2014,33 +2311,33 @@ function Forum() {
                           <FontAwesomeIcon icon={faFlag} />
                         </span>
                       )}
-                        {userId && (
-                      <div className="d-flex align-items-center">
-                        <span
-                          className="icon"
-                          style={{
-                            cursor: isBanned ? "not-allowed" : "pointer",
-                            fontSize: "18px",
-                            color: likedComments.has(comment._id)
-                              ? "red"
-                              : "gray",
-                            opacity: isBanned ? 0.5 : 1,
-                            marginRight: "5px",
-                          }}
-                          onClick={() => toggleLikeComment(comment._id)}
-                        >
-                          <FontAwesomeIcon icon={faHeart} />
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "12px",
-                            color: "black",
-                          }}
-                        >
-                          {comment.likes.length}
-                        </span>
-                      </div>
-                    )}
+                      {userId && (
+                        <div className="d-flex align-items-center">
+                          <span
+                            className="icon"
+                            style={{
+                              cursor: isBanned ? "not-allowed" : "pointer",
+                              fontSize: "18px",
+                              color: likedComments.has(comment._id)
+                                ? "red"
+                                : "gray",
+                              opacity: isBanned ? 0.5 : 1,
+                              marginRight: "5px",
+                            }}
+                            onClick={() => toggleLikeComment(comment._id)}
+                          >
+                            <FontAwesomeIcon icon={faHeart} />
+                          </span>
+                          <span
+                            style={{
+                              fontSize: "12px",
+                              color: "black",
+                            }}
+                          >
+                            {comment.likes.length}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))
@@ -2106,7 +2403,9 @@ function Forum() {
               Are you sure you want to delete this comment? This action cannot
               be undone.
             </p>
-            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+            <div
+              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+            >
               <button
                 onClick={() => setShowDeleteCommentModal(false)}
                 style={{
@@ -2180,7 +2479,9 @@ function Forum() {
                 }}
               />
             </div>
-            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+            <div
+              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+            >
               <button
                 onClick={() => setShowUpdateCommentModal(false)}
                 style={{
@@ -2253,7 +2554,9 @@ function Forum() {
                 }}
               >
                 <option value="">Select a reason</option>
-                <option value="inappropriate_content">Inappropriate Content</option>
+                <option value="inappropriate_content">
+                  Inappropriate Content
+                </option>
                 <option value="spam">Spam</option>
                 <option value="harassment">Harassment</option>
                 <option value="offensive_language">Offensive Language</option>
@@ -2261,7 +2564,9 @@ function Forum() {
                 <option value="other">Other</option>
               </select>
             </div>
-            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+            <div
+              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+            >
               <button
                 onClick={() => {
                   setShowReportForumModal(false);
@@ -2337,7 +2642,9 @@ function Forum() {
                 }}
               >
                 <option value="">Select a reason :</option>
-                <option value="inappropriate_content">Inappropriate Content</option>
+                <option value="inappropriate_content">
+                  Inappropriate Content
+                </option>
                 <option value="spam">Spam</option>
                 <option value="harassment">Harassment</option>
                 <option value="offensive_language">Offensive Language</option>
@@ -2345,7 +2652,9 @@ function Forum() {
                 <option value="other">Other</option>
               </select>
             </div>
-            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+            <div
+              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+            >
               <button
                 onClick={() => {
                   setShowReportCommentModal(false);
@@ -2374,6 +2683,363 @@ function Forum() {
                 }}
               >
                 Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bouton flottant pour ouvrir le modal du chatbot */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: "20px",
+          right: "100px",
+          zIndex: 1000,
+          cursor: "pointer",
+        }}
+        onClick={() => setShowChatbotModal(true)}
+      >
+        <div
+          style={{
+            backgroundColor: "#28a745",
+            borderRadius: "50%",
+            width: "50px",
+            height: "50px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+            transition: "transform 0.3s ease",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+        >
+          <span style={{ fontSize: "24px", color: "white" }}>🤖</span>
+        </div>
+      </div>
+
+      {/* Modal du chatbot */}
+      {showChatbotModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "600px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              display: "flex",
+              flexDirection: "column",
+              maxHeight: "80vh",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+              Chatbot (Gemini)
+            </h3>
+            <div
+              style={{
+                flex: 1,
+                maxHeight: "60vh",
+                overflowY: "auto",
+                marginBottom: "20px",
+                padding: "10px",
+                border: "1px solid #ddd",
+                borderRadius: "8px",
+              }}
+            >
+              {chatMessages.length > 0 ? (
+                chatMessages.map((msg, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      marginBottom: "10px",
+                      padding: "10px",
+                      borderRadius: "8px",
+                      backgroundColor:
+                        msg.sender === "user" ? "#e6f3ff" : "#f9f9f9",
+                      alignSelf:
+                        msg.sender === "user" ? "flex-end" : "flex-start",
+                      maxWidth: "80%",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    <strong>{msg.sender === "user" ? "You" : "Bot"}:</strong>{" "}
+                    {msg.text}
+                  </div>
+                ))
+              ) : (
+                <p style={{ textAlign: "center", color: "#666" }}>
+                  Start a conversation with the chatbot!
+                </p>
+              )}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                gap: "10px",
+                alignItems: "center",
+              }}
+            >
+              <input
+                type="text"
+                value={userMessage}
+                onChange={(e) => setUserMessage(e.target.value)}
+                placeholder="Type your message..."
+                style={{
+                  flex: 1,
+                  padding: "10px",
+                  borderRadius: "50px",
+                  border: "1px solid #ddd",
+                  outline: "none",
+                }}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter" && userMessage.trim()) {
+                    setChatMessages((prev) => [
+                      ...prev,
+                      { sender: "user", text: userMessage },
+                    ]);
+                    interactWithGemini(userMessage).then((reply) => {
+                      setChatMessages((prev) => [
+                        ...prev,
+                        { sender: "bot", text: reply },
+                      ]);
+                    });
+                    setUserMessage("");
+                  }
+                }}
+              />
+              <button
+                onClick={() => {
+                  if (userMessage.trim()) {
+                    setChatMessages((prev) => [
+                      ...prev,
+                      { sender: "user", text: userMessage },
+                    ]);
+                    interactWithGemini(userMessage).then((reply) => {
+                      setChatMessages((prev) => [
+                        ...prev,
+                        { sender: "bot", text: reply },
+                      ]);
+                    });
+                    setUserMessage("");
+                  }
+                }}
+                style={{
+                  backgroundColor: "#007bff",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "50px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Send
+              </button>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                marginTop: "20px",
+              }}
+            >
+              <button
+                onClick={() => {
+                  setShowChatbotModal(false);
+                  setUserMessage(""); // On réinitialise uniquement le champ de saisie
+                  // On ne réinitialise plus chatMessages pour conserver la discussion
+                }}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  setChatMessages([]);
+                  localStorage.removeItem("chatMessages");
+                }}
+                style={{
+                  backgroundColor: "#ff9800",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                  marginLeft: "10px",
+                }}
+              >
+                Clear Chat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showForumRulesModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "500px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+              Forum Rules 📜
+            </h3>
+            <ul
+              style={{
+                listStyleType: "none",
+                padding: 0,
+                marginBottom: "20px",
+                fontSize: "16px",
+                color: "#333",
+              }}
+            >
+              <li style={{ marginBottom: "10px" }}>
+                <span role="img" aria-label="handshake">
+                  🤝
+                </span>{" "}
+                Respect the chat – Be kind and considerate to others.
+              </li>
+              <li style={{ marginBottom: "10px" }}>
+                <span role="img" aria-label="warning">
+                  ⚠️
+                </span>{" "}
+                Inappropriate behavior will result in a ban.
+              </li>
+              <li style={{ marginBottom: "10px" }}>
+                <span role="img" aria-label="flag">
+                  🚩
+                </span>{" "}
+                You can report any comment or topic if it violates the rules.
+              </li>
+              <li style={{ marginBottom: "10px" }}>
+                <span role="img" aria-label="robot">
+                  🤖
+                </span>{" "}
+                Use the chatbot Gemini to help you add topics or find
+                information.
+              </li>
+              <li>
+                <span role="img" aria-label="smile">
+                  😊
+                </span>{" "}
+                Keep the community positive and supportive!
+              </li>
+            </ul>
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <button
+                onClick={() => setShowForumRulesModal(false)}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showBanModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "500px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              textAlign: "center",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", color: "#dc3545" }}>
+              You Are Banned 🚫
+            </h3>
+            <p
+              style={{ marginBottom: "10px", fontSize: "16px", color: "#333" }}
+            >
+              <strong>you can't do any action for now !</strong>
+            </p>
+            <p
+              style={{ marginBottom: "10px", fontSize: "16px", color: "#333" }}
+            >
+              <strong>Reason:</strong> {banDetails.reason}
+            </p>
+            <p
+              style={{ marginBottom: "20px", fontSize: "16px", color: "#333" }}
+            >
+              <strong>Ban Expires:</strong> {banDetails.expiresAt}
+            </p>
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <button
+                onClick={() => setShowBanModal(false)}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Close
               </button>
             </div>
           </div>

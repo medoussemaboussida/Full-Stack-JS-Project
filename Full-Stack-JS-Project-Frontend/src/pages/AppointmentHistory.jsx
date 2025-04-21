@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Modal, Button } from 'react-bootstrap';
 import { ToastContainer, toast } from 'react-toastify';
@@ -32,6 +32,10 @@ const AppointmentHistory = () => {
     const [userId, setUserId] = useState(null);
     const [dateSort, setDateSort] = useState('recent');
     const [showStatsModal, setShowStatsModal] = useState(false);
+
+    // Références pour les graphiques
+    const pieChartRef = useRef(null);
+    const lineChartRef = useRef(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -342,122 +346,57 @@ const AppointmentHistory = () => {
 
     const exportToPDF = () => {
         const doc = new jsPDF();
-        const { statusCounts, dailyStats } = getStatsData();
+        const { statusCounts } = getStatsData();
         const today = new Date().toLocaleDateString();
         const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 20;
         let yPos = margin;
 
-        // Load the logo dynamically
-        const logoImg = new Image();
-        logoImg.src = '/assets/img/logo/logo.png'; // Path relative to public folder
-
-        // Wait for the image to load before adding it to the PDF
-        logoImg.onload = () => {
-            try {
-                doc.addImage(logoImg, 'PNG', margin, yPos, 20, 20); // Add logo (40x40 size)
-                yPos += 50; // Space after logo
-            } catch (error) {
-                console.warn('Failed to load logo:', error);
-            }
-
-            // Header with styled title
-            doc.setFontSize(22);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(0, 123, 255); // Blue color
-            doc.text('Appointment Statistics Report', pageWidth / 2, yPos, { align: 'center' });
-            yPos += 15;
-
-            // Date of generation
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(100); // Gray color
-            doc.text(`Generated on: ${today}`, pageWidth / 2, yPos, { align: 'center' });
-            yPos += 20;
-
-            // Status Distribution Section
-            doc.setFontSize(16);
-            doc.setTextColor(33, 37, 41); // Dark gray
-            doc.setFont('helvetica', 'bold');
-            doc.text('Status Distribution', margin, yPos);
-            yPos += 10;
-
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(66, 66, 66); // Medium gray
-            Object.entries(statusCounts).forEach(([status, count]) => {
-                const statusText = `${status.charAt(0).toUpperCase() + status.slice(1)}: ${count}`;
-                doc.text(statusText, margin + 10, yPos);
-                const colorMap = {
-                    pending: [255, 206, 86],
-                    confirmed: [54, 162, 235],
-                    completed: [75, 192, 192],
-                    canceled: [255, 99, 132]
-                };
-                doc.setFillColor(...colorMap[status]);
-                doc.rect(margin, yPos - 4, 5, 5, 'F'); // Small colored square
-                yPos += 10;
-            });
-
-            // Draw a separator line
-            yPos += 5;
-            doc.setDrawColor(200);
-            doc.line(margin, yPos, pageWidth - margin, yPos);
-            yPos += 15;
-
-            // Daily Appointments Section
-            doc.setFontSize(16);
-            doc.setTextColor(33, 37, 41);
-            doc.setFont('helvetica', 'bold');
-            doc.text('Appointments Over Last 30 Days', margin, yPos);
-            yPos += 10;
-
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(66, 66, 66);
-            const dailyData = Object.entries(dailyStats);
-            dailyData.forEach(([date, count], index) => {
-                if (yPos > doc.internal.pageSize.height - margin) {
-                    doc.addPage();
-                    yPos = margin;
-                }
-                const formattedDate = new Date(date).toLocaleDateString();
-                doc.text(`${formattedDate}: ${count} appointment${count !== 1 ? 's' : ''}`, margin + 10, yPos);
-                yPos += 8;
-            });
-
-            // Footer with page numbers
-            const pageCount = doc.internal.getNumberOfPages();
-            for (let i = 1; i <= pageCount; i++) {
-                doc.setPage(i);
-                doc.setFontSize(10);
-                doc.setTextColor(150);
-                doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 20, doc.internal.pageSize.height - 10);
-            }
-
-            // Save the PDF
-            doc.save(`appointment_statistics_${today}.pdf`);
-        };
-
-        logoImg.onerror = () => {
-            console.warn('Logo failed to load, generating PDF without logo.');
-            // Generate PDF without logo if loading fails
+        // Fonction pour ajouter le contenu du PDF
+        const addPDFContent = () => {
+            // En-tête
             doc.setFontSize(22);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(0, 123, 255);
             doc.text('Appointment Statistics Report', pageWidth / 2, yPos, { align: 'center' });
             yPos += 15;
 
+            // Date de génération
             doc.setFontSize(12);
             doc.setFont('helvetica', 'normal');
             doc.setTextColor(100);
             doc.text(`Generated on: ${today}`, pageWidth / 2, yPos, { align: 'center' });
             yPos += 20;
 
+            // Ajouter le Pie Chart (centré)
+            if (pieChartRef.current) {
+                try {
+                    const pieCanvas = pieChartRef.current.canvas;
+                    const pieImgData = pieCanvas.toDataURL('image/png');
+                    doc.setFontSize(16);
+                    doc.setTextColor(33, 37, 41);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('Status Distribution (Pie Chart)', pageWidth / 2, yPos, { align: 'center' });
+                    yPos += 10;
+                    const pieWidth = 100;
+                    const pieX = (pageWidth - pieWidth) / 2; // Centrer horizontalement
+                    doc.addImage(pieImgData, 'PNG', pieX, yPos, pieWidth, 100);
+                    yPos += 110;
+                } catch (error) {
+                    console.warn('Failed to add Pie Chart:', error);
+                    doc.setFontSize(12);
+                    doc.setTextColor(255, 0, 0);
+                    doc.text('Error: Could not include Pie Chart', margin, yPos);
+                    yPos += 10;
+                }
+            }
+
+            // Distribution des statuts (texte)
             doc.setFontSize(16);
             doc.setTextColor(33, 37, 41);
             doc.setFont('helvetica', 'bold');
-            doc.text('Status Distribution', margin, yPos);
+            doc.text('Status Distribution Details', margin, yPos);
             yPos += 10;
 
             doc.setFontSize(12);
@@ -477,40 +416,63 @@ const AppointmentHistory = () => {
                 yPos += 10;
             });
 
-            yPos += 5;
-            doc.setDrawColor(200);
-            doc.line(margin, yPos, pageWidth - margin, yPos);
-            yPos += 15;
+            // Vérifier si une nouvelle page est nécessaire
+            if (yPos > pageHeight - margin - 100) {
+                doc.addPage();
+                yPos = margin;
+            }
 
-            doc.setFontSize(16);
-            doc.setTextColor(33, 37, 41);
-            doc.setFont('helvetica', 'bold');
-            doc.text('Appointments Over Last 30 Days', margin, yPos);
-            yPos += 10;
-
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(66, 66, 66);
-            const dailyData = Object.entries(dailyStats);
-            dailyData.forEach(([date, count], index) => {
-                if (yPos > doc.internal.pageSize.height - margin) {
-                    doc.addPage();
-                    yPos = margin;
+            // Ajouter le Line Chart
+            if (lineChartRef.current) {
+                try {
+                    const lineCanvas = lineChartRef.current.canvas;
+                    const lineImgData = lineCanvas.toDataURL('image/png');
+                    doc.setFontSize(16);
+                    doc.setTextColor(33, 37, 41);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('Appointments Over Last 30 Days (Line Chart)', margin, yPos);
+                    yPos += 10;
+                    doc.addImage(lineImgData, 'PNG', margin, yPos, 180, 90);
+                    yPos += 100;
+                } catch (error) {
+                    console.warn('Failed to add Line Chart:', error);
+                    doc.setFontSize(12);
+                    doc.setTextColor(255, 0, 0);
+                    doc.text('Error: Could not include Line Chart', margin, yPos);
+                    yPos += 10;
                 }
-                const formattedDate = new Date(date).toLocaleDateString();
-                doc.text(`${formattedDate}: ${count} appointment${count !== 1 ? 's' : ''}`, margin + 10, yPos);
-                yPos += 8;
-            });
+            }
 
+            // Numérotation des pages
             const pageCount = doc.internal.getNumberOfPages();
             for (let i = 1; i <= pageCount; i++) {
                 doc.setPage(i);
                 doc.setFontSize(10);
                 doc.setTextColor(150);
-                doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 20, doc.internal.pageSize.height - 10);
+                doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 20, pageHeight - 10);
             }
 
+            // Sauvegarder le PDF
             doc.save(`appointment_statistics_${today}.pdf`);
+        };
+
+        // Charger et ajouter le logo
+        const logoImg = new Image();
+        logoImg.src = '/assets/img/logo/logo.png';
+
+        logoImg.onload = () => {
+            try {
+                doc.addImage(logoImg, 'PNG', margin, yPos, 20, 20);
+                yPos += 50;
+            } catch (error) {
+                console.warn('Failed to load logo:', error);
+            }
+            addPDFContent();
+        };
+
+        logoImg.onerror = () => {
+            console.warn('Logo failed to load, generating PDF without logo.');
+            addPDFContent();
         };
     };
 
@@ -745,6 +707,7 @@ const AppointmentHistory = () => {
                             data={pieChartData()}
                             options={pieChartOptions}
                             style={{ maxHeight: '400px' }}
+                            ref={pieChartRef}
                         />
                     </div>
                     <div>
@@ -752,6 +715,7 @@ const AppointmentHistory = () => {
                         <Line 
                             data={lineChartData()}
                             options={lineChartOptions}
+                            ref={lineChartRef}
                         />
                     </div>
                 </Modal.Body>

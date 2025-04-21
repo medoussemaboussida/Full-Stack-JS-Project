@@ -6,6 +6,8 @@ const validate = require('../middleware/validate')
 const { updateStudentProfile, updateStudentPhoto } = require('../controller/userController');
 
 
+//weather 
+router.get('/weather', activitiesController.getweather);
 
 router.put('/students/update/:id', updateStudentProfile);
 router.put('/students/update-photo/:id', updateStudentPhoto);
@@ -51,6 +53,7 @@ router.delete('/deleteCommentAdmin/:commentId', userController.deleteCommentaire
 router.post('/ban/:userId', userController.verifyToken, userController.banUser);
 router.get('/banned-users', userController.verifyToken, userController.getBannedUsers);
 router.put('/unban/:userId', userController.verifyToken, userController.unbanUser);
+router.get('/tags', userController.verifyToken , userController.getAllTags);
 
 
 
@@ -79,6 +82,8 @@ router.put('/chat/:messageId', userController.verifyToken, userController.update
 router.get('/users/chat/rooms', userController.verifyToken, userController.getAllchat);
 router.put('/notifications/:notificationId/read', userController.verifyToken, userController.markNotificationAsRead);
 router.get('/notifications', userController.verifyToken, userController.getUserNotifications);
+router.get('/appointments/psychiatrist/:psychiatristId',userController.verifyToken, userController.getAppointmentsByPsychiatrist);
+
 
 
 
@@ -145,6 +150,7 @@ router.delete("/clear-favorite/:id", activitiesController.clearFavoriteActivitie
 router.post('/generate-description', activitiesController.generateDescription);
 router.post('/generate-title', activitiesController.generateTitle);
 
+
 //schedule
 // POST /users/schedule/:userId - Save or update scheduled activities
 router.post("/schedule/:userId", userController.verifyToken, activitiesController.saveSchedule);
@@ -163,10 +169,6 @@ router.get("/pinned-activities/:userId", userController.verifyToken, activitiesC
 // Route to toggle (pin/unpin) an activity
 router.post("/pin-activity/:userId", userController.verifyToken, activitiesController.togglePinActivity);
 
-
-// ✅ Note Routes (New for your frontend)
-router.post("/notes/:userId", userController.verifyToken, activitiesController.saveNote);
-router.get("/notes/:userId", userController.verifyToken, activitiesController.getNotes);
 
 router.post('/problems', userController.verifyToken, userController.createProblem);
 router.get('/problems/:userId', userController.verifyToken, userController.getProblems);

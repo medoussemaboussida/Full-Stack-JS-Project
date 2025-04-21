@@ -235,7 +235,15 @@ const AddReclamation = () => {
                       />
                     </div>
                     {subjectError && (
-                      <p className="text-red-500 text-xs mt-1">{subjectError}</p>
+                      <p
+                        style={{
+                          color: "#ff0000",
+                          fontSize: "12px",
+                          marginTop: "4px",
+                        }}
+                      >
+                        {subjectError}
+                      </p>
                     )}
                   </div>
 
@@ -262,7 +270,15 @@ const AddReclamation = () => {
                       />
                     </div>
                     {descriptionError && (
-                      <p className="text-red-500 text-xs mt-1">{descriptionError}</p>
+                      <p
+                        style={{
+                          color: "#ff0000",
+                          fontSize: "12px",
+                          marginTop: "4px",
+                        }}
+                      >
+                        {descriptionError}
+                      </p>
                     )}
                   </div>
 

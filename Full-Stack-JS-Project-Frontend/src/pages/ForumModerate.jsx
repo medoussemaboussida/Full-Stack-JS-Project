@@ -2,7 +2,14 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTrashAlt, faToggleOn, faToggleOff, faFlag, faBan, faUserSlash } from "@fortawesome/free-solid-svg-icons"; // Ajout de faUserSlash pour l'icône unban
+import {
+  faTrashAlt,
+  faToggleOn,
+  faToggleOff,
+  faFlag,
+  faBan,
+  faUserSlash,
+} from "@fortawesome/free-solid-svg-icons"; // Ajout de faUserSlash pour l'icône unban
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
@@ -18,7 +25,11 @@ const truncateDescription = (text, isExpanded) => {
 
 // Fonction pour générer l'URL du QR code avec les informations de ban
 const generateQRCodeUrl = (user) => {
-  const qrData = `Username: ${user.user_id.username}\nLevel and Speciality: ${user.user_id.level || 'N/A'} ${user.user_id.speciality || 'N/A'}\nReason of ban: ${user.reason}\nBan expires: ${new Date(user.expiresAt).toLocaleString("fr-FR")}`;
+  const qrData = `Username: ${user.user_id.username}\nLevel and Speciality: ${
+    user.user_id.level || "N/A"
+  } ${user.user_id.speciality || "N/A"}\nReason of ban: ${
+    user.reason
+  }\nBan expires: ${new Date(user.expiresAt).toLocaleString("fr-FR")}`;
   const encodedData = encodeURIComponent(qrData);
   return `https://api.qrserver.com/v1/create-qr-code/?data=${encodedData}&size=120x120`;
 };
@@ -51,7 +62,75 @@ function ForumModerate() {
   const [banReason, setBanReason] = useState("");
   const [showBannedListModal, setShowBannedListModal] = useState(false);
   const [bannedUsers, setBannedUsers] = useState([]);
+  const [commentSentiments, setCommentSentiments] = useState({}); // Nouvel état pour les sentiments
   const navigate = useNavigate();
+
+  //sentiment ia
+  const classifyText = async (text) => {
+    const cacheKey = `sentiment_${text}`;
+    const cachedResult = localStorage.getItem(cacheKey);
+    if (cachedResult) {
+      return cachedResult;
+    }
+
+    try {
+      const response = await fetch(
+        "https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.REACT_APP_HUGGINGFACE_API_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ inputs: text }),
+        }
+      );
+
+      // Vérifier le statut de la réponse
+      if (!response.ok) {
+        console.error("Erreur HTTP:", response.status, response.statusText);
+        const errorData = await response.json();
+        console.error("Détails de l'erreur:", errorData);
+        return "UNKNOWN";
+      }
+
+      const data = await response.json();
+      console.log("Réponse de l'API Hugging Face:", data); // Ajouter pour déboguer
+
+      if (data && data[0] && data[0][0] && data[0][0].label) {
+        const sentiment = data[0][0].label;
+        localStorage.setItem(cacheKey, sentiment);
+        return sentiment;
+      } else {
+        console.error("Structure inattendue de la réponse:", data);
+        return "UNKNOWN";
+      }
+    } catch (error) {
+      console.error("Erreur lors de la classification:", error);
+      return "UNKNOWN";
+    }
+  };
+
+  // Fonction pour ajouter un délai entre les requêtes
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  // Analyser le sentiment des commentaires
+  useEffect(() => {
+    const analyzeCommentSentiments = async () => {
+      const sentiments = {};
+      for (let i = 0; i < comments.length; i++) {
+        const comment = comments[i];
+        const sentiment = await classifyText(comment.content);
+        sentiments[comment._id] = sentiment;
+        await delay(2000); // Attendre 2 secondes entre chaque requête pour respecter les limites de l'API
+      }
+      setCommentSentiments(sentiments);
+    };
+
+    if (showCommentModal && comments.length > 0) {
+      analyzeCommentSentiments();
+    }
+  }, [comments, showCommentModal]);
 
   const toggleDescription = (forumId) => {
     setExpanded((prev) => ({
@@ -104,7 +183,10 @@ function ForumModerate() {
         setBannedUsers(data.bannedUsers);
         setShowBannedListModal(true);
       } else {
-        console.error("Erreur lors de la récupération des utilisateurs bannis:", data.message || data);
+        console.error(
+          "Erreur lors de la récupération des utilisateurs bannis:",
+          data.message || data
+        );
         toast.error("Failed to fetch banned users!");
       }
     } catch (error) {
@@ -115,23 +197,26 @@ function ForumModerate() {
 
   const handleUnbanUser = async (banId) => {
     try {
-      const response = await fetch(`http://localhost:5000/forum/unban/${banId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `http://localhost:5000/forum/unban/${banId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
       const data = await response.json();
 
       if (response.ok) {
         toast.success(data.message || "User unbanned successfully!");
         setBannedUsers(bannedUsers.filter((user) => user._id !== banId));
         // Ajout de la notification pour l'utilisateur débanni
-      const bannedUser = bannedUsers.find((user) => user._id === banId);
-      if (bannedUser && bannedUser.user_id) {
-        const message = `You have been unbanned by a moderator. You can now participate in the forum again.`;
-        addNotification(bannedUser.user_id._id, message, "unban");
-      }
+        const bannedUser = bannedUsers.find((user) => user._id === banId);
+        if (bannedUser && bannedUser.user_id) {
+          const message = `You have been unbanned by a moderator. You can now participate in the forum again.`;
+          addNotification(bannedUser.user_id._id, message, "unban");
+        }
       } else {
         toast.error(data.message || "Failed to unban user!");
       }
@@ -144,7 +229,9 @@ function ForumModerate() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const forumsResponse = await fetch("http://localhost:5000/forum/getForum");
+        const forumsResponse = await fetch(
+          "http://localhost:5000/forum/getForum"
+        );
         const forumsData = await forumsResponse.json();
         setForums(forumsData);
 
@@ -202,10 +289,17 @@ function ForumModerate() {
   const filterPertinentForums = (forums) => {
     return forums.filter((forum) => {
       const commentsCount = commentsCountMap[forum._id] || 0;
-      const pinnedCount = forum.pinned && Array.isArray(forum.pinned) ? forum.pinned.length : forum.pinned || 0;
-      const likesCount = forum.likes && Array.isArray(forum.likes) ? forum.likes.length : forum.likes || 0;
+      const pinnedCount =
+        forum.pinned && Array.isArray(forum.pinned)
+          ? forum.pinned.length
+          : forum.pinned || 0;
+      const likesCount =
+        forum.likes && Array.isArray(forum.likes)
+          ? forum.likes.length
+          : forum.likes || 0;
 
-      const isPertinent = commentsCount > 5 || pinnedCount > 5 || likesCount > 5;
+      const isPertinent =
+        commentsCount > 5 || pinnedCount > 5 || likesCount > 5;
       return showPertinentOnly ? isPertinent : true;
     });
   };
@@ -216,9 +310,12 @@ function ForumModerate() {
         if (!searchQuery) return true;
         const query = searchQuery.toLowerCase();
         const titleMatch = forum.title.toLowerCase().includes(query);
-        const descriptionMatch = forum.description.toLowerCase().includes(query);
+        const descriptionMatch = forum.description
+          .toLowerCase()
+          .includes(query);
         const tagsMatch =
-          forum.tags && forum.tags.some((tag) => tag.toLowerCase().includes(query));
+          forum.tags &&
+          forum.tags.some((tag) => tag.toLowerCase().includes(query));
         return titleMatch || descriptionMatch || tagsMatch;
       })
       .sort((a, b) => {
@@ -230,14 +327,17 @@ function ForumModerate() {
 
   const handleChangeStatus = async (forumId, newStatus) => {
     try {
-      const response = await fetch(`http://localhost:5000/forum/changeStatus/${forumId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
+      const response = await fetch(
+        `http://localhost:5000/forum/changeStatus/${forumId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status: newStatus }),
+        }
+      );
 
       const data = await response.json();
       if (response.ok) {
@@ -246,15 +346,19 @@ function ForumModerate() {
             forum._id === forumId ? { ...forum, status: newStatus } : forum
           )
         );
-        toast.success(`Topic ${newStatus === "actif" ? "activated" : "deactivated"} successfully!`);
+        toast.success(
+          `Topic ${
+            newStatus === "actif" ? "activated" : "deactivated"
+          } successfully!`
+        );
         // Ajout de la notification pour l'utilisateur du forum
-      const forum = forums.find((f) => f._id === forumId);
-      if (forum && forum.user_id) {
-        const message = `Your post "${forum.title}" has been ${
-          newStatus === "actif" ? "activated" : "deactivated"
-        } by a moderator.`;
-        addNotification(forum.user_id._id, message, "status_changed");
-      }
+        const forum = forums.find((f) => f._id === forumId);
+        if (forum && forum.user_id) {
+          const message = `Your post "${forum.title}" has been ${
+            newStatus === "actif" ? "activated" : "deactivated"
+          } by a moderator.`;
+          addNotification(forum.user_id._id, message, "status_changed");
+        }
       } else {
         console.error("Erreur lors du changement de statut:", data.message);
         toast.error("Failed to change topic status!");
@@ -399,12 +503,15 @@ function ForumModerate() {
 
   const handleDeleteForumReport = async (reportId) => {
     try {
-      const response = await fetch(`http://localhost:5000/forum/reports/${reportId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `http://localhost:5000/forum/reports/${reportId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
       const data = await response.json();
 
       if (response.ok) {
@@ -421,22 +528,30 @@ function ForumModerate() {
 
   const handleDeleteCommentReport = async (reportId) => {
     try {
-      const response = await fetch(`http://localhost:5000/forumComment/reports/${reportId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `http://localhost:5000/forumComment/reports/${reportId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
       const data = await response.json();
 
       if (response.ok) {
         toast.success(data.message);
-        setCommentReports(commentReports.filter((report) => report._id !== reportId));
+        setCommentReports(
+          commentReports.filter((report) => report._id !== reportId)
+        );
       } else {
         toast.error(data.message || "Failed to delete comment report!");
       }
     } catch (error) {
-      console.error("Erreur lors de la suppression du signalement de commentaire:", error);
+      console.error(
+        "Erreur lors de la suppression du signalement de commentaire:",
+        error
+      );
       toast.error("Error deleting comment report!");
     }
   };
@@ -454,7 +569,16 @@ function ForumModerate() {
       return;
     }
 
-    if (!["inappropriate_content", "spam", "harassment", "offensive_language", "misinformation", "other"].includes(banReason)) {
+    if (
+      ![
+        "inappropriate_content",
+        "spam",
+        "harassment",
+        "offensive_language",
+        "misinformation",
+        "other",
+      ].includes(banReason)
+    ) {
       toast.error("Please select a valid reason.");
       return;
     }
@@ -480,7 +604,9 @@ function ForumModerate() {
 
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + parseInt(banDuration));
-        const message = `You have been banned for ${banReason}. Ban expires on ${expiresAt.toLocaleString("fr-FR")}.`;
+        const message = `You have been banned for ${banReason}. Ban expires on ${expiresAt.toLocaleString(
+          "fr-FR"
+        )}.`;
         addNotification(userToBan, message, "ban");
       } else {
         toast.error(data.message || "Failed to ban user.");
@@ -521,7 +647,10 @@ function ForumModerate() {
             </div>
           </div>
           <div className="forum-area py-100">
-            <div className="container" style={{ maxWidth: "800px", margin: "0 auto" }}>
+            <div
+              className="container"
+              style={{ maxWidth: "800px", margin: "0 auto" }}
+            >
               <p style={{ textAlign: "center", fontSize: "18px" }}>
                 Loading...
               </p>
@@ -638,7 +767,9 @@ function ForumModerate() {
                     transition: "background-color 0.3s ease",
                   }}
                 >
-                  {showPertinentOnly ? "Show All Topics" : "Show Pertinent Topics"}
+                  {showPertinentOnly
+                    ? "Show All Topics"
+                    : "Show Pertinent Topics"}
                 </button>
                 <button
                   onClick={fetchBannedUsers}
@@ -767,7 +898,8 @@ function ForumModerate() {
                           style={{
                             cursor: "pointer",
                             fontSize: "20px",
-                            color: forum.status === "actif" ? "orange" : "green",
+                            color:
+                              forum.status === "actif" ? "orange" : "green",
                             marginRight: "15px",
                           }}
                           onClick={() =>
@@ -776,10 +908,16 @@ function ForumModerate() {
                               forum.status === "actif" ? "inactif" : "actif"
                             )
                           }
-                          title={forum.status === "actif" ? "Désactiver" : "Activer"}
+                          title={
+                            forum.status === "actif" ? "Désactiver" : "Activer"
+                          }
                         >
                           <FontAwesomeIcon
-                            icon={forum.status === "actif" ? faToggleOff : faToggleOn}
+                            icon={
+                              forum.status === "actif"
+                                ? faToggleOff
+                                : faToggleOn
+                            }
                           />
                         </span>
                         <span
@@ -817,12 +955,14 @@ function ForumModerate() {
                           onMouseEnter={(e) => {
                             e.target.style.backgroundColor = "#e68900";
                             e.target.style.transform = "scale(1.05)";
-                            e.target.style.boxShadow = "0 4px 10px rgba(0, 0, 0, 0.3)";
+                            e.target.style.boxShadow =
+                              "0 4px 10px rgba(0, 0, 0, 0.3)";
                           }}
                           onMouseLeave={(e) => {
                             e.target.style.backgroundColor = "#ff9800";
                             e.target.style.transform = "scale(1)";
-                            e.target.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.2)";
+                            e.target.style.boxShadow =
+                              "0 2px 5px rgba(0, 0, 0, 0.2)";
                           }}
                           onMouseDown={(e) => {
                             e.target.style.transform = "scale(0.95)";
@@ -852,12 +992,14 @@ function ForumModerate() {
                           onMouseEnter={(e) => {
                             e.target.style.backgroundColor = "#c82333";
                             e.target.style.transform = "scale(1.05)";
-                            e.target.style.boxShadow = "0 4px 10px rgba(0, 0, 0, 0.3)";
+                            e.target.style.boxShadow =
+                              "0 4px 10px rgba(0, 0, 0, 0.3)";
                           }}
                           onMouseLeave={(e) => {
                             e.target.style.backgroundColor = "#dc3545";
                             e.target.style.transform = "scale(1)";
-                            e.target.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.2)";
+                            e.target.style.boxShadow =
+                              "0 2px 5px rgba(0, 0, 0, 0.2)";
                           }}
                           onMouseDown={(e) => {
                             e.target.style.transform = "scale(0.95)";
@@ -942,12 +1084,14 @@ function ForumModerate() {
                         onMouseEnter={(e) => {
                           e.target.style.backgroundColor = "#218838";
                           e.target.style.transform = "scale(1.05)";
-                          e.target.style.boxShadow = "0 4px 10px rgba(0, 0, 0, 0.3)";
+                          e.target.style.boxShadow =
+                            "0 4px 10px rgba(0, 0, 0, 0.3)";
                         }}
                         onMouseLeave={(e) => {
                           e.target.style.backgroundColor = "#28a745";
                           e.target.style.transform = "scale(1)";
-                          e.target.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.2)";
+                          e.target.style.boxShadow =
+                            "0 2px 5px rgba(0, 0, 0, 0.2)";
                         }}
                         onMouseDown={(e) => {
                           e.target.style.transform = "scale(0.95)";
@@ -959,7 +1103,10 @@ function ForumModerate() {
                         View Comments
                       </button>
                     </div>
-                    <div className="mt-3 text-muted" style={{ fontSize: "14px" }}>
+                    <div
+                      className="mt-3 text-muted"
+                      style={{ fontSize: "14px" }}
+                    >
                       <p style={{ margin: 0 }}>
                         Posted at :{" "}
                         {new Date(forum.createdAt).toLocaleString("fr-FR", {
@@ -971,7 +1118,14 @@ function ForumModerate() {
                         })}
                       </p>
                       <p style={{ margin: 0 }}>
-                        Status: <span style={{ color: forum.status === "actif" ? "green" : "red" }}>{forum.status}</span>
+                        Status:{" "}
+                        <span
+                          style={{
+                            color: forum.status === "actif" ? "green" : "red",
+                          }}
+                        >
+                          {forum.status}
+                        </span>
                       </p>
                     </div>
                   </div>
@@ -1082,15 +1236,28 @@ function ForumModerate() {
                         >
                           Reason: {report.reason}
                         </p>
-                        <p style={{ margin: 0, fontSize: "12px", color: "#666" }}>
-                          Reported at: {new Date(report.createdAt).toLocaleString("fr-FR")}
+                        <p
+                          style={{ margin: 0, fontSize: "12px", color: "#666" }}
+                        >
+                          Reported at:{" "}
+                          {new Date(report.createdAt).toLocaleString("fr-FR")}
                         </p>
                       </div>
                     </div>
-                    <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "10px",
+                        alignItems: "center",
+                      }}
+                    >
                       <span
                         className="icon"
-                        style={{ cursor: "pointer", fontSize: "18px", color: "red" }}
+                        style={{
+                          cursor: "pointer",
+                          fontSize: "18px",
+                          color: "red",
+                        }}
                         onClick={() => handleDeleteForumReport(report._id)}
                         title="Delete Report"
                       >
@@ -1100,7 +1267,9 @@ function ForumModerate() {
                   </div>
                 ))
               ) : (
-                <p style={{ textAlign: "center" }}>There are no reports for this topic!</p>
+                <p style={{ textAlign: "center" }}>
+                  There are no reports for this topic!
+                </p>
               )}
             </div>
             <div
@@ -1200,7 +1369,7 @@ function ForumModerate() {
                       </div>
                       <div style={{ flex: 1 }}>
                         <p style={{ margin: 0, fontWeight: "bold" }}>
-                          {comment.user_id.username}
+                          {comment.user_id.username} &nbsp;
                           <span
                             className="badge"
                             style={{
@@ -1215,6 +1384,44 @@ function ForumModerate() {
                           >
                             {comment.user_id.level} {comment.user_id.speciality}
                           </span>
+                          {commentSentiments[comment._id] && (
+                            <span
+                              className="badge"
+                              style={{
+                                marginLeft: "10px",
+                                backgroundColor: "transparent",
+                                border: `1px solid ${
+                                  commentSentiments[comment._id] === "POSITIVE"
+                                    ? "#28a745" // Vert pour POSITIVE
+                                    : commentSentiments[comment._id] ===
+                                      "NEGATIVE"
+                                    ? "#dc3545" // Rouge pour NEGATIVE
+                                    : "#6c757d" // Gris pour NEUTRAL
+                                }`,
+                                color: `${
+                                  commentSentiments[comment._id] === "POSITIVE"
+                                    ? "#28a745"
+                                    : commentSentiments[comment._id] ===
+                                      "NEGATIVE"
+                                    ? "#dc3545"
+                                    : "#6c757d"
+                                }`,
+                                padding: "2px 8px",
+                                borderRadius: "20px",
+                                boxShadow: `0 0 10px ${
+                                  commentSentiments[comment._id] === "POSITIVE"
+                                    ? "rgba(40, 167, 69, 0.5)" // Lueur verte
+                                    : commentSentiments[comment._id] ===
+                                      "NEGATIVE"
+                                    ? "rgba(220, 53, 69, 0.5)" // Lueur rouge
+                                    : "rgba(108, 117, 125, 0.5)" // Lueur grise
+                                }`,
+                                fontSize: "0.875rem",
+                              }}
+                            >
+                              {commentSentiments[comment._id]}
+                            </span>
+                          )}
                         </p>
                         <p
                           style={{
@@ -1229,10 +1436,20 @@ function ForumModerate() {
                         </p>
                       </div>
                     </div>
-                    <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "10px",
+                        alignItems: "center",
+                      }}
+                    >
                       <span
                         className="icon"
-                        style={{ cursor: "pointer", fontSize: "18px", color: "orange" }}
+                        style={{
+                          cursor: "pointer",
+                          fontSize: "18px",
+                          color: "orange",
+                        }}
                         onClick={() => handleViewCommentReports(comment._id)}
                         title="View Reports"
                       >
@@ -1240,7 +1457,11 @@ function ForumModerate() {
                       </span>
                       <span
                         className="icon"
-                        style={{ cursor: "pointer", fontSize: "18px", color: "red" }}
+                        style={{
+                          cursor: "pointer",
+                          fontSize: "18px",
+                          color: "red",
+                        }}
                         onClick={() => {
                           setCommentToDelete(comment._id);
                           setShowDeleteCommentModal(true);
@@ -1251,7 +1472,11 @@ function ForumModerate() {
                       </span>
                       <span
                         className="icon"
-                        style={{ cursor: "pointer", fontSize: "18px", color: "purple" }}
+                        style={{
+                          cursor: "pointer",
+                          fontSize: "18px",
+                          color: "purple",
+                        }}
                         onClick={() => handleOpenBanModal(comment.user_id._id)}
                         title="Ban User"
                       >
@@ -1388,15 +1613,28 @@ function ForumModerate() {
                         >
                           Reason: {report.reason}
                         </p>
-                        <p style={{ margin: 0, fontSize: "12px", color: "#666" }}>
-                          Reported at: {new Date(report.createdAt).toLocaleString("fr-FR")}
+                        <p
+                          style={{ margin: 0, fontSize: "12px", color: "#666" }}
+                        >
+                          Reported at:{" "}
+                          {new Date(report.createdAt).toLocaleString("fr-FR")}
                         </p>
                       </div>
                     </div>
-                    <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "10px",
+                        alignItems: "center",
+                      }}
+                    >
                       <span
                         className="icon"
-                        style={{ cursor: "pointer", fontSize: "18px", color: "red" }}
+                        style={{
+                          cursor: "pointer",
+                          fontSize: "18px",
+                          color: "red",
+                        }}
                         onClick={() => handleDeleteCommentReport(report._id)}
                         title="Delete Report"
                       >
@@ -1406,7 +1644,9 @@ function ForumModerate() {
                   </div>
                 ))
               ) : (
-                <p style={{ textAlign: "center" }}>There are no reports for this comment!</p>
+                <p style={{ textAlign: "center" }}>
+                  There are no reports for this comment!
+                </p>
               )}
             </div>
             <div
@@ -1506,7 +1746,9 @@ function ForumModerate() {
                 }}
               >
                 <option value="">Select a reason</option>
-                <option value="inappropriate_content">Inappropriate Content</option>
+                <option value="inappropriate_content">
+                  Inappropriate Content
+                </option>
                 <option value="spam">Spam</option>
                 <option value="harassment">Harassment</option>
                 <option value="offensive_language">Offensive Language</option>
@@ -1514,7 +1756,9 @@ function ForumModerate() {
                 <option value="other">Other</option>
               </select>
             </div>
-            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+            <div
+              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+            >
               <button
                 onClick={() => setShowBanModal(false)}
                 style={{
@@ -1595,7 +1839,9 @@ function ForumModerate() {
                       borderBottom: "1px solid #ddd",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", flex: 1 }}>
+                    <div
+                      style={{ display: "flex", alignItems: "center", flex: 1 }}
+                    >
                       <div style={{ flexShrink: 0, marginRight: "15px" }}>
                         <img
                           src={`http://localhost:5000${user.user_id.user_photo}`}
@@ -1612,15 +1858,28 @@ function ForumModerate() {
                         <p style={{ margin: 0, fontWeight: "bold" }}>
                           {user.user_id.username}
                         </p>
-                        <p style={{ margin: 0, fontSize: "12px", color: "#666" }}>
-                          Reason: {user.reason} | Expires: {new Date(user.expiresAt).toLocaleString("fr-FR")}
+                        <p
+                          style={{ margin: 0, fontSize: "12px", color: "#666" }}
+                        >
+                          Reason: {user.reason} | Expires:{" "}
+                          {new Date(user.expiresAt).toLocaleString("fr-FR")}
                         </p>
                       </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                      }}
+                    >
                       <span
                         className="icon"
-                        style={{ cursor: "pointer", fontSize: "18px", color: "#4CAF50" }}
+                        style={{
+                          cursor: "pointer",
+                          fontSize: "18px",
+                          color: "#4CAF50",
+                        }}
                         onClick={() => handleUnbanUser(user._id)}
                         title="Unban User"
                       >
@@ -1696,9 +1955,12 @@ function ForumModerate() {
               Confirm Deletion
             </h3>
             <p style={{ marginBottom: "20px", textAlign: "center" }}>
-              Are you sure you want to delete this topic? This action cannot be undone.
+              Are you sure you want to delete this topic? This action cannot be
+              undone.
             </p>
-            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+            <div
+              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+            >
               <button
                 onClick={() => setShowDeleteModal(false)}
                 style={{
@@ -1759,9 +2021,12 @@ function ForumModerate() {
               Confirm Deletion
             </h3>
             <p style={{ marginBottom: "20px", textAlign: "center" }}>
-              Are you sure you want to delete this comment? This action cannot be undone.
+              Are you sure you want to delete this comment? This action cannot
+              be undone.
             </p>
-            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+            <div
+              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+            >
               <button
                 onClick={() => setShowDeleteCommentModal(false)}
                 style={{

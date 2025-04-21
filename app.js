@@ -115,12 +115,11 @@ const transporter = nodemailer.createTransport({
 });
 
 // Function to send reminder email
-const sendReminderEmail = async (userEmail, activities, date) => {
-  
+const sendReminderEmail = async (userEmail, activities, note, date) => {
   const mailOptions = {
-    from: `"UnmindCare" <${process.env.EMAIL_USER}>`,
+    from: `"EspritCare" <${process.env.EMAIL_USER}>`,
     to: userEmail,
-    subject: `Your Activity Schedule Reminder for ${date}`,
+    subject: `Your Activity and Notes Reminder for ${date}`,
     html: `
       <div style="
         background-image: url('http://localhost:5000/uploads/mailActivity.jpg');
@@ -138,20 +137,29 @@ const sendReminderEmail = async (userEmail, activities, date) => {
           box-shadow: 0 0 10px rgba(0,0,0,0.15);
         ">
           <h2 style="color:#007bff; text-align:center;">Your Schedule for ${date}</h2>
-          <p style="font-size:16px;color:#333;">Here are your scheduled activities for today:</p>
-          <ul style="font-size:15px;color:#333;line-height:1.6;">
-            ${activities.map((activity) => `<li>${activity.title} ${activity.completed ? '(✅ Completed)' : ''}</li>`).join('')}
-          </ul>
-          <p style="font-size:16px;color:#333;">Have a great day!</p>
+          
+          <h3 style="font-size:18px;color:#333;margin-top:20px;">Scheduled Activities:</h3>
+          ${activities.length > 0 ? `
+            <ul style="font-size:15px;color:#333;line-height:1.6;">
+              ${activities.map((activity) => `<li>${activity.title} ${activity.completed ? '(✅ Completed)' : ''}</li>`).join('')}
+            </ul>
+          ` : '<p style="font-size:15px;color:#333;">No activities scheduled for today.</p>'}
+          
+          <h3 style="font-size:18px;color:#333;margin-top:20px;">Your Note:</h3>
+          ${note ? `
+            <p style="font-size:15px;color:#333;line-height:1.6;">${note}</p>
+          ` : '<p style="font-size:15px;color:#333;">No note for today.</p>'}
+          
+          <p style="font-size:16px;color:#333;margin-top:20px;">Have a great day!</p>
   
           <hr style="margin:30px 0;">
           <p style="font-size:14px;text-align:center;">
             Cordialement,<br>
-            <strong>UnmindCare Team</strong><br>
-            <a href="http://unmindcare.com" style="color:#007bff;text-decoration:none;">www.unmindcare.com</a>
+            <strong>EspritCare Team</strong><br>
+            <a href="http://espritCare.com" style="color:#007bff;text-decoration:none;">www.espritCare.com</a>
           </p>
           <div style="text-align:center; margin-top:10px;">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/f/ff/Logo_ESPRIT_Ariana.jpg" alt="UnmindCare Logo" width="120">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/f/ff/Logo_ESPRIT_Ariana.jpg" alt="EspritCare Logo" width="120">
           </div>
         </div>
       </div>
@@ -173,10 +181,12 @@ const sendDailyReminders = async () => {
     const users = await userModel.find(); // Fetch all users
 
     for (const user of users) {
+      // Fetch schedule
       const schedule = await Schedule.findOne({ userId: user._id, date: today });
-
+      const activityDetails = [];
+      
       if (schedule && schedule.activities.length > 0) {
-        const activityDetails = await Promise.all(
+        activityDetails.push(...await Promise.all(
           schedule.activities.map(async (sched) => {
             const activity = await Activity.findById(sched.activityId);
             return {
@@ -184,11 +194,14 @@ const sendDailyReminders = async () => {
               completed: sched.completed,
             };
           })
-        );
+        ));
+      }
 
-        if (activityDetails.length > 0) {
-          await sendReminderEmail(user.email, activityDetails, today);
-        }
+      // Get note from schedule
+      const note = schedule ? schedule.note : '';
+
+      if (activityDetails.length > 0 || note) {
+        await sendReminderEmail(user.email, activityDetails, note, today);
       }
     }
     console.log('Daily reminders sent successfully');
@@ -196,11 +209,13 @@ const sendDailyReminders = async () => {
     console.error('Error in sendDailyReminders:', error);
   }
 };
-// Schedule the reminder task to run every day at 3:20 AM // 0 8 
-cron.schedule('0 8 * * *', () => { // Keep as is for testing, change to '20 3 * * *' for 3:20 AM
-  console.log('Running daily reminder task at 3:20 AM...');
+
+// Schedule the reminder task to run every day at 3:20 AM
+cron.schedule('0 11 * * *', () => {
+  console.log('Running daily reminder task at 11:30 AM...');
   sendDailyReminders();
 });
+
 
 async function generateHashedPassword() {
   const randomPassword = crypto.randomBytes(16).toString('hex'); // 32 caractères aléatoires

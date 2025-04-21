@@ -45,7 +45,7 @@ function Activities() {
   const [userRole, setUserRole] = useState(null);
   const [userId, setUserId] = useState(null);
   const [activities, setActivities] = useState([]);
-  const [categories, setCategories] = useState([]); // Initialize as empty array
+  const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("*");
   const [activityToDelete, setActivityToDelete] = useState(null);
@@ -82,27 +82,23 @@ function Activities() {
     const fetchCategoriesAndFilter = async () => {
       try {
         const token = localStorage.getItem("jwt-token");
-        // Fetch categories
         const categoriesResponse = await fetch("http://localhost:5000/users/categories", {
           headers: { Authorization: `Bearer ${token}` },
         });
         const categoriesData = await categoriesResponse.json();
 
-        // Fetch activities to determine which categories are used
         const activitiesResponse = await fetch("http://localhost:5000/users/list/activities", {
           headers: { Authorization: `Bearer ${token}` },
         });
         const activitiesData = await activitiesResponse.json();
 
         if (categoriesResponse.ok && activitiesResponse.ok) {
-          // Get unique category IDs from activities
           const usedCategoryIds = new Set(
             activitiesData
-              .filter((activity) => activity.category && activity.category._id && !activity.isArchived) // Filter non-archived here
+              .filter((activity) => activity.category && activity.category._id && !activity.isArchived)
               .map((activity) => activity.category._id)
           );
 
-          // Filter categories to only include those used by at least one non-archived activity
           const mappedCategories = Array.isArray(categoriesData)
             ? [
                 { label: "All", value: "*" },
@@ -116,7 +112,7 @@ function Activities() {
             : [{ label: "All", value: "*" }];
 
           setCategories(mappedCategories);
-          setActivities(activitiesData); // Set activities here to avoid extra fetch
+          setActivities(activitiesData);
         } else {
           console.error("Failed to fetch data:", categoriesData.message || activitiesData.message);
           setCategories([{ label: "All", value: "*" }]);
@@ -268,10 +264,9 @@ function Activities() {
       const data = await response.json();
       if (response.ok) {
         setActivities(activities.filter((activity) => activity._id !== activityId));
-        // Update categories after deletion
         const usedCategoryIds = new Set(
           activities
-            .filter((activity) => activity._id !== activityId && !activity.isArchived) // Ensure non-archived here
+            .filter((activity) => activity._id !== activityId && !activity.isArchived)
             .filter((activity) => activity.category && activity.category._id)
             .map((activity) => activity.category._id)
         );
@@ -321,7 +316,7 @@ function Activities() {
       });
       const data = await response.json();
       if (response.ok) {
-        setActivities(data.filter(activity => !activity.isArchived)); // Filter non-archived activities here
+        setActivities(data.filter(activity => !activity.isArchived));
       } else {
         console.error("Error fetching activities by category:", data.message);
         toast.error("Failed to fetch activities for this category");
@@ -361,7 +356,7 @@ function Activities() {
 
   const calculateMoodImpact = () => {
     const moodImpact = {};
-    activities.filter(activity => !activity.isArchived).forEach((activity) => { // Filter non-archived for stats
+    activities.filter(activity => !activity.isArchived).forEach((activity) => {
       moodImpact[activity._id] = { title: activity.title, moods: [], average: 0 };
     });
     moods.forEach((mood) => {
@@ -383,7 +378,7 @@ function Activities() {
 
   const calculateSatisfactionDistribution = () => {
     const satisfactionData = {};
-    activities.filter(activity => !activity.isArchived).forEach((activity) => { // Filter non-archived for stats
+    activities.filter(activity => !activity.isArchived).forEach((activity) => {
       satisfactionData[activity._id] = {
         title: activity.title,
         satisfied: 0,
@@ -432,33 +427,101 @@ function Activities() {
 
   const getDaysInMonth = (month, year) => new Date(year, month + 1, 0).getDate();
 
-  const prepareActivityCompletionChartData = () => {
+  const prepareActivityCompletionChartData = (scheduledActivities, currentMonth) => {
+    console.log("Scheduled Activities:", JSON.stringify(scheduledActivities, null, 2));
+    
+    if (!currentMonth || !(currentMonth instanceof Date) || isNaN(currentMonth.getTime())) {
+      console.warn("Invalid currentMonth, defaulting to current date");
+      currentMonth = new Date();
+    }
+    console.log("Current Month:", currentMonth.toISOString());
+
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     const daysInMonth = getDaysInMonth(month, year);
     const labels = Array.from({ length: daysInMonth }, (_, i) => (i + 1).toString());
     const completedData = new Array(daysInMonth).fill(0);
     const incompleteData = new Array(daysInMonth).fill(0);
+    let hasData = false;
+
+    if (!scheduledActivities || Object.keys(scheduledActivities).length === 0) {
+      console.warn("No scheduled activities available for chart");
+      return {
+        labels,
+        datasets: [
+          {
+            label: "Completed Activities (%)",
+            data: completedData,
+            borderColor: "#40a9ff",
+            backgroundColor: "rgba(64, 169, 255, 0.2)",
+            fill: true,
+            tension: 0.4,
+          },
+          {
+            label: "Incomplete Activities (%)",
+            data: incompleteData,
+            borderColor: "#ff7875",
+            backgroundColor: "rgba(255, 120, 117, 0.2)",
+            fill: true,
+            tension: 0.4,
+          },
+        ],
+        hasData,
+      };
+    }
+
     Object.keys(scheduledActivities).forEach((date) => {
-      const scheduleDate = new Date(date);
-      if (scheduleDate.getMonth() === month && scheduleDate.getFullYear() === year) {
-        const dayIndex = scheduleDate.getDate() - 1;
-        const activitiesForDate = scheduledActivities[date] || [];
-        const totalActivities = activitiesForDate.length;
-        if (totalActivities > 0) {
-          const completedCount = activitiesForDate.filter((activity) => activity.completed).length;
-          const incompleteCount = activitiesForDate.filter((activity) => !activity.completed).length;
-          completedData[dayIndex] = (completedCount / totalActivities) * 100;
-          incompleteData[dayIndex] = (incompleteCount / totalActivities) * 100;
+      try {
+        const scheduleDate = new Date(date);
+        if (isNaN(scheduleDate.getTime())) {
+          console.warn(`Invalid date format: ${date}`);
+          return;
         }
+
+        if (scheduleDate.getMonth() === month && scheduleDate.getFullYear() === year) {
+          const dayIndex = scheduleDate.getDate() - 1;
+          const activitiesForDate = scheduledActivities[date]?.activities || [];
+          const totalActivities = activitiesForDate.length;
+
+          console.log(`Date: ${date}, Activities:`, activitiesForDate);
+
+          if (totalActivities > 0) {
+            const completedCount = activitiesForDate.filter((activity) => activity.completed).length;
+            const incompleteCount = totalActivities - completedCount;
+            completedData[dayIndex] = (completedCount / totalActivities) * 100;
+            incompleteData[dayIndex] = (incompleteCount / totalActivities) * 100;
+            hasData = true;
+          }
+        }
+      } catch (error) {
+        console.error(`Error processing date ${date}:`, error);
       }
     });
+
+    console.log("Completed Data:", completedData);
+    console.log("Incomplete Data:", incompleteData);
+
     return {
       labels,
       datasets: [
-        { label: "Completed Activities (%)", data: completedData, borderColor: "#40a9ff", backgroundColor: "rgba(64, 169, 255, 0.2)", fill: true, tension: 0.4 },
-        { label: "Incomplete Activities (%)", data: incompleteData, borderColor: "#ff7875", backgroundColor: "rgba(255, 120, 117, 0.2)", fill: true, tension: 0.4 },
+        {
+          label: "Completed Activities (%)",
+          data: completedData,
+          borderColor: "#40a9ff",
+          backgroundColor: "rgba(64, 169, 255, 0.2)",
+          fill: true,
+          tension: 0.4,
+        },
+        {
+          label: "Incomplete Activities (%)",
+          data: incompleteData,
+          borderColor: "#ff7875",
+          backgroundColor: "rgba(255, 120, 117, 0.2)",
+          fill: true,
+          tension: 0.4,
+        },
       ],
+      hasData,
     };
   };
 
@@ -514,7 +577,7 @@ function Activities() {
       const matchesSearch = !searchTerm ||
         stripHtmlTags(activity.title).toLowerCase().includes(searchTerm.toLowerCase()) ||
         stripHtmlTags(activity.description).toLowerCase().includes(searchTerm.toLowerCase());
-      const isNotArchived = !activity.isArchived; // Added condition to filter only non-archived activities
+      const isNotArchived = !activity.isArchived;
       return matchesCategory && matchesSearch && isNotArchived;
     })
     .sort((a, b) => (pinnedActivities.includes(a._id) === pinnedActivities.includes(b._id) ? 0 : pinnedActivities.includes(a._id) ? -1 : 1));
@@ -547,7 +610,7 @@ function Activities() {
   if (isLoading) return <div style={{ textAlign: "center", padding: "20px", fontSize: "18px" }}>Loading...</div>;
 
   const moodChartData = prepareMoodChartData();
-  const activityCompletionChartData = prepareActivityCompletionChartData();
+  const activityCompletionChartData = prepareActivityCompletionChartData(scheduledActivities, currentMonth);
   const satisfactionData = calculateSatisfactionDistribution();
 
   const moodChartOptions = {
@@ -990,51 +1053,232 @@ function Activities() {
             </button>
           </div>
         )}
-      </div>
 
-      {showDeleteModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-          }}
-        >
+        {showDeleteModal && (
           <div
             style={{
-              backgroundColor: "white",
-              padding: "20px",
-              borderRadius: "8px",
-              width: "400px",
-              maxWidth: "90%",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              zIndex: 1000,
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>Confirm Deletion</h3>
-            <p style={{ textAlign: "center" }}>Are you sure you want to delete this activity?</p>
-            <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+            <div
+              style={{
+                backgroundColor: "white",
+                padding: "20px",
+                borderRadius: "8px",
+                width: "400px",
+                maxWidth: "90%",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              }}
+            >
+              <h3 style={{ marginBottom: "20px", textAlign: "center" }}>Confirm Deletion</h3>
+              <p style={{ textAlign: "center" }}>Are you sure you want to delete this activity?</p>
+              <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+                <button
+                  onClick={() => handleConfirmDelete(activityToDelete)}
+                  style={{
+                    backgroundColor: "#f44336",
+                    color: "white",
+                    padding: "10px 20px",
+                    borderRadius: "5px",
+                    marginTop: "20px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Yes, Delete
+                </button>
+                <button
+                  onClick={closeDeleteModal}
+                  style={{
+                    backgroundColor: "#0ea5e6",
+                    color: "white",
+                    padding: "10px 20px",
+                    borderRadius: "5px",
+                    marginTop: "20px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showModal && selectedActivity && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              zIndex: 1000,
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "white",
+                padding: "8px",
+                borderRadius: "8px",
+                width: "550px",
+                maxWidth: "90%",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                textAlign: "center",
+              }}
+            >
+              <h3 style={{ fontSize: "20px", marginBottom: "10px" }}>{stripHtmlTags(selectedActivity.title)}</h3>
+              <img
+                src={selectedActivity.imageUrl ? `http://localhost:5000${selectedActivity.imageUrl}` : "/assets/img/activities/default.png"}
+                alt="Activity"
+                style={{ width: "100%", height: "300px", objectFit: "cover", borderRadius: "8px", marginBottom: "15px" }}
+              />
+              <p style={{ color: "#00aaff", fontStyle: "italic", marginBottom: "10px" }}>
+                ** {selectedActivity.category?.name || "Uncategorized"} **
+              </p>
+              <p style={{ fontSize: "14px", marginBottom: "15px", maxHeight: "100px", overflowY: "auto", padding: "0 5px" }}>
+                {stripHtmlTags(selectedActivity.description)}
+              </p>
               <button
-                onClick={() => handleConfirmDelete(activityToDelete)}
+                onClick={closeViewActivityModal}
                 style={{
-                  backgroundColor: "#f44336",
+                  backgroundColor: "#0ea5e6",
                   color: "white",
-                  padding: "10px 20px",
+                  padding: "8px 16px",
                   borderRadius: "5px",
-                  marginTop: "20px",
                   fontWeight: "bold",
                 }}
               >
-                Yes, Delete
+                Close
               </button>
+            </div>
+          </div>
+        )}
+
+        {showStatsModal && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              zIndex: 1000,
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "white",
+                padding: "20px",
+                borderRadius: "8px",
+                width: "90%",
+                maxWidth: "1000px",
+                maxHeight: "90vh",
+                overflowY: "auto",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              }}
+            >
+              <h3 style={{ fontSize: "24px", marginBottom: "20px", textAlign: "center" }}>Activity Statistics</h3>
+
+              <div style={{ marginBottom: "40px" }}>
+                <h4 style={{ fontSize: "20px", marginBottom: "10px" }}>Impact on Psychological State</h4>
+                {moods.length === 0 ? (
+                  <p>No mood data available.</p>
+                ) : (
+                  <Bar data={moodChartData} options={moodChartOptions} />
+                )}
+              </div>
+
+              <div style={{ marginBottom: "40px" }}>
+                <h4 style={{ fontSize: "20px", marginBottom: "10px" }}>Activity Completion Trends</h4>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                  <button
+                    onClick={handlePreviousMonth}
+                    style={{
+                      backgroundColor: "#0ea5e6",
+                      color: "white",
+                      padding: "8px 16px",
+                      borderRadius: "5px",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Previous
+                  </button>
+                  <span>{currentMonth.toLocaleString("en-US", { month: "long", year: "numeric" })}</span>
+                  <button
+                    onClick={handleNextMonth}
+                    style={{
+                      backgroundColor: "#0ea5e6",
+                      color: "white",
+                      padding: "8px 16px",
+                      borderRadius: "5px",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Next
+                  </button>
+                </div>
+                {activityCompletionChartData.hasData ? (
+                  <Line data={activityCompletionChartData} options={activityCompletionChartOptions} />
+                ) : (
+                  <p style={{ textAlign: "center", color: "#666" }}>
+                    No completion data available for this month. Schedule and complete activities to see trends!
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <h4 style={{ fontSize: "20px", marginBottom: "10px" }}>Satisfaction After Activities</h4>
+                <div style={{ display: "flex", justifyContent: "center", gap: "20px", marginBottom: "20px" }}>
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <span style={{ display: "inline-block", width: "20px", height: "20px", backgroundColor: satisfactionColors.Satisfied, marginRight: "8px", borderRadius: "3px" }}></span>
+                    <span>Satisfied</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <span style={{ display: "inline-block", width: "20px", height: "20px", backgroundColor: satisfactionColors.NotSatisfied, marginRight: "8px", borderRadius: "3px" }}></span>
+                    <span>Not Satisfied</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <span style={{ display: "inline-block", width: "20px", height: "20px", backgroundColor: satisfactionColors.NeutralOrUnspecified, marginRight: "8px", borderRadius: "3px" }}></span>
+                    <span>Neutral</span>
+                  </div>
+                </div>
+                {moods.length === 0 ? (
+                  <p>No satisfaction data available.</p>
+                ) : (
+                  <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "20px" }}>
+                    {Object.keys(satisfactionData)
+                      .filter((activityId) => satisfactionData[activityId].totalMoods > 0)
+                      .map((activityId) => (
+                        <div key={activityId} style={{ width: "200px", textAlign: "center" }}>
+                          <h5 style={{ fontSize: "16px", marginBottom: "10px" }}>{satisfactionData[activityId].title}</h5>
+                          <Doughnut data={prepareSatisfactionChartData(satisfactionData[activityId])} options={satisfactionChartOptions} />
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+
               <button
-                onClick={closeDeleteModal}
+                onClick={closeStatsModal}
                 style={{
                   backgroundColor: "#0ea5e6",
                   color: "white",
@@ -1042,193 +1286,18 @@ function Activities() {
                   borderRadius: "5px",
                   marginTop: "20px",
                   fontWeight: "bold",
+                  display: "block",
+                  margin: "20px auto 0",
                 }}
               >
-                Cancel
+                Close
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {showModal && selectedActivity && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "white",
-              padding: "8px",
-              borderRadius: "8px",
-              width: "550px",
-              maxWidth: "90%",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-              textAlign: "center",
-            }}
-          >
-            <h3 style={{ fontSize: "20px", marginBottom: "10px" }}>{stripHtmlTags(selectedActivity.title)}</h3>
-            <img
-              src={selectedActivity.imageUrl ? `http://localhost:5000${selectedActivity.imageUrl}` : "/assets/img/activities/default.png"}
-              alt="Activity"
-              style={{ width: "100%", height: "300px", objectFit: "cover", borderRadius: "8px", marginBottom: "15px" }}
-            />
-            <p style={{ color: "#00aaff", fontStyle: "italic", marginBottom: "10px" }}>
-              ** {selectedActivity.category?.name || "Uncategorized"} **
-            </p>
-            <p style={{ fontSize: "14px", marginBottom: "15px", maxHeight: "100px", overflowY: "auto", padding: "0 5px" }}>
-              {stripHtmlTags(selectedActivity.description)}
-            </p>
-            <button
-              onClick={closeViewActivityModal}
-              style={{
-                backgroundColor: "#0ea5e6",
-                color: "white",
-                padding: "8px 16px",
-                borderRadius: "5px",
-                fontWeight: "bold",
-              }}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showStatsModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "white",
-              padding: "20px",
-              borderRadius: "8px",
-              width: "90%",
-              maxWidth: "1000px",
-              maxHeight: "90vh",
-              overflowY: "auto",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-            }}
-          >
-            <h3 style={{ fontSize: "24px", marginBottom: "20px", textAlign: "center" }}>Activity Statistics</h3>
-
-            <div style={{ marginBottom: "40px" }}>
-              <h4 style={{ fontSize: "20px", marginBottom: "10px" }}>Impact on Psychological State</h4>
-              {moods.length === 0 ? (
-                <p>No mood data available.</p>
-              ) : (
-                <Bar data={moodChartData} options={moodChartOptions} />
-              )}
-            </div>
-
-            <div style={{ marginBottom: "40px" }}>
-              <h4 style={{ fontSize: "20px", marginBottom: "10px" }}>Activity Completion Trends</h4>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-                <button
-                  onClick={handlePreviousMonth}
-                  style={{
-                    backgroundColor: "#0ea5e6",
-                    color: "white",
-                    padding: "8px 16px",
-                    borderRadius: "5px",
-                    border: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  Previous
-                </button>
-                <span>{currentMonth.toLocaleString("en-US", { month: "long", year: "numeric" })}</span>
-                <button
-                  onClick={handleNextMonth}
-                  style={{
-                    backgroundColor: "#0ea5e6",
-                    color: "white",
-                    padding: "8px 16px",
-                    borderRadius: "5px",
-                    border: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  Next
-                </button>
-              </div>
-              <Line data={activityCompletionChartData} options={activityCompletionChartOptions} />
-            </div>
-
-            <div>
-              <h4 style={{ fontSize: "20px", marginBottom: "10px" }}>Satisfaction After Activities</h4>
-              <div style={{ display: "flex", justifyContent: "center", gap: "20px", marginBottom: "20px" }}>
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  <span style={{ display: "inline-block", width: "20px", height: "20px", backgroundColor: satisfactionColors.Satisfied, marginRight: "8px", borderRadius: "3px" }}></span>
-                  <span>Satisfied</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  <span style={{ display: "inline-block", width: "20px", height: "20px", backgroundColor: satisfactionColors.NotSatisfied, marginRight: "8px", borderRadius: "3px" }}></span>
-                  <span>Not Satisfied</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  <span style={{ display: "inline-block", width: "20px", height: "20px", backgroundColor: satisfactionColors.NeutralOrUnspecified, marginRight: "8px", borderRadius: "3px" }}></span>
-                  <span>Neutral</span>
-                </div>
-              </div>
-              {moods.length === 0 ? (
-                <p>No satisfaction data available.</p>
-              ) : (
-                <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "20px" }}>
-                  {Object.keys(satisfactionData)
-                    .filter((activityId) => satisfactionData[activityId].totalMoods > 0)
-                    .map((activityId) => (
-                      <div key={activityId} style={{ width: "200px", textAlign: "center" }}>
-                        <h5 style={{ fontSize: "16px", marginBottom: "10px" }}>{satisfactionData[activityId].title}</h5>
-                        <Doughnut data={prepareSatisfactionChartData(satisfactionData[activityId])} options={satisfactionChartOptions} />
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={closeStatsModal}
-              style={{
-                backgroundColor: "#0ea5e6",
-                color: "white",
-                padding: "10px 20px",
-                borderRadius: "5px",
-                marginTop: "20px",
-                fontWeight: "bold",
-                display: "block",
-                margin: "20px auto 0",
-              }}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
-      <ToastContainer position="top-right" autoClose={3000} />
+        <ToastContainer position="top-right" autoClose={3000} />
+      </div>
     </div>
   );
 }

@@ -757,6 +757,26 @@ module.exports.updatePublication = (req, res) => {
     });
 };
 
+// Récupérer tous les tags uniques
+module.exports.getAllTags = async (req, res) => {
+    try {
+        const tags = await Publication.aggregate([
+            { $unwind: '$tag' }, // Décomposer le tableau de tags
+            { $group: { _id: '$tag' } }, // Grouper par tag unique
+            { $project: { _id: 0, tag: '$_id' } }, // Reformater pour retourner uniquement le tag
+            { $sort: { tag: 1 } }, // Trier par ordre alphabétique
+        ]);
+
+        // Extraire les tags dans un tableau et filtrer les valeurs vides
+        const uniqueTags = tags.map(item => item.tag).filter(tag => tag && tag.trim() !== '');
+
+        res.status(200).json(uniqueTags);
+    } catch (error) {
+        console.error('Erreur lors de la récupération des tags:', error);
+        res.status(500).json({ message: 'Erreur serveur lors de la récupération des tags', error: error.message });
+    }
+};
+
 
 //ban
 module.exports.banUser = async (req, res) => {
@@ -844,6 +864,7 @@ module.exports.banUser = async (req, res) => {
 };
 
 // Vérifier le statut de bannissement avant d'ajouter un commentaire
+
 module.exports.addCommentaire = async (req, res) => {
     try {
         const token = req.headers.authorization.split(' ')[1];
@@ -864,11 +885,44 @@ module.exports.addCommentaire = async (req, res) => {
             return res.status(400).json({ message: "Le contenu et l'ID de la publication sont requis" });
         }
 
+        // Vérifier si la publication existe
+        const publication = await Publication.findById(publication_id);
+        if (!publication) {
+            return res.status(404).json({ message: "Publication non trouvée" });
+        }
+
+        // Analyser le sentiment du commentaire
+        let sentiment = 'NEUTRAL';
+        let sentimentScore = null;
+        try {
+            const response = await axios.post(
+                'https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english',
+                { inputs: contenu },
+                {
+                    headers: {
+                        Authorization: `Bearer ${process.env.REACT_APP_HUGGINGFACE_API_TOKEN}`,
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+
+            if (response.data && response.data[0] && response.data[0][0]) {
+                sentiment = response.data[0][0].label;
+                sentimentScore = response.data[0][0].score;
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'analyse de sentiment:', error.message);
+            // Continuer avec sentiment NEUTRAL en cas d'erreur
+        }
+
+        // Créer le commentaire avec les champs sentiment et sentimentScore
         const commentaire = new Commentaire({
             contenu,
             publication_id,
             auteur_id: userId,
             isAnonymous: isAnonymous || false,
+            sentiment,
+            sentimentScore,
         });
 
         const savedCommentaire = await commentaire.save();
@@ -998,17 +1052,23 @@ module.exports.getCommentairesByPublication = async (req, res) => {
             .sort({ dateCreation: -1 });
 
         const formattedCommentaires = commentaires.map(comment => {
+            const commentObject = {
+                ...comment.toObject(),
+                sentiment: comment.sentiment || 'NEUTRAL', // S'assurer que le sentiment est inclus
+                sentimentScore: comment.sentimentScore || null, // S'assurer que le score est inclus
+            };
+
             if (comment.isAnonymous) {
                 return {
-                    ...comment.toObject(), // Convertir en objet JS
+                    ...commentObject,
                     auteur_id: {
-                        _id: comment.auteur_id._id, // Conserver l'_id
+                        _id: comment.auteur_id._id,
                         username: 'Anonyme',
-                        user_photo: null
-                    }
+                        user_photo: null,
+                    },
                 };
             }
-            return comment;
+            return commentObject;
         });
 
         res.status(200).json(formattedCommentaires);
@@ -1036,10 +1096,54 @@ module.exports.updateCommentaire = async (req, res) => {
             return res.status(404).json({ message: 'Commentaire non trouvé ou vous n’êtes pas autorisé à le modifier' });
         }
 
-        commentaire.contenu = contenu;
-        const updatedCommentaire = await commentaire.save();
+        // Analyser le sentiment du commentaire mis à jour
+        let sentiment = 'NEUTRAL';
+        let sentimentScore = null;
+        try {
+            const response = await axios.post(
+                'https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english',
+                { inputs: contenu },
+                {
+                    headers: {
+                        Authorization: `Bearer ${process.env.HUGGINGFACE_API_TOKEN}`,
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
 
-        res.status(200).json({ message: 'Commentaire mis à jour avec succès', commentaire: updatedCommentaire });
+            if (response.data && response.data[0] && response.data[0][0]) {
+                sentiment = response.data[0][0].label;
+                sentimentScore = response.data[0][0].score;
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'analyse de sentiment:', error.message);
+            // Continuer avec sentiment NEUTRAL en cas d'erreur
+        }
+
+        // Mettre à jour le commentaire
+        commentaire.contenu = contenu;
+        commentaire.sentiment = sentiment;
+        commentaire.sentimentScore = sentimentScore;
+
+        const updatedCommentaire = await commentaire.save();
+        const populatedCommentaire = await Commentaire.findById(updatedCommentaire._id)
+            .populate('auteur_id', 'username user_photo');
+
+        const responseCommentaire = populatedCommentaire.isAnonymous
+            ? {
+                ...populatedCommentaire.toObject(),
+                auteur_id: {
+                    _id: populatedCommentaire.auteur_id._id,
+                    username: 'Anonyme',
+                    user_photo: null,
+                },
+            }
+            : populatedCommentaire;
+
+        res.status(200).json({
+            message: 'Commentaire mis à jour avec succès',
+            commentaire: responseCommentaire,
+        });
     } catch (error) {
         console.error('Erreur lors de la mise à jour du commentaire:', error);
         res.status(500).json({ message: 'Erreur serveur', error: error.message });
@@ -2140,34 +2244,48 @@ const scheduleReminder = async (appointment, studentId) => {
   };
 
 
-
-
-module.exports.bookAppointment = async (req, res) => {
+  module.exports.bookAppointment = async (req, res) => {
     const { psychiatristId, date, startTime, endTime } = req.body;
     const studentId = req.userId;
 
     console.log('Request received:', { psychiatristId, date, startTime, endTime, studentId });
 
     try {
+        // Validate input fields
         if (!psychiatristId || !date || !startTime || !endTime) {
             return res.status(400).json({ message: 'All fields (psychiatristId, date, startTime, endTime) are required' });
         }
 
+        // Validate studentId from token
+        if (!studentId) {
+            return res.status(401).json({ message: 'Unauthorized: No user ID found' });
+        }
+
+        // Validate time format (HH:MM)
+        const timeRegex = /^\d{2}:\d{2}$/;
+        if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
+            return res.status(400).json({ message: 'Invalid time format. Use HH:MM' });
+        }
+
+        // Find psychiatrist and student
         const psychiatrist = await User.findById(psychiatristId);
-        if (!psychiatrist || psychiatrist.role !== "psychiatrist") {
-            return res.status(404).json({ message: "Psychiatrist not found" });
+        if (!psychiatrist || psychiatrist.role !== 'psychiatrist') {
+            return res.status(404).json({ message: 'Psychiatrist not found' });
         }
 
         const student = await User.findById(studentId);
-        if (!student || student.role !== "student") {
-            return res.status(404).json({ message: "Student not found" });
+        if (!student || student.role !== 'student') {
+            return res.status(404).json({ message: 'Student not found' });
         }
 
-        // Parse the date (assuming "DD/MM/YYYY" format from frontend)
+        // Parse the date (expecting DD/MM/YYYY)
         const [day, month, year] = date.split('/').map(Number);
+        if (!day || !month || !year || isNaN(day) || isNaN(month) || isNaN(year)) {
+            return res.status(400).json({ message: 'Invalid date format. Use DD/MM/YYYY' });
+        }
         const parsedDate = new Date(year, month - 1, day);
         if (isNaN(parsedDate.getTime())) {
-            return res.status(400).json({ message: "Invalid date format. Use DD/MM/YYYY" });
+            return res.status(400).json({ message: 'Invalid date. Use DD/MM/YYYY' });
         }
 
         // Convert requested times to minutes for comparison
@@ -2176,9 +2294,22 @@ module.exports.bookAppointment = async (req, res) => {
         const requestedStartMinutes = startHour * 60 + startMinute;
         const requestedEndMinutes = endHour * 60 + endMinute;
 
+        // Validate time range
+        if (requestedEndMinutes <= requestedStartMinutes) {
+            return res.status(400).json({ message: 'End time must be after start time' });
+        }
+
         // Check if the requested slot falls within an available slot
         const slotIndex = psychiatrist.availability.findIndex(slot => {
-            const slotDate = new Date(slot.date || slot.day);
+            if (!slot.startTime || !slot.endTime || !slot.date) {
+                console.warn('Invalid slot:', slot);
+                return false;
+            }
+            const slotDate = new Date(slot.date);
+            if (isNaN(slotDate.getTime())) {
+                console.warn('Invalid slot date:', slot);
+                return false;
+            }
             const [slotStartHour, slotStartMinute] = slot.startTime.split(':').map(Number);
             const [slotEndHour, slotEndMinute] = slot.endTime.split(':').map(Number);
             const slotStartMinutes = slotStartHour * 60 + slotStartMinute;
@@ -2192,7 +2323,7 @@ module.exports.bookAppointment = async (req, res) => {
         });
 
         if (slotIndex === -1) {
-            return res.status(400).json({ message: "This slot is not available" });
+            return res.status(400).json({ message: 'This slot is not available' });
         }
 
         // Check for existing appointment
@@ -2213,6 +2344,7 @@ module.exports.bookAppointment = async (req, res) => {
             date: parsedDate,
             startTime,
             endTime,
+            status: 'pending',
         });
 
         // Update the availability: split the original slot if necessary
@@ -2241,28 +2373,69 @@ module.exports.bookAppointment = async (req, res) => {
             });
         }
 
-        // Save the appointment first to get its ID
+        // Save the appointment
         await appointment.save();
 
-        // Create a notification for the psychiatrist
+        // Create a notification
         const notification = new Notification({
-            userId: psychiatristId, // Changed from "user" to "userId"
+            userId: psychiatristId,
             message: `A new appointment has been booked by ${student.username || 'a student'} on ${parsedDate.toLocaleDateString()} from ${startTime} to ${endTime}.`,
-            type: 'new_appointment', // Required field, set to "new_appointment"
-            appointmentId: appointment._id, // Link to the appointment
-            read: false, // Default value, optional since schema sets it
+            type: 'new_appointment',
+            appointmentId: appointment._id,
+            read: false,
         });
 
-        // Save the psychiatrist's updated availability and the notification
+        // Save psychiatrist and notification
         await Promise.all([psychiatrist.save(), notification.save()]);
 
         res.status(201).json({
-            message: "Appointment booked successfully",
-            appointment,
+            message: 'Appointment booked successfully',
+            appointment: {
+                _id: appointment._id,
+                psychiatrist: appointment.psychiatrist,
+                student: appointment.student,
+                date: appointment.date,
+                startTime: appointment.startTime,
+                endTime: appointment.endTime,
+                status: appointment.status,
+            },
+            updatedAvailability: psychiatrist.availability,
         });
     } catch (error) {
-        console.error('Error in bookAppointment:', error);
-        res.status(500).json({ message: "Server error", error: error.message });
+        console.error('Error in bookAppointment:', error.stack);
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: 'Validation error', error: error.message });
+        }
+        if (error.code === 11000) {
+            return res.status(400).json({ message: 'This slot is already booked (duplicate key error)' });
+        }
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+module.exports.getAppointmentsByPsychiatrist = async (req, res) => {
+    const { psychiatristId } = req.params;
+
+    try {
+        // Validate psychiatristId
+        if (!psychiatristId) {
+            return res.status(400).json({ message: 'Psychiatrist ID is required' });
+        }
+
+        // Fetch appointments, optionally filter by status
+        const appointments = await Appointment.find({
+            psychiatrist: psychiatristId,
+            // Optional: Uncomment to filter out canceled/completed appointments
+            // status: { $in: ['pending', 'confirmed'] },
+        }).lean();
+
+        res.status(200).json(appointments);
+    } catch (error) {
+        console.error('Error fetching appointments:', error.stack);
+        if (error.name === 'CastError') {
+            return res.status(400).json({ message: 'Invalid psychiatrist ID' });
+        }
+        res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
 // Récupérer l'historique des rendez-vous pour un étudiant
@@ -2415,39 +2588,78 @@ module.exports.updateAppointmentStatus = async (req, res) => {
         await Notification.create({
           userId: studentId,
           message,
-          type: status, // e.g., "confirmed", "canceled"
+          type: status,
           appointmentId: appointment._id,
         });
   
-        // If status is "confirmed", send email and schedule reminder
+        // If status is "confirmed", send immediate confirmation email and schedule detailed email
         if (status === 'confirmed') {
           const studentEmail = appointment.student.email;
           const psychiatristEmail = appointment.psychiatrist.email;
-          const subject = "Your Appointment is Confirmed on EspritCare";
-          const htmlContent = `
+          
+          // Immediate confirmation email without chat code
+          const immediateSubject = "Your Appointment is Confirmed on EspritCare";
+          const immediateHtmlContent = `
             <h2>Your Appointment is Confirmed</h2>
-            <p>Hello ${appointment.student.username} and Dr. ${appointment.psychiatrist.username},</p>
-            <p>The appointment has been successfully confirmed.</p>
+            <p>Hello ${appointment.student.username},</p>
+            <p>Your appointment with Dr. ${appointment.psychiatrist.username} has been confirmed.</p>
+            <p>You will receive another email with the chat code and full details at the appointment start time.</p>
             <ul>
-              <li><strong>Date :</strong> ${new Date(appointment.date).toLocaleDateString()}</li>
-              <li><strong>Time :</strong> ${appointment.startTime} - ${appointment.endTime}</li>
-              <li><strong>Psychiatrist :</strong> ${appointment.psychiatrist.username}</li>
-              <li><strong>Student :</strong> ${appointment.student.username}</li>
+              <li><strong>Date:</strong> ${new Date(appointment.date).toLocaleDateString()}</li>
+              <li><strong>Time:</strong> ${appointment.startTime} - ${appointment.endTime}</li>
             </ul>
-            <p>Please make sure to be available on time.</p>
-            <p>Use this unique code to access the chat:</p>
-            <h3 style="text-align: center; background-color: #0ea5e6; color: white; padding: 10px; border-radius: 5px;">
-              ${chatCode}
-            </h3>
             <p>Thank you for using EspritCare!</p>
           `;
   
           try {
-            await Promise.all([
-              sendEmail(studentEmail, subject, htmlContent),
-              sendEmail(psychiatristEmail, subject, htmlContent),
-            ]);
-            console.log(`Emails sent to ${studentEmail} and ${psychiatristEmail} with code: ${chatCode}`);
+            await sendEmail(studentEmail, immediateSubject, immediateHtmlContent);
+            console.log(`Immediate confirmation email sent to ${studentEmail}`);
+  
+            // Schedule detailed email with chat code at start time
+            const detailedSubject = "Your Appointment Details and Chat Code";
+            const detailedHtmlContent = `
+              <h2>Your Appointment Starts Now</h2>
+              <p>Hello ${appointment.student.username} and Dr. ${appointment.psychiatrist.username},</p>
+              <p>Your appointment is starting now. Here are the details:</p>
+              <ul>
+                <li><strong>Date:</strong> ${new Date(appointment.date).toLocaleDateString()}</li>
+                <li><strong>Time:</strong> ${appointment.startTime} - ${appointment.endTime}</li>
+                <li><strong>Psychiatrist:</strong> ${appointment.psychiatrist.username}</li>
+                <li><strong>Student:</strong> ${appointment.student.username}</li>
+              </ul>
+              <p>Use this unique code to access the chat:</p>
+              <h3 style="text-align: center; background-color: #0ea5e6; color: white; padding: 10px; border-radius: 5px;">
+                ${chatCode}
+              </h3>
+              <p>Please make sure to be available now.</p>
+              <p>Thank you for using EspritCare!</p>
+            `;
+  
+            // Schedule the detailed email at appointment start time
+            const appointmentDateTime = new Date(`${appointment.date.toDateString()} ${appointment.startTime}`);
+            const now = new Date();
+            const delay = appointmentDateTime - now;
+  
+            if (delay > 0) {
+              setTimeout(async () => {
+                try {
+                  await Promise.all([
+                    sendEmail(studentEmail, detailedSubject, detailedHtmlContent),
+                    sendEmail(psychiatristEmail, detailedSubject, detailedHtmlContent),
+                  ]);
+                  console.log(`Detailed emails with chat code sent to ${studentEmail} and ${psychiatristEmail}`);
+                } catch (emailError) {
+                  console.error("Error sending detailed emails:", emailError);
+                }
+              }, delay);
+            } else {
+              // If appointment time is in the past, send immediately
+              await Promise.all([
+                sendEmail(studentEmail, detailedSubject, detailedHtmlContent),
+                sendEmail(psychiatristEmail, detailedSubject, detailedHtmlContent),
+              ]);
+              console.log(`Detailed emails with chat code sent immediately to ${studentEmail} and ${psychiatristEmail}`);
+            }
   
             // Schedule the 5-minute reminder
             scheduleReminder(appointment, studentId);
@@ -2462,7 +2674,7 @@ module.exports.updateAppointmentStatus = async (req, res) => {
       console.error('Error in updateAppointmentStatus:', error);
       res.status(500).json({ message: "Server error", error: error.message });
     }
-  };
+};
 
   module.exports.markNotificationAsRead = async (req, res) => {
     try {
