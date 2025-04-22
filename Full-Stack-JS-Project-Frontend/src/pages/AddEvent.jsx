@@ -1,40 +1,39 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Link, useNavigate } from 'react-router-dom';
-import { jwtDecode } from 'jwt-decode';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import 'bootstrap/dist/css/bootstrap.min.css';
-import '../App.css';
+import { useState, useEffect } from "react";
+import axios from "axios";
+import { Link, useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import "bootstrap/dist/css/bootstrap.min.css";
+import "../App.css";
 
-const BASE_URL = 'http://localhost:5000';
+const BASE_URL = "http://localhost:5000";
 
 const tunisianGovernorates = [
-  'Ariana', 'Béja', 'Ben Arous', 'Bizerte', 'Gabès', 'Gafsa', 'Jendouba',
-  'Kairouan', 'Kasserine', 'Kébili', 'Kef', 'Mahdia', 'Manouba', 'Médenine',
-  'Monastir', 'Nabeul', 'Sfax', 'Sidi Bouzid', 'Siliana', 'Sousse', 'Tataouine',
-  'Tozeur', 'Tunis', 'Zaghouan',
+  "Ariana", "Béja", "Ben Arous", "Bizerte", "Gabès", "Gafsa", "Jendouba",
+  "Kairouan", "Kasserine", "Kébili", "Kef", "Mahdia", "Manouba", "Médenine",
+  "Monastir", "Nabeul", "Sfax", "Sidi Bouzid", "Siliana", "Sousse", "Tataouine",
+  "Tozeur", "Tunis", "Zaghouan"
 ].sort();
 
 const emailDomains = [
-  '@gmail.com', '@yahoo.fr', '@hotmail.com', '@outlook.com', '@live.fr',
-  '@aol.com', '@icloud.com', '@mail.com', '@protonmail.com', '@yandex.com',
-  '@yahoo.com', '@msn.com',
+  "@gmail.com", "@yahoo.fr", "@hotmail.com", "@outlook.com", "@live.fr",
+  "@aol.com", "@icloud.com", "@mail.com", "@protonmail.com", "@yandex.com",
+  "@yahoo.com", "@msn.com"
 ];
 
 const AddEvent = () => {
-  console.log('Initial Hugging Face API Key:', process.env.REACT_APP_HUGGINGFACE_API_TOKEN); // Fixed debug log
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    start_date: '',
-    end_date: '',
-    event_type: 'in-person',
-    localisation: '',
-    lieu: '',
-    online_link: '',
-    heure: '',
-    contact_email: '',
+    title: "",
+    description: "",
+    start_date: "",
+    end_date: "",
+    event_type: "in-person",
+    localisation: "",
+    lieu: "",
+    online_link: "",
+    heure: "",
+    contact_email: "",
     image: null,
     hasPartners: false,
     partners: [],
@@ -42,33 +41,33 @@ const AddEvent = () => {
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState(null);
   const [userRole, setUserRole] = useState(null);
-  const [imagePreview, setImagePreview] = useState('/assets/img/about/image.png');
+  const [imagePreview, setImagePreview] = useState("/assets/img/about/image.png");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('jwt-token');
+    const token = localStorage.getItem("jwt-token");
     if (token) {
       try {
         const decoded = jwtDecode(token);
         const currentTime = Date.now() / 1000;
         if (decoded.exp < currentTime) {
-          toast.error('Your session has expired, please log in again', { autoClose: 3000 });
-          localStorage.removeItem('jwt-token');
-          setTimeout(() => navigate('/login'), 3000);
+          toast.error("Your session has expired, please log in again", { autoClose: 3000 });
+          localStorage.removeItem("jwt-token");
+          setTimeout(() => navigate("/login"), 3000);
           return;
         }
         setUserRole(decoded.role);
       } catch (error) {
-        console.error('Invalid token:', error);
-        toast.error('Invalid token, please log in again', { autoClose: 3000 });
-        localStorage.removeItem('jwt-token');
-        setTimeout(() => navigate('/login'), 3000);
+        console.error("Invalid token:", error);
+        toast.error("Invalid token, please log in again", { autoClose: 3000 });
+        localStorage.removeItem("jwt-token");
+        setTimeout(() => navigate("/login"), 3000);
       }
     } else {
-      toast.error('You must be logged in to access this page', { autoClose: 3000 });
-      setTimeout(() => navigate('/login'), 3000);
+      toast.error("You must be logged in to access this page", { autoClose: 3000 });
+      setTimeout(() => navigate("/login"), 3000);
     }
   }, [navigate]);
 
@@ -83,88 +82,62 @@ const AddEvent = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    const newValue = name === 'hasPartners' ? value === 'true' : value;
+    const newValue = name === "hasPartners" ? value === "true" : value;
     setFormData({ ...formData, [name]: newValue });
-    setErrors({ ...errors, [name]: '' });
+    setErrors({ ...errors, [name]: "" });
   };
 
   const handleReset = () => {
     setFormData({
-      title: '',
-      description: '',
-      start_date: '',
-      end_date: '',
-      event_type: 'in-person',
-      localisation: '',
-      lieu: '',
-      online_link: '',
-      heure: '',
-      contact_email: '',
+      title: "",
+      description: "",
+      start_date: "",
+      end_date: "",
+      event_type: "in-person",
+      localisation: "",
+      lieu: "",
+      online_link: "",
+      heure: "",
+      contact_email: "",
       image: null,
       hasPartners: false,
       partners: [],
     });
-    setImagePreview('/assets/img/about/image.png');
+    setImagePreview("/assets/img/about/image.png");
     setErrors({});
     setServerError(null);
   };
 
+  // Function to generate image using Pollinations AI
   const generateImageFromDescription = async () => {
-    console.log('Hugging Face API Key:', process.env.REACT_APP_HUGGINGFACE_API_TOKEN); // Fixed debug log
-    if (!formData.description || formData.description.trim() === '') {
-      toast.error('Please enter a description to generate an image.');
-      return;
-    }
-
-    if (!process.env.REACT_APP_HUGGINGFACE_API_TOKEN) {
-      toast.error('Hugging Face API key is not configured. Please contact the administrator.');
-      setIsGeneratingImage(false);
+    if (!formData.description) {
+      toast.error("Please provide a description to generate an image", { autoClose: 3000 });
       return;
     }
 
     setIsGeneratingImage(true);
-    const prompt = `A vibrant and detailed illustration representing an event with the following description: ${formData.description}. The image should capture the theme, mood, and setting of the event, suitable for promotional material.`;
-    const proxyUrl = 'http://localhost:8080/'; // Local cors-anywhere server
+    const prompt = `A vivid scene representing an event titled "${formData.title || "Event"}". ${
+      formData.event_type === "in-person"
+        ? `The event takes place in ${formData.localisation || "a Tunisian city"}, at ${formData.lieu || "a venue"}. `
+        : "The event is an online gathering. "
+    }Description: ${formData.description}. The atmosphere is engaging, vibrant, and reflects the event's purpose.`;
+    
+    const encodedPrompt = encodeURIComponent(prompt);
+    const apiUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=600`;
 
     try {
-      // Call Hugging Face Inference API
-      const response = await axios.post(
-        `${proxyUrl}https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1`,
-        {
-          inputs: prompt,
-          parameters: {
-            num_inference_steps: 50,
-            guidance_scale: 7.5,
-            width: 512,
-            height: 512,
-          },
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.REACT_APP_HUGGINGFACE_API_TOKEN}`,
-            'Content-Type': 'application/json',
-          },
-          responseType: 'arraybuffer', // Expect binary image data
-        }
-      );
-
-      // Convert response to image
-      const imageBlob = new Blob([response.data], { type: 'image/png' });
-      const imageFile = new File([imageBlob], `generated-event-${Date.now()}.png`, { type: 'image/png' });
-
-      // Update form data and preview
-      setFormData((prev) => ({ ...prev, image: imageFile }));
-      setImagePreview(URL.createObjectURL(imageFile));
-      toast.success('Image successfully generated!');
+      // Since Pollinations AI returns an image directly, set the image preview to the API URL
+      setImagePreview(apiUrl);
+      toast.success("Image generated successfully!", { autoClose: 2000 });
+      
+      // Optionally, fetch the image as a blob to store it in formData.image
+      const response = await fetch(apiUrl);
+      const blob = await response.blob();
+      const file = new File([blob], "generated-image.png", { type: "image/png" });
+      setFormData({ ...formData, image: file });
     } catch (error) {
-      console.error('Error generating image:', error);
-      const message = error.response?.data?.error || error.message;
-      toast.error(`Error generating image: ${message}`);
-      if (message.includes('Network Error') || message.includes('CORS')) {
-        toast.error('CORS proxy may not be running. Please ensure the proxy is active at http://localhost:8080.');
-      } else if (message.includes('Unauthorized') || message.includes('401')) {
-        toast.error('Invalid Hugging Face API token. Please check your token in the Hugging Face dashboard.');
-      }
+      console.error("Error generating image:", error);
+      toast.error("Failed to generate image. Please try again.", { autoClose: 3000 });
     } finally {
       setIsGeneratingImage(false);
     }
@@ -176,80 +149,81 @@ const AddEvent = () => {
     setErrors({});
     setServerError(null);
 
-    const token = localStorage.getItem('jwt-token');
+    const token = localStorage.getItem("jwt-token");
     if (!token) {
-      toast.error('You must be logged in to add an event', { autoClose: 3000 });
-      setTimeout(() => navigate('/login'), 3000);
+      toast.error("You must be logged in to add an event", { autoClose: 3000 });
+      setTimeout(() => navigate("/login"), 3000);
       setIsSubmitting(false);
       return;
     }
-    if (userRole !== 'association_member') {
-      toast.error('Only association members can add an event', { autoClose: 3000 });
+    if (userRole !== "association_member") {
+      toast.error("Only association members can add an event", { autoClose: 3000 });
       setIsSubmitting(false);
       return;
     }
 
     const formDataToSend = new FormData();
-    formDataToSend.append('title', formData.title);
-    formDataToSend.append('description', formData.description);
-    formDataToSend.append('start_date', formData.start_date);
-    formDataToSend.append('end_date', formData.end_date);
-    formDataToSend.append('event_type', formData.event_type);
-    if (formData.event_type === 'in-person') {
-      formDataToSend.append('localisation', formData.localisation);
-      formDataToSend.append('lieu', formData.lieu);
+    formDataToSend.append("title", formData.title);
+    formDataToSend.append("description", formData.description);
+    formDataToSend.append("start_date", formData.start_date);
+    formDataToSend.append("end_date", formData.end_date);
+    formDataToSend.append("event_type", formData.event_type);
+    if (formData.event_type === "in-person") {
+      formDataToSend.append("localisation", formData.localisation);
+      formDataToSend.append("lieu", formData.lieu);
     } else {
-      formDataToSend.append('online_link', formData.online_link);
+      formDataToSend.append("online_link", formData.online_link);
     }
-    formDataToSend.append('heure', formData.heure);
-    formDataToSend.append('contact_email', formData.contact_email);
+    formDataToSend.append("heure", formData.heure);
+    formDataToSend.append("contact_email", formData.contact_email);
     if (formData.image) {
-      formDataToSend.append('image', formData.image);
+      formDataToSend.append("image", formData.image);
     }
-    formDataToSend.append('hasPartners', formData.hasPartners);
+    formDataToSend.append("hasPartners", formData.hasPartners);
 
     try {
       const response = await axios.post(`${BASE_URL}/events/addEvent`, formDataToSend, {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
+          "Content-Type": "multipart/form-data",
         },
       });
 
-      const successMessage = response.data.message + (formData.hasPartners ? ' Emails will be sent to association members.' : '');
+      const successMessage = response.data.message + (formData.hasPartners ? " Emails will be sent to association members." : "");
       toast.success(successMessage, { autoClose: 2000 });
       handleReset();
-      setTimeout(() => navigate('/events'), 2000);
+      setTimeout(() => navigate("/events"), 2000);
     } catch (error) {
+      console.log("Full error response:", error.response);
       if (error.response?.status === 403) {
-        toast.error('Your session has expired, please log in again', { autoClose: 3000 });
-        localStorage.removeItem('jwt-token');
-        setTimeout(() => navigate('/login'), 3000);
+        toast.error("Your session has expired, please log in again", { autoClose: 3000 });
+        localStorage.removeItem("jwt-token");
+        setTimeout(() => navigate("/login"), 3000);
       } else if (error.response?.status === 400) {
         if (Array.isArray(error.response?.data?.errors)) {
           const backendErrors = error.response.data.errors.reduce((acc, err) => {
-            const field = err.toLowerCase().includes('title') ? 'title' :
-                          err.toLowerCase().includes('description') ? 'description' :
-                          err.toLowerCase().includes('start date') ? 'start_date' :
-                          err.toLowerCase().includes('end date') ? 'end_date' :
-                          err.toLowerCase().includes('event type') ? 'event_type' :
-                          err.toLowerCase().includes('location') ? 'localisation' :
-                          err.toLowerCase().includes('venue') ? 'lieu' :
-                          err.toLowerCase().includes('online link') ? 'online_link' :
-                          err.toLowerCase().includes('email') ? 'contact_email' : '';
+            const field = err.toLowerCase().includes("title") ? "title" :
+                          err.toLowerCase().includes("description") ? "description" :
+                          err.toLowerCase().includes("start date") ? "start_date" :
+                          err.toLowerCase().includes("end date") ? "end_date" :
+                          err.toLowerCase().includes("event type") ? "event_type" :
+                          err.toLowerCase().includes("location") ? "localisation" :
+                          err.toLowerCase().includes("venue") ? "lieu" :
+                          err.toLowerCase().includes("online link") ? "online_link" :
+                          err.toLowerCase().includes("email") ? "contact_email" : "";
             if (field) acc[field] = err;
             return acc;
           }, {});
           setErrors(backendErrors);
         } else {
-          const errorMessage = error.response?.data?.message || 'Validation error occurred';
+          const errorMessage = error.response?.data?.message || "Validation error occurred";
           setServerError(errorMessage);
           toast.error(errorMessage, { autoClose: 3000 });
         }
-      } else if (error.response?.status === 500 && error.response?.data?.message.includes('emails')) {
+      } else if (error.response?.status === 500 && error.response?.data?.message.includes("emails")) {
         toast.warn(error.response.data.message, { autoClose: 5000 });
       } else {
-        const errorMessage = error.response?.data?.message || 'An error occurred while adding the event';
+        const errorMessage = error.response?.data?.message || "An error occurred while adding the event";
         setServerError(errorMessage);
         toast.error(errorMessage, { autoClose: 3000 });
       }
@@ -260,7 +234,7 @@ const AddEvent = () => {
 
   return (
     <>
-      <div className="site-breadcrumb" style={{ background: 'url(/assets/img/breadcrumb/01.jpg)' }}>
+      <div className="site-breadcrumb" style={{ background: "url(/assets/img/breadcrumb/01.jpg)" }}>
         <div className="container">
           <h2 className="breadcrumb-title">Add a New Event</h2>
           <ul className="breadcrumb-menu">
@@ -282,10 +256,10 @@ const AddEvent = () => {
                     alt="Event Preview"
                     className="img-fluid rounded"
                     style={{
-                      width: '100%',
-                      height: 'auto',
-                      objectFit: 'cover',
-                      borderRadius: '8px',
+                      width: "100%",
+                      height: "auto",
+                      objectFit: "cover",
+                      borderRadius: "8px",
                     }}
                   />
                 </div>
@@ -295,13 +269,13 @@ const AddEvent = () => {
                   <h2>Add an Event</h2>
                   <p>Fill out the form below to create a new event.</p>
                   {serverError && (
-                    <p style={{ color: '#dc3545', fontSize: '14px', marginBottom: '15px' }}>
+                    <p style={{ color: "#dc3545", fontSize: "14px", marginBottom: "15px" }}>
                       {serverError}
                     </p>
                   )}
                   <form onSubmit={onSubmit}>
                     <div className="row">
-                      <div className="col-md-12" style={{ marginBottom: '15px' }}>
+                      <div className="col-md-12" style={{ marginBottom: "15px" }}>
                         <input
                           type="text"
                           name="title"
@@ -309,15 +283,15 @@ const AddEvent = () => {
                           placeholder="Event Title"
                           value={formData.title}
                           onChange={handleChange}
-                          style={{ borderColor: errors.title ? '#dc3545' : '#ced4da' }}
+                          style={{ borderColor: errors.title ? "#dc3545" : "#ced4da" }}
                         />
                         {errors.title && (
-                          <p style={{ color: '#dc3545', fontSize: '14px', marginTop: '5px' }}>
+                          <p style={{ color: "#dc3545", fontSize: "14px", marginTop: "5px" }}>
                             {errors.title}
                           </p>
                         )}
                       </div>
-                      <div className="col-md-12" style={{ marginBottom: '15px' }}>
+                      <div className="col-md-12" style={{ marginBottom: "15px" }}>
                         <textarea
                           name="description"
                           className="form-control"
@@ -326,32 +300,34 @@ const AddEvent = () => {
                           placeholder="Description"
                           value={formData.description}
                           onChange={handleChange}
-                          style={{ borderColor: errors.description ? '#dc3545' : '#ced4da' }}
+                          style={{ borderColor: errors.description ? "#dc3545" : "#ced4da" }}
                         />
-                        <button
-                          type="button"
-                          onClick={generateImageFromDescription}
-                          disabled={isGeneratingImage || isSubmitting}
-                          style={{
-                            marginTop: '10px',
-                            background: isGeneratingImage || isSubmitting ? '#ccc' : '#28a745',
-                            color: '#fff',
-                            padding: '8px 16px',
-                            border: 'none',
-                            borderRadius: '5px',
-                            cursor: isGeneratingImage || isSubmitting ? 'not-allowed' : 'pointer',
-                          }}
-                        >
-                          {isGeneratingImage ? 'Generating...' : 'Generate Image'}
-                        </button>
                         {errors.description && (
-                          <p style={{ color: '#dc3545', fontSize: '14px', marginTop: '5px' }}>
+                          <p style={{ color: "#dc3545", fontSize: "14px", marginTop: "5px" }}>
                             {errors.description}
                           </p>
                         )}
                       </div>
-                      <div className="col-md-6" style={{ marginBottom: '15px' }}>
-                        <label htmlFor="start_date" style={{ marginBottom: '5px', display: 'block' }}>
+                      <div className="col-md-12" style={{ marginBottom: "15px" }}>
+                        <button
+                          type="button"
+                          onClick={generateImageFromDescription}
+                          className="theme-btn"
+                          disabled={isGeneratingImage || !formData.description}
+                          style={{
+                            backgroundColor: "#28a745",
+                            color: "#fff",
+                            padding: "10px 20px",
+                            border: "none",
+                            borderRadius: "5px",
+                            cursor: isGeneratingImage || !formData.description ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          {isGeneratingImage ? "Generating Image..." : "Generate Image from Description"}
+                        </button>
+                      </div>
+                      <div className="col-md-6" style={{ marginBottom: "15px" }}>
+                        <label htmlFor="start_date" style={{ marginBottom: "5px", display: "block" }}>
                           Start Date
                         </label>
                         <input
@@ -361,16 +337,16 @@ const AddEvent = () => {
                           className="form-control"
                           value={formData.start_date}
                           onChange={handleChange}
-                          style={{ borderColor: errors.start_date ? '#dc3545' : '#ced4da' }}
+                          style={{ borderColor: errors.start_date ? "#dc3545" : "#ced4da" }}
                         />
                         {errors.start_date && (
-                          <p style={{ color: '#dc3545', fontSize: '14px', marginTop: '5px' }}>
+                          <p style={{ color: "#dc3545", fontSize: "14px", marginTop: "5px" }}>
                             {errors.start_date}
                           </p>
                         )}
                       </div>
-                      <div className="col-md-6" style={{ marginBottom: '15px' }}>
-                        <label htmlFor="end_date" style={{ marginBottom: '5px', display: 'block' }}>
+                      <div className="col-md-6" style={{ marginBottom: "15px" }}>
+                        <label htmlFor="end_date" style={{ marginBottom: "5px", display: "block" }}>
                           End Date
                         </label>
                         <input
@@ -380,16 +356,16 @@ const AddEvent = () => {
                           className="form-control"
                           value={formData.end_date}
                           onChange={handleChange}
-                          style={{ borderColor: errors.end_date ? '#dc3545' : '#ced4da' }}
+                          style={{ borderColor: errors.end_date ? "#dc3545" : "#ced4da" }}
                         />
                         {errors.end_date && (
-                          <p style={{ color: '#dc3545', fontSize: '14px', marginTop: '5px' }}>
+                          <p style={{ color: "#dc3545", fontSize: "14px", marginTop: "5px" }}>
                             {errors.end_date}
                           </p>
                         )}
                       </div>
-                      <div className="col-md-6" style={{ marginBottom: '15px' }}>
-                        <label htmlFor="event_type" style={{ marginBottom: '5px', display: 'block' }}>
+                      <div className="col-md-6" style={{ marginBottom: "15px" }}>
+                        <label htmlFor="event_type" style={{ marginBottom: "5px", display: "block" }}>
                           Event Type
                         </label>
                         <select
@@ -398,19 +374,27 @@ const AddEvent = () => {
                           className="form-control"
                           value={formData.event_type}
                           onChange={handleChange}
-                          style={{ borderColor: errors.event_type ? '#dc3545' : '#ced4da' }}
+                          style={{
+                            borderColor: errors.event_type ? "#dc3545" : "#ced4da",
+                            padding: "10px",
+                            borderRadius: "5px",
+                            fontSize: "16px",
+                            color: "#333",
+                            outline: "none",
+                            transition: "all 0.3s ease",
+                          }}
                         >
                           <option value="in-person">In-Person</option>
                           <option value="online">Online</option>
                         </select>
                         {errors.event_type && (
-                          <p style={{ color: '#dc3545', fontSize: '14px', marginTop: '5px' }}>
+                          <p style={{ color: "#dc3545", fontSize: "14px", marginTop: "5px" }}>
                             {errors.event_type}
                           </p>
                         )}
                       </div>
-                      <div className="col-md-6" style={{ marginBottom: '15px' }}>
-                        <label htmlFor="heure" style={{ marginBottom: '5px', display: 'block' }}>
+                      <div className="col-md-6" style={{ marginBottom: "15px" }}>
+                        <label htmlFor="heure" style={{ marginBottom: "5px", display: "block" }}>
                           Time
                         </label>
                         <input
@@ -420,18 +404,18 @@ const AddEvent = () => {
                           placeholder="Time (HH:MM)"
                           value={formData.heure}
                           onChange={handleChange}
-                          style={{ borderColor: errors.heure ? '#dc3545' : '#ced4da' }}
+                          style={{ borderColor: errors.heure ? "#dc3545" : "#ced4da" }}
                         />
                         {errors.heure && (
-                          <p style={{ color: '#dc3545', fontSize: '14px', marginTop: '5px' }}>
+                          <p style={{ color: "#dc3545", fontSize: "14px", marginTop: "5px" }}>
                             {errors.heure}
                           </p>
                         )}
                       </div>
-                      {formData.event_type === 'in-person' && (
+                      {formData.event_type === "in-person" && (
                         <>
-                          <div className="col-md-6" style={{ marginBottom: '15px' }}>
-                            <label htmlFor="localisation" style={{ marginBottom: '5px', display: 'block' }}>
+                          <div className="col-md-6" style={{ marginBottom: "15px" }}>
+                            <label htmlFor="localisation" style={{ marginBottom: "5px", display: "block" }}>
                               Location
                             </label>
                             <select
@@ -440,7 +424,15 @@ const AddEvent = () => {
                               className="form-control"
                               value={formData.localisation}
                               onChange={handleChange}
-                              style={{ borderColor: errors.localisation ? '#dc3545' : '#ced4da' }}
+                              style={{
+                                borderColor: errors.localisation ? "#dc3545" : "#ced4da",
+                                padding: "10px",
+                                borderRadius: "5px",
+                                fontSize: "16px",
+                                color: "#333",
+                                outline: "none",
+                                transition: "all 0.3s ease",
+                              }}
                             >
                               <option value="">Select a Governorate</option>
                               {tunisianGovernorates.map((governorate) => (
@@ -450,13 +442,13 @@ const AddEvent = () => {
                               ))}
                             </select>
                             {errors.localisation && (
-                              <p style={{ color: '#dc3545', fontSize: '14px', marginTop: '5px' }}>
+                              <p style={{ color: "#dc3545", fontSize: "14px", marginTop: "5px" }}>
                                 {errors.localisation}
                               </p>
                             )}
                           </div>
-                          <div className="col-md-6" style={{ marginBottom: '15px' }}>
-                            <label htmlFor="lieu" style={{ marginBottom: '5px', display: 'block' }}>
+                          <div className="col-md-6" style={{ marginBottom: "15px" }}>
+                            <label htmlFor="lieu" style={{ marginBottom: "5px", display: "block" }}>
                               Venue
                             </label>
                             <input
@@ -467,19 +459,19 @@ const AddEvent = () => {
                               placeholder="Venue (e.g., hall)"
                               value={formData.lieu}
                               onChange={handleChange}
-                              style={{ borderColor: errors.lieu ? '#dc3545' : '#ced4da' }}
+                              style={{ borderColor: errors.lieu ? "#dc3545" : "#ced4da" }}
                             />
                             {errors.lieu && (
-                              <p style={{ color: '#dc3545', fontSize: '14px', marginTop: '5px' }}>
+                              <p style={{ color: "#dc3545", fontSize: "14px", marginTop: "5px" }}>
                                 {errors.lieu}
                               </p>
                             )}
                           </div>
                         </>
                       )}
-                      {formData.event_type === 'online' && (
-                        <div className="col-md-12" style={{ marginBottom: '15px' }}>
-                          <label htmlFor="online_link" style={{ marginBottom: '5px', display: 'block' }}>
+                      {formData.event_type === "online" && (
+                        <div className="col-md-12" style={{ marginBottom: "15px" }}>
+                          <label htmlFor="online_link" style={{ marginBottom: "5px", display: "block" }}>
                             Online Link
                           </label>
                           <input
@@ -490,17 +482,17 @@ const AddEvent = () => {
                             placeholder="Online Event Link (e.g., https://zoom.us/...)"
                             value={formData.online_link}
                             onChange={handleChange}
-                            style={{ borderColor: errors.online_link ? '#dc3545' : '#ced4da' }}
+                            style={{ borderColor: errors.online_link ? "#dc3545" : "#ced4da" }}
                           />
                           {errors.online_link && (
-                            <p style={{ color: '#dc3545', fontSize: '14px', marginTop: '5px' }}>
+                            <p style={{ color: "#dc3545", fontSize: "14px", marginTop: "5px" }}>
                               {errors.online_link}
                             </p>
                           )}
                         </div>
                       )}
-                      <div className="col-md-12" style={{ marginBottom: '15px' }}>
-                        <label htmlFor="contact_email" style={{ marginBottom: '5px', display: 'block' }}>
+                      <div className="col-md-12" style={{ marginBottom: "15px" }}>
+                        <label htmlFor="contact_email" style={{ marginBottom: "5px", display: "block" }}>
                           Contact Email
                         </label>
                         <input
@@ -512,7 +504,7 @@ const AddEvent = () => {
                           list="emailSuggestions"
                           value={formData.contact_email}
                           onChange={handleChange}
-                          style={{ borderColor: errors.contact_email ? '#dc3545' : '#ced4da' }}
+                          style={{ borderColor: errors.contact_email ? "#dc3545" : "#ced4da" }}
                         />
                         <datalist id="emailSuggestions">
                           {emailDomains.map((domain) => (
@@ -520,13 +512,13 @@ const AddEvent = () => {
                           ))}
                         </datalist>
                         {errors.contact_email && (
-                          <p style={{ color: '#dc3545', fontSize: '14px', marginTop: '5px' }}>
+                          <p style={{ color: "#dc3545", fontSize: "14px", marginTop: "5px" }}>
                             {errors.contact_email}
                           </p>
                         )}
                       </div>
-                      <div className="col-md-12" style={{ marginBottom: '15px' }}>
-                        <label htmlFor="hasPartners" style={{ marginBottom: '5px', display: 'block' }}>
+                      <div className="col-md-12" style={{ marginBottom: "15px" }}>
+                        <label htmlFor="hasPartners" style={{ marginBottom: "5px", display: "block" }}>
                           Notify Partner Associations?
                         </label>
                         <select
@@ -535,17 +527,25 @@ const AddEvent = () => {
                           className="form-control"
                           value={formData.hasPartners.toString()}
                           onChange={handleChange}
-                          style={{ borderColor: errors.hasPartners ? '#dc3545' : '#ced4da' }}
+                          style={{
+                            borderColor: errors.hasPartners ? "#dc3545" : "#ced4da",
+                            padding: "10px",
+                            borderRadius: "5px",
+                            fontSize: "16px",
+                            color: "#333",
+                            outline: "none",
+                            transition: "all 0.3s ease",
+                          }}
                         >
                           <option value="false">No</option>
                           <option value="true">Yes</option>
                         </select>
-                        <small style={{ color: '#6c757d', fontSize: '12px' }}>
+                        <small style={{ color: "#6c757d", fontSize: "12px" }}>
                           If "Yes", other association members will be notified by email.
                         </small>
                       </div>
-                      <div className="col-md-12" style={{ marginBottom: '15px' }}>
-                        <label htmlFor="image" style={{ marginBottom: '5px', display: 'block' }}>
+                      <div className="col-md-12" style={{ marginBottom: "15px" }}>
+                        <label htmlFor="image" style={{ marginBottom: "5px", display: "block" }}>
                           Event Image
                         </label>
                         <input
@@ -561,29 +561,29 @@ const AddEvent = () => {
                         <button
                           type="submit"
                           className="theme-btn"
-                          disabled={isSubmitting || isGeneratingImage}
+                          disabled={isSubmitting}
                           style={{
-                            backgroundColor: '#ff7f5d',
-                            color: '#fff',
-                            padding: '10px 20px',
-                            border: 'none',
-                            borderRadius: '5px',
-                            cursor: isSubmitting || isGeneratingImage ? 'not-allowed' : 'pointer',
+                            backgroundColor: "#ff7f5d",
+                            color: "#fff",
+                            padding: "10px 20px",
+                            border: "none",
+                            borderRadius: "5px",
+                            cursor: isSubmitting ? "not-allowed" : "pointer",
                           }}
                         >
-                          {isSubmitting ? 'Adding...' : 'Add Event'}
+                          {isSubmitting ? "Adding..." : "Add Event"}
                         </button>
                         <button
                           type="button"
                           onClick={handleReset}
                           className="theme-btn"
                           style={{
-                            backgroundColor: '#6c757d',
-                            color: '#fff',
-                            padding: '10px 20px',
-                            border: 'none',
-                            borderRadius: '5px',
-                            marginLeft: '10px',
+                            backgroundColor: "#6c757d",
+                            color: "#fff",
+                            padding: "10px 20px",
+                            border: "none",
+                            borderRadius: "5px",
+                            marginLeft: "10px",
                           }}
                         >
                           Reset
