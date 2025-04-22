@@ -183,7 +183,7 @@ function Forum() {
         const comment = comments[i];
         const sentiment = await classifyText(comment.content);
         sentiments[comment._id] = sentiment;
-        await delay(2000); // Attendre 2 secondes entre chaque requête pour respecter les limites de l'API
+        await delay(12000); // Attendre 2 secondes entre chaque requête pour respecter les limites de l'API
       }
       setCommentSentiments(sentiments);
     };
