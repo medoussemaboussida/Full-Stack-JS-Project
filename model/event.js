@@ -20,7 +20,7 @@ const eventSchema = new mongoose.Schema({
         required: true,
         validate: {
             validator: function(value) {
-                return value >= new Date(); // Assure que la date de début est dans le futur ou aujourd'hui
+                return value >= new Date();
             },
             message: "La date de début ne peut pas être dans le passé."
         }
@@ -30,7 +30,7 @@ const eventSchema = new mongoose.Schema({
         required: true,
         validate: {
             validator: function(value) {
-                return value >= this.start_date; // Assure que la date de fin est après ou égale à la date de début
+                return value >= this.start_date;
             },
             message: "La date de fin doit être postérieure ou égale à la date de début."
         }
@@ -41,7 +41,7 @@ const eventSchema = new mongoose.Schema({
         minlength: 3,
         maxlength: 200,
         required: function() {
-            return this.event_type === 'in-person'; // Obligatoire pour les événements en personne
+            return this.event_type === 'in-person';
         }
     },
     lieu: {
@@ -50,13 +50,13 @@ const eventSchema = new mongoose.Schema({
         minlength: 3,
         maxlength: 200,
         required: function() {
-            return this.event_type === 'in-person'; // Obligatoire pour les événements en personne
+            return this.event_type === 'in-person';
         }
     },
     heure: {
         type: String,
         required: true,
-        match: /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, // Format HH:MM (24h)
+        match: /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/,
         trim: true
     },
     contact_email: {
@@ -75,9 +75,9 @@ const eventSchema = new mongoose.Schema({
     online_link: {
         type: String,
         trim: true,
-        match: /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/, // Validation d'URL
+        match: /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/,
         required: function() {
-            return this.event_type === 'online'; // Obligatoire pour les événements en ligne
+            return this.event_type === 'online';
         }
     },
     imageUrl: {
@@ -94,17 +94,15 @@ const eventSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
-    participants: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', // Référence aux utilisateurs (étudiants) qui participent
-    }],
-    max_participants: {
+    participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    partners: [{ type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] }],
+            max_participants: {
         type: Number,
         min: 1,
-        default: null, // Null signifie pas de limite
+        default: null,
         validate: {
             validator: function(value) {
-                return value === null || value > 0; // Accepte null ou un nombre positif
+                return value === null || value > 0;
             },
             message: "Le nombre maximum de participants doit être un entier positif ou non défini (null)."
         }
@@ -116,30 +114,41 @@ const eventSchema = new mongoose.Schema({
     },
     isApproved: {
         type: Boolean,
-        default: false // Par défaut, un événement n'est pas approuvé
+        default: false
     },
     coordinates: {
         lat: {
             type: Number,
-            default: null // Latitude, null par défaut si non géocodée
+            default: null,
+            validate: {
+                validator: function(value) {
+                    return value === null || (value >= -90 && value <= 90);
+                },
+                message: "La latitude doit être entre -90 et 90 ou null"
+            }
         },
         lng: {
             type: Number,
-            default: null // Longitude, null par défaut si non géocodée
+            default: null,
+            validate: {
+                validator: function(value) {
+                    return value === null || (value >= -180 && value <= 180);
+                },
+                message: "La longitude doit être entre -180 et 180 ou null"
+            }
         }
     },
-    likes: { type: [String], default: [] },      // Liste des utilisateurs ayant aimé
-  dislikes: { type: [String], default: [] },   // Liste des utilisateurs ayant désapprouvé
-  favorites: { type: [String], default: [] },
-    hasPartners: {
-        type: Boolean,
-        default: false // Par défaut, pas de partenaires
-    }
+    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    dislikes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+              hasPartners: {
+          type: Boolean,
+          default: false // Par défaut, pas de partenaires
+      }
 }, {
-    timestamps: true // Ajoute createdAt et updatedAt automatiquement
+    timestamps: true
 });
 
-// Middleware pour mettre à jour le statut de l'événement
 eventSchema.pre('save', function(next) {
     const now = new Date();
     if (this.start_date > now) {
@@ -151,5 +160,39 @@ eventSchema.pre('save', function(next) {
     }
     next();
 });
+// Ensure partners is always an array
+eventSchema.pre('save', function(next) {
+    if (!Array.isArray(this.partners)) {
+      this.partners = [];
+    }
+    if (!Array.isArray(this.participants)) {
+      this.participants = [];
+    }
+    if (!Array.isArray(this.likes)) {
+      this.likes = [];
+    }
+    if (!Array.isArray(this.dislikes)) {
+      this.dislikes = [];
+    }
+    if (!Array.isArray(this.favorites)) {
+      this.favorites = [];
+    }
+  
+    const now = new Date();
+    if (this.start_date > now) {
+      this.status = 'upcoming';
+    } else if (this.start_date <= now && this.end_date >= now) {
+      this.status = 'ongoing';
+    } else if (this.end_date < now) {
+      this.status = 'past';
+    }
+    next();
+  });
+// Ajout d'index pour optimiser les requêtes
+eventSchema.index({ created_by: 1 });
+eventSchema.index({ start_date: 1 });
+eventSchema.index({ isApproved: 1 });
+eventSchema.index({ participants: 1 });
+eventSchema.index({ partners: 1 });
 
 module.exports = mongoose.model('Event', eventSchema);

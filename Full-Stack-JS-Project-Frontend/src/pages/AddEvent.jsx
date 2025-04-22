@@ -1,48 +1,50 @@
-import { useState, useEffect } from "react";
-import axios from "axios";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import { Link, useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import "bootstrap/dist/css/bootstrap.min.css";
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
 import '../App.css';
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = 'http://localhost:5000';
 
 const tunisianGovernorates = [
-  "Ariana", "Béja", "Ben Arous", "Bizerte", "Gabès", "Gafsa", "Jendouba",
-  "Kairouan", "Kasserine", "Kébili", "Kef", "Mahdia", "Manouba", "Médenine",
-  "Monastir", "Nabeul", "Sfax", "Sidi Bouzid", "Siliana", "Sousse", "Tataouine",
-  "Tozeur", "Tunis", "Zaghouan"
+  'Ariana', 'Béja', 'Ben Arous', 'Bizerte', 'Gabès', 'Gafsa', 'Jendouba',
+  'Kairouan', 'Kasserine', 'Kébili', 'Kef', 'Mahdia', 'Manouba', 'Médenine',
+  'Monastir', 'Nabeul', 'Sfax', 'Sidi Bouzid', 'Siliana', 'Sousse', 'Tataouine',
+  'Tozeur', 'Tunis', 'Zaghouan',
 ].sort();
 
 const emailDomains = [
-  "@gmail.com", "@yahoo.fr", "@hotmail.com", "@outlook.com", "@live.fr",
-  "@aol.com", "@icloud.com", "@mail.com", "@protonmail.com", "@yandex.com",
-  "@yahoo.com", "@msn.com"
+  '@gmail.com', '@yahoo.fr', '@hotmail.com', '@outlook.com', '@live.fr',
+  '@aol.com', '@icloud.com', '@mail.com', '@protonmail.com', '@yandex.com',
+  '@yahoo.com', '@msn.com',
 ];
 
 const AddEvent = () => {
+  console.log('Initial Hugging Face API Key:', process.env.REACT_APP_HUGGINGFACE_API_TOKEN); // Fixed debug log
   const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    start_date: "",
-    end_date: "",
-    event_type: "in-person",
-    localisation: "",
-    lieu: "",
-    online_link: "",
-    heure: "",
-    contact_email: "",
+    title: '',
+    description: '',
+    start_date: '',
+    end_date: '',
+    event_type: 'in-person',
+    localisation: '',
+    lieu: '',
+    online_link: '',
+    heure: '',
+    contact_email: '',
     image: null,
-    hasPartners: false, // Changé en booléen (true/false) au lieu de "yes"/"no"
-    partners: [], // Conservé mais non utilisé pour le moment
+    hasPartners: false,
+    partners: [],
   });
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState(null);
   const [userRole, setUserRole] = useState(null);
-  const [imagePreview, setImagePreview] = useState("/assets/img/about/image.png");
+  const [imagePreview, setImagePreview] = useState('/assets/img/about/image.png');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,7 +54,7 @@ const AddEvent = () => {
         const decoded = jwtDecode(token);
         const currentTime = Date.now() / 1000;
         if (decoded.exp < currentTime) {
-          toast.error("Your session has expired, please log in again", { autoClose: 3000 });
+          toast.error('Your session has expired, please log in again', { autoClose: 3000 });
           localStorage.removeItem('jwt-token');
           setTimeout(() => navigate('/login'), 3000);
           return;
@@ -60,12 +62,12 @@ const AddEvent = () => {
         setUserRole(decoded.role);
       } catch (error) {
         console.error('Invalid token:', error);
-        toast.error("Invalid token, please log in again", { autoClose: 3000 });
+        toast.error('Invalid token, please log in again', { autoClose: 3000 });
         localStorage.removeItem('jwt-token');
         setTimeout(() => navigate('/login'), 3000);
       }
     } else {
-      toast.error("You must be logged in to access this page", { autoClose: 3000 });
+      toast.error('You must be logged in to access this page', { autoClose: 3000 });
       setTimeout(() => navigate('/login'), 3000);
     }
   }, [navigate]);
@@ -81,31 +83,91 @@ const AddEvent = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    // Convertir "hasPartners" en booléen
-    const newValue = name === "hasPartners" ? (value === "true") : value;
+    const newValue = name === 'hasPartners' ? value === 'true' : value;
     setFormData({ ...formData, [name]: newValue });
-    setErrors({ ...errors, [name]: "" });
+    setErrors({ ...errors, [name]: '' });
   };
 
   const handleReset = () => {
     setFormData({
-      title: "",
-      description: "",
-      start_date: "",
-      end_date: "",
-      event_type: "in-person",
-      localisation: "",
-      lieu: "",
-      online_link: "",
-      heure: "",
-      contact_email: "",
+      title: '',
+      description: '',
+      start_date: '',
+      end_date: '',
+      event_type: 'in-person',
+      localisation: '',
+      lieu: '',
+      online_link: '',
+      heure: '',
+      contact_email: '',
       image: null,
-      hasPartners: false, // Réinitialisé à false
+      hasPartners: false,
       partners: [],
     });
-    setImagePreview("/assets/img/about/image.png");
+    setImagePreview('/assets/img/about/image.png');
     setErrors({});
     setServerError(null);
+  };
+
+  const generateImageFromDescription = async () => {
+    console.log('Hugging Face API Key:', process.env.REACT_APP_HUGGINGFACE_API_TOKEN); // Fixed debug log
+    if (!formData.description || formData.description.trim() === '') {
+      toast.error('Please enter a description to generate an image.');
+      return;
+    }
+
+    if (!process.env.REACT_APP_HUGGINGFACE_API_TOKEN) {
+      toast.error('Hugging Face API key is not configured. Please contact the administrator.');
+      setIsGeneratingImage(false);
+      return;
+    }
+
+    setIsGeneratingImage(true);
+    const prompt = `A vibrant and detailed illustration representing an event with the following description: ${formData.description}. The image should capture the theme, mood, and setting of the event, suitable for promotional material.`;
+    const proxyUrl = 'http://localhost:8080/'; // Local cors-anywhere server
+
+    try {
+      // Call Hugging Face Inference API
+      const response = await axios.post(
+        `${proxyUrl}https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1`,
+        {
+          inputs: prompt,
+          parameters: {
+            num_inference_steps: 50,
+            guidance_scale: 7.5,
+            width: 512,
+            height: 512,
+          },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.REACT_APP_HUGGINGFACE_API_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+          responseType: 'arraybuffer', // Expect binary image data
+        }
+      );
+
+      // Convert response to image
+      const imageBlob = new Blob([response.data], { type: 'image/png' });
+      const imageFile = new File([imageBlob], `generated-event-${Date.now()}.png`, { type: 'image/png' });
+
+      // Update form data and preview
+      setFormData((prev) => ({ ...prev, image: imageFile }));
+      setImagePreview(URL.createObjectURL(imageFile));
+      toast.success('Image successfully generated!');
+    } catch (error) {
+      console.error('Error generating image:', error);
+      const message = error.response?.data?.error || error.message;
+      toast.error(`Error generating image: ${message}`);
+      if (message.includes('Network Error') || message.includes('CORS')) {
+        toast.error('CORS proxy may not be running. Please ensure the proxy is active at http://localhost:8080.');
+      } else if (message.includes('Unauthorized') || message.includes('401')) {
+        toast.error('Invalid Hugging Face API token. Please check your token in the Hugging Face dashboard.');
+      }
+    } finally {
+      setIsGeneratingImage(false);
+    }
   };
 
   const onSubmit = async (e) => {
@@ -116,13 +178,13 @@ const AddEvent = () => {
 
     const token = localStorage.getItem('jwt-token');
     if (!token) {
-      toast.error("You must be logged in to add an event", { autoClose: 3000 });
+      toast.error('You must be logged in to add an event', { autoClose: 3000 });
       setTimeout(() => navigate('/login'), 3000);
       setIsSubmitting(false);
       return;
     }
     if (userRole !== 'association_member') {
-      toast.error("Only association members can add an event", { autoClose: 3000 });
+      toast.error('Only association members can add an event', { autoClose: 3000 });
       setIsSubmitting(false);
       return;
     }
@@ -144,55 +206,50 @@ const AddEvent = () => {
     if (formData.image) {
       formDataToSend.append('image', formData.image);
     }
-    formDataToSend.append('hasPartners', formData.hasPartners); // Envoyé comme booléen
-
-    console.log('Data sent to backend:', Object.fromEntries(formDataToSend)); // Log pour débogage
+    formDataToSend.append('hasPartners', formData.hasPartners);
 
     try {
       const response = await axios.post(`${BASE_URL}/events/addEvent`, formDataToSend, {
         headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "multipart/form-data", // Nécessaire pour FormData
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
         },
       });
 
-      // Afficher un message de succès, incluant éventuellement des détails sur l'envoi d'emails
-      const successMessage = response.data.message + (formData.hasPartners ? " Emails will be sent to association members." : "");
+      const successMessage = response.data.message + (formData.hasPartners ? ' Emails will be sent to association members.' : '');
       toast.success(successMessage, { autoClose: 2000 });
       handleReset();
       setTimeout(() => navigate('/events'), 2000);
     } catch (error) {
-      console.log('Full error response:', error.response);
       if (error.response?.status === 403) {
-        toast.error("Your session has expired, please log in again", { autoClose: 3000 });
+        toast.error('Your session has expired, please log in again', { autoClose: 3000 });
         localStorage.removeItem('jwt-token');
         setTimeout(() => navigate('/login'), 3000);
       } else if (error.response?.status === 400) {
         if (Array.isArray(error.response?.data?.errors)) {
           const backendErrors = error.response.data.errors.reduce((acc, err) => {
-            const field = err.toLowerCase().includes("title") ? "title" :
-                          err.toLowerCase().includes("description") ? "description" :
-                          err.toLowerCase().includes("start date") ? "start_date" :
-                          err.toLowerCase().includes("end date") ? "end_date" :
-                          err.toLowerCase().includes("event type") ? "event_type" :
-                          err.toLowerCase().includes("location") ? "localisation" :
-                          err.toLowerCase().includes("venue") ? "lieu" :
-                          err.toLowerCase().includes("online link") ? "online_link" :
-                          err.toLowerCase().includes("email") ? "contact_email" : "";
+            const field = err.toLowerCase().includes('title') ? 'title' :
+                          err.toLowerCase().includes('description') ? 'description' :
+                          err.toLowerCase().includes('start date') ? 'start_date' :
+                          err.toLowerCase().includes('end date') ? 'end_date' :
+                          err.toLowerCase().includes('event type') ? 'event_type' :
+                          err.toLowerCase().includes('location') ? 'localisation' :
+                          err.toLowerCase().includes('venue') ? 'lieu' :
+                          err.toLowerCase().includes('online link') ? 'online_link' :
+                          err.toLowerCase().includes('email') ? 'contact_email' : '';
             if (field) acc[field] = err;
             return acc;
           }, {});
           setErrors(backendErrors);
         } else {
-          const errorMessage = error.response?.data?.message || "Validation error occurred";
+          const errorMessage = error.response?.data?.message || 'Validation error occurred';
           setServerError(errorMessage);
           toast.error(errorMessage, { autoClose: 3000 });
         }
-      } else if (error.response?.status === 500 && error.response?.data?.message.includes("emails")) {
-        // Cas où l'événement est créé mais l'envoi d'emails échoue
+      } else if (error.response?.status === 500 && error.response?.data?.message.includes('emails')) {
         toast.warn(error.response.data.message, { autoClose: 5000 });
       } else {
-        const errorMessage = error.response?.data?.message || "An error occurred while adding the event";
+        const errorMessage = error.response?.data?.message || 'An error occurred while adding the event';
         setServerError(errorMessage);
         toast.error(errorMessage, { autoClose: 3000 });
       }
@@ -203,7 +260,7 @@ const AddEvent = () => {
 
   return (
     <>
-      <div className="site-breadcrumb" style={{ background: "url(/assets/img/breadcrumb/01.jpg)" }}>
+      <div className="site-breadcrumb" style={{ background: 'url(/assets/img/breadcrumb/01.jpg)' }}>
         <div className="container">
           <h2 className="breadcrumb-title">Add a New Event</h2>
           <ul className="breadcrumb-menu">
@@ -271,6 +328,22 @@ const AddEvent = () => {
                           onChange={handleChange}
                           style={{ borderColor: errors.description ? '#dc3545' : '#ced4da' }}
                         />
+                        <button
+                          type="button"
+                          onClick={generateImageFromDescription}
+                          disabled={isGeneratingImage || isSubmitting}
+                          style={{
+                            marginTop: '10px',
+                            background: isGeneratingImage || isSubmitting ? '#ccc' : '#28a745',
+                            color: '#fff',
+                            padding: '8px 16px',
+                            border: 'none',
+                            borderRadius: '5px',
+                            cursor: isGeneratingImage || isSubmitting ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          {isGeneratingImage ? 'Generating...' : 'Generate Image'}
+                        </button>
                         {errors.description && (
                           <p style={{ color: '#dc3545', fontSize: '14px', marginTop: '5px' }}>
                             {errors.description}
@@ -325,15 +398,7 @@ const AddEvent = () => {
                           className="form-control"
                           value={formData.event_type}
                           onChange={handleChange}
-                          style={{
-                            borderColor: errors.event_type ? '#dc3545' : '#ced4da',
-                            padding: '10px',
-                            borderRadius: '5px',
-                            fontSize: '16px',
-                            color: '#333',
-                            outline: 'none',
-                            transition: 'all 0.3s ease',
-                          }}
+                          style={{ borderColor: errors.event_type ? '#dc3545' : '#ced4da' }}
                         >
                           <option value="in-person">In-Person</option>
                           <option value="online">Online</option>
@@ -375,15 +440,7 @@ const AddEvent = () => {
                               className="form-control"
                               value={formData.localisation}
                               onChange={handleChange}
-                              style={{
-                                borderColor: errors.localisation ? '#dc3545' : '#ced4da',
-                                padding: '10px',
-                                borderRadius: '5px',
-                                fontSize: '16px',
-                                color: '#333',
-                                outline: 'none',
-                                transition: 'all 0.3s ease',
-                              }}
+                              style={{ borderColor: errors.localisation ? '#dc3545' : '#ced4da' }}
                             >
                               <option value="">Select a Governorate</option>
                               {tunisianGovernorates.map((governorate) => (
@@ -476,17 +533,9 @@ const AddEvent = () => {
                           id="hasPartners"
                           name="hasPartners"
                           className="form-control"
-                          value={formData.hasPartners.toString()} // Convertir en chaîne pour le select
+                          value={formData.hasPartners.toString()}
                           onChange={handleChange}
-                          style={{
-                            borderColor: errors.hasPartners ? '#dc3545' : '#ced4da',
-                            padding: '10px',
-                            borderRadius: '5px',
-                            fontSize: '16px',
-                            color: '#333',
-                            outline: 'none',
-                            transition: 'all 0.3s ease',
-                          }}
+                          style={{ borderColor: errors.hasPartners ? '#dc3545' : '#ced4da' }}
                         >
                           <option value="false">No</option>
                           <option value="true">Yes</option>
@@ -512,17 +561,17 @@ const AddEvent = () => {
                         <button
                           type="submit"
                           className="theme-btn"
-                          disabled={isSubmitting}
+                          disabled={isSubmitting || isGeneratingImage}
                           style={{
                             backgroundColor: '#ff7f5d',
                             color: '#fff',
                             padding: '10px 20px',
                             border: 'none',
                             borderRadius: '5px',
-                            cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                            cursor: isSubmitting || isGeneratingImage ? 'not-allowed' : 'pointer',
                           }}
                         >
-                          {isSubmitting ? "Adding..." : "Add Event"}
+                          {isSubmitting ? 'Adding...' : 'Add Event'}
                         </button>
                         <button
                           type="button"

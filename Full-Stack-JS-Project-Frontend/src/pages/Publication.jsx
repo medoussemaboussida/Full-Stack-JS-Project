@@ -70,12 +70,15 @@ function Publication() {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
     const [showNotesModal, setShowNotesModal] = useState(false);
-    // Initialiser les notes depuis localStorage ou objet vide si rien n'existe
     const [notes, setNotes] = useState(() => {
         const savedNotes = localStorage.getItem('calendarNotes');
         return savedNotes ? JSON.parse(savedNotes) : {};
     });
     const [currentNote, setCurrentNote] = useState('');
+    const [recommendedPublications, setRecommendedPublications] = useState([]);
+    const [showRecommendedModal, setShowRecommendedModal] = useState(false);
+    // État pour le modal des règles
+    const [showRulesModal, setShowRulesModal] = useState(false);
 
     const publicationsPerPage = 6;
 
@@ -98,9 +101,41 @@ function Publication() {
                 console.log('Filtered Publications updated:', filteredPublications);
             } else {
                 console.error('Failed to fetch publications:', data.message);
+                toast.error(`Erreur: ${data.message}`);
             }
         } catch (error) {
             console.error('Error fetching publications:', error);
+            toast.error('Erreur lors de la récupération des publications');
+        }
+    };
+
+    // Récupérer les publications recommandées
+    const fetchRecommendedPublications = async () => {
+        try {
+            console.log('Fetching recommended publications from API...');
+            const token = localStorage.getItem('jwt-token');
+            if (!token) {
+                toast.error('Veuillez vous connecter pour voir les publications recommandées');
+                return;
+            }
+            const response = await fetch(`http://localhost:5000/users/recommendedPublications`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            console.log('Recommended publications response:', data);
+            if (response.ok) {
+                setRecommendedPublications(data.slice(0, 3));
+            } else {
+                console.error('Failed to fetch recommended publications:', data.message);
+                toast.error(`Erreur: ${data.message}`);
+            }
+        } catch (error) {
+            console.error('Error fetching recommended publications:', error);
+            toast.error('Erreur lors de la récupération des publications recommandées');
         }
     };
 
@@ -120,9 +155,11 @@ function Publication() {
                 setFavoritePublications(data);
             } else {
                 console.error('Failed to fetch favorite publications:', data.message);
+                toast.error(`Erreur: ${data.message}`);
             }
         } catch (error) {
             console.error('Error fetching favorite publications:', error);
+            toast.error('Erreur lors de la récupération des publications favorites');
         }
     };
 
@@ -145,9 +182,11 @@ function Publication() {
                 console.log('Pinned Publications fetched:', data);
             } else {
                 console.error('Failed to fetch pinned publications:', data.message);
+                toast.error(`Erreur: ${data.message}`);
             }
         } catch (error) {
             console.error('Error fetching pinned publications:', error);
+            toast.error('Erreur lors de la récupération des publications épinglées');
         }
     };
 
@@ -236,7 +275,6 @@ function Publication() {
         if (selectedDate) {
             setNotes(prev => {
                 const updatedNotes = { ...prev, [selectedDate]: currentNote };
-                // Sauvegarder dans localStorage
                 localStorage.setItem('calendarNotes', JSON.stringify(updatedNotes));
                 return updatedNotes;
             });
@@ -386,6 +424,13 @@ function Publication() {
                             : post
                     )
                 );
+                setRecommendedPublications((prev) =>
+                    prev.map((post) =>
+                        post._id === editFormData._id
+                            ? { ...post, ...result.publication, author_id: post.author_id }
+                            : post
+                    )
+                );
                 toast.success('Publication successfully updated', { autoClose: 3000 });
                 setShowEditModal(false);
             } else {
@@ -418,6 +463,7 @@ function Publication() {
                                 setPublications(publications.filter(post => post._id !== publicationId));
                                 setFavoritePublications(favoritePublications.filter(post => post._id !== publicationId));
                                 setPinnedPublications(pinnedPublications.filter(id => id !== publicationId));
+                                setRecommendedPublications(recommendedPublications.filter(post => post._id !== publicationId));
                                 toast.success('Publication successfully deleted', { autoClose: 3000 });
                             } else {
                                 const data = await response.json();
@@ -465,6 +511,7 @@ function Publication() {
                                 setPublications(publications.filter(post => post._id !== publicationId));
                                 setFavoritePublications(favoritePublications.filter(post => post._id !== publicationId));
                                 setPinnedPublications(pinnedPublications.filter(id => id !== publicationId));
+                                setRecommendedPublications(recommendedPublications.filter(post => post._id !== publicationId));
                                 toast.success('Publication successfully archived', { autoClose: 3000 });
                             } else {
                                 const data = await response.json();
@@ -514,9 +561,11 @@ function Publication() {
                             fetchPinnedPublications();
                         } else {
                             console.error('Failed to fetch user:', data.message);
+                            toast.error(`Erreur: ${data.message}`);
                         }
                     } catch (error) {
                         console.error('Error fetching user:', error);
+                        toast.error('Erreur lors de la récupération des informations utilisateur');
                     } finally {
                         setIsLoading(false);
                     }
@@ -524,6 +573,7 @@ function Publication() {
                 fetchUser();
             } catch (error) {
                 console.error('Invalid token:', error);
+                toast.error('Token invalide, veuillez vous reconnecter');
                 setIsLoading(false);
             }
         } else {
@@ -531,7 +581,8 @@ function Publication() {
         }
 
         fetchPublications();
-    }, [sortOrder]);
+        fetchRecommendedPublications();
+    }, []);
 
     if (isLoading) {
         return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Loading...</div>;
@@ -658,7 +709,7 @@ function Publication() {
                                     e.target.style.width = '60%';
                                 }}
                             />
-                            {/* Sélecteur de tri par date avec bouton calendrier */}
+                            {/* Sélecteur de tri par date avec bouton calendrier et bouton recommandé */}
                             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                 <select
                                     value={sortOrder}
@@ -708,6 +759,24 @@ function Publication() {
                                         <FontAwesomeIcon icon={faCalendarAlt} />
                                     </button>
                                 )}
+                                <button
+                                    onClick={() => setShowRecommendedModal(true)}
+                                    style={{
+                                        padding: '15px 20px',
+                                        borderRadius: '25px',
+                                        border: 'none',
+                                        backgroundColor: '#ffd700',
+                                        boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+                                        fontSize: '16px',
+                                        color: '#333',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.3s ease'
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.boxShadow = '0 6px 20px rgba(255, 215, 0, 0.3)'}
+                                    onMouseLeave={(e) => e.target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)'}
+                                >
+                                    Recommended
+                                </button>
                             </div>
                         </div>
 
@@ -1257,6 +1326,153 @@ function Publication() {
                 </div>
             )}
 
+            {/* Modal pour les publications recommandées */}
+            {showRecommendedModal && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 1000,
+                    }}
+                >
+                    <div
+                        style={{
+                            backgroundColor: '#fff',
+                            padding: '30px',
+                            borderRadius: '10px',
+                            width: '800px',
+                            maxWidth: '90%',
+                            boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+                        }}
+                    >
+                        <h3 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '20px', color: '#0ea5e6' }}>
+                            Recommended Publications
+                        </h3>
+                        {recommendedPublications.length > 0 ? (
+                            recommendedPublications.map((post, index) => (
+                                <div
+                                    key={index}
+                                    style={{
+                                        background: '#f9f9f9',
+                                        borderRadius: '8px',
+                                        padding: '15px',
+                                        marginBottom: '15px',
+                                        boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', gap: '15px' }}>
+                                        <img
+                                            src={post.imagePublication ? `http://localhost:5000${post.imagePublication}` : '/assets/img/blog/01.jpg'}
+                                            alt="Publication"
+                                            style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '5px' }}
+                                        />
+                                        <div>
+                                            <h4 style={{ fontSize: '18px', fontWeight: '600', margin: '0 0 10px' }}>
+                                                <a href={`/PublicationDetailPsy/${post._id}`} style={{ color: '#333', textDecoration: 'none' }}>
+                                                    {stripHtmlTags(post.titrePublication)}
+                                                </a>
+                                            </h4>
+                                            <p style={{ fontSize: '14px', color: '#666', margin: '0 0 10px' }}>
+                                                {stripHtmlTags(post.description).length > 50
+                                                    ? `${stripHtmlTags(post.description).substring(0, 50)}...`
+                                                    : stripHtmlTags(post.description)}
+                                            </p>
+                                            <div style={{ fontSize: '12px', color: '#666' }}>
+                                                <span>
+                                                    <i className="far fa-user-circle" style={{ marginRight: '5px' }}></i>
+                                                    By {post.author_id?.username || 'Unknown'}
+                                                </span>
+                                                <span style={{ marginLeft: '15px' }}>
+                                                    <i className="far fa-comments" style={{ marginRight: '5px' }}></i>
+                                                    {post.commentsCount >= 0 ? `${post.commentsCount} Comment${post.commentsCount !== 1 ? 's' : ''}` : 'No Comments'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                                        <a
+                                            href={`/PublicationDetailPsy/${post._id}`}
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                background: '#0ea5e6',
+                                                color: '#fff',
+                                                padding: '8px 16px',
+                                                borderRadius: '5px',
+                                                textDecoration: 'none',
+                                                transition: 'background 0.3s ease'
+                                            }}
+                                            onMouseEnter={(e) => e.target.style.background = '#164da6'}
+                                            onMouseLeave={(e) => e.target.style.background = '#0ea5e6'}
+                                        >
+                                            View <i className="fas fa-circle-arrow-right" style={{ marginLeft: '5px' }}></i>
+                                        </a>
+                                        {userRole === 'student' && (
+                                            <button
+                                                onClick={() => handleToggleFavorite(post._id)}
+                                                style={{
+                                                    background: 'transparent',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    fontSize: '16px',
+                                                    color: favoritePublications.some(fav => fav._id === post._id) ? '#ffd700' : '#ccc',
+                                                }}
+                                            >
+                                                <i className="fas fa-star"></i>
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => handlePin(post._id)}
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                background: pinnedPublications.includes(post._id) ? '#ffd700' : '#ff9800',
+                                                color: '#fff',
+                                                padding: '8px 16px',
+                                                borderRadius: '5px',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                transition: 'background 0.3s ease'
+                                            }}
+                                            onMouseEnter={(e) => e.target.style.background = pinnedPublications.includes(post._id) ? '#ffca28' : '#f57c00'}
+                                            onMouseLeave={(e) => e.target.style.background = pinnedPublications.includes(post._id) ? '#ffd700' : '#ff9800'}
+                                        >
+                                            {pinnedPublications.includes(post._id) ? 'Unpin' : 'Pin'} <i className="fas fa-thumbtack" style={{ marginLeft: '5px' }}></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <p style={{ textAlign: 'center', color: '#666' }}>No recommended publications available.</p>
+                        )}
+                        <button
+                            onClick={() => setShowRecommendedModal(false)}
+                            style={{
+                                background: '#f44336',
+                                color: '#fff',
+                                padding: '12px 24px',
+                                borderRadius: '5px',
+                                border: 'none',
+                                fontSize: '16px',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                display: 'block',
+                                margin: '20px auto 0',
+                            }}
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Modal pour le calendrier */}
             {showCalendarModal && userRole === 'psychiatrist' && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
@@ -1316,6 +1532,97 @@ function Publication() {
                     </div>
                 </div>
             )}
+
+            {/* Modal pour les règles */}
+            {showRulesModal && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 1000,
+                    }}
+                >
+                    <div
+                        style={{
+                            backgroundColor: '#fff',
+                            padding: '30px',
+                            borderRadius: '10px',
+                            width: '500px',
+                            maxWidth: '90%',
+                            boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+                            position: 'relative',
+                        }}
+                    >
+                        {/* Bouton de fermeture */}
+                        <button
+                            onClick={() => setShowRulesModal(false)}
+                            style={{
+                                position: 'absolute',
+                                top: '10px',
+                                right: '10px',
+                                background: 'transparent',
+                                border: 'none',
+                                fontSize: '18px',
+                                color: '#666',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            ✕
+                        </button>
+
+                        {/* Contenu des règles */}
+                        <h3 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '20px', color: '#0ea5e6' }}>
+                            Publication Rules 📜
+                        </h3>
+                        <ul style={{ listStyle: 'none', padding: '0', margin: '0', fontSize: '16px', color: '#333' }}>
+                            <li style={{ marginBottom: '12px' }}>⚠️ Inappropriate comments or behavior will result in a ban.</li>
+                            <li style={{ marginBottom: '12px' }}>🚩 Report any comment or publication that violates these rules.</li>
+                            <li style={{ marginBottom: '12px' }}>😊 Keep the community positive, supportive, and respectful!</li>
+                            <li style={{ marginBottom: '12px' }}>📝 Ensure all content is relevant and appropriate for all audiences.</li>
+                            <li style={{ marginBottom: '12px' }}>🚫 No spam, advertisements, or self-promotion without permission.</li>
+                            <li style={{ marginBottom: '12px' }}>🤝 Respect others' opinions and engage in constructive discussions.</li>
+                            <li>🔒 Protect personal information; do not share sensitive data.</li>
+                        </ul>
+                    </div>
+                </div>
+            )}
+
+            {/* Bouton flottant pour les règles */}
+            <a
+                href="#"
+                style={{
+                    position: 'fixed',
+                    bottom: '80px',
+                    right: '20px',
+                    background: '#0ea5e6',
+                    color: '#fff',
+                    width: '50px',
+                    height: '50px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textDecoration: 'none',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+                    transition: 'background 0.3s ease',
+                    zIndex: 999,
+                }}
+                onClick={(e) => {
+                    e.preventDefault();
+                    setShowRulesModal(true);
+                }}
+                onMouseEnter={(e) => e.target.style.background = '#45a049'}
+                onMouseLeave={(e) => e.target.style.background = '#0ea5e6'}
+            >
+                📜
+            </a>
 
             {/* Scroll Top */}
             <a

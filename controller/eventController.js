@@ -3,8 +3,10 @@ const jwt = require("jsonwebtoken");
 const Event = require("../model/event");
 const User = require("../model/user");
 const Association = require("../model/association"); // Ajouter cette ligne
+const Ticket = require("../model/Ticket"); // Ajouter cette ligne
 const multer = require("multer");
 const path = require("path");
+const crypto = require('crypto');
 const PDFDocument = require("pdfkit");
 const axios = require("axios");
 const sendEmail = require('../utils/emailSender');
@@ -432,65 +434,6 @@ exports.participate = async (req, res) => {
     if (!token) return res.status(401).json({ message: "No token provided" });
 
     let decoded;
-    const possibleSecrets = [process.env.JWT_SECRET, 'randa', 'token'];
-    for (const secret of possibleSecrets) {
-      try {
-        decoded = jwt.verify(token, secret);
-        break;
-      } catch (err) {
-        continue;
-      }
-    }
-
-    if (!decoded) return res.status(403).json({ message: "Invalid token" });
-
-    const userId = decoded.id;
-    const eventId = req.params.id;
-
-    if (!mongoose.Types.ObjectId.isValid(eventId)) {
-      return res.status(400).json({ message: "Invalid event ID" });
-    }
-
-    const event = await Event.findById(eventId);
-    if (!event) return res.status(404).json({ message: "Event not found" });
-
-    if (event.participants.includes(userId)) {
-      return res.status(400).json({ message: "You are already participating" });
-    }
-
-    if (event.max_participants && event.participants.length >= event.max_participants) {
-      return res.status(400).json({ message: "Event has reached maximum participants" });
-    }
-
-    event.participants.push(userId);
-    await event.save();
-
-    res.status(200).json({ 
-      message: "You have successfully joined the event", 
-      participantsCount: event.participants.length 
-    });
-  } catch (error) {
-    console.error("Erreur lors de la participation:", error.message);
-    if (error.name === "TokenExpiredError") {
-      return res.status(403).json({ message: "Token expired" });
-    }
-    if (error.name === "JsonWebTokenError") {
-      return res.status(403).json({ message: "Invalid token" });
-    }
-    res.status(500).json({ message: "Server error", error: error.message });
-  } finally {
-    console.timeEnd("participate");
-  }
-};
-
-// Annuler la participation à un événement
-exports.cancelParticipation = async (req, res) => {
-  console.time("cancelParticipation");
-  try {
-    const token = req.headers.authorization?.split(" ")[1];
-    if (!token) return res.status(401).json({ message: "No token provided" });
-
-    let decoded;
     const possibleSecrets = [process.env.JWT_SECRET, "randa", "token"];
     for (const secret of possibleSecrets) {
       try {
@@ -509,23 +452,48 @@ exports.cancelParticipation = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(eventId)) {
       return res.status(400).json({ message: "Invalid event ID" });
     }
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
 
+    // Récupérer l'événement avec validation minimale
     const event = await Event.findById(eventId);
     if (!event) return res.status(404).json({ message: "Event not found" });
 
-    if (!event.participants.includes(userId)) {
-      return res.status(400).json({ message: "You are not participating in this event" });
+    // Corriger les champs participants et partners si nécessaire
+    if (!Array.isArray(event.participants)) {
+      console.warn(`Fixing participants field for event ${eventId}: was ${typeof event.participants}`);
+      event.participants = [];
+    }
+    if (!Array.isArray(event.partners)) {
+      console.warn(`Fixing partners field for event ${eventId}: was ${typeof event.partners}`);
+      event.partners = [];
     }
 
-    event.participants = event.participants.filter((id) => id.toString() !== userId);
+    // Enregistrer les corrections avant de continuer
+    await event.save();
+
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    if (event.participants.some((id) => id.equals(userObjectId))) {
+      return res.status(400).json({ message: "You are already participating" });
+    }
+
+    if (event.max_participants && event.participants.length >= event.max_participants) {
+      return res.status(400).json({ message: "Event has reached maximum participants" });
+    }
+
+    event.participants.push(userObjectId);
     await event.save();
 
     res.status(200).json({
-      message: "You have successfully canceled your participation",
+      message: "You have successfully joined the event",
       participantsCount: event.participants.length,
     });
   } catch (error) {
-    console.error("Erreur lors de l'annulation de la participation:", error.message);
+    console.error("Erreur lors de la participation:", {
+      message: error.message,
+      stack: error.stack,
+    });
     if (error.name === "TokenExpiredError") {
       return res.status(403).json({ message: "Token expired" });
     }
@@ -534,9 +502,11 @@ exports.cancelParticipation = async (req, res) => {
     }
     res.status(500).json({ message: "Server error", error: error.message });
   } finally {
-    console.timeEnd("cancelParticipation");
+    console.timeEnd("participate");
   }
 };
+
+
 
 // Vérifier la participation
 exports.checkParticipation = async (req, res) => {
@@ -620,61 +590,340 @@ exports.generateEventPDF = async (req, res) => {
 };
 
 exports.participateAsPartner = async (req, res) => {
+  console.time("participateAsPartner");
   try {
     const { eventId } = req.params;
     const userId = req.userId;
     let { association_id } = req.body;
 
-    // Si association_id n'est pas fourni, le récupérer depuis l'utilisateur ou l'association créée
+    console.log(`Participate as Partner - Event ID: ${eventId}, User ID: ${userId}, Association ID: ${association_id || "none"}`);
+
+    // Validate ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      console.log("Invalid event ID provided");
+      return res.status(400).json({ message: "Invalid event ID" });
+    }
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      console.log("Invalid user ID provided");
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+    if (association_id && !mongoose.Types.ObjectId.isValid(association_id)) {
+      console.log("Invalid association ID provided");
+      return res.status(400).json({ message: "Invalid association ID" });
+    }
+
+    // Check user
+    const user = await User.findById(userId);
+    if (!user) {
+      console.log("User not found");
+      return res.status(404).json({ message: "User not found" });
+    }
+    console.log("User details:", { role: user.role, association_id: user.association_id?.toString() || "none" });
+    if (user.role !== "association_member") {
+      console.log("User is not an association member");
+      return res.status(403).json({ message: "Only association members can join as partners" });
+    }
+
+    // Retrieve association_id
     if (!association_id) {
-      const user = await User.findById(userId);
       if (user.association_id) {
         association_id = user.association_id;
+        console.log("Using user.association_id:", association_id.toString());
       } else {
-        const association = await Association.findOne({ createdBy: userId });
+        console.log("Querying Association for created_by:", userId);
+        const association = await Association.findOne({ created_by: userId });
         if (association) {
           association_id = association._id;
+          user.association_id = association_id;
+          await user.save();
+          console.log("Linked user to association:", association_id.toString());
+        } else {
+          console.log("No association found for user");
+          return res.status(400).json({ message: "No association linked to this user. Please create an association first." });
         }
       }
     }
 
-    console.log(`Participate as Partner - Event ID: ${eventId}, User ID: ${userId}, Association ID: ${association_id}`);
+    // Verify association exists and is linked to user
+    const association = await Association.findById(association_id);
+    if (!association) {
+      console.log("Association not found for ID:", association_id);
+      return res.status(404).json({ message: "Association not found" });
+    }
+    if (association.created_by.toString() !== userId) {
+      console.log("Association not created by user");
+      return res.status(403).json({ message: "You are not authorized to use this association" });
+    }
 
-    if (!eventId) {
-      console.log("No event ID provided in request parameters");
-      return res.status(400).json({ message: "Event ID is required" });
+    // Check event
+    const event = await Event.findById(eventId);
+    if (!event) {
+      console.log(`Event ${eventId} not found`);
+      return res.status(404).json({ message: "Event not found" });
+    }
+    if (!event.hasPartners) {
+      console.log("Event does not accept partners");
+      return res.status(400).json({ message: "This event does not accept partners" });
+    }
+
+    // Ensure partners is an array
+    if (!Array.isArray(event.partners)) {
+      console.log(`Fixing partners field for event ${eventId}: was ${typeof event.partners}`);
+      event.partners = [];
+    }
+
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    if (event.partners.includes(userObjectId)) {
+      console.log(`User ${userId} is already a partner for event ${eventId}`);
+      return res.status(400).json({ message: "You are already a partner for this event" });
+    }
+
+    // Add user to partners
+    event.partners.push(userObjectId);
+    await event.save();
+
+    // Update user
+    const eventObjectId = new mongoose.Types.ObjectId(eventId);
+    user.partneredEvents = user.partneredEvents || [];
+    if (!user.partneredEvents.some((id) => id.equals(eventObjectId))) {
+      user.partneredEvents.push(eventObjectId);
+    }
+    user.association_id = new mongoose.Types.ObjectId(association_id);
+    await user.save();
+
+    console.log(`User ${userId} successfully joined event ${eventId} as partner with association ${association_id}`);
+    res.status(200).json({ message: "Joined as partner successfully" });
+  } catch (error) {
+    console.error("Error in participateAsPartner:", {
+      message: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  } finally {
+    console.timeEnd("participateAsPartner");
+  }
+};
+
+
+
+// Annuler la participation à un événement
+exports.cancelParticipation = async (req, res) => {
+  console.time("cancelParticipation");
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(401).json({ message: "No token provided" });
+
+    let decoded;
+    const possibleSecrets = [process.env.JWT_SECRET, "randa", "token"];
+    for (const secret of possibleSecrets) {
+      try {
+        decoded = jwt.verify(token, secret);
+        break;
+      } catch (err) {
+        continue;
+      }
+    }
+
+    if (!decoded) return res.status(403).json({ message: "Invalid token" });
+
+    const userId = decoded.id;
+    const eventId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return res.status(400).json({ message: "Invalid event ID" });
     }
 
     const event = await Event.findById(eventId);
+    if (!event) return res.status(404).json({ message: "Event not found" });
+
+    if (!event.participants.includes(userId)) {
+      return res.status(400).json({ message: "You are not participating in this event" });
+    }
+
+    event.participants = event.participants.filter((id) => id.toString() !== userId);
+    await event.save();
+
+    res.status(200).json({
+      message: "You have successfully canceled your participation",
+      participantsCount: event.participants.length,
+    });
+  } catch (error) {
+    console.error("Erreur lors de l'annulation de la participation:", error.message);
+    if (error.name === "TokenExpiredError") {
+      return res.status(403).json({ message: "Token expired" });
+    }
+    if (error.name === "JsonWebTokenError") {
+      return res.status(403).json({ message: "Invalid token" });
+    }
+    res.status(500).json({ message: "Server error", error: error.message });
+  } finally {
+    console.timeEnd("cancelParticipation");
+  }
+};
+
+
+exports.cancelPartnerParticipation = async (req, res) => {
+  console.time("cancelPartnerParticipation");
+  try {
+    const { eventId } = req.params;
+    const userId = req.userId;
+
+    console.log(`Cancel Partner Participation - Event ID: ${eventId}, User ID: ${userId}`);
+
+    // Validate inputs
+    if (!userId) {
+      console.log("No userId provided in request");
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      console.log(`Invalid event ID: ${eventId}`);
+      return res.status(400).json({ message: "Invalid event ID" });
+    }
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      console.log(`Invalid user ID: ${userId}`);
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    // Check database connection
+    if (mongoose.connection.readyState !== 1) {
+      console.log(`Database not connected: readyState=${mongoose.connection.readyState}`);
+      return res.status(500).json({ message: "Database connection error" });
+    }
+
+    // Fetch user
+    const user = await User.findById(userId).exec();
+    if (!user) {
+      console.log(`User not found: ${userId}`);
+      return res.status(404).json({ message: "User not found" });
+    }
+    if (user.role !== "association_member") {
+      console.log(`User is not an association member: role=${user.role}`);
+      return res.status(403).json({ message: "Only association members can cancel partner participation" });
+    }
+
+    // Fetch event
+    const event = await Event.findById(eventId).exec();
     if (!event) {
-      console.log(`Event ${eventId} not found in database`);
+      console.log(`Event not found: ${eventId}`);
+      return res.status(404).json({ message: "Event not found" });
+    }
+    if (!event.hasPartners) {
+      console.log(`Event does not accept partners: ${eventId}`);
+      return res.status(400).json({ message: "This event does not accept partners" });
+    }
+
+    // Ensure partners is an array
+    if (!Array.isArray(event.partners)) {
+      console.warn(`Fixing partners field for event ${eventId}: was ${typeof event.partners}`);
+      event.partners = [];
+    }
+
+    // Ensure partneredEvents is an array
+    if (!Array.isArray(user.partneredEvents)) {
+      console.warn(`Fixing partneredEvents field for user ${userId}: was ${typeof user.partneredEvents}`);
+      user.partneredEvents = [];
+    }
+
+    // Check if user is a partner
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    if (!event.partners.some((id) => id.equals(userObjectId))) {
+      console.log(`User ${userId} is not a partner for event ${eventId}`);
+      return res.status(400).json({ message: "You are not a partner for this event" });
+    }
+
+    // Remove user from event partners
+    event.partners = event.partners.filter((id) => !id.equals(userObjectId));
+
+    // Remove event from user partneredEvents
+    const eventObjectId = new mongoose.Types.ObjectId(eventId);
+    user.partneredEvents = user.partneredEvents.filter((id) => !id.equals(eventObjectId));
+
+    // Save both documents in a transaction to ensure consistency
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await event.save({ session });
+        await user.save({ session });
+      });
+      console.log(`User ${userId} successfully canceled partnership for event ${eventId}`);
+      res.status(200).json({ message: "Partnership canceled successfully" });
+    } catch (error) {
+      console.error("Transaction error:", error.message);
+      throw new Error("Failed to update partnership status");
+    } finally {
+      session.endSession();
+    }
+  } catch (error) {
+    console.error("Error in cancelPartnerParticipation:", {
+      message: error.message,
+      stack: error.stack,
+      eventId: req.params.eventId,
+      userId: req.userId,
+    });
+    res.status(500).json({
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  } finally {
+    console.timeEnd("cancelPartnerParticipation");
+  }
+};
+exports.checkPartnerParticipation = async (req, res) => {
+  console.time("checkPartnerParticipation");
+  try {
+    const { eventId } = req.params;
+    const userId = req.userId;
+
+    console.log(`Checking partner participation for event ${eventId} by user ${userId}`);
+
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      console.log(`Invalid event ID: ${eventId}`);
+      return res.status(400).json({ message: "Invalid event ID" });
+    }
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      console.log(`Invalid user ID: ${userId}`);
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    const event = await Event.findById(eventId).exec();
+    if (!event) {
+      console.log(`Event not found: ${eventId}`);
       return res.status(404).json({ message: "Event not found" });
     }
 
     if (!Array.isArray(event.partners)) {
+      console.warn(`Fixing partners field for event ${eventId}: was ${typeof event.partners}`);
       event.partners = [];
-    }
-
-    if (!event.partners.includes(userId)) {
-      event.partners.push(userId);
       await event.save();
-
-      const user = await User.findById(userId);
-      if (association_id && !user.partneredEvents.includes(eventId)) {
-        user.partneredEvents.push(eventId);
-        user.association_id = association_id; // Mettre à jour l'association_id de l'utilisateur
-        await user.save();
-      }
-    } else {
-      console.log(`User ${userId} is already a partner for event ${eventId}`);
     }
 
-    res.status(200).json({ message: "Joined as partner successfully" });
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const isPartner = event.partners.some((id) => id.equals(userObjectId));
+
+    console.log(`User ${userId} partner status for event ${eventId}: ${isPartner}`);
+    res.status(200).json({ isPartner });
   } catch (error) {
-    console.error("Error in participateAsPartner:", error.stack);
-    res.status(500).json({ message: "Internal server error", error: error.message });
+    console.error("Error in checkPartnerParticipation:", {
+      message: error.message,
+      stack: error.stack,
+      eventId: req.params.eventId,
+      userId: req.userId,
+    });
+    res.status(500).json({
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  } finally {
+    console.timeEnd("checkPartnerParticipation");
   }
 };
+////kghir badelt check partner , bouton join now et cancel 
+
+
+
+
+
+
 
 
 exports.likeEvent = async (req, res) => {
@@ -782,17 +1031,246 @@ exports.checkDislike = async (req, res) => {
 
 exports.checkFavorite = async (req, res) => {
   try {
-    const { id } = req.params;
-    const userId = req.userId;
+    const { eventId } = req.params;
+    const userId = req.userId; // Extrait du middleware d'authentification
 
-    const event = await Event.findById(id);
-    if (!event) return res.status(404).json({ message: "Event not found" });
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return res.status(400).json({ message: "Invalid event ID" });
+    }
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({ message: "Event not found" });
+    }
 
     const isFavorite = event.favorites.includes(userId);
     res.status(200).json({ isFavorite });
   } catch (error) {
-    console.error("Error in checkFavorite:", error.stack);
-    res.status(500).json({ message: "Internal server error", error: error.message });
+    console.error("Error in checkFavorite:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+exports.generateEventImage = async (req, res) => {
+  try {
+    const { description } = req.body;
+    if (!description) return res.status(400).json({ message: 'Description is required' });
+
+    const response = await axios.post(
+      'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1',
+      {
+        inputs: `A vibrant illustration of an event: ${description}`,
+        parameters: {
+          num_inference_steps: 50,
+          guidance_scale: 7.5,
+          width: 512,
+          height: 512,
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.REACT_APP_HUGGINGFACE_API_TOKEN}`, // Fixed variable
+          'Content-Type': 'application/json',
+        },
+        responseType: 'arraybuffer',
+      }
+    );
+
+    res.set('Content-Type', 'image/png');
+    res.send(response.data);
+  } catch (error) {
+    res.status(500).json({ message: 'Error generating image', error: error.message });
+  }
+};
+
+
+// Générer un ticketId unique (UUID simplifié)
+const generateTicketId = () => {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0,
+      v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+// Sauvegarder le ticket avec gestion des duplicatas
+const saveTicketWithRetry = async (ticketData, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const ticket = new Ticket(ticketData);
+      return await ticket.save();
+    } catch (error) {
+      if (error.code === 11000 && i < retries - 1) {
+        ticketData.ticketId = generateTicketId(); // Générer un nouveau ticketId
+        continue;
+      }
+      throw error;
+    }
+  }
+};
+
+exports.verifyParticipation = async (req, res) => {
+  console.time("verifyParticipation");
+  try {
+    const { eventId, userId } = req.params;
+
+    // Valider les ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      console.log(`Invalid event ID: ${eventId}`);
+      return res.status(422).json({ message: "Invalid event ID format" });
+    }
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      console.log(`Invalid user ID: ${userId}`);
+      return res.status(422).json({ message: "Invalid user ID format" });
+    }
+
+    // Récupérer l'événement
+    const event = await Event.findById(eventId).select("title participants start_date").exec();
+    if (!event) {
+      console.log(`Event not found: ${eventId}`);
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    // Vérifier que start_date existe
+    if (!event.start_date) {
+      console.log(`Event ${eventId} missing start_date`);
+      return res.status(400).json({ message: "Event missing start_date" });
+    }
+
+    // Récupérer l'utilisateur
+    const user = await User.findById(userId).select("username email").exec();
+    if (!user) {
+      console.log(`User not found: ${userId}`);
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Vérifier si l'utilisateur est un participant
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const isParticipating = event.participants && Array.isArray(event.participants)
+      ? event.participants.some((id) => id.equals(userObjectId))
+      : false;
+    if (!isParticipating) {
+      console.log(`User ${userId} is not a participant in event ${eventId}`);
+      return res.status(403).json({
+        message: `${user.username} is not a participant in the event "${event.title}"`,
+        isParticipating: false,
+      });
+    }
+
+    // Générer et enregistrer le ticket
+    const ticketData = {
+      ticketId: generateTicketId(),
+      eventId,
+      userId,
+      type: "participant",
+    };
+    await saveTicketWithRetry(ticketData);
+
+    console.log(`User ${userId} verified as participant in event ${eventId}, ticket ${ticketData.ticketId} generated`);
+    res.status(200).json({
+      message: `${user.username} is a confirmed participant in the event "${event.title}"`,
+      isParticipating: true,
+      eventTitle: event.title,
+      username: user.username,
+      startDate: event.start_date,
+      ticketId: ticketData.ticketId,
+    });
+  } catch (error) {
+    console.error("Error in verifyParticipation:", {
+      message: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  } finally {
+    console.timeEnd("verifyParticipation");
+  }
+};
+
+exports.verifyPartner = async (req, res) => {
+  console.time("verifyPartner");
+  try {
+    const { eventId, userId } = req.params;
+
+    // Valider les ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      console.log(`Invalid event ID: ${eventId}`);
+      return res.status(422).json({ message: "Invalid event ID format" });
+    }
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      console.log(`Invalid user ID: ${userId}`);
+      return res.status(422).json({ message: "Invalid user ID format" });
+    }
+
+    // Récupérer l'événement
+    const event = await Event.findById(eventId).select("title partners start_date").exec();
+    if (!event) {
+      console.log(`Event not found: ${eventId}`);
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    // Vérifier que start_date existe
+    if (!event.start_date) {
+      console.log(`Event ${eventId} missing start_date`);
+      return res.status(400).json({ message: "Event missing start_date" });
+    }
+
+    // Récupérer l'utilisateur
+    const user = await User.findById(userId).select("username email").exec();
+    if (!user) {
+      console.log(`User not found: ${userId}`);
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Vérifier si l'utilisateur est un partenaire
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const isPartner = event.partners && Array.isArray(event.partners)
+      ? event.partners.some((id) => id.equals(userObjectId))
+      : false;
+    if (!isPartner) {
+      console.log(`User ${userId} is not a partner in event ${eventId}`);
+      return res.status(403).json({
+        message: `${user.username} is not a partner in the event "${event.title}"`,
+        isPartner: false,
+      });
+    }
+
+    // Générer et enregistrer le ticket
+    const ticketData = {
+      ticketId: generateTicketId(),
+      eventId,
+      userId,
+      type: "partner",
+    };
+    await saveTicketWithRetry(ticketData);
+
+    console.log(`User ${userId} verified as partner in event ${eventId}, ticket ${ticketData.ticketId} generated`);
+    res.status(200).json({
+      message: `${user.username} is a confirmed partner in the event "${event.title}"`,
+      isPartner: true,
+      eventTitle: event.title,
+      username: user.username,
+      startDate: event.start_date,
+      ticketId: ticketData.ticketId,
+    });
+  } catch (error) {
+    console.error("Error in verifyPartner:", {
+      message: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  } finally {
+    console.timeEnd("verifyPartner");
+  }
+};
+
+
 module.exports = exports;

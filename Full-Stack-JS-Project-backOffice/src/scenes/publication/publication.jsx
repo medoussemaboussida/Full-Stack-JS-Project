@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -356,7 +357,7 @@ const Publication = () => {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.message || "Échec du débannissement de l'utilisateur");
+        throw new Error(errorData.message || "Éhec du débannissement de l'utilisateur");
       }
 
       setNotification({
@@ -1243,9 +1244,26 @@ const Publication = () => {
                       alt={comment.auteur_id?.username}
                       sx={{ width: 40, height: 40 }}
                     />
-                    <Typography sx={{ fontWeight: "bold", color: "#fff" }}>
-                      {comment.auteur_id?.username || "Unknown"}
-                    </Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <Typography sx={{ fontWeight: "bold", color: "#fff" }}>
+                        {comment.auteur_id?.username || "Unknown"}
+                      </Typography>
+                      {  comment.sentiment && (
+                        <Chip
+                          label={comment.sentiment}
+                          sx={{
+                            fontSize: "0.75rem",
+                            padding: "2px 8px",
+                            backgroundColor:
+                              comment.sentiment === "POSITIVE" ? "#4caf50" :
+                              comment.sentiment === "NEGATIVE" ? "#f44336" : "#9e9e9e",
+                            color: "#fff",
+                            borderRadius: "12px",
+                            boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
+                          }}
+                        />
+                      )}
+                    </Box>
                     <Tooltip title={`Voir les signalements (${comment.reportCount || 0})`}>
                       <Badge
                         badgeContent={comment.reportCount || 0}
@@ -1987,7 +2005,7 @@ Photo: ${user.user_photo ? "http://localhost:5000" + user.user_photo : "Aucune"}
                           onClick={() => handleUnbanUser(user._id)}
                           sx={{
                             color: "#4caf50",
-                            "&:hover": { color: "#388e3c" },
+                            "&:hover": { color: "#388e3c"                            },
                           }}
                         >
                           <LockOpenIcon />
@@ -2054,7 +2072,7 @@ Photo: ${user.user_photo ? "http://localhost:5000" + user.user_photo : "Aucune"}
             borderBottom: "1px solid #616161",
           }}
         >
-          {formData.id ? "Modifier la Publication" : "Ajouter une Publication"}
+          {formData.id ? "Modifier la Publication" : "Créer une Publication"}
         </DialogTitle>
         <DialogContent
           sx={{
@@ -2063,6 +2081,11 @@ Photo: ${user.user_photo ? "http://localhost:5000" + user.user_photo : "Aucune"}
             color: "#fff",
           }}
         >
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
           <TextField
             fullWidth
             margin="dense"
@@ -2085,10 +2108,10 @@ Photo: ${user.user_photo ? "http://localhost:5000" + user.user_photo : "Aucune"}
             margin="dense"
             label="Description"
             name="description"
-            multiline
-            rows={4}
             value={formData.description}
             onChange={handleChange}
+            multiline
+            rows={4}
             sx={{
               "& .MuiInputLabel-root": { color: "#fff" },
               "& .MuiOutlinedInput-root": {
@@ -2133,11 +2156,6 @@ Photo: ${user.user_photo ? "http://localhost:5000" + user.user_photo : "Aucune"}
               },
             }}
           />
-          {error && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {error}
-            </Alert>
-          )}
         </DialogContent>
         <DialogActions
           sx={{
@@ -2174,7 +2192,7 @@ Photo: ${user.user_photo ? "http://localhost:5000" + user.user_photo : "Aucune"}
               "&:hover": { backgroundColor: "#388e3c" },
             }}
           >
-            {formData.id ? "Mettre à jour" : "Ajouter"}
+            {formData.id ? "Mettre à jour" : "Créer"}
           </Button>
         </DialogActions>
       </Dialog>

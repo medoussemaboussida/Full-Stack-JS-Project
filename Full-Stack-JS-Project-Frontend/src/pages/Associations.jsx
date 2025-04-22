@@ -18,12 +18,14 @@ const Associations = () => {
   const [sortOrder, setSortOrder] = useState('name-asc');
   const associationsPerPage = 8;
 
-  // Fetch approved associations for the front-end
+  // Fetch approved associations
   const fetchAssociations = async () => {
     try {
       console.log('Fetching approved associations from API...');
       const token = localStorage.getItem('jwt-token');
-      if (!token) throw new Error('No token found in localStorage');
+      if (!token) {
+        throw new Error('No token found. Please log in.');
+      }
       const response = await axios.get('http://localhost:5000/association/getApprovedAssociations', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -34,25 +36,17 @@ const Associations = () => {
       setIsLoading(false);
     } catch (err) {
       console.error('Error fetching associations:', err.response || err);
-      setError(`Erreur lors de la récupération des associations : ${err.response?.data?.message || err.message}`);
-      setIsLoading(false);
-    }
-  };
-
-  // Fetch user role
-  const fetchUserRole = async (token, userId) => {
-    try {
-      const response = await axios.get(`http://localhost:5000/users/session/${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      if (response.status === 200) {
-        setUserRole(response.data.role);
-        console.log('User Role:', response.data.role);
+      let errorMessage;
+      if (err.response?.status === 403) {
+        errorMessage = 'You don’t have permission to view associations.';
+      } else if (err.response?.status === 500) {
+        errorMessage = 'Server error. Please try again later or contact support.';
+      } else {
+        errorMessage = err.response?.data?.message || err.message || 'Failed to fetch associations.';
       }
-    } catch (err) {
-      console.error('Error fetching user role:', err);
+      setError(errorMessage);
+      setIsLoading(false);
+      toast.error(errorMessage, { autoClose: 3000 });
     }
   };
 
@@ -60,40 +54,40 @@ const Associations = () => {
   const handleDelete = async (associationId) => {
     const token = localStorage.getItem('jwt-token');
     if (!token || userRole !== 'admin') {
-      toast.error('Vous devez être administrateur pour supprimer une association');
+      toast.error('You must be an admin to delete an association');
       return;
     }
 
     const toastId = toast(
       <div>
-        <p>Êtes-vous sûr de vouloir supprimer cette association ?</p>
+        <p>Are you sure you want to delete this association?</p>
         <button
           onClick={async () => {
             try {
-              const response = await axios.delete(`http://localhost:5000/association/${associationId}`, {
+              const response = await axios.delete(`http://localhost:5000/associations/${associationId}`, {
                 headers: {
                   'Authorization': `Bearer ${token}`,
                 },
               });
               if (response.status === 200) {
                 setAssociations(associations.filter((assoc) => assoc._id !== associationId));
-                toast.success('Association supprimée avec succès', { autoClose: 3000 });
+                toast.success('Association deleted successfully', { autoClose: 3000 });
               }
             } catch (err) {
-              toast.error(`Erreur lors de la suppression : ${err.response?.data?.message || err.message}`, { autoClose: 3000 });
+              toast.error(`Error deleting association: ${err.response?.data?.message || err.message}`, { autoClose: 3000 });
             } finally {
               toast.dismiss(toastId);
             }
           }}
           style={{ marginRight: '10px', backgroundColor: '#4CAF50', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '3px' }}
         >
-          Oui
+          Yes
         </button>
         <button
           onClick={() => toast.dismiss(toastId)}
           style={{ backgroundColor: '#f44336', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '3px' }}
         >
-          Non
+          No
         </button>
       </div>,
       { autoClose: false, closeOnClick: false, draggable: false }
@@ -166,15 +160,17 @@ const Associations = () => {
       try {
         const decoded = jwtDecode(token);
         setUserId(decoded.id);
-        fetchUserRole(token, decoded.id);
+        setUserRole(decoded.role);
+        console.log('User Role from JWT:', decoded.role);
       } catch (error) {
         console.error('Invalid token:', error);
+        toast.error('Invalid token. Please log in again.', { autoClose: 3000 });
       }
     }
     fetchAssociations();
   }, []);
 
-  if (isLoading) return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Chargement...</div>;
+  if (isLoading) return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Loading...</div>;
   if (error) return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px', color: 'red' }}>{error}</div>;
 
   return (
@@ -184,12 +180,12 @@ const Associations = () => {
         style={{ background: "url(/assets/img/breadcrumb/01.jpg)" }}
       >
         <div className="container">
-          <h2 className="breadcrumb-title">Nos Associations</h2>
+          <h2 className="breadcrumb-title">Our Associations</h2>
           <ul className="breadcrumb-menu">
             <li>
-              <Link to="/Home">Accueil</Link>
+              <Link to="/Home">Home</Link>
             </li>
-            <li className="active">Nos Associations</li>
+            <li className="active">Our Associations</li>
           </ul>
         </div>
       </div>
@@ -201,10 +197,10 @@ const Associations = () => {
             <div className="col-lg-6 mx-auto">
               <div className="site-heading text-center wow fadeInDown" data-wow-delay=".25s">
                 <span className="site-title-tagline">
-                  <i className="far fa-hand-heart"></i> Nos Associations
+                  <i className="far fa-hand-heart"></i> Our Associations
                 </span>
                 <h2 className="site-title">
-                  Découvrez nos <span>Associations</span>
+                  Discover our <span>Associations</span>
                 </h2>
               </div>
             </div>
@@ -216,7 +212,7 @@ const Associations = () => {
               type="text"
               value={searchTerm}
               onChange={handleSearchChange}
-              placeholder="Rechercher une association..."
+              placeholder="Search for an association..."
               style={{
                 width: '60%',
                 maxWidth: '600px',
@@ -265,11 +261,11 @@ const Associations = () => {
                 e.target.style.width = '200px';
               }}
             >
-              <option value="all">Tous les types</option>
-              <option value="Financial">Financier</option>
-              <option value="Material">Matériel</option>
-              <option value="Educational">Éducatif</option>
-              <option value="Other">Autre</option>
+              <option value="all">All Types</option>
+              <option value="Financial">Financial</option>
+              <option value="Material">Material</option>
+              <option value="Educational">Educational</option>
+              <option value="Other">Other</option>
             </select>
 
             <select
@@ -297,10 +293,10 @@ const Associations = () => {
                 e.target.style.width = '200px';
               }}
             >
-              <option value="name-asc">Nom (A-Z)</option>
-              <option value="name-desc">Nom (Z-A)</option>
-              <option value="recent">Plus récent</option>
-              <option value="oldest">Plus ancien</option>
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-desc">Name (Z-A)</option>
+              <option value="recent">Most Recent</option>
+              <option value="oldest">Oldest</option>
             </select>
           </div>
 
@@ -382,9 +378,9 @@ const Associations = () => {
                     >
                       <div>
                         <h4 style={{ margin: 0, fontSize: '16px', lineHeight: '1.2' }}>
-                        <Link to={`/AssociationDetails/${association._id}`}>
-  {truncateText(association.Name_association, 20)}
-</Link>
+                          <Link to={`/AssociationDetails/${association._id}`}>
+                            {truncateText(association.Name_association, 20)}
+                          </Link>
                         </h4>
                         <span style={{ fontSize: '14px', color: '#666', margin: '5px 0', display: 'block' }}>
                           {truncateText(association.support_type || 'Association', 15)}
@@ -404,7 +400,7 @@ const Associations = () => {
                             cursor: 'pointer',
                           }}
                         >
-                          Supprimer
+                          Delete
                         </button>
                       )}
                     </div>
@@ -413,7 +409,7 @@ const Associations = () => {
               ))
             ) : (
               <div style={{ textAlign: 'center', gridColumn: 'span 4' }}>
-                <p>Aucune association trouvée.</p>
+                <p>No associations found.</p>
               </div>
             )}
           </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
@@ -44,6 +44,7 @@ const AddAssociation = () => {
         register,
         handleSubmit,
         reset,
+        setValue,
         formState: { errors, isSubmitting },
     } = useForm({ resolver: yupResolver(schema) });
 
@@ -51,14 +52,15 @@ const AddAssociation = () => {
     const [validationErrors, setValidationErrors] = useState([]);
     const [userRole, setUserRole] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
-    const [hasAssociation, setHasAssociation] = useState(false);
-    const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
+    const emailInputRef = useRef(null);
+    const [emailSuggestions, setEmailSuggestions] = useState([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
 
     useEffect(() => {
         const token = localStorage.getItem("jwt-token");
         if (!token) {
-            toast.error("Vous devez être connecté pour accéder à cette page");
+            toast.error("You must be logged in to access this page");
             setTimeout(() => navigate("/login"), 2000);
             return;
         }
@@ -66,22 +68,10 @@ const AddAssociation = () => {
         const decoded = jwtDecode(token);
         setUserRole(decoded.role);
 
-        // Vérifier si l'utilisateur a déjà une association
-        const checkAssociation = async () => {
-            try {
-                const response = await axios.get(`${BASE_URL}/association/check`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                setHasAssociation(response.data.hasAssociation);
-            } catch (error) {
-                console.error("Erreur lors de la vérification de l’association :", error);
-                toast.error("Erreur lors de la vérification de votre statut d’association");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        checkAssociation();
+        if (decoded.role !== "association_member") {
+            toast.error("Only association members can add an association");
+            setTimeout(() => navigate("/home"), 2000);
+        }
     }, [navigate]);
 
     const handleImageChange = (e) => {
@@ -95,23 +85,66 @@ const AddAssociation = () => {
         }
     };
 
+    const emailDomains = [
+        "@gmail.com",
+        "@yahoo.com",
+        "@hotmail.com",
+        "@outlook.com",
+        "@icloud.com",
+        "@mail.com",
+     
+    ];
+
+    const handleEmailChange = (e) => {
+        const value = e.target.value;
+        setValue("contact_email_association", value, { shouldValidate: true });
+
+        if (value.includes("@")) {
+            const prefix = value.split("@")[0];
+            const suggestions = emailDomains.map((domain) => `${prefix}${domain}`);
+            setEmailSuggestions(suggestions);
+            setShowSuggestions(true);
+        } else {
+            setEmailSuggestions([]);
+            setShowSuggestions(false);
+        }
+    };
+
+    const handleSuggestionClick = (suggestion) => {
+        setValue("contact_email_association", suggestion, { shouldValidate: true });
+        setShowSuggestions(false);
+    };
+
+    const handleClickOutside = (e) => {
+        if (emailInputRef.current && !emailInputRef.current.contains(e.target)) {
+            setShowSuggestions(false);
+        }
+    };
+
+    useEffect(() => {
+        document.addEventListener("click", handleClickOutside);
+        return () => {
+            document.removeEventListener("click", handleClickOutside);
+        };
+    }, []);
+
     const onSubmit = async (data) => {
         setServerError(null);
         setValidationErrors([]);
 
         const token = localStorage.getItem("jwt-token");
         if (!token) {
-            toast.error("Vous devez être connecté pour ajouter une association");
+            toast.error("You must be logged in to add an association");
             return;
         }
 
         if (userRole !== "association_member") {
-            toast.error("Seuls les membres associatifs peuvent ajouter une association");
+            toast.error("Only association members can add an association");
             return;
         }
 
         if (Object.keys(errors).length > 0) {
-            toast.error("Veuillez corriger les erreurs dans le formulaire avant de soumettre");
+            toast.error("Please correct the errors in the form before submitting");
             return;
         }
 
@@ -125,26 +158,36 @@ const AddAssociation = () => {
         }
 
         try {
-            await axios.post(`${BASE_URL}/association/addAssociation`, formData, {
+            const response = await axios.post(`${BASE_URL}/association/addAssociation`, formData, {
                 headers: {
                     "Content-Type": "multipart/form-data",
                     Authorization: `Bearer ${token}`,
                 },
             });
-            toast.success("Association ajoutée avec succès !", { autoClose: 2000 });
+            toast.success("Association added successfully!", { autoClose: 2000 });
+
+            // Store association_id in localStorage
+            if (response.data.association_id) {
+                localStorage.setItem("association_id", response.data.association_id);
+                console.log("Stored association_id:", response.data.association_id);
+            }
+
             reset();
             setImagePreview(null);
-            setHasAssociation(true); // Mettre à jour localement après succès
             setTimeout(() => navigate("/Associations"), 2000);
         } catch (error) {
             const errorMessage =
-                error.response?.data?.message || "Une erreur est survenue";
+                error.response?.data?.message || "An error occurred";
             if (error.response?.status === 400 && error.response.data.errors) {
-                setValidationErrors(error.response.data.errors);
-                toast.error("Erreur de validation. Veuillez vérifier les champs.");
-            } else if (error.response?.status === 403 && errorMessage.includes("déjà créé")) {
-                setHasAssociation(true); // En cas d’erreur 403 due à une association existante
-                toast.error(errorMessage);
+                setValidationErrors(Object.values(error.response.data.errors).map(err => err.message));
+                toast.error("Validation error. Please check the fields.");
+            } else if (error.response?.status === 400 && errorMessage.includes("already linked")) {
+                toast.error("You already have an association. Association members can only create one association.");
+            } else if (error.response?.status === 409 && errorMessage.includes("email")) {
+                toast.error("This email is already used by another association.");
+            } else if (error.response?.status === 401) {
+                toast.error("Session expired. Please log in again.");
+                setTimeout(() => navigate("/login"), 2000);
             } else {
                 setServerError(errorMessage);
                 toast.error(errorMessage);
@@ -152,52 +195,14 @@ const AddAssociation = () => {
         }
     };
 
-    const emailDomains = [
-        "@gmail.com",
-        "@yahoo.com",
-        "@hotmail.com",
-        "@outlook.com",
-        "@aol.com",
-        "@icloud.com",
-        "@mail.com",
-        "@protonmail.com",
-        "@gmx.com",
-        "@zoho.com",
-    ];
-
-    if (loading) {
-        return (
-            <div className="container text-center py-5">
-                <h3>Chargement...</h3>
-            </div>
-        );
-    }
-
-    if (hasAssociation) {
-        return (
-            <div className="container text-center py-5">
-                <h2>Vous avez déjà une association</h2>
-                <p>
-                    Les membres associatifs ne peuvent créer qu’une seule association. Vous pouvez gérer vos événements ou consulter votre association existante.
-                </p>
-                <Link to="/Associations" className="theme-btn mt-3">
-                    Retour aux Associations
-                </Link>
-                <Link to="/AddEvent" className="theme-btn mt-3 ms-2">
-                    Ajouter un Événement
-                </Link>
-            </div>
-        );
-    }
-
     return (
         <>
             <div className="site-breadcrumb" style={{ background: "url(/assets/img/breadcrumb/01.jpg)" }}>
                 <div className="container">
-                    <h2 className="breadcrumb-title">Ajouter une Nouvelle Association</h2>
+                    <h2 className="breadcrumb-title">Add a New Association</h2>
                     <ul className="breadcrumb-menu">
-                        <li><Link to="/Home">Accueil</Link></li>
-                        <li className="active">Ajouter une Association</li>
+                        <li><Link to="/Home">Home</Link></li>
+                        <li className="active">Add an Association</li>
                     </ul>
                 </div>
             </div>
@@ -209,17 +214,44 @@ const AddAssociation = () => {
                         <div className="row align-items-center">
                             <div className="col-lg-6">
                                 <div className="become-volunteer-img">
-                                    <img
-                                        src={imagePreview || "/assets/img/volunteer/01.jpg"}
-                                        alt="Association Preview"
-                                        className="img-fluid rounded"
-                                    />
+                                    {imagePreview ? (
+                                        <img
+                                            src={imagePreview}
+                                            alt="Association Preview"
+                                            className="img-fluid rounded"
+                                            style={{ width: "100%", maxHeight: "250px", objectFit: "contain" }}
+                                        />
+                                    ) : (
+                                        <div
+                                            style={{
+                                                border: "2px dashed #ccc",
+                                                backgroundColor: "#f8f9fa",
+                                                borderRadius: "8px",
+                                                height: "250px",
+                                                display: "flex",
+                                                flexDirection: "column",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                textAlign: "center",
+                                                padding: "20px",
+                                                color: "#6c757d",
+                                            }}
+                                        >
+                                            <i className="fas fa-image fa-3x mb-2"></i>
+                                            <p style={{ margin: 0, fontSize: "16px" }}>
+                                                Upload Image Here
+                                            </p>
+                                            <p style={{ margin: 0, fontSize: "12px" }}>
+                                                (Click "Upload Association Logo" below)
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div className="col-lg-6">
                                 <div className="become-volunteer-form">
-                                    <h2>Ajouter une Association</h2>
-                                    <p>Remplissez le formulaire ci-dessous pour enregistrer votre association.</p>
+                                    <h2>Add an Association</h2>
+                                    <p>Fill out the form below to register your association.</p>
 
                                     {serverError && (
                                         <div className="alert alert-danger" role="alert">
@@ -243,24 +275,52 @@ const AddAssociation = () => {
                                                 <input
                                                     type="text"
                                                     className="form-control"
-                                                    placeholder="Nom de l'association"
+                                                    placeholder="Association Name"
                                                     {...register("Name_association")}
                                                 />
                                                 <p className="text-danger">{errors.Name_association?.message}</p>
                                             </div>
-                                            <div className="col-md-6 position-relative">
+                                            <div className="col-md-6 position-relative" ref={emailInputRef}>
                                                 <input
                                                     type="email"
                                                     className="form-control"
                                                     placeholder="Email"
-                                                    list="emailDomains"
+                                                    autoComplete="off"
                                                     {...register("contact_email_association")}
+                                                    onChange={handleEmailChange}
                                                 />
-                                                <datalist id="emailDomains">
-                                                    {emailDomains.map((domain, index) => (
-                                                        <option key={index} value={domain} />
-                                                    ))}
-                                                </datalist>
+                                                {showSuggestions && emailSuggestions.length > 0 && (
+                                                    <ul
+                                                        style={{
+                                                            position: "absolute",
+                                                            zIndex: 1000,
+                                                            backgroundColor: "#fff",
+                                                            border: "1px solid #ccc",
+                                                            borderRadius: "4px",
+                                                            maxHeight: "150px",
+                                                            overflowY: "auto",
+                                                            width: "100%",
+                                                            listStyle: "none",
+                                                            padding: 0,
+                                                            margin: 0,
+                                                        }}
+                                                    >
+                                                        {emailSuggestions.map((suggestion, index) => (
+                                                            <li
+                                                                key={index}
+                                                                style={{
+                                                                    padding: "8px",
+                                                                    cursor: "pointer",
+                                                                }}
+                                                                onClick={() => handleSuggestionClick(suggestion)}
+                                                                onMouseEnter={(e) => (e.target.style.backgroundColor = "#f0f0f0")}
+                                                                onMouseLeave={(e) => (e.target.style.backgroundColor = "#fff")}
+                                                            >
+                                                                {suggestion}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                )}
                                                 <p className="text-danger">{errors.contact_email_association?.message}</p>
                                             </div>
                                             <div className="col-md-12">
@@ -278,25 +338,42 @@ const AddAssociation = () => {
                                                     className="form-control"
                                                     {...register("support_type")}
                                                 >
-                                                    <option value="">Sélectionnez un type de soutien</option>
-                                                    <option value="Financial">Financier</option>
-                                                    <option value="Material">Matériel</option>
-                                                    <option value="Educational">Éducatif</option>
-                                                    <option value="Other">Autre</option>
+                                                    <option value="">Select Support Type</option>
+                                                    <option value="Financial">Financial</option>
+                                                    <option value="Material">Material</option>
+                                                    <option value="Educational">Educational</option>
+                                                    <option value="Other">Other</option>
                                                 </select>
                                                 <p className="text-danger">{errors.support_type?.message}</p>
                                             </div>
                                             <div className="col-md-12">
                                                 <input
                                                     type="file"
+                                                    id="logo-upload"
                                                     className="form-control"
                                                     accept="image/*"
+                                                    style={{ display: "none" }}
                                                     {...register("logo_association")}
                                                     onChange={(e) => {
                                                         handleImageChange(e);
                                                         register("logo_association").onChange(e);
                                                     }}
                                                 />
+                                                <label
+                                                    htmlFor="logo-upload"
+                                                    className="btn btn-outline-primary w-100 text-left"
+                                                    style={{
+                                                        padding: "10px",
+                                                        borderRadius: "4px",
+                                                        cursor: "pointer",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        gap: "8px",
+                                                    }}
+                                                >
+                                                    <i className="fas fa-upload"></i>
+                                                    {imagePreview ? "Image Selected" : "Upload Association Logo"}
+                                                </label>
                                                 <p className="text-danger">{errors.logo_association?.message}</p>
                                             </div>
                                         </div>
@@ -305,7 +382,7 @@ const AddAssociation = () => {
                                             className="theme-btn mt-2"
                                             disabled={isSubmitting}
                                         >
-                                            {isSubmitting ? "Envoi en cours..." : "Soumettre maintenant"} <i className="fas fa-circle-arrow-right"></i>
+                                            {isSubmitting ? "Submitting..." : "Submit Now"} <i className="fas fa-circle-arrow-right"></i>
                                         </button>
                                     </form>
                                 </div>

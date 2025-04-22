@@ -106,9 +106,10 @@ const userSchema = new mongoose.Schema({
     banReason: { type: String, default: "" },
 
 // Nouveau champ pour les événements auxquels l'étudiant participe
-participatedEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Event" }],
-    association: { type: mongoose.Schema.Types.ObjectId, ref: "Association", default: null },
-  },
+partneredEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Event", default: [] }],
+association_id: { type: mongoose.Schema.Types.ObjectId, ref: "Association" },
+association: { type: mongoose.Schema.Types.ObjectId, ref: "Association", default: null },
+},
   { timestamps: true }
 );
 

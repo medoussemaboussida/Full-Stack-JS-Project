@@ -54,8 +54,7 @@ router.post('/ban/:userId', userController.verifyToken, userController.banUser);
 router.get('/banned-users', userController.verifyToken, userController.getBannedUsers);
 router.put('/unban/:userId', userController.verifyToken, userController.unbanUser);
 router.get('/tags', userController.verifyToken , userController.getAllTags);
-
-
+router.get('/recommendedPublications', userController.verifyToken, userController.getRecommendedPublications);
 
 
 
