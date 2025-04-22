@@ -282,90 +282,103 @@ exports.getEventById = async (req, res) => {
 };
 
 // Mettre à jour un événement
-exports.updateEvent = async (req, res) => {
+exports.updateEvent = (req, res) => {
   console.time("updateEvent");
-  try {
-    const { id } = req.params;
-    const { title, description, start_date, end_date, localisation, lieu, heure, 
-            contact_email, event_type, online_link, max_participants, hasPartners } = req.body;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "Invalid ID" });
+  upload(req, res, async (err) => {
+    if (err) {
+      console.error("Multer Error:", err.message);
+      return res.status(400).json({ message: err.message });
     }
 
-    const event = await Event.findById(id);
-    if (!event) return res.status(404).json({ message: "Event not found" });
-    if (event.created_by.toString() !== req.userId) {
-      return res.status(403).json({ message: "You are not authorized to update this event" });
-    }
+    try {
+      const { id } = req.params;
+      const { title, description, start_date, end_date, localisation, lieu, heure, 
+              contact_email, event_type, online_link, max_participants, hasPartners } = req.body;
 
-    if (title) event.title = title.trim();
-    if (description) event.description = description.trim();
-    if (start_date && heure) {
-      const eventStartDate = new Date(`${start_date}T${heure}:00Z`);
-      if (isNaN(eventStartDate.getTime())) {
-        return res.status(400).json({ message: "Invalid start date or time format" });
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid ID" });
       }
-      event.start_date = eventStartDate;
-    }
-    if (end_date && heure) {
-      const eventEndDate = new Date(`${end_date}T${heure}:00Z`);
-      if (isNaN(eventEndDate.getTime())) {
-        return res.status(400).json({ message: "Invalid end date or time format" });
+
+      const event = await Event.findById(id);
+      if (!event) return res.status(404).json({ message: "Event not found" });
+      if (event.created_by.toString() !== req.userId) {
+        return res.status(403).json({ message: "You are not authorized to update this event" });
       }
-      event.end_date = eventEndDate;
-    }
-    if (event.end_date <= event.start_date) {
-      return res.status(400).json({ message: "End date must be after start date" });
-    }
-    if (heure) event.heure = heure.trim();
-    if (event_type) {
-      event.event_type = event_type;
-      if (event_type === "in-person") {
-        event.localisation = localisation ? localisation.trim() : event.localisation;
-        event.lieu = lieu ? lieu.trim() : event.lieu;
-        event.online_link = null;
-        if (!event.localisation || !event.lieu) {
-          return res.status(400).json({ message: "Location and venue are required for in-person events" });
+
+      if (title) event.title = title.trim();
+      if (description) event.description = description.trim();
+      if (start_date && heure) {
+        const eventStartDate = new Date(`${start_date}T${heure}:00Z`);
+        if (isNaN(eventStartDate.getTime())) {
+          return res.status(400).json({ message: "Invalid start date or time format" });
         }
-        if (localisation && localisation.trim() !== event.localisation) {
-          const coordinates = await geocodeAddress(localisation.trim());
-          event.coordinates = coordinates;
+        event.start_date = eventStartDate;
+      }
+      if (end_date && heure) {
+        const eventEndDate = new Date(`${end_date}T${heure}:00Z`);
+        if (isNaN(eventEndDate.getTime())) {
+          return res.status(400).json({ message: "Invalid end date or time format" });
         }
-      } else if (event_type === "online") {
-        event.online_link = online_link ? online_link.trim() : event.online_link;
-        event.localisation = null;
-        event.lieu = null;
-        event.coordinates = { lat: null, lng: null };
-        if (!event.online_link) {
-          return res.status(400).json({ message: "Online link is required for online events" });
+        event.end_date = eventEndDate;
+      }
+      if (event.end_date <= event.start_date) {
+        return res.status(400).json({ message: "End date must be after start date" });
+      }
+      if (heure) event.heure = heure.trim();
+      if (event_type) {
+        event.event_type = event_type;
+        if (event_type === "in-person") {
+          event.localisation = localisation ? localisation.trim() : event.localisation;
+          event.lieu = lieu ? lieu.trim() : event.lieu;
+          event.online_link = null;
+          if (!event.localisation || !event.lieu) {
+            return res.status(400).json({ message: "Location and venue are required for in-person events" });
+          }
+          if (localisation && localisation.trim() !== event.localisation) {
+            const coordinates = await geocodeAddress(localisation.trim());
+            event.coordinates = coordinates;
+          }
+        } else if (event_type === "online") {
+          event.online_link = online_link ? online_link.trim() : event.online_link;
+          event.localisation = null;
+          event.lieu = null;
+          event.coordinates = { lat: null, lng: null };
+          if (!event.online_link) {
+            return res.status(400).json({ message: "Online link is required for online events" });
+          }
         }
       }
-    }
-    if (contact_email) event.contact_email = contact_email.trim();
-    if (max_participants) {
-      const maxParticipants = parseInt(max_participants, 10);
-      if (isNaN(maxParticipants) || maxParticipants <= 0) {
-        return res.status(400).json({ message: "Max participants must be a positive integer" });
+      if (contact_email) event.contact_email = contact_email.trim();
+      if (max_participants) {
+        const maxParticipants = parseInt(max_participants, 10);
+        if (isNaN(maxParticipants) || maxParticipants <= 0) {
+          return res.status(400).json({ message: "Max participants must be a positive integer" });
+        }
+        if (maxParticipants < event.participants.length) {
+          return res.status(400).json({ message: "Max participants cannot be less than current participants" });
+        }
+        event.max_participants = maxParticipants;
       }
-      if (maxParticipants < event.participants.length) {
-        return res.status(400).json({ message: "Max participants cannot be less than current participants" });
+      if (typeof hasPartners !== 'undefined') {
+        event.hasPartners = hasPartners === true || hasPartners === "true";
       }
-      event.max_participants = maxParticipants;
-    }
-    if (typeof hasPartners !== 'undefined') {
-      event.hasPartners = hasPartners === true || hasPartners === "true";
-    }
 
-    const updatedEvent = await event.save();
-    console.log(`✅ Event "${title || event.title}" updated successfully`);
-    res.status(200).json({ message: "Event updated successfully", data: updatedEvent });
-  } catch (error) {
-    console.error("Error updating event:", error.stack);
-    res.status(500).json({ message: "Internal server error", error: error.message });
-  } finally {
-    console.timeEnd("updateEvent");
-  }
+      // Handle image update
+      if (req.file) {
+        event.imageUrl = `/uploads/${req.file.filename}`;
+        console.log(`Image updated for event ${id}: ${event.imageUrl}`);
+      }
+
+      const updatedEvent = await event.save();
+      console.log(`✅ Event "${title || event.title}" updated successfully`);
+      res.status(200).json({ message: "Event updated successfully", data: updatedEvent });
+    } catch (error) {
+      console.error("Error updating event:", error.stack);
+      res.status(500).json({ message: "Internal server error", error: error.message });
+    } finally {
+      console.timeEnd("updateEvent");
+    }
+  });
 };
 
 // Supprimer un événement
@@ -1054,37 +1067,6 @@ exports.checkFavorite = async (req, res) => {
   }
 };
 
-exports.generateEventImage = async (req, res) => {
-  try {
-    const { description } = req.body;
-    if (!description) return res.status(400).json({ message: 'Description is required' });
-
-    const response = await axios.post(
-      'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1',
-      {
-        inputs: `A vibrant illustration of an event: ${description}`,
-        parameters: {
-          num_inference_steps: 50,
-          guidance_scale: 7.5,
-          width: 512,
-          height: 512,
-        },
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.REACT_APP_HUGGINGFACE_API_TOKEN}`, // Fixed variable
-          'Content-Type': 'application/json',
-        },
-        responseType: 'arraybuffer',
-      }
-    );
-
-    res.set('Content-Type', 'image/png');
-    res.send(response.data);
-  } catch (error) {
-    res.status(500).json({ message: 'Error generating image', error: error.message });
-  }
-};
 
 
 // Générer un ticketId unique (UUID simplifié)

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -58,6 +58,7 @@ const EditEvent = () => {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("jwt-token")}`,
           },
+          timeout: 10000, // 10-second timeout for fetching event
         });
         const event = response.data;
         setFormData({
@@ -75,6 +76,7 @@ const EditEvent = () => {
         });
         setImagePreview(event.imageUrl || "/assets/img/about/image.png");
       } catch (error) {
+        console.error("Error fetching event:", error);
         toast.error("Erreur lors de la récupération de l'événement", { autoClose: 3000 });
       }
     };
@@ -129,40 +131,55 @@ const EditEvent = () => {
     }
 
     try {
-      await axios.put(`${BASE_URL}/events/updateEvent/${id}`, formDataToSend, {
+      const response = await axios.put(`${BASE_URL}/events/updateEvent/${id}`, formDataToSend, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
         },
+        timeout: 10000, // 10-second timeout for update request
+        validateStatus: (status) => {
+          return status >= 200 && status < 300; // Treat 2xx status codes as success
+        },
       });
+      console.log("Réponse du backend:", response.status, response.data);
       toast.success("Événement mis à jour avec succès !", { autoClose: 2000 });
       setTimeout(() => navigate("/events"), 2000);
     } catch (error) {
-      console.log("Réponse d'erreur du backend:", error.response?.data);
-      if (error.response?.status === 400) {
-        const errorsArray = error.response.data.errors;
-        if (Array.isArray(errorsArray)) {
-          const backendErrors = errorsArray.reduce((acc, err) => {
-            const field = err.includes("titre") ? "title" :
-                         err.includes("description") ? "description" :
-                         err.includes("date de début") ? "start_date" :
-                         err.includes("date de fin") ? "end_date" :
-                         err.includes("type d'événement") ? "event_type" :
-                         err.includes("localisation") ? "localisation" :
-                         err.includes("lieu") ? "lieu" :
-                         err.includes("lien en ligne") ? "online_link" :
-                         err.includes("email") ? "contact_email" : "";
-            if (field) acc[field] = err;
-            return acc;
-          }, {});
-          setErrors(backendErrors);
+      console.log("Erreur capturée:", error);
+      if (error.code === "ECONNABORTED") {
+        // Timeout error
+        setServerError("La requête a expiré. Veuillez vérifier votre connexion réseau et réessayer.");
+        toast.error("La requête a expiré. Veuillez vérifier votre connexion réseau et réessayer.", { autoClose: 3000 });
+      } else if (error.response) {
+        if (error.response.status === 400) {
+          const errorsArray = error.response.data.errors;
+          if (Array.isArray(errorsArray)) {
+            const backendErrors = errorsArray.reduce((acc, err) => {
+              const field = err.includes("titre") ? "title" :
+                           err.includes("description") ? "description" :
+                           err.includes("date de début") ? "start_date" :
+                           err.includes("date de fin") ? "end_date" :
+                           err.includes("type d'événement") ? "event_type" :
+                           err.includes("localisation") ? "localisation" :
+                           err.includes("lieu") ? "lieu" :
+                           err.includes("lien en ligne") ? "online_link" :
+                           err.includes("email") ? "contact_email" : "";
+              if (field) acc[field] = err;
+              return acc;
+            }, {});
+            setErrors(backendErrors);
+          } else {
+            const errorMessage = error.response.data.message || "Erreur de validation";
+            setServerError(errorMessage);
+            toast.error(errorMessage, { autoClose: 3000 });
+          }
         } else {
-          const errorMessage = error.response.data.message || "Erreur de validation";
+          const errorMessage = error.response.data?.message || "Une erreur est survenue lors de la mise à jour de l'événement";
           setServerError(errorMessage);
           toast.error(errorMessage, { autoClose: 3000 });
         }
       } else {
-        const errorMessage = error.response?.data?.message || "Une erreur est survenue lors de la mise à jour de l'événement";
+        const errorMessage = error.message || "Erreur réseau : impossible de se connecter au serveur";
         setServerError(errorMessage);
         toast.error(errorMessage, { autoClose: 3000 });
       }
