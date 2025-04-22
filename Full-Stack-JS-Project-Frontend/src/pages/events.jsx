@@ -10,14 +10,12 @@ import "../App.css";
 
 const BASE_URL = "http://localhost:5000";
 
-// Validate JWT token format
 const isValidJwt = (token) => {
   if (!token || typeof token !== "string") return false;
   const parts = token.split(".");
-  return parts.length === 3; // JWT should have 3 parts: header, payload, signature
+  return parts.length === 3;
 };
 
-// Countdown Component
 const Countdown = ({ targetDate }) => {
   const [timeLeft, setTimeLeft] = useState({});
 
@@ -59,9 +57,21 @@ const Countdown = ({ targetDate }) => {
   );
 };
 
-// Modal Component for QR Code
-const QRCodeModal = ({ isOpen, onClose, qrCodeValue, eventTitle }) => {
+const QRCodeModal = ({ isOpen, onClose, qrCodeValue, eventTitle, isPartner, ticketDetails }) => {
   if (!isOpen) return null;
+
+  // Format the ticket details to match the desired output
+  const formattedTicketDetails = `Ticket Details:
+🎟️ Event Ticket 🎟️
+Event: ${ticketDetails.eventTitle}
+Type: ${ticketDetails.participationType}
+User ID: ${ticketDetails.userId}
+Date: ${ticketDetails.startDate} to ${ticketDetails.endDate}
+Time: ${ticketDetails.time || "N/A"}
+Location: ${ticketDetails.location || "N/A"}
+${ticketDetails.onlineLink ? `Online Link: ${ticketDetails.onlineLink}` : ""}`.trim();
+
+  console.log("QRCodeModal props:", { qrCodeValue, eventTitle, isPartner, ticketDetails });
 
   return (
     <div
@@ -89,9 +99,12 @@ const QRCodeModal = ({ isOpen, onClose, qrCodeValue, eventTitle }) => {
           boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
         }}
       >
-        <h3>Participation QR Code</h3>
-        <p>Scan this QR code for event: <strong>{eventTitle}</strong></p>
-        <QRCodeCanvas value={qrCodeValue} size={200} />
+        <h3>{isPartner ? "Partner" : "Participation"} Ticket</h3>
+        <p>Scan this QR code to view your ticket for: <strong>{eventTitle}</strong></p>
+        <QRCodeCanvas value={qrCodeValue} size={300} />
+        {/* <p style={{ marginTop: "10px", color: "#666", fontSize: "14px", whiteSpace: "pre-line" }}>
+          {formattedTicketDetails}
+        </p> */}
         <div style={{ marginTop: "20px" }}>
           <button
             onClick={onClose}
@@ -135,21 +148,25 @@ const Events = () => {
   const [showQRCodeModal, setShowQRCodeModal] = useState(false);
   const [qrCodeValue, setQRCodeValue] = useState("");
   const [qrCodeEventTitle, setQRCodeEventTitle] = useState("");
-  const [userRole, setUserRole] = useState(null); // New state for user role
+  const [isPartnerQR, setIsPartnerQR] = useState(false);
+  const [ticketDetails, setTicketDetails] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [userId, setUserId] = useState(null);
   const eventsPerPage = 6;
 
   const navigate = useNavigate();
 
-  // Initialize user role from JWT
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
     if (token && isValidJwt(token)) {
       try {
         const decoded = jwtDecode(token);
         setUserRole(decoded.role);
+        setUserId(decoded.id);
       } catch (error) {
         console.error("Failed to decode JWT for role:", error.message);
         setUserRole(null);
+        setUserId(null);
         localStorage.removeItem("jwt-token");
         toast.error("Invalid session. Please log in again.");
         setTimeout(() => navigate("/login"), 2000);
@@ -157,7 +174,6 @@ const Events = () => {
     }
   }, [navigate]);
 
-  // Check participation status
   const checkParticipation = async (eventId, setStatusCallback) => {
     try {
       const token = localStorage.getItem("jwt-token");
@@ -177,7 +193,6 @@ const Events = () => {
     }
   };
 
-  // Check partner status
   const checkPartnerStatus = async (eventId) => {
     try {
       const token = localStorage.getItem("jwt-token");
@@ -199,6 +214,14 @@ const Events = () => {
     }
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return isNaN(date.getTime())
+      ? "Invalid Date"
+      : date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
   useEffect(() => {
     const fetchEvents = async () => {
       try {
@@ -210,7 +233,6 @@ const Events = () => {
         console.log("Events fetched:", eventsData);
         setEvents(eventsData);
 
-        // Find the nearest upcoming event
         const currentDate = new Date();
         const futureEvents = eventsData.filter((event) => new Date(event.start_date) > currentDate);
         if (futureEvents.length > 0) {
@@ -359,7 +381,6 @@ const Events = () => {
         console.log("Dislikes:", newDislikes);
         console.log("Favorites:", newFavorites);
 
-        // Retry failed partner status checks for association members
         if (decoded?.role === "association_member") {
           const criticalEvents = eventsData.filter((event) => event.hasPartners);
           for (const event of criticalEvents) {
@@ -414,7 +435,6 @@ const Events = () => {
       const userId = decoded.id;
       let associationId = decoded.association_id || null;
 
-      // Validate associationId for association members
       if (userRole === "association_member" && associationId && !/^[0-9a-fA-F]{24}$/.test(associationId)) {
         console.warn("Invalid association_id in JWT:", associationId);
         toast.error("Invalid association data. Please contact support.");
@@ -432,7 +452,6 @@ const Events = () => {
       const isPartner = partnerStatus[eventId] || false;
       let url, data, toastMessage;
 
-      // Verify partner status before proceeding
       if (userRole === "association_member" && event.hasPartners && !isPartner) {
         const isActuallyPartner = await checkPartnerStatus(eventId);
         if (isActuallyPartner) {
@@ -441,7 +460,6 @@ const Events = () => {
         }
       }
 
-      // Determine API endpoint and action
       if (isPartner && userRole === "association_member") {
         url = `${BASE_URL}/events/cancelPartnerParticipation/${eventId}`;
         data = {};
@@ -469,7 +487,6 @@ const Events = () => {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
 
-      // Update state only after successful response
       const newStatus = !isParticipating && !isPartner;
       if (userRole === "association_member" && url.includes("participateAsPartner")) {
         setPartnerStatus((prev) => ({ ...prev, [eventId]: true }));
@@ -480,10 +497,23 @@ const Events = () => {
               : event
           )
         );
-        // Generate QR code for partner participation
-        const qrValue = `${BASE_URL}/events/verifyPartner/${eventId}/${userId}`;
+        const ticket = {
+          eventTitle: event.title,
+          participationType: "Partner",
+          userId: userId,
+          startDate: formatDate(event.start_date),
+          endDate: formatDate(event.end_date),
+          time: event.heure,
+          location: event.event_type === "in-person" ? `${event.localisation} - ${event.lieu}` : null,
+          onlineLink: event.event_type === "online" ? event.online_link : null,
+        };
+        // Format the QR code value to match the desired output
+        const qrValue = `Ticket Details:\n🎟️ Event Ticket 🎟️\nEvent: ${ticket.eventTitle}\nType: ${ticket.participationType}\nUser ID: ${ticket.userId}\nDate: ${ticket.startDate} to ${ticket.endDate}\nTime: ${ticket.time || "N/A"}\nLocation: ${ticket.location || "N/A"}${ticket.onlineLink ? `\nOnline Link: ${ticket.onlineLink}` : ""}`;
+        console.log("Partner Ticket QR Code Value:", qrValue);
         setQRCodeValue(qrValue);
         setQRCodeEventTitle(event.title);
+        setIsPartnerQR(true);
+        setTicketDetails(ticket);
         setShowQRCodeModal(true);
       } else if (url.includes("cancelPartnerParticipation")) {
         setPartnerStatus((prev) => ({ ...prev, [eventId]: false }));
@@ -508,10 +538,23 @@ const Events = () => {
               : event
           )
         );
-        // Generate QR code for regular participation
-        const qrValue = `${BASE_URL}/events/verifyParticipation/${eventId}/${userId}`;
+        const ticket = {
+          eventTitle: event.title,
+          participationType: "Participant",
+          userId: userId,
+          startDate: formatDate(event.start_date),
+          endDate: formatDate(event.end_date),
+          time: event.heure,
+          location: event.event_type === "in-person" ? `${event.localisation} - ${event.lieu}` : null,
+          onlineLink: event.event_type === "online" ? event.online_link : null,
+        };
+        // Format the QR code value to match the desired output
+        const qrValue = `Ticket Details:\n🎟️ Event Ticket 🎟️\nEvent: ${ticket.eventTitle}\nType: ${ticket.participationType}\nUser ID: ${ticket.userId}\nDate: ${ticket.startDate} to ${ticket.endDate}\nTime: ${ticket.time || "N/A"}\nLocation: ${ticket.location || "N/A"}${ticket.onlineLink ? `\nOnline Link: ${ticket.onlineLink}` : ""}`;
+        console.log("Regular Participation Ticket QR Code Value:", qrValue);
         setQRCodeValue(qrValue);
         setQRCodeEventTitle(event.title);
+        setIsPartnerQR(false);
+        setTicketDetails(ticket);
         setShowQRCodeModal(true);
       } else {
         setParticipationStatus((prev) => ({ ...prev, [eventId]: newStatus }));
@@ -534,7 +577,6 @@ const Events = () => {
       setStatusCallback(newStatus);
       toast.success(response.data.message || toastMessage);
 
-      // Re-check status to ensure consistency
       if (url.includes("cancelPartnerParticipation") || url.includes("participateAsPartner")) {
         await checkPartnerStatus(eventId);
       } else {
@@ -572,7 +614,6 @@ const Events = () => {
         setEvents((prev) => prev.filter((e) => e._id !== eventId));
       } else if (error.response?.status === 500) {
         toast.error("Server error. Please try again later or contact support.");
-        // Retry checking status to restore consistency
         await checkPartnerStatus(eventId);
         await checkParticipation(eventId, (status) => setParticipationStatus((prev) => ({ ...prev, [eventId]: status })));
       } else {
@@ -653,14 +694,6 @@ const Events = () => {
       console.error("Error adding to favorites:", error.response?.data || error.message);
       toast.error(error.response?.data?.message || "Failed to update favorites");
     }
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return isNaN(date.getTime())
-      ? "Invalid Date"
-      : date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   };
 
   const handleImageError = (e) => {
@@ -802,7 +835,6 @@ const Events = () => {
               <option value="all">All Locations</option>
               <option value="Ariana">Ariana</option>
               <option value="Béja">Béja</option>
-              {/* Add more options as needed */}
             </select>
             <select
               value={filterEventType}
@@ -1266,6 +1298,8 @@ const Events = () => {
         onClose={() => setShowQRCodeModal(false)}
         qrCodeValue={qrCodeValue}
         eventTitle={qrCodeEventTitle}
+        isPartner={isPartnerQR}
+        ticketDetails={ticketDetails}
       />
 
       <ToastContainer />

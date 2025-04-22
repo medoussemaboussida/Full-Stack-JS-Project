@@ -16,7 +16,7 @@ const EventDetails = () => {
   const [userId, setUserId] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({});
-  const [relatedEvents, setRelatedEvents] = useState([]); // État pour les événements liés
+  const [relatedEvents, setRelatedEvents] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -399,9 +399,6 @@ const EventDetails = () => {
                           {event.event_type === "in-person" ? event.localisation : event.online_link || "Not defined"}
                         </p>
                       </div>
-                      <Link to="#" className="theme-btn">
-                        Book Now <i className="fas fa-arrow-right"></i>
-                      </Link>
                     </div>
                   </div>
                   <div className="widget">
@@ -440,7 +437,6 @@ const EventDetails = () => {
                       </div>
                     </div>
                   </div>
-                  {/* Section pour les événements liés - Afficher uniquement le nom */}
                   <div className="widget recent-post">
                     <h5 className="title">Related Events</h5>
                     {relatedEvents.length > 0 ? (

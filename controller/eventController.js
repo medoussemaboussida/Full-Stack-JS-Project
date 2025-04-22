@@ -1054,10 +1054,223 @@ exports.checkFavorite = async (req, res) => {
   }
 };
 
+exports.generateEventImage = async (req, res) => {
+  try {
+    const { description } = req.body;
+    if (!description) return res.status(400).json({ message: 'Description is required' });
+
+    const response = await axios.post(
+      'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2-1',
+      {
+        inputs: `A vibrant illustration of an event: ${description}`,
+        parameters: {
+          num_inference_steps: 50,
+          guidance_scale: 7.5,
+          width: 512,
+          height: 512,
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.REACT_APP_HUGGINGFACE_API_TOKEN}`, // Fixed variable
+          'Content-Type': 'application/json',
+        },
+        responseType: 'arraybuffer',
+      }
+    );
+
+    res.set('Content-Type', 'image/png');
+    res.send(response.data);
+  } catch (error) {
+    res.status(500).json({ message: 'Error generating image', error: error.message });
+  }
+};
 
 
+// Générer un ticketId unique (UUID simplifié)
+const generateTicketId = () => {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0,
+      v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
 
+// Sauvegarder le ticket avec gestion des duplicatas
+const saveTicketWithRetry = async (ticketData, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const ticket = new Ticket(ticketData);
+      return await ticket.save();
+    } catch (error) {
+      if (error.code === 11000 && i < retries - 1) {
+        ticketData.ticketId = generateTicketId(); // Générer un nouveau ticketId
+        continue;
+      }
+      throw error;
+    }
+  }
+};
 
+exports.verifyParticipation = async (req, res) => {
+  console.time("verifyParticipation");
+  try {
+    const { eventId, userId } = req.params;
+
+    // Valider les ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      console.log(`Invalid event ID: ${eventId}`);
+      return res.status(422).json({ message: "Invalid event ID format" });
+    }
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      console.log(`Invalid user ID: ${userId}`);
+      return res.status(422).json({ message: "Invalid user ID format" });
+    }
+
+    // Récupérer l'événement
+    const event = await Event.findById(eventId).select("title participants start_date").exec();
+    if (!event) {
+      console.log(`Event not found: ${eventId}`);
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    // Vérifier que start_date existe
+    if (!event.start_date) {
+      console.log(`Event ${eventId} missing start_date`);
+      return res.status(400).json({ message: "Event missing start_date" });
+    }
+
+    // Récupérer l'utilisateur
+    const user = await User.findById(userId).select("username email").exec();
+    if (!user) {
+      console.log(`User not found: ${userId}`);
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Vérifier si l'utilisateur est un participant
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const isParticipating = event.participants && Array.isArray(event.participants)
+      ? event.participants.some((id) => id.equals(userObjectId))
+      : false;
+    if (!isParticipating) {
+      console.log(`User ${userId} is not a participant in event ${eventId}`);
+      return res.status(403).json({
+        message: `${user.username} is not a participant in the event "${event.title}"`,
+        isParticipating: false,
+      });
+    }
+
+    // Générer et enregistrer le ticket
+    const ticketData = {
+      ticketId: generateTicketId(),
+      eventId,
+      userId,
+      type: "participant",
+    };
+    await saveTicketWithRetry(ticketData);
+
+    console.log(`User ${userId} verified as participant in event ${eventId}, ticket ${ticketData.ticketId} generated`);
+    res.status(200).json({
+      message: `${user.username} is a confirmed participant in the event "${event.title}"`,
+      isParticipating: true,
+      eventTitle: event.title,
+      username: user.username,
+      startDate: event.start_date,
+      ticketId: ticketData.ticketId,
+    });
+  } catch (error) {
+    console.error("Error in verifyParticipation:", {
+      message: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  } finally {
+    console.timeEnd("verifyParticipation");
+  }
+};
+
+exports.verifyPartner = async (req, res) => {
+  console.time("verifyPartner");
+  try {
+    const { eventId, userId } = req.params;
+
+    // Valider les ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      console.log(`Invalid event ID: ${eventId}`);
+      return res.status(422).json({ message: "Invalid event ID format" });
+    }
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      console.log(`Invalid user ID: ${userId}`);
+      return res.status(422).json({ message: "Invalid user ID format" });
+    }
+
+    // Récupérer l'événement
+    const event = await Event.findById(eventId).select("title partners start_date").exec();
+    if (!event) {
+      console.log(`Event not found: ${eventId}`);
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    // Vérifier que start_date existe
+    if (!event.start_date) {
+      console.log(`Event ${eventId} missing start_date`);
+      return res.status(400).json({ message: "Event missing start_date" });
+    }
+
+    // Récupérer l'utilisateur
+    const user = await User.findById(userId).select("username email").exec();
+    if (!user) {
+      console.log(`User not found: ${userId}`);
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Vérifier si l'utilisateur est un partenaire
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const isPartner = event.partners && Array.isArray(event.partners)
+      ? event.partners.some((id) => id.equals(userObjectId))
+      : false;
+    if (!isPartner) {
+      console.log(`User ${userId} is not a partner in event ${eventId}`);
+      return res.status(403).json({
+        message: `${user.username} is not a partner in the event "${event.title}"`,
+        isPartner: false,
+      });
+    }
+
+    // Générer et enregistrer le ticket
+    const ticketData = {
+      ticketId: generateTicketId(),
+      eventId,
+      userId,
+      type: "partner",
+    };
+    await saveTicketWithRetry(ticketData);
+
+    console.log(`User ${userId} verified as partner in event ${eventId}, ticket ${ticketData.ticketId} generated`);
+    res.status(200).json({
+      message: `${user.username} is a confirmed partner in the event "${event.title}"`,
+      isPartner: true,
+      eventTitle: event.title,
+      username: user.username,
+      startDate: event.start_date,
+      ticketId: ticketData.ticketId,
+    });
+  } catch (error) {
+    console.error("Error in verifyPartner:", {
+      message: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  } finally {
+    console.timeEnd("verifyPartner");
+  }
+};
 
 
 module.exports = exports;

@@ -64,6 +64,7 @@ router.get("/checkFavorite/:id", userController.verifyToken, eventController.che
 router.post("/events/cancelPartnerParticipation/:eventId", userController.verifyToken, eventController.cancelPartnerParticipation);
 router.get("/events/checkPartnerParticipation/:eventId",  userController.verifyToken, eventController.checkPartnerParticipation);
 //router.post("/cancelPartnerParticipation/:id", userController.verifyToken, eventController.cancelPartnerParticipation);
-
+router.get("/verifyParticipation/:eventId/:userId", eventController.verifyParticipation);
+router.get("/verifyPartner/:eventId/:userId", eventController.verifyPartner);
 //router.get("/checkPartnerParticipation/:eventId", userController.verifyToken, eventController.checkPartnerParticipation); // Ajouté
 module.exports = router;
