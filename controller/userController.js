@@ -863,6 +863,80 @@ module.exports.banUser = async (req, res) => {
     }
 };
 
+// Récupérer les publications recommandées
+exports.getRecommendedPublications = async (req, res) => {
+    try {
+        const publications = await Publication.aggregate([
+            { $match: { status: { $in: ['published', 'draft'] } } },
+            {
+                $lookup: {
+                    from: 'commentaires',
+                    localField: '_id',
+                    foreignField: 'publication_id',
+                    as: 'commentaires',
+                },
+            },
+            {
+                $addFields: {
+                    positiveCommentsCount: {
+                        $size: {
+                            $filter: {
+                                input: '$commentaires',
+                                as: 'commentaire',
+                                cond: { $eq: ['$$commentaire.sentiment', 'POSITIVE'] },
+                            },
+                        },
+                    },
+                },
+            },
+            { $sort: { positiveCommentsCount: -1, likeCount: -1, viewCount: -1 } },
+            { $limit: 3 },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'author_id',
+                    foreignField: '_id',
+                    as: 'author_id',
+                },
+            },
+            { $unwind: '$author_id' },
+            {
+                $project: {
+                    _id: 1,
+                    titrePublication: 1,
+                    description: 1,
+                    imagePublication: 1,
+                    tag: 1,
+                    datePublication: 1,
+                    status: 1,
+                    likeCount: 1,
+                    dislikeCount: 1,
+                    nombreCommentaires: 1,
+                    viewCount: 1,
+                    author_id: {
+                        _id: '$author_id._id',
+                        username: '$author_id.username',
+                    },
+                    positiveCommentsCount: 1,
+                },
+            },
+        ]);
+
+        if (!publications || publications.length === 0) {
+            return res.status(404).json({ message: 'No recommended publications found' });
+        }
+
+        for (let pub of publications) {
+            pub.commentsCount = pub.nombreCommentaires;
+        }
+
+        res.status(200).json(publications);
+    } catch (error) {
+        console.error('Error fetching recommended publications:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
 // Vérifier le statut de bannissement avant d'ajouter un commentaire
 
 module.exports.addCommentaire = async (req, res) => {
