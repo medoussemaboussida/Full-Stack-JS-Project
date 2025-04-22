@@ -70,15 +70,15 @@ function Publication() {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
     const [showNotesModal, setShowNotesModal] = useState(false);
-    // Initialiser les notes depuis localStorage ou objet vide si rien n'existe
     const [notes, setNotes] = useState(() => {
         const savedNotes = localStorage.getItem('calendarNotes');
         return savedNotes ? JSON.parse(savedNotes) : {};
     });
     const [currentNote, setCurrentNote] = useState('');
-    // Ajout des états pour les publications recommandées
     const [recommendedPublications, setRecommendedPublications] = useState([]);
     const [showRecommendedModal, setShowRecommendedModal] = useState(false);
+    // État pour le modal des règles
+    const [showRulesModal, setShowRulesModal] = useState(false);
 
     const publicationsPerPage = 6;
 
@@ -128,7 +128,7 @@ function Publication() {
             const data = await response.json();
             console.log('Recommended publications response:', data);
             if (response.ok) {
-                setRecommendedPublications(data.slice(0, 3)); // Limiter à 3 publications
+                setRecommendedPublications(data.slice(0, 3));
             } else {
                 console.error('Failed to fetch recommended publications:', data.message);
                 toast.error(`Erreur: ${data.message}`);
@@ -275,7 +275,6 @@ function Publication() {
         if (selectedDate) {
             setNotes(prev => {
                 const updatedNotes = { ...prev, [selectedDate]: currentNote };
-                // Sauvegarder dans localStorage
                 localStorage.setItem('calendarNotes', JSON.stringify(updatedNotes));
                 return updatedNotes;
             });
@@ -582,8 +581,8 @@ function Publication() {
         }
 
         fetchPublications();
-        fetchRecommendedPublications(); // Charger les publications recommandées
-    }, []); // Retiré sortOrder des dépendances
+        fetchRecommendedPublications();
+    }, []);
 
     if (isLoading) {
         return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Loading...</div>;
@@ -1533,6 +1532,97 @@ function Publication() {
                     </div>
                 </div>
             )}
+
+            {/* Modal pour les règles */}
+            {showRulesModal && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 1000,
+                    }}
+                >
+                    <div
+                        style={{
+                            backgroundColor: '#fff',
+                            padding: '30px',
+                            borderRadius: '10px',
+                            width: '500px',
+                            maxWidth: '90%',
+                            boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+                            position: 'relative',
+                        }}
+                    >
+                        {/* Bouton de fermeture */}
+                        <button
+                            onClick={() => setShowRulesModal(false)}
+                            style={{
+                                position: 'absolute',
+                                top: '10px',
+                                right: '10px',
+                                background: 'transparent',
+                                border: 'none',
+                                fontSize: '18px',
+                                color: '#666',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            ✕
+                        </button>
+
+                        {/* Contenu des règles */}
+                        <h3 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '20px', color: '#0ea5e6' }}>
+                            Publication Rules 📜
+                        </h3>
+                        <ul style={{ listStyle: 'none', padding: '0', margin: '0', fontSize: '16px', color: '#333' }}>
+                            <li style={{ marginBottom: '12px' }}>⚠️ Inappropriate comments or behavior will result in a ban.</li>
+                            <li style={{ marginBottom: '12px' }}>🚩 Report any comment or publication that violates these rules.</li>
+                            <li style={{ marginBottom: '12px' }}>😊 Keep the community positive, supportive, and respectful!</li>
+                            <li style={{ marginBottom: '12px' }}>📝 Ensure all content is relevant and appropriate for all audiences.</li>
+                            <li style={{ marginBottom: '12px' }}>🚫 No spam, advertisements, or self-promotion without permission.</li>
+                            <li style={{ marginBottom: '12px' }}>🤝 Respect others' opinions and engage in constructive discussions.</li>
+                            <li>🔒 Protect personal information; do not share sensitive data.</li>
+                        </ul>
+                    </div>
+                </div>
+            )}
+
+            {/* Bouton flottant pour les règles */}
+            <a
+                href="#"
+                style={{
+                    position: 'fixed',
+                    bottom: '80px',
+                    right: '20px',
+                    background: '#0ea5e6',
+                    color: '#fff',
+                    width: '50px',
+                    height: '50px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textDecoration: 'none',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+                    transition: 'background 0.3s ease',
+                    zIndex: 999,
+                }}
+                onClick={(e) => {
+                    e.preventDefault();
+                    setShowRulesModal(true);
+                }}
+                onMouseEnter={(e) => e.target.style.background = '#45a049'}
+                onMouseLeave={(e) => e.target.style.background = '#0ea5e6'}
+            >
+                📜
+            </a>
 
             {/* Scroll Top */}
             <a

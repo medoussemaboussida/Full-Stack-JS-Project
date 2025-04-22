@@ -6,18 +6,22 @@ import 'react-toastify/dist/ReactToastify.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../App.css';
 import { jwtDecode } from 'jwt-decode';
+import jsPDF from 'jspdf';
 
 const BASE_URL = "http://localhost:5000";
 
 const EventDetails = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState(null);
+  const [userRole, setUserRole] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({});
   const [relatedEvents, setRelatedEvents] = useState([]);
-  const navigate = useNavigate();
+  const [imageSrc, setImageSrc] = useState("/assets/img/event/single.jpg");
+  const [showParticipants, setShowParticipants] = useState(false); // New state for toggling participants list
 
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
@@ -25,9 +29,11 @@ const EventDetails = () => {
       try {
         const decoded = jwtDecode(token);
         setUserId(decoded.id);
+        setUserRole(decoded.role);
       } catch (error) {
         console.error("Token decoding error:", error);
-        toast.error("Invalid session, please log in again");
+        toast.error("Invalid session, please log in again", { autoClose: 3000 });
+        setTimeout(() => navigate("/login"), 3000);
       }
     }
 
@@ -36,6 +42,7 @@ const EventDetails = () => {
         console.log(`Fetching event with ID: ${id}`);
         const response = await axios.get(`${BASE_URL}/events/getEvent/${id}`, {
           headers: { "Content-Type": "application/json" },
+          timeout: 10000,
         });
         const eventData = response.data.event || response.data;
         console.log('Fetched event data:', eventData);
@@ -51,38 +58,64 @@ const EventDetails = () => {
           online_link: eventData.online_link || '',
           contact_email: eventData.contact_email || '',
           imageUrl: eventData.imageUrl || '',
+          heure: eventData.heure || '',
+          hasPartners: eventData.hasPartners || false,
         });
-        await fetchRelatedEvents(eventData.event_type);
+
+        const url = eventData.imageUrl ? `${BASE_URL}/${eventData.imageUrl.replace(/^\/+/, '')}` : "/assets/img/event/single.jpg";
+        console.log('Image URL to display:', url);
+        const img = new Image();
+        img.src = url;
+        img.onload = () => setImageSrc(url);
+        img.onerror = () => {
+          console.log(`Failed to load image: ${url}, falling back to default`);
+          setImageSrc("/assets/img/event/single.jpg");
+        };
+
+        await fetchRelatedEvents(eventData.event_type, eventData.localisation);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching event:", error.response?.data || error.message);
-        toast.error(`Loading error: ${error.message}`);
+        toast.error(`Loading error: ${error.message}`, { autoClose: 3000 });
+        setImageSrc("/assets/img/event/single.jpg");
         setLoading(false);
       }
     };
 
     fetchEvent();
-  }, [id]);
+  }, [id, navigate]);
 
-  const fetchRelatedEvents = async (eventType) => {
+  const fetchRelatedEvents = async (eventType, localisation) => {
     try {
       const token = localStorage.getItem("jwt-token");
-      if (!token || !eventType) {
+      if (!token) {
+        setRelatedEvents([]);
+        return;
+      }
+
+      const requestBody = {
+        status: ["upcoming", "ongoing"],
+      };
+
+      if (eventType === "in-person" && localisation) {
+        requestBody.event_type = "in-person";
+        requestBody.localisation = localisation;
+      } else if (eventType === "online") {
+        requestBody.event_type = "online";
+      } else {
         setRelatedEvents([]);
         return;
       }
 
       const response = await axios.post(
         `${BASE_URL}/events/related`,
-        { 
-          event_type: eventType, 
-          status: ["upcoming", "ongoing"]
-        },
+        requestBody,
         {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
+          timeout: 10000,
         }
       );
 
@@ -102,11 +135,6 @@ const EventDetails = () => {
     return date.toLocaleDateString("en-US", { day: "2-digit", month: "long", year: "numeric" });
   };
 
-  const handleImageError = (e) => {
-    console.log('Image failed to load:', e.target.src);
-    e.target.src = "/assets/img/event/single.jpg";
-  };
-
   const handleOrganizerImageError = (e) => {
     e.target.src = "/assets/img/event/author.jpg";
   };
@@ -114,7 +142,8 @@ const EventDetails = () => {
   const handleUpdate = () => setIsEditing(true);
 
   const handleFormChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleFormSubmit = async (e) => {
@@ -122,20 +151,75 @@ const EventDetails = () => {
     try {
       const token = localStorage.getItem("jwt-token");
       if (!token) throw new Error("No token found");
-      const response = await axios.put(`${BASE_URL}/events/${id}`, formData, {
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+
+      // Convert formData to FormData object for multipart/form-data
+      const formDataToSend = new FormData();
+      formDataToSend.append("title", formData.title);
+      formDataToSend.append("description", formData.description);
+      formDataToSend.append("start_date", formData.start_date);
+      formDataToSend.append("end_date", formData.end_date);
+      formDataToSend.append("event_type", formData.event_type);
+      if (formData.event_type === "in-person") {
+        formDataToSend.append("localisation", formData.localisation);
+        formDataToSend.append("lieu", formData.lieu);
+      } else {
+        formDataToSend.append("online_link", formData.online_link);
+      }
+      formDataToSend.append("heure", formData.heure);
+      formDataToSend.append("contact_email", formData.contact_email);
+      formDataToSend.append("hasPartners", formData.hasPartners);
+
+      const response = await axios.put(`${BASE_URL}/events/updateEvent/${id}`, formDataToSend, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+        timeout: 10000,
+        validateStatus: (status) => {
+          return status >= 200 && status < 300; // Treat 2xx status codes as success
+        },
       });
-      const updatedEvent = response.data.event || response.data;
+
+      const updatedEvent = response.data.data || response.data;
+      console.log("Update response:", response.status, response.data);
+
       setEvent(updatedEvent);
       setFormData({
-        ...updatedEvent,
-        start_date: new Date(updatedEvent.start_date).toISOString().split("T")[0],
-        end_date: new Date(updatedEvent.end_date).toISOString().split("T")[0],
+        title: updatedEvent.title || '',
+        description: updatedEvent.description || '',
+        start_date: updatedEvent.start_date ? new Date(updatedEvent.start_date).toISOString().split("T")[0] : '',
+        end_date: updatedEvent.end_date ? new Date(updatedEvent.end_date).toISOString().split("T")[0] : '',
+        event_type: updatedEvent.event_type || 'in-person',
+        localisation: updatedEvent.localisation || '',
+        lieu: updatedEvent.lieu || '',
+        online_link: updatedEvent.online_link || '',
+        contact_email: updatedEvent.contact_email || '',
+        heure: updatedEvent.heure || '',
+        hasPartners: updatedEvent.hasPartners || false,
       });
       setIsEditing(false);
-      toast.success("Update successful!");
+      toast.success("Update successful!", { autoClose: 2000 });
+
+      const url = updatedEvent.imageUrl ? `${BASE_URL}/${updatedEvent.imageUrl.replace(/^\/+/, '')}` : "/assets/img/event/single.jpg";
+      console.log('Image URL to display:', url);
+      const img = new Image();
+      img.src = url;
+      img.onload = () => setImageSrc(url);
+      img.onerror = () => {
+        console.log(`Failed to load image: ${url}, falling back to default`);
+        setImageSrc("/assets/img/event/single.jpg");
+      };
     } catch (error) {
-      toast.error(error.response?.data?.message || "Update error");
+      console.error("Error updating event:", error);
+      if (error.code === "ECONNABORTED") {
+        toast.error("Request timed out. Please check your network connection and try again.", { autoClose: 3000 });
+      } else if (error.response) {
+        const errorMessage = error.response.data?.message || "Update error";
+        console.log("Backend error details:", error.response.status, error.response.data);
+        toast.error(errorMessage, { autoClose: 3000 });
+      } else {
+        toast.error(error.message || "Network error: Unable to connect to the server", { autoClose: 3000 });
+      }
     }
   };
 
@@ -152,34 +236,118 @@ const EventDetails = () => {
     if (!window.confirm("Delete this event?")) return;
     try {
       const token = localStorage.getItem("jwt-token");
-      await axios.delete(`${BASE_URL}/events/${id}`, {
+      await axios.delete(`${BASE_URL}/events/deleteEvent/${id}`, {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        timeout: 10000,
       });
-      toast.success("Deletion successful!");
+      toast.success("Deletion successful!", { autoClose: 2000 });
       setTimeout(() => navigate("/events"), 2000);
     } catch (error) {
-      toast.error(error.response?.data?.message || "Deletion error");
+      console.error("Error deleting event:", error);
+      toast.error(error.response?.data?.message || "Deletion error", { autoClose: 3000 });
     }
   };
 
-  const handleDownloadPDF = async () => {
+  const getBase64Image = (url, callback) => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      const dataURL = canvas.toDataURL("image/jpeg");
+      callback(dataURL);
+    };
+    img.onerror = () => {
+      const fallbackImg = new Image();
+      fallbackImg.crossOrigin = "Anonymous";
+      fallbackImg.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = fallbackImg.width;
+        canvas.height = fallbackImg.height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(fallbackImg, 0, 0);
+        const dataURL = canvas.toDataURL("image/jpeg");
+        callback(dataURL);
+      };
+      fallbackImg.onerror = () => callback(null);
+      fallbackImg.src = "/assets/img/event/single.jpg";
+    };
+    img.src = url;
+  };
+
+  const handleDownloadPDF = () => {
     try {
-      const token = localStorage.getItem("jwt-token");
-      const response = await axios.get(`${BASE_URL}/events/generatePDF/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        responseType: 'blob',
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'pt',
+        format: 'a4',
       });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${event.title}_Details.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      toast.success("PDF downloaded successfully!");
+
+      const marginLeft = 40;
+      const marginRight = 40;
+      const marginTop = 40;
+      const pageHeight = doc.internal.pageSize.height;
+      let yPosition = marginTop;
+
+      doc.setFont('Times', 'bold');
+      doc.setFontSize(16);
+      doc.text('Event Details', doc.internal.pageSize.width / 2, yPosition, { align: 'center' });
+      yPosition += 40;
+
+      getBase64Image(imageSrc, (base64Image) => {
+        if (base64Image) {
+          const imgWidth = 200;
+          const imgHeight = (imgWidth * 3) / 4;
+          const xPosition = (doc.internal.pageSize.width - imgWidth) / 2;
+          doc.addImage(base64Image, 'JPEG', xPosition, yPosition, imgWidth, imgHeight);
+          yPosition += imgHeight + 20;
+        } else {
+          yPosition += 20;
+        }
+
+        const addField = (label, value) => {
+          const sanitizedValue = String(value || 'N/A').replace(/[^\x20-\x7E]/g, '');
+          if (yPosition > pageHeight - 40) {
+            doc.addPage();
+            yPosition = marginTop;
+          }
+          doc.setFont('Times', 'bold');
+          doc.setFontSize(12);
+          doc.text(`${label}:`, marginLeft, yPosition);
+          doc.setFont('Times', 'normal');
+          const textWidth = doc.internal.pageSize.width - marginLeft - marginRight - 80;
+          const splitText = doc.splitTextToSize(sanitizedValue, textWidth);
+          splitText.forEach((line, index) => {
+            if (yPosition > pageHeight - 40) {
+              doc.addPage();
+              yPosition = marginTop;
+            }
+            doc.text(line, marginLeft + 80, yPosition);
+            yPosition += 14;
+          });
+          yPosition += 10;
+        };
+
+        addField('Title', event.title);
+        addField('Description', event.description);
+        addField('Start Date', event.start_date ? formatDate(event.start_date) : 'N/A');
+        addField('End Date', event.end_date ? formatDate(event.end_date) : 'N/A');
+        addField('Time', event.heure || 'N/A');
+        addField('Event Type', event.event_type === 'in-person' ? 'In-Person' : 'Online');
+        addField('Organizer', event.created_by?.username || 'Unknown Organizer');
+        addField('Contact', event.contact_email || event.created_by?.email || 'N/A');
+        addField('Participants', `${event.participants?.length || 1} / ${event.max_participants || 'No limit'}`);
+        addField('Accept Partners', event.hasPartners ? 'YES' : 'NO');
+
+        doc.save(`${event.title}_Details.pdf`);
+        toast.success("PDF downloaded successfully!", { autoClose: 2000 });
+      });
     } catch (error) {
       console.error("Error generating PDF:", error);
-      toast.error("Error generating PDF");
+      toast.error("Error generating PDF", { autoClose: 3000 });
     }
   };
 
@@ -187,8 +355,6 @@ const EventDetails = () => {
   if (!event) return <div className="text-center py-5">Event not found</div>;
 
   const isCreator = userId && event.created_by?._id === userId;
-  const imageSrc = event.imageUrl ? `${BASE_URL}/${event.imageUrl.replace(/^\/+/, '')}` : "/assets/img/event/single.jpg";
-  console.log('Image URL to display:', imageSrc);
 
   return (
     <>
@@ -208,12 +374,7 @@ const EventDetails = () => {
             <div className="row g-4">
               <div className="col-lg-8">
                 <div className="event-details">
-                  <img
-                    src={imageSrc}
-                    alt={event.title}
-                    onError={handleImageError}
-                    className="img-fluid"
-                  />
+                  <img src={imageSrc} alt={event.title} className="img-fluid" />
                   {isEditing ? (
                     <form onSubmit={handleFormSubmit} className="mt-4">
                       <div className="mb-3">
@@ -255,6 +416,17 @@ const EventDetails = () => {
                           type="date"
                           name="end_date"
                           value={formData.end_date}
+                          onChange={handleFormChange}
+                          className="form-control"
+                          required
+                        />
+                      </div>
+                      <div className="mb-3">
+                        <label className="form-label">Time</label>
+                        <input
+                          type="time"
+                          name="heure"
+                          value={formData.heure}
                           onChange={handleFormChange}
                           className="form-control"
                           required
@@ -323,6 +495,19 @@ const EventDetails = () => {
                           required
                         />
                       </div>
+                      <div className="mb-3">
+                        <label className="form-label">Accept Partners</label>
+                        <select
+                          name="hasPartners"
+                          value={formData.hasPartners.toString()}
+                          onChange={handleFormChange}
+                          className="form-control"
+                          required
+                        >
+                          <option value="false">No</option>
+                          <option value="true">Yes</option>
+                        </select>
+                      </div>
                       <button type="submit" className="theme-btn me-2">
                         Save <i className="fas fa-save"></i>
                       </button>
@@ -386,6 +571,13 @@ const EventDetails = () => {
                         </p>
                       </div>
                       <div className="event-single-item">
+                        <h5>Time</h5>
+                        <p>
+                          <i className="far fa-clock"></i>
+                          {event.heure || "N/A"}
+                        </p>
+                      </div>
+                      <div className="event-single-item">
                         <h5>Type</h5>
                         <p>
                           <i className="far fa-info-circle"></i>
@@ -393,12 +585,47 @@ const EventDetails = () => {
                         </p>
                       </div>
                       <div className="event-single-item">
-                        <h5>Location / Link</h5>
+                        <h5>Participants</h5>
                         <p>
-                          <i className="far fa-map-marker-alt"></i>
-                          {event.event_type === "in-person" ? event.localisation : event.online_link || "Not defined"}
+                          <i className="far fa-users"></i>
+                          {event.participants?.length || 1} / {event.max_participants || "No limit"}
                         </p>
                       </div>
+                      <div className="event-single-item">
+                        <h5>Accept Partners</h5>
+                        <p>
+                          <i className="far fa-handshake"></i>
+                          {event.hasPartners ? "YES" : "NO"}
+                        </p>
+                      </div>
+                      {event.hasPartners && userRole === "association_member" && (
+                        <div className="event-single-item">
+                          <div
+                            onClick={() => setShowParticipants(!showParticipants)}
+                            style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+                          >
+                            <h5 style={{ margin: 0 }}>Participants List</h5>
+                            <i
+                              className={`fas fa-chevron-${showParticipants ? "up" : "down"} ml-2`}
+                              style={{ marginLeft: "8px" }}
+                            ></i>
+                          </div>
+                          {showParticipants && (
+                            <>
+                              {event.participants?.length > 0 ? (
+                                event.participants.map((participant, index) => (
+                                  <p key={index}>
+                                    <i className="far fa-list"></i>
+                                    {index + 1}. {participant.username || "Unknown"}
+                                  </p>
+                                ))
+                              ) : (
+                                <p>No participants yet.</p>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="widget">
@@ -417,7 +644,7 @@ const EventDetails = () => {
                         />
                         <h5>{event.created_by?.username || "Unknown Organizer"}</h5>
                         <p>
-                          Contact {event.created_by?.email || event.contact_email || "unknown"} for more information.
+                          Contact {event.created_by?.email || event.contact_email || "unknown"} for more details.
                         </p>
                         <div className="mt-3">
                           <button onClick={handleDownloadPDF} className="theme-btn me-2">
@@ -442,8 +669,25 @@ const EventDetails = () => {
                     {relatedEvents.length > 0 ? (
                       <ul>
                         {relatedEvents.map((relatedEvent) => (
-                          <li key={relatedEvent._id}>
-                            <Link to={`/events/${relatedEvent._id}`}>{relatedEvent.title}</Link>
+                          <li key={relatedEvent._id} className="related-event-item">
+                            <Link to={`/events/${relatedEvent._id}`}>
+                              <strong>{relatedEvent.title}</strong>
+                            </Link>
+                            <p className="related-event-location">
+                              <i className="fas fa-map-marker-alt me-2"></i>
+                              {relatedEvent.event_type === "in-person" ? (
+                                <>
+                                  {relatedEvent.localisation || "Location not specified"}
+                                  {relatedEvent.distance === 0
+                                    ? " (Same Location)"
+                                    : relatedEvent.distance
+                                    ? ` (Nearby, ~${Math.round(relatedEvent.distance)} km)`
+                                    : ""}
+                                </>
+                              ) : (
+                                relatedEvent.online_link || "Online link not specified"
+                              )}
+                            </p>
                           </li>
                         ))}
                       </ul>
