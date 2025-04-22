@@ -281,6 +281,48 @@ const Chat = () => {
     }));
   };
 
+  const generateSpeech = async (text) => {
+    if (!text || text === '[Decryption failed]' || text === '[Voice Message]') {
+      console.log('Skipping TTS for invalid text:', text);
+      setError('Cannot generate speech for this message.');
+      return;
+    }
+    try {
+      console.log('Generating speech for text:', text);
+      const response = await axios.post(
+        'https://api-inference.huggingface.co/models/espnet/kan-bayashi_ljspeech_vits',
+        { inputs: text },
+        {
+          headers: {
+            Authorization: `Bearer ${hfToken}`,
+            'Content-Type': 'application/json',
+          },
+          responseType: 'arraybuffer',
+          timeout: 30000,
+        }
+      );
+      const audioBlob = new Blob([response.data], { type: 'audio/wav' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.play().catch((err) => setError('Failed to play TTS audio: ' + err.message));
+    } catch (err) {
+      console.error('TTS error:', {
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data,
+      });
+      let errorMessage = 'Failed to generate speech.';
+      if (err.response?.status === 429) {
+        errorMessage = 'TTS quota exceeded. Please try again later.';
+      } else if (err.response?.status === 400) {
+        errorMessage = 'Invalid text for TTS.';
+      } else if (err.code === 'ECONNABORTED') {
+        errorMessage = 'TTS request timed out.';
+      }
+      setError(errorMessage);
+    }
+  };
+
   const summarizeConversation = async () => {
     console.log('Starting summarizeConversation');
     
@@ -981,7 +1023,7 @@ const Chat = () => {
             box-shadow: 0 0 10px rgba(0, 183, 235, 0.3);
           }
 
-          .emoji-button, .video-button, .voice-button, .refresh-button, .send-button, .translate-button {
+          .emoji-button, .video-button, .voice-button, .refresh-button, .send-button, .translate-button, .tts-button {
             background: none;
             border: none;
             font-size: 1.3rem;
@@ -991,7 +1033,7 @@ const Chat = () => {
             transition: all 0.3s ease;
           }
 
-          .emoji-button:hover, .video-button:hover, .refresh-button:hover, .send-button:hover, .translate-button:hover {
+          .emoji-button:hover, .video-button:hover, .refresh-button:hover, .send-button:hover, .translate-button:hover, .tts-button:hover {
             color: var(--accent-blue);
             transform: scale(1.1);
           }
@@ -1015,6 +1057,15 @@ const Chat = () => {
           }
 
           .play-voice-button:hover {
+            color: #0099c7;
+          }
+
+          .tts-button {
+            font-size: 1rem;
+            margin-left: 0.5rem;
+          }
+
+          .tts-button:hover {
             color: #0099c7;
           }
 
@@ -1365,6 +1416,13 @@ const Chat = () => {
                                               >
                                                 <i className="fas fa-language"></i>
                                               </button>
+                                              <button
+                                                className="tts-button ms-2"
+                                                onClick={() => generateSpeech(msg.message)}
+                                                title="Play Message Aloud"
+                                              >
+                                                <i className="fas fa-volume-up"></i>
+                                              </button>
                                             </>
                                           )}
                                         </p>
@@ -1449,13 +1507,22 @@ const Chat = () => {
                                         msg.message
                                       )}
                                       {!msg.isVoice && (
-                                        <button
-                                          className="translate-button ms-2"
-                                          onClick={() => handleTranslate(msg._id, msg.message)}
-                                          title="Translate Message"
-                                        >
-                                          <i className="fas fa-language"></i>
-                                        </button>
+                                        <>
+                                          <button
+                                            className="translate-button ms-2"
+                                            onClick={() => handleTranslate(msg._id, msg.message)}
+                                            title="Translate Message"
+                                          >
+                                            <i className="fas fa-language"></i>
+                                          </button>
+                                          <button
+                                            className="tts-button ms-2"
+                                            onClick={() => generateSpeech(msg.message)}
+                                            title="Play Message Aloud"
+                                          >
+                                            <i className="fas fa-volume-up"></i>
+                                          </button>
+                                        </>
                                       )}
                                     </p>
                                     {translatedMessages[msg._id] && (
@@ -1503,10 +1570,10 @@ const Chat = () => {
                           value={targetLanguage}
                           onChange={(e) => setTargetLanguage(e.target.value)}
                         >
+                          <option value="en">English</option>
                           <option value="fr">French</option>
                           <option value="es">Spanish</option>
                           <option value="de">German</option>
-
                         </select>
                         <input
                           type="text"
