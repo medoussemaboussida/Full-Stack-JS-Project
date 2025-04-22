@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faHeart as faHeartSolid } from "@fortawesome/free-solid-svg-icons";
 import { faHeart as faHeartRegular } from "@fortawesome/free-regular-svg-icons";
-import { faTrash, faChevronLeft, faChevronRight, faPlus, faTimes, faThumbtack } from "@fortawesome/free-solid-svg-icons";
+import { faTrash, faChevronLeft, faChevronRight, faPlus, faTimes, faThumbtack, faRandom } from "@fortawesome/free-solid-svg-icons";
 import { Bar, Line, Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -60,6 +60,9 @@ function Activities() {
   const [moods, setMoods] = useState([]);
   const [scheduledActivities, setScheduledActivities] = useState({});
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [showSlotMachineModal, setShowSlotMachineModal] = useState(false);
+  const [proposedActivities, setProposedActivities] = useState([]);
+  const [isSpinning, setIsSpinning] = useState(false);
   const itemsPerPage = 8;
   const navigate = useNavigate();
 
@@ -352,6 +355,76 @@ function Activities() {
 
   const closeStatsModal = () => {
     setShowStatsModal(false);
+  };
+
+  const recommendActivities = () => {
+    const moodImpact = calculateMoodImpact();
+    const satisfactionData = calculateSatisfactionDistribution();
+
+    // Calculate scores for each activity
+    const scoredActivities = activities
+      .filter(activity => !activity.isArchived)
+      .map(activity => {
+        const moodScore = moodImpact[activity._id]?.average || 3; // Default to neutral if no mood data
+        const satisfactionScore = satisfactionData[activity._id]?.satisfied / 
+          (satisfactionData[activity._id]?.totalMoods || 1) || 0.5; // Default to 0.5 if no satisfaction data
+        const favoriteBonus = favoriteActivities.includes(activity._id) ? 1 : 0;
+        const pinnedBonus = pinnedActivities.includes(activity._id) ? 1 : 0;
+        const score = (moodScore * 0.4 + satisfactionScore * 0.3 + favoriteBonus * 0.2 + pinnedBonus * 0.1) + Math.random() * 0.2;
+        return { ...activity, score };
+      });
+
+    // Sort by score and select top 4
+    scoredActivities.sort((a, b) => b.score - a.score);
+    const topActivities = scoredActivities.slice(0, 4);
+
+    // If less than 4 activities, fill with random ones
+    if (topActivities.length < 4) {
+      const remaining = activities
+        .filter(activity => !activity.isArchived && !topActivities.includes(activity))
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 4 - topActivities.length);
+      return [...topActivities, ...remaining];
+    }
+
+    return topActivities;
+  };
+
+  const handleProposeActivities = () => {
+    if (userId) {
+      fetchMoods(userId);
+      fetchScheduledActivities(userId);
+    }
+    setShowSlotMachineModal(true);
+    setIsSpinning(true);
+    setProposedActivities([]);
+
+    // Simulate slot machine spinning
+    setTimeout(() => {
+      const selectedActivities = recommendActivities();
+      setProposedActivities(selectedActivities);
+      setIsSpinning(false);
+    }, 2000); // 2 seconds spinning
+  };
+
+  const closeSlotMachineModal = () => {
+    setShowSlotMachineModal(false);
+    setProposedActivities([]);
+    setIsSpinning(false);
+  };
+
+  // Generate a list of activities for each reel during spinning
+  const generateReelActivities = (finalActivity, reelIndex) => {
+    if (!finalActivity) return [];
+    
+    // Shuffle non-archived activities and take 9 random ones, then append the final activity
+    const shuffledActivities = activities
+      .filter(activity => !activity.isArchived && activity._id !== finalActivity._id)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 9);
+    
+    // Ensure the final activity is at the end
+    return [...shuffledActivities, finalActivity];
   };
 
   const calculateMoodImpact = () => {
@@ -685,6 +758,72 @@ function Activities() {
 
   return (
     <div>
+      <style>
+        {`
+          .slot-machine-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+          }
+          .slot-reel {
+            width: 200px;
+            height: 300px;
+            overflow: hidden;
+            border: 2px solid #0ea5e6;
+            border-radius: 10px;
+            position: relative;
+            background: #fff;
+          }
+          .slot-reel-inner {
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.5s ease-out;
+          }
+          .slot-item {
+            width: 100%;
+            height: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            box-sizing: border-box;
+            border-bottom: 1px solid #eee;
+          }
+          .slot-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 5px;
+          }
+          .slot-item h4 {
+            font-size: 14px;
+            margin: 10px 0;
+            text-align: center;
+          }
+          .slot-item p {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            margin: 0;
+          }
+          .spinning .slot-reel-inner {
+            animation: spin 0.2s linear infinite;
+          }
+          @keyframes spin {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-300px); }
+          }
+          .stopped .slot-reel-inner {
+            transform: translateY(-${300 * 9}px); /* Adjust to show the last (10th) item */
+          }
+        `}
+      </style>
+
       <div
         className="site-breadcrumb"
         style={{
@@ -807,7 +946,7 @@ function Activities() {
             )}
           </div>
 
-          <div style={{ display: "flex", gap: "15px" }}>
+          <div style={{ display: "flex", gap: "15px", flexWrap: "wrap", justifyContent: "center" }}>
             {userRole === "student" && (
               <button
                 onClick={handleOpenStatsModal}
@@ -844,6 +983,29 @@ function Activities() {
                 onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
               >
                 Activity Schedule
+              </button>
+            )}
+            {userRole === "student" && (
+              <button
+                onClick={handleProposeActivities}
+                style={{
+                  backgroundColor: "#ff9500",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  fontWeight: "bold",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s ease",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+                onMouseEnter={(e) => (e.target.style.backgroundColor = "#e68600")}
+                onMouseLeave={(e) => (e.target.style.backgroundColor = "#ff9500")}
+              >
+                <FontAwesomeIcon icon={faRandom} />
+                Propose Activities
               </button>
             )}
             {userRole === "psychiatrist" && (
@@ -1292,6 +1454,92 @@ function Activities() {
               >
                 Close
               </button>
+            </div>
+          </div>
+        )}
+
+        {showSlotMachineModal && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              zIndex: 1000,
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "white",
+                padding: "20px",
+                borderRadius: "8px",
+                width: "90%",
+                maxWidth: "1000px",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                textAlign: "center",
+              }}
+            >
+              <h3 style={{ fontSize: "24px", marginBottom: "20px" }}>Your Proposed Activities</h3>
+              <div className="slot-machine-container">
+                {[...Array(4)].map((_, index) => {
+                  const reelActivities = isSpinning || !proposedActivities[index]
+                    ? activities.filter(activity => !activity.isArchived).sort(() => Math.random() - 0.5).slice(0, 10)
+                    : generateReelActivities(proposedActivities[index], index);
+                  return (
+                    <div key={index} className="slot-reel">
+                      <div className={`slot-reel-inner ${isSpinning ? 'spinning' : 'stopped'}`}>
+                        {reelActivities.map((activity, itemIndex) => (
+                          <div key={itemIndex} className="slot-item">
+                            <img
+                              src={activity.imageUrl ? `http://localhost:5000${activity.imageUrl}` : "/assets/img/activities/default.png"}
+                              alt="Activity"
+                            />
+                            <h4>{stripHtmlTags(activity.title)}</h4>
+                            <p>{stripHtmlTags(activity.description).substring(0, 50)}...</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ marginTop: "20px" }}>
+                <button
+                  onClick={handleProposeActivities}
+                  disabled={isSpinning}
+                  style={{
+                    backgroundColor: isSpinning ? "#ccc" : "#ff9500",
+                    color: "white",
+                    padding: "10px 20px",
+                    borderRadius: "5px",
+                    fontWeight: "bold",
+                    border: "none",
+                    cursor: isSpinning ? "not-allowed" : "pointer",
+                    marginRight: "10px",
+                  }}
+                >
+                  Spin Again
+                </button>
+                <button
+                  onClick={closeSlotMachineModal}
+                  style={{
+                    backgroundColor: "#0ea5e6",
+                    color: "white",
+                    padding: "10px 20px",
+                    borderRadius: "5px",
+                    fontWeight: "bold",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         )}
