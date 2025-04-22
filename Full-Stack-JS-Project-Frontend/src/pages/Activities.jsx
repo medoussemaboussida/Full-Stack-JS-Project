@@ -6,7 +6,16 @@ import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faHeart as faHeartSolid } from "@fortawesome/free-solid-svg-icons";
 import { faHeart as faHeartRegular } from "@fortawesome/free-regular-svg-icons";
-import { faTrash, faChevronLeft, faChevronRight, faPlus, faTimes, faThumbtack, faRandom } from "@fortawesome/free-solid-svg-icons";
+import {
+  faTrash,
+  faChevronLeft,
+  faChevronRight,
+  faPlus,
+  faTimes,
+  faThumbtack,
+  faRandom,
+  faQuestionCircle,
+} from "@fortawesome/free-solid-svg-icons";
 import { Bar, Line, Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -63,6 +72,7 @@ function Activities() {
   const [showSlotMachineModal, setShowSlotMachineModal] = useState(false);
   const [proposedActivities, setProposedActivities] = useState([]);
   const [isSpinning, setIsSpinning] = useState(false);
+  const [showForumRulesModal, setShowForumRulesModal] = useState(false);
   const itemsPerPage = 8;
   const navigate = useNavigate();
 
@@ -260,10 +270,13 @@ function Activities() {
         toast.error("You must be logged in!");
         return;
       }
-      const response = await fetch(`http://localhost:5000/users/psychiatrist/${userId}/delete-activity/${activityId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      });
+      const response = await fetch(
+        `http://localhost:5000/users/psychiatrist/${userId}/delete-activity/${activityId}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        }
+      );
       const data = await response.json();
       if (response.ok) {
         setActivities(activities.filter((activity) => activity._id !== activityId));
@@ -319,7 +332,7 @@ function Activities() {
       });
       const data = await response.json();
       if (response.ok) {
-        setActivities(data.filter(activity => !activity.isArchived));
+        setActivities(data.filter((activity) => !activity.isArchived));
       } else {
         console.error("Error fetching activities by category:", data.message);
         toast.error("Failed to fetch activities for this category");
@@ -363,14 +376,15 @@ function Activities() {
 
     // Calculate scores for each activity
     const scoredActivities = activities
-      .filter(activity => !activity.isArchived)
-      .map(activity => {
+      .filter((activity) => !activity.isArchived)
+      .map((activity) => {
         const moodScore = moodImpact[activity._id]?.average || 3; // Default to neutral if no mood data
-        const satisfactionScore = satisfactionData[activity._id]?.satisfied / 
-          (satisfactionData[activity._id]?.totalMoods || 1) || 0.5; // Default to 0.5 if no satisfaction data
+        const satisfactionScore =
+          satisfactionData[activity._id]?.satisfied / (satisfactionData[activity._id]?.totalMoods || 1) || 0.5; // Default to 0.5 if no satisfaction data
         const favoriteBonus = favoriteActivities.includes(activity._id) ? 1 : 0;
         const pinnedBonus = pinnedActivities.includes(activity._id) ? 1 : 0;
-        const score = (moodScore * 0.4 + satisfactionScore * 0.3 + favoriteBonus * 0.2 + pinnedBonus * 0.1) + Math.random() * 0.2;
+        const score =
+          moodScore * 0.4 + satisfactionScore * 0.3 + favoriteBonus * 0.2 + pinnedBonus * 0.1 + Math.random() * 0.2;
         return { ...activity, score };
       });
 
@@ -381,7 +395,7 @@ function Activities() {
     // If less than 4 activities, fill with random ones
     if (topActivities.length < 4) {
       const remaining = activities
-        .filter(activity => !activity.isArchived && !topActivities.includes(activity))
+        .filter((activity) => !activity.isArchived && !topActivities.includes(activity))
         .sort(() => Math.random() - 0.5)
         .slice(0, 4 - topActivities.length);
       return [...topActivities, ...remaining];
@@ -416,22 +430,24 @@ function Activities() {
   // Generate a list of activities for each reel during spinning
   const generateReelActivities = (finalActivity, reelIndex) => {
     if (!finalActivity) return [];
-    
+
     // Shuffle non-archived activities and take 9 random ones, then append the final activity
     const shuffledActivities = activities
-      .filter(activity => !activity.isArchived && activity._id !== finalActivity._id)
+      .filter((activity) => !activity.isArchived && activity._id !== finalActivity._id)
       .sort(() => Math.random() - 0.5)
       .slice(0, 9);
-    
+
     // Ensure the final activity is at the end
     return [...shuffledActivities, finalActivity];
   };
 
   const calculateMoodImpact = () => {
     const moodImpact = {};
-    activities.filter(activity => !activity.isArchived).forEach((activity) => {
-      moodImpact[activity._id] = { title: activity.title, moods: [], average: 0 };
-    });
+    activities
+      .filter((activity) => !activity.isArchived)
+      .forEach((activity) => {
+        moodImpact[activity._id] = { title: activity.title, moods: [], average: 0 };
+      });
     moods.forEach((mood) => {
       if (mood.activityId && mood.activityId._id) {
         const activityId = mood.activityId._id;
@@ -451,15 +467,17 @@ function Activities() {
 
   const calculateSatisfactionDistribution = () => {
     const satisfactionData = {};
-    activities.filter(activity => !activity.isArchived).forEach((activity) => {
-      satisfactionData[activity._id] = {
-        title: activity.title,
-        satisfied: 0,
-        notSatisfied: 0,
-        neutralOrUnspecified: 0,
-        totalMoods: 0,
-      };
-    });
+    activities
+      .filter((activity) => !activity.isArchived)
+      .forEach((activity) => {
+        satisfactionData[activity._id] = {
+          title: activity.title,
+          satisfied: 0,
+          notSatisfied: 0,
+          neutralOrUnspecified: 0,
+          totalMoods: 0,
+        };
+      });
     moods.forEach((mood) => {
       if (mood.activityId && mood.activityId._id) {
         const activityId = mood.activityId._id;
@@ -485,16 +503,23 @@ function Activities() {
         data.push(moodImpact[activityId].average);
         const avg = moodImpact[activityId].average;
         let color =
-          avg <= 1.5 ? moodColors["Very Sad"] :
-          avg <= 2.5 ? moodColors["Sad"] :
-          avg <= 3.5 ? moodColors["Neutral"] :
-          avg <= 4.5 ? moodColors["Happy"] : moodColors["Very Happy"];
+          avg <= 1.5
+            ? moodColors["Very Sad"]
+            : avg <= 2.5
+            ? moodColors["Sad"]
+            : avg <= 3.5
+            ? moodColors["Neutral"]
+            : avg <= 4.5
+            ? moodColors["Happy"]
+            : moodColors["Very Happy"];
         backgroundColors.push(color);
       }
     });
     return {
       labels,
-      datasets: [{ label: "Average Mood Impact", data, backgroundColor: backgroundColors, borderColor: backgroundColors, borderWidth: 1 }],
+      datasets: [
+        { label: "Average Mood Impact", data, backgroundColor: backgroundColors, borderColor: backgroundColors, borderWidth: 1 },
+      ],
     };
   };
 
@@ -502,7 +527,7 @@ function Activities() {
 
   const prepareActivityCompletionChartData = (scheduledActivities, currentMonth) => {
     console.log("Scheduled Activities:", JSON.stringify(scheduledActivities, null, 2));
-    
+
     if (!currentMonth || !(currentMonth instanceof Date) || isNaN(currentMonth.getTime())) {
       console.warn("Invalid currentMonth, defaulting to current date");
       currentMonth = new Date();
@@ -609,16 +634,30 @@ function Activities() {
     }
     return {
       labels: ["Satisfied", "Not Satisfied", "Neutral"],
-      datasets: [{
-        data: [satisfied, notSatisfied, neutralOrUnspecified],
-        backgroundColor: [satisfactionColors.Satisfied, satisfactionColors.NotSatisfied, satisfactionColors.NeutralOrUnspecified],
-        borderWidth: 0,
-      }],
+      datasets: [
+        {
+          data: [satisfied, notSatisfied, neutralOrUnspecified],
+          backgroundColor: [
+            satisfactionColors.Satisfied,
+            satisfactionColors.NotSatisfied,
+            satisfactionColors.NeutralOrUnspecified,
+          ],
+          borderWidth: 0,
+        },
+      ],
     };
   };
 
   const handlePreviousMonth = () => setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1));
   const handleNextMonth = () => setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1));
+
+  const handleOpenForumRulesModal = () => {
+    setShowForumRulesModal(true);
+  };
+
+  const closeForumRulesModal = () => {
+    setShowForumRulesModal(false);
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
@@ -645,15 +684,22 @@ function Activities() {
 
   const filteredActivities = activities
     .filter((activity) => {
-      const matchesCategory = selectedCategory === "*" || 
-        (activity.category && activity.category._id === selectedCategory);
-      const matchesSearch = !searchTerm ||
+      const matchesCategory =
+        selectedCategory === "*" || (activity.category && activity.category._id === selectedCategory);
+      const matchesSearch =
+        !searchTerm ||
         stripHtmlTags(activity.title).toLowerCase().includes(searchTerm.toLowerCase()) ||
         stripHtmlTags(activity.description).toLowerCase().includes(searchTerm.toLowerCase());
       const isNotArchived = !activity.isArchived;
       return matchesCategory && matchesSearch && isNotArchived;
     })
-    .sort((a, b) => (pinnedActivities.includes(a._id) === pinnedActivities.includes(b._id) ? 0 : pinnedActivities.includes(a._id) ? -1 : 1));
+    .sort((a, b) =>
+      pinnedActivities.includes(a._id) === pinnedActivities.includes(b._id)
+        ? 0
+        : pinnedActivities.includes(a._id)
+        ? -1
+        : 1
+    );
 
   const totalActivities = filteredActivities.length;
   const totalPages = Math.ceil(totalActivities / itemsPerPage);
@@ -695,7 +741,16 @@ function Activities() {
         callbacks: {
           label: (context) => {
             const value = context.raw;
-            let moodLabel = value <= 1.5 ? "Very Sad" : value <= 2.5 ? "Sad" : value <= 3.5 ? "Neutral" : value <= 4.5 ? "Happy" : "Very Happy";
+            let moodLabel =
+              value <= 1.5
+                ? "Very Sad"
+                : value <= 2.5
+                ? "Sad"
+                : value <= 3.5
+                ? "Neutral"
+                : value <= 4.5
+                ? "Happy"
+                : "Very Happy";
             return `Average Mood: ${moodLabel} (${value.toFixed(2)})`;
           },
         },
@@ -852,9 +907,7 @@ function Activities() {
                 Home
               </a>
             </li>
-            <li style={{ color: "#ff5a5f", textDecoration: "none", fontWeight: "bold" }}>
-              Activities
-            </li>
+            <li style={{ color: "#ff5a5f", textDecoration: "none", fontWeight: "bold" }}>Activities</li>
           </ul>
         </div>
       </div>
@@ -862,9 +915,14 @@ function Activities() {
       <div style={{ padding: "40px", backgroundColor: "#f9f9f9", textAlign: "center" }}>
         <h2 style={{ fontSize: "32px", fontWeight: "700", marginBottom: "20px" }}>
           {userRole === "student" ? (
-            <>Choose your <span style={{ color: "#ff5a5f" }}>favorite activities</span> & add them to your <span style={{ color: "#ff5a5f" }}>daily routine.</span></>
+            <>
+              Choose your <span style={{ color: "#ff5a5f" }}>favorite activities</span> & add them to your{" "}
+              <span style={{ color: "#ff5a5f" }}>daily routine.</span>
+            </>
           ) : (
-            <>Manage <span style={{ color: "#0ea5e6" }}>Activities</span></>
+            <>
+              Manage <span style={{ color: "#0ea5e6" }}>Activities</span>
+            </>
           )}
         </h2>
 
@@ -1008,6 +1066,28 @@ function Activities() {
                 Propose Activities
               </button>
             )}
+            {userRole === "student" && (
+              <button
+                onClick={handleOpenForumRulesModal}
+                style={{
+                  backgroundColor: "#6b7280",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  fontWeight: "bold",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s ease",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+                onMouseEnter={(e) => (e.target.style.backgroundColor = "#4b5563")}
+                onMouseLeave={(e) => (e.target.style.backgroundColor = "#6b7280")}
+              >
+                <FontAwesomeIcon icon={faQuestionCircle} />
+              </button>
+            )}
             {userRole === "psychiatrist" && (
               <button
                 onClick={handleAddActivity}
@@ -1052,7 +1132,11 @@ function Activities() {
                 onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
               >
                 <img
-                  src={activity.imageUrl ? `http://localhost:5000${activity.imageUrl}` : "/assets/img/activities/default.png"}
+                  src={
+                    activity.imageUrl
+                      ? `http://localhost:5000${activity.imageUrl}`
+                      : "/assets/img/activities/default.png"
+                  }
                   alt="Activity"
                   style={{ width: "100%", height: "250px", objectFit: "cover" }}
                   onClick={() => handleViewActivityModal(activity)}
@@ -1101,7 +1185,14 @@ function Activities() {
                     </button>
                   </div>
                 ) : userRole === "student" ? (
-                  <div style={{ padding: "10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div
+                    style={{
+                      padding: "10px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
                     <button
                       onClick={() => togglePinActivity(activity._id)}
                       style={{
@@ -1117,8 +1208,12 @@ function Activities() {
                         gap: "5px",
                         transition: "background-color 0.3s ease",
                       }}
-                      onMouseEnter={(e) => (e.target.style.backgroundColor = pinnedActivities.includes(activity._id) ? "#d9a300" : "#e68600")}
-                      onMouseLeave={(e) => (e.target.style.backgroundColor = pinnedActivities.includes(activity._id) ? "#f4b400" : "#ff9500")}
+                      onMouseEnter={(e) =>
+                        (e.target.style.backgroundColor = pinnedActivities.includes(activity._id) ? "#d9a300" : "#e68600")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.target.style.backgroundColor = pinnedActivities.includes(activity._id) ? "#f4b400" : "#ff9500")
+                      }
                     >
                       <FontAwesomeIcon icon={faThumbtack} />
                       {pinnedActivities.includes(activity._id) ? "Unpin" : "Pin"}
@@ -1133,7 +1228,9 @@ function Activities() {
                         color: favoriteActivities.includes(activity._id) ? "#ff0000" : "#ccc",
                       }}
                     >
-                      <FontAwesomeIcon icon={favoriteActivities.includes(activity._id) ? faHeartSolid : faHeartRegular} />
+                      <FontAwesomeIcon
+                        icon={favoriteActivities.includes(activity._id) ? faHeartSolid : faHeartRegular}
+                      />
                     </button>
                   </div>
                 ) : null}
@@ -1303,14 +1400,26 @@ function Activities() {
             >
               <h3 style={{ fontSize: "20px", marginBottom: "10px" }}>{stripHtmlTags(selectedActivity.title)}</h3>
               <img
-                src={selectedActivity.imageUrl ? `http://localhost:5000${selectedActivity.imageUrl}` : "/assets/img/activities/default.png"}
+                src={
+                  selectedActivity.imageUrl
+                    ? `http://localhost:5000${selectedActivity.imageUrl}`
+                    : "/assets/img/activities/default.png"
+                }
                 alt="Activity"
                 style={{ width: "100%", height: "300px", objectFit: "cover", borderRadius: "8px", marginBottom: "15px" }}
               />
               <p style={{ color: "#00aaff", fontStyle: "italic", marginBottom: "10px" }}>
                 ** {selectedActivity.category?.name || "Uncategorized"} **
               </p>
-              <p style={{ fontSize: "14px", marginBottom: "15px", maxHeight: "100px", overflowY: "auto", padding: "0 5px" }}>
+              <p
+                style={{
+                  fontSize: "14px",
+                  marginBottom: "15px",
+                  maxHeight: "100px",
+                  overflowY: "auto",
+                  padding: "0 5px",
+                }}
+              >
                 {stripHtmlTags(selectedActivity.description)}
               </p>
               <button
@@ -1360,16 +1469,19 @@ function Activities() {
 
               <div style={{ marginBottom: "40px" }}>
                 <h4 style={{ fontSize: "20px", marginBottom: "10px" }}>Impact on Psychological State</h4>
-                {moods.length === 0 ? (
-                  <p>No mood data available.</p>
-                ) : (
-                  <Bar data={moodChartData} options={moodChartOptions} />
-                )}
+                {moods.length === 0 ? <p>No mood data available.</p> : <Bar data={moodChartData} options={moodChartOptions} />}
               </div>
 
               <div style={{ marginBottom: "40px" }}>
                 <h4 style={{ fontSize: "20px", marginBottom: "10px" }}>Activity Completion Trends</h4>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "20px",
+                  }}
+                >
                   <button
                     onClick={handlePreviousMonth}
                     style={{
@@ -1411,15 +1523,42 @@ function Activities() {
                 <h4 style={{ fontSize: "20px", marginBottom: "10px" }}>Satisfaction After Activities</h4>
                 <div style={{ display: "flex", justifyContent: "center", gap: "20px", marginBottom: "20px" }}>
                   <div style={{ display: "flex", alignItems: "center" }}>
-                    <span style={{ display: "inline-block", width: "20px", height: "20px", backgroundColor: satisfactionColors.Satisfied, marginRight: "8px", borderRadius: "3px" }}></span>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        width: "20px",
+                        height: "20px",
+                        backgroundColor: satisfactionColors.Satisfied,
+                        marginRight: "8px",
+                        borderRadius: "3px",
+                      }}
+                    ></span>
                     <span>Satisfied</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center" }}>
-                    <span style={{ display: "inline-block", width: "20px", height: "20px", backgroundColor: satisfactionColors.NotSatisfied, marginRight: "8px", borderRadius: "3px" }}></span>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        width: "20px",
+                        height: "20px",
+                        backgroundColor: satisfactionColors.NotSatisfied,
+                        marginRight: "8px",
+                        borderRadius: "3px",
+                      }}
+                    ></span>
                     <span>Not Satisfied</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center" }}>
-                    <span style={{ display: "inline-block", width: "20px", height: "20px", backgroundColor: satisfactionColors.NeutralOrUnspecified, marginRight: "8px", borderRadius: "3px" }}></span>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        width: "20px",
+                        height: "20px",
+                        backgroundColor: satisfactionColors.NeutralOrUnspecified,
+                        marginRight: "8px",
+                        borderRadius: "3px",
+                      }}
+                    ></span>
                     <span>Neutral</span>
                   </div>
                 </div>
@@ -1431,8 +1570,13 @@ function Activities() {
                       .filter((activityId) => satisfactionData[activityId].totalMoods > 0)
                       .map((activityId) => (
                         <div key={activityId} style={{ width: "200px", textAlign: "center" }}>
-                          <h5 style={{ fontSize: "16px", marginBottom: "10px" }}>{satisfactionData[activityId].title}</h5>
-                          <Doughnut data={prepareSatisfactionChartData(satisfactionData[activityId])} options={satisfactionChartOptions} />
+                          <h5 style={{ fontSize: "16px", marginBottom: "10px" }}>
+                            {satisfactionData[activityId].title}
+                          </h5>
+                          <Doughnut
+                            data={prepareSatisfactionChartData(satisfactionData[activityId])}
+                            options={satisfactionChartOptions}
+                          />
                         </div>
                       ))}
                   </div>
@@ -1487,16 +1631,21 @@ function Activities() {
               <h3 style={{ fontSize: "24px", marginBottom: "20px" }}>Your Proposed Activities</h3>
               <div className="slot-machine-container">
                 {[...Array(4)].map((_, index) => {
-                  const reelActivities = isSpinning || !proposedActivities[index]
-                    ? activities.filter(activity => !activity.isArchived).sort(() => Math.random() - 0.5).slice(0, 10)
-                    : generateReelActivities(proposedActivities[index], index);
+                  const reelActivities =
+                    isSpinning || !proposedActivities[index]
+                      ? activities.filter((activity) => !activity.isArchived).sort(() => Math.random() - 0.5).slice(0, 10)
+                      : generateReelActivities(proposedActivities[index], index);
                   return (
                     <div key={index} className="slot-reel">
-                      <div className={`slot-reel-inner ${isSpinning ? 'spinning' : 'stopped'}`}>
+                      <div className={`slot-reel-inner ${isSpinning ? "spinning" : "stopped"}`}>
                         {reelActivities.map((activity, itemIndex) => (
                           <div key={itemIndex} className="slot-item">
                             <img
-                              src={activity.imageUrl ? `http://localhost:5000${activity.imageUrl}` : "/assets/img/activities/default.png"}
+                              src={
+                                activity.imageUrl
+                                  ? `http://localhost:5000${activity.imageUrl}`
+                                  : "/assets/img/activities/default.png"
+                              }
                               alt="Activity"
                             />
                             <h4>{stripHtmlTags(activity.title)}</h4>
@@ -1540,6 +1689,59 @@ function Activities() {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {showForumRulesModal && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              zIndex: 1000,
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "white",
+                padding: "20px",
+                borderRadius: "8px",
+                width: "400px",
+                maxWidth: "90%",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                textAlign: "center",
+              }}
+            >
+              <h3 style={{ fontSize: "24px", marginBottom: "20px" }}>Forum Rules</h3>
+              <p style={{ fontSize: "16px", marginBottom: "20px", textAlign: "left" }}>
+                1. <strong>Be Respectful</strong>: Treat all users with kindness and respect. No harassment, discrimination, or
+                offensive language.<br />
+                2. <strong>Stay On-Topic</strong>: Keep discussions relevant to the forum's purpose and activities.<br />
+                3. <strong>No Spam</strong>: Avoid posting repetitive or irrelevant content, including advertisements.<br />
+                4. <strong>Protect Privacy</strong>: Do not share personal information about yourself or others.<br />
+                5. <strong>Follow Guidelines</strong>: Adhere to all platform-specific rules and report any violations to moderators.
+              </p>
+              <button
+                onClick={closeForumRulesModal}
+                style={{
+                  backgroundColor: "#0ea5e6",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "5px",
+                  fontWeight: "bold",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
             </div>
           </div>
         )}

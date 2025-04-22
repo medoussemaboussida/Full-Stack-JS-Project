@@ -67,7 +67,8 @@ function ActivitySchedule() {
   const [currentNote, setCurrentNote] = useState("");
   const [showMoodHistoryModal, setShowMoodHistoryModal] = useState(false);
   const [weatherData, setWeatherData] = useState({});
-  const [currentMoodDate, setCurrentMoodDate] = useState(null); // New state for mood date
+  const [currentMoodDate, setCurrentMoodDate] = useState(null);
+  const [showForumRulesModal, setShowForumRulesModal] = useState(false);
   const dates = generateDatesForMonth(currentDate);
   const navigate = useNavigate();
 
@@ -261,7 +262,7 @@ function ActivitySchedule() {
         body: JSON.stringify({
           activityId,
           mood,
-          date: moodDate ? `${moodDate}T00:00:00.000Z` : new Date().toISOString(), // Use calendar date if provided
+          date: moodDate ? `${moodDate}T00:00:00.000Z` : new Date().toISOString(),
         }),
       });
 
@@ -406,14 +407,14 @@ function ActivitySchedule() {
     if (selectedMood !== null && currentActivity) {
       await saveMood(currentActivity._id, selectedMood, currentMoodDate);
       fetchMoods().then((moodsData) => {
-        console.log("Updated moods:", moodsData); // Debug log
+        console.log("Updated moods:", moodsData);
         setMoods(moodsData);
       });
     }
     setShowMoodModal(false);
     setSelectedMood(null);
     setCurrentActivity(null);
-    setCurrentMoodDate(null); // Reset mood date
+    setCurrentMoodDate(null);
   };
 
   // Cancel and close the mood modal
@@ -421,7 +422,7 @@ function ActivitySchedule() {
     setShowMoodModal(false);
     setSelectedMood(null);
     setCurrentActivity(null);
-    setCurrentMoodDate(null); // Reset mood date
+    setCurrentMoodDate(null);
   };
 
   // Open note modal
@@ -459,6 +460,16 @@ function ActivitySchedule() {
   // Close mood history modal
   const closeMoodHistoryModal = () => {
     setShowMoodHistoryModal(false);
+  };
+
+  // Open forum rules modal
+  const handleOpenForumRulesModal = () => {
+    setShowForumRulesModal(true);
+  };
+
+  // Close forum rules modal
+  const closeForumRulesModal = () => {
+    setShowForumRulesModal(false);
   };
 
   useEffect(() => {
@@ -570,7 +581,7 @@ function ActivitySchedule() {
     if (newCompletedStatus) {
       const activity = activities.find((act) => act._id === activityId);
       setCurrentActivity(activity);
-      setCurrentMoodDate(date); // Store the calendar date
+      setCurrentMoodDate(date);
       setShowMoodModal(true);
     }
   };
@@ -592,6 +603,44 @@ function ActivitySchedule() {
   return (
     <div>
       <ToastContainer position="top-right" autoClose={3000} />
+
+      {/* Forum Rules Button - Fixed Position at Bottom-Left */}
+      <button
+        onClick={handleOpenForumRulesModal}
+        style={{
+          position: "fixed",
+          bottom: "20px", // Changed from top to bottom
+          left: "20px",   // Changed from right to left
+          width: "60px",
+          height: "60px",
+          backgroundColor: "#ff9500", // Orange background
+          borderRadius: "50%", // Circular shape
+          border: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)", // Shadow for depth
+          zIndex: 1001, // Above other content, but below modals
+          transition: "transform 0.2s ease, box-shadow 0.2s ease",
+        }}
+        onMouseEnter={(e) => {
+          e.target.style.transform = "scale(1.1)";
+          e.target.style.boxShadow = "0 6px 12px rgba(0, 0, 0, 0.3)";
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.transform = "scale(1)";
+          e.target.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.2)";
+        }}
+      >
+        <span style={{
+          fontSize: "30px",
+          color: "#ff0000", // Red question mark
+          fontWeight: "bold",
+        }}>
+          ?
+        </span>
+      </button>
 
       {/* Breadcrumb */}
       <div
@@ -746,7 +795,7 @@ function ActivitySchedule() {
                         ? `http://localhost:5000${activity.imageUrl}`
                         : "/assets/img/activities/default.png"
                     }
-                    Drought tolerant plantsalt="Favorite Activity"
+                    alt="Favorite Activity"
                     style={{ width: "100%", height: "250px", objectFit: "cover" }}
                     onClick={() => handleViewActivityModal(activity)}
                   />
@@ -1275,6 +1324,63 @@ function ActivitySchedule() {
                 padding: "10px 20px",
                 borderRadius: "5px",
                 marginTop: "20px",
+                fontWeight: "bold",
+                border: "none",
+                cursor: "pointer",
+                transition: "background-color 0.3s ease",
+              }}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = "#0d8bc2")}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = "#0ea5e6")}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Forum Rules Modal */}
+      {showForumRulesModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "400px",
+              maxWidth: "90%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              textAlign: "center",
+            }}
+          >
+            <h3 style={{ fontSize: "24px", marginBottom: "20px" }}>Forum Rules</h3>
+            <p style={{ fontSize: "16px", marginBottom: "20px", textAlign: "left" }}>
+              1. <strong>Be Respectful</strong>: Treat all users with kindness and respect. No harassment, discrimination, or
+              offensive language.<br />
+              2. <strong>Stay On-Topic</strong>: Keep discussions relevant to the forum's purpose and activities.<br />
+              3. <strong>No Spam</strong>: Avoid posting repetitive or irrelevant content, including advertisements.<br />
+              4. <strong>Protect Privacy</strong>: Do not share personal information about yourself or others.<br />
+              5. <strong>Follow Guidelines</strong>: Adhere to all platform-specific rules and report any violations to moderators.
+            </p>
+            <button
+              onClick={closeForumRulesModal}
+              style={{
+                backgroundColor: "#0ea5e6",
+                color: "white",
+                padding: "10px 20px",
+                borderRadius: "5px",
                 fontWeight: "bold",
                 border: "none",
                 cursor: "pointer",
