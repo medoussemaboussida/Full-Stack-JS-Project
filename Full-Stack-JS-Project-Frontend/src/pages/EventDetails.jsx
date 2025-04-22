@@ -6,6 +6,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../App.css';
 import { jwtDecode } from 'jwt-decode';
+import jsPDF from 'jspdf'; // Import jsPDF
 
 const BASE_URL = "http://localhost:5000";
 
@@ -14,6 +15,7 @@ const EventDetails = () => {
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState(null);
+  const [userRole, setUserRole] = useState(null); // New state for user role
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({});
   const [relatedEvents, setRelatedEvents] = useState([]);
@@ -25,6 +27,7 @@ const EventDetails = () => {
       try {
         const decoded = jwtDecode(token);
         setUserId(decoded.id);
+        setUserRole(decoded.role); // Extract and set the user's role
       } catch (error) {
         console.error("Token decoding error:", error);
         toast.error("Invalid session, please log in again");
@@ -51,8 +54,10 @@ const EventDetails = () => {
           online_link: eventData.online_link || '',
           contact_email: eventData.contact_email || '',
           imageUrl: eventData.imageUrl || '',
+          heure: eventData.heure || '',
+          hasPartners: eventData.hasPartners || false,
         });
-        await fetchRelatedEvents(eventData.event_type);
+        await fetchRelatedEvents(eventData.event_type, eventData.localisation);
         setLoading(false);
       } catch (error) {
         console.error("Error fetching event:", error.response?.data || error.message);
@@ -64,20 +69,31 @@ const EventDetails = () => {
     fetchEvent();
   }, [id]);
 
-  const fetchRelatedEvents = async (eventType) => {
+  const fetchRelatedEvents = async (eventType, localisation) => {
     try {
       const token = localStorage.getItem("jwt-token");
-      if (!token || !eventType) {
+      if (!token) {
+        setRelatedEvents([]);
+        return;
+      }
+
+      const requestBody = {
+        status: ["upcoming", "ongoing"],
+      };
+
+      if (eventType === "in-person" && localisation) {
+        requestBody.event_type = "in-person";
+        requestBody.localisation = localisation;
+      } else if (eventType === "online") {
+        requestBody.event_type = "online";
+      } else {
         setRelatedEvents([]);
         return;
       }
 
       const response = await axios.post(
         `${BASE_URL}/events/related`,
-        { 
-          event_type: eventType, 
-          status: ["upcoming", "ongoing"]
-        },
+        requestBody,
         {
           headers: {
             "Content-Type": "application/json",
@@ -162,21 +178,121 @@ const EventDetails = () => {
     }
   };
 
-  const handleDownloadPDF = async () => {
+  // Helper function to convert image URL to base64
+  const getBase64Image = (url, callback) => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous"; // Handle CORS if needed
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      const dataURL = canvas.toDataURL("image/jpeg");
+      callback(dataURL);
+    };
+    img.onerror = () => {
+      // Fallback to default image if the primary image fails
+      const fallbackImg = new Image();
+      fallbackImg.crossOrigin = "Anonymous";
+      fallbackImg.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = fallbackImg.width;
+        canvas.height = fallbackImg.height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(fallbackImg, 0, 0);
+        const dataURL = canvas.toDataURL("image/jpeg");
+        callback(dataURL);
+      };
+      fallbackImg.onerror = () => callback(null); // If fallback fails, return null
+      fallbackImg.src = "/assets/img/event/single.jpg";
+    };
+    img.src = url;
+  };
+
+  const handleDownloadPDF = () => {
     try {
-      const token = localStorage.getItem("jwt-token");
-      const response = await axios.get(`${BASE_URL}/events/generatePDF/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        responseType: 'blob',
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'pt',
+        format: 'a4',
       });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${event.title}_Details.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      toast.success("PDF downloaded successfully!");
+
+      // Set margins
+      const marginLeft = 40;
+      const marginRight = 40;
+      const marginTop = 40;
+      const pageHeight = doc.internal.pageSize.height;
+      let yPosition = marginTop;
+
+      // Title: "Event Details"
+      doc.setFont('Times', 'bold');
+      doc.setFontSize(16);
+      doc.text('Event Details', doc.internal.pageSize.width / 2, yPosition, { align: 'center' });
+      yPosition += 40;
+
+      // Add the event image
+      const imageSrc = event.imageUrl ? `${BASE_URL}/${event.imageUrl.replace(/^\/+/, '')}` : "/assets/img/event/single.jpg";
+      getBase64Image(imageSrc, (base64Image) => {
+        if (base64Image) {
+          const imgWidth = 200; // Fixed width for the image
+          const imgHeight = (imgWidth * 3) / 4; // Maintain aspect ratio (assuming 4:3 ratio)
+          const xPosition = (doc.internal.pageSize.width - imgWidth) / 2; // Center the image
+          doc.addImage(base64Image, 'JPEG', xPosition, yPosition, imgWidth, imgHeight);
+          yPosition += imgHeight + 20; // Add space below the image
+        } else {
+          yPosition += 20; // Add minimal space if image fails
+        }
+
+        // Helper function to add a field (label: value)
+        const addField = (label, value) => {
+          // Sanitize the value to remove any unexpected characters
+          const sanitizedValue = String(value || 'N/A').replace(/[^\x20-\x7E]/g, '');
+
+          // Check if we need a new page
+          if (yPosition > pageHeight - 40) {
+            doc.addPage();
+            yPosition = marginTop;
+          }
+
+          doc.setFont('Times', 'bold');
+          doc.setFontSize(12);
+          doc.text(`${label}:`, marginLeft, yPosition);
+
+          doc.setFont('Times', 'normal');
+          // Adjust the width for text wrapping to account for margins and label width
+          const textWidth = doc.internal.pageSize.width - marginLeft - marginRight - 80; // 80 for label offset
+          const splitText = doc.splitTextToSize(sanitizedValue, textWidth);
+
+          // Render each line of the split text
+          splitText.forEach((line, index) => {
+            if (yPosition > pageHeight - 40) {
+              doc.addPage();
+              yPosition = marginTop;
+            }
+            doc.text(line, marginLeft + 80, yPosition);
+            yPosition += 14; // Increased line height for better spacing
+          });
+
+          yPosition += 10; // Additional space between fields
+        };
+
+        // Add fields as per the screenshot, excluding Location/Link and Venue
+        addField('Title', event.title);
+        addField('Description', event.description);
+        addField('Start Date', event.start_date ? formatDate(event.start_date) : 'N/A');
+        addField('End Date', event.end_date ? formatDate(event.end_date) : 'N/A');
+        addField('Time', event.heure || 'N/A');
+        addField('Event Type', event.event_type === 'in-person' ? 'In-Person' : 'Online');
+        addField('Organizer', event.created_by?.username || 'Unknown Organizer');
+        addField('Contact', event.contact_email || event.created_by?.email || 'N/A');
+        addField('Participants', '1 / No limit'); // Adjust if you have participant tracking
+        addField('Accept Partners', event.hasPartners ? 'YES' : 'NO');
+
+        // Download the PDF
+        doc.save(`${event.title}_Details.pdf`);
+        toast.success("PDF downloaded successfully!");
+      });
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast.error("Error generating PDF");
@@ -261,6 +377,17 @@ const EventDetails = () => {
                         />
                       </div>
                       <div className="mb-3">
+                        <label className="form-label">Time</label>
+                        <input
+                          type="time"
+                          name="heure"
+                          value={formData.heure}
+                          onChange={handleFormChange}
+                          className="form-control"
+                          required
+                        />
+                      </div>
+                      <div className="mb-3">
                         <label className="form-label">Event Type</label>
                         <select
                           name="event_type"
@@ -322,6 +449,19 @@ const EventDetails = () => {
                           className="form-control"
                           required
                         />
+                      </div>
+                      <div className="mb-3">
+                        <label className="form-label">Accept Partners</label>
+                        <select
+                          name="hasPartners"
+                          value={formData.hasPartners.toString()}
+                          onChange={handleFormChange}
+                          className="form-control"
+                          required
+                        >
+                          <option value="false">No</option>
+                          <option value="true">Yes</option>
+                        </select>
                       </div>
                       <button type="submit" className="theme-btn me-2">
                         Save <i className="fas fa-save"></i>
@@ -386,6 +526,13 @@ const EventDetails = () => {
                         </p>
                       </div>
                       <div className="event-single-item">
+                        <h5>Time</h5>
+                        <p>
+                          <i className="far fa-clock"></i>
+                          {event.heure || "N/A"}
+                        </p>
+                      </div>
+                      <div className="event-single-item">
                         <h5>Type</h5>
                         <p>
                           <i className="far fa-info-circle"></i>
@@ -393,12 +540,28 @@ const EventDetails = () => {
                         </p>
                       </div>
                       <div className="event-single-item">
-                        <h5>Location / Link</h5>
+                        <h5>Participants</h5>
                         <p>
-                          <i className="far fa-map-marker-alt"></i>
-                          {event.event_type === "in-person" ? event.localisation : event.online_link || "Not defined"}
+                          <i className="far fa-users"></i>
+                          1 / No limit
                         </p>
                       </div>
+                      <div className="event-single-item">
+                        <h5>Accept Partners</h5>
+                        <p>
+                          <i className="far fa-handshake"></i>
+                          {event.hasPartners ? "YES" : "NO"}
+                        </p>
+                      </div>
+                      {event.hasPartners && userRole === "association member" && (
+                        <div className="event-single-item">
+                          <h5>Participants List</h5>
+                          <p>
+                            <i className="far fa-list"></i>
+                            1. Firas {/* Replace with actual participants if available */}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="widget">
@@ -417,7 +580,7 @@ const EventDetails = () => {
                         />
                         <h5>{event.created_by?.username || "Unknown Organizer"}</h5>
                         <p>
-                          Contact {event.created_by?.email || event.contact_email || "unknown"} for more information.
+                          Contact {event.created_by?.email || event.contact_email || "unknown"} for more details.
                         </p>
                         <div className="mt-3">
                           <button onClick={handleDownloadPDF} className="theme-btn me-2">
@@ -442,8 +605,25 @@ const EventDetails = () => {
                     {relatedEvents.length > 0 ? (
                       <ul>
                         {relatedEvents.map((relatedEvent) => (
-                          <li key={relatedEvent._id}>
-                            <Link to={`/events/${relatedEvent._id}`}>{relatedEvent.title}</Link>
+                          <li key={relatedEvent._id} className="related-event-item">
+                            <Link to={`/events/${relatedEvent._id}`}>
+                              <strong>{relatedEvent.title}</strong>
+                            </Link>
+                            <p className="related-event-location">
+                              <i className="fas fa-map-marker-alt me-2"></i>
+                              {relatedEvent.event_type === "in-person" ? (
+                                <>
+                                  {relatedEvent.localisation || "Location not specified"}
+                                  {relatedEvent.distance === 0
+                                    ? " (Same Location)"
+                                    : relatedEvent.distance
+                                    ? ` (Nearby, ~${Math.round(relatedEvent.distance)} km)`
+                                    : ""}
+                                </>
+                              ) : (
+                                relatedEvent.online_link || "Online link not specified"
+                              )}
+                            </p>
                           </li>
                         ))}
                       </ul>
