@@ -69,19 +69,19 @@ const Chat = () => {
   });
   const [prevMessageCount, setPrevMessageCount] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
-  const [recordingState, setRecordingState] = useState('idle');
-  const [audioBlob, setAudioBlob] = useState(null);
-  const [recordingDuration, setRecordingDuration] = useState(0);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [summary, setSummary] = useState('');
   const [isSummarizing, setIsSummarizing] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const intervalRef = useRef(null);
-  const timerRef = useRef(null);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [editMessageId, setEditMessageId] = useState(null);
   const [editMessageContent, setEditMessageContent] = useState('');
+  const [targetLanguage, setTargetLanguage] = useState('en');
+  const [translatedMessages, setTranslatedMessages] = useState({});
+
+  const hfToken = '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';
 
   useEffect(() => {
     const storedToken = localStorage.getItem('jwt-token');
@@ -228,6 +228,59 @@ const Chat = () => {
     }
   };
 
+  const translateMessage = async (text, targetLang) => {
+    if (!text || text === '[Decryption failed]' || text === '[Voice Message]') {
+      console.log('Skipping translation for invalid text:', text);
+      return text;
+    }
+    try {
+      console.log(`Translating text to ${targetLang}:`, text);
+      const modelMap = {
+        en: 'Helsinki-NLP/opus-mt-fr-en',
+        fr: 'Helsinki-NLP/opus-mt-en-fr',
+        es: 'Helsinki-NLP/opus-mt-en-es',
+        de: 'Helsinki-NLP/opus-mt-en-de',
+      };
+      const model = modelMap[targetLang] || 'Helsinki-NLP/opus-mt-en-fr';
+      const response = await axios.post(
+        `https://api-inference.huggingface.co/models/${model}`,
+        { inputs: text },
+        {
+          headers: {
+            Authorization: `Bearer ${hfToken}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 15000,
+        }
+      );
+      const translatedText = response.data[0]?.translation_text || text;
+      console.log('Translation successful:', translatedText);
+      return translatedText;
+    } catch (err) {
+      console.error('Translation error:', {
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data,
+      });
+      let errorMessage = 'Failed to translate message';
+      if (err.response?.status === 429) {
+        errorMessage = 'Translation quota exceeded. Please try again later.';
+      } else if (err.response?.status === 400) {
+        errorMessage = 'Invalid text for translation.';
+      }
+      setError(errorMessage);
+      return text;
+    }
+  };
+
+  const handleTranslate = async (messageId, text) => {
+    const translatedText = await translateMessage(text, targetLanguage);
+    setTranslatedMessages((prev) => ({
+      ...prev,
+      [messageId]: { text: translatedText },
+    }));
+  };
+
   const summarizeConversation = async () => {
     console.log('Starting summarizeConversation');
     
@@ -241,8 +294,13 @@ const Chat = () => {
     setError(null);
   
     const conversationText = messages
-      .filter((msg) => !msg.isVoice)
-      .map((msg) => `${msg.sender.username || 'Unknown'}: ${msg.message}`)
+      .map((msg) => {
+        if (!msg.isVoice) {
+          return `${msg.sender.username || 'Unknown'}: ${msg.message}`;
+        }
+        return '';
+      })
+      .filter((text) => text)
       .join('\n');
   
     if (!conversationText.trim()) {
@@ -252,7 +310,6 @@ const Chat = () => {
       return;
     }
   
-    const hfToken = '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';
     try {
       console.log('Sending summarization request to Hugging Face API');
       const response = await axios.post(
@@ -311,23 +368,15 @@ const Chat = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         if (audioBlob.size > 5 * 1024 * 1024) {
           setError('Audio file too large. Keep it under 5MB.');
-          setRecordingState('idle');
-          setAudioBlob(null);
-          setRecordingDuration(0);
+          setIsRecording(false);
           stream.getTracks().forEach((track) => track.stop());
           return;
         }
-        setAudioBlob(audioBlob);
-        setRecordingState('stopped');
+        sendVoiceMessage(audioBlob);
         stream.getTracks().forEach((track) => track.stop());
       };
       mediaRecorderRef.current.start();
       setIsRecording(true);
-      setRecordingState('recording');
-      setRecordingDuration(0);
-      timerRef.current = setInterval(() => {
-        setRecordingDuration((prev) => prev + 1);
-      }, 1000);
       setTimeout(() => stopRecording(), 10000);
     } catch (err) {
       setError('Failed to start recording: ' + err.message);
@@ -337,52 +386,14 @@ const Chat = () => {
     }
   };
 
-  const pauseRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.pause();
-      setRecordingState('paused');
-      clearInterval(timerRef.current);
-    }
-  };
-
-  const resumeRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
-      mediaRecorderRef.current.resume();
-      setRecordingState('recording');
-      timerRef.current = setInterval(() => {
-        setRecordingDuration((prev) => prev + 1);
-      }, 1000);
-    }
-  };
-
   const stopRecording = () => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      clearInterval(timerRef.current);
     }
   };
 
-  const cancelRecording = () => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      setRecordingState('idle');
-      setAudioBlob(null);
-      setRecordingDuration(0);
-      clearInterval(timerRef.current);
-    }
-  };
-
-  const playRecording = () => {
-    if (audioBlob) {
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      audio.play().catch((err) => setError('Failed to play recording: ' + err.message));
-    }
-  };
-
-  const sendVoiceMessage = async () => {
+  const sendVoiceMessage = async (audioBlob) => {
     if (!audioBlob || !joinedRoom || !token || !userId) {
       console.log('Cannot send voice message: Missing required fields', { audioBlob, joinedRoom, token, userId });
       setError('Cannot send voice message: Missing required fields');
@@ -418,9 +429,7 @@ const Chat = () => {
               [messageId]: '[Voice Message]',
             },
           }));
-          setAudioBlob(null);
-          setRecordingState('idle');
-          setRecordingDuration(0);
+          setIsRecording(false);
           const key = await importKeyFromRoomCode(joinedRoom);
           fetchMessages(key);
         } catch (err) {
@@ -430,13 +439,13 @@ const Chat = () => {
             message: err.message,
           });
           setError('Failed to send voice message. Please try again later.');
-          setRecordingState('stopped');
+          setIsRecording(false);
         }
       };
     } catch (err) {
       console.error('Error in sendVoiceMessage:', err);
       setError('Failed to send voice message. Please try again later.');
-      setRecordingState('stopped');
+      setIsRecording(false);
     }
   };
 
@@ -509,7 +518,9 @@ const Chat = () => {
     messages.forEach((msg, index) => {
       const sender = msg.sender?.username || 'Unknown';
       const time = new Date(msg.createdAt).toLocaleTimeString();
-      const messageText = `[${time}] ${sender}: ${msg.isVoice ? '[Voice Message]' : msg.message}`;
+      const messageText = msg.isVoice
+        ? `[${time}] ${sender}: [Voice Message]`
+        : `[${time}] ${sender}: ${msg.message}`;
   
       if (index % 2 === 0) {
         doc.setFillColor(240, 248, 255);
@@ -577,12 +588,6 @@ const Chat = () => {
 
   const closeVideoChat = () => {
     setShowVideoCall(false);
-  };
-
-  const formatDuration = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
   const toggleDropdown = (messageId) => {
@@ -676,14 +681,14 @@ const Chat = () => {
       <style>
         {`
           :root {
-            --primary-blue: #87CEEB; /* Sky Blue */
-            --dark-blue: #4682B4; /* Steel Blue */
-            --light-blue: #B0E0E6; /* Powder Blue */
-            --accent-blue: #00B7EB; /* Cyan */
+            --primary-blue: #87CEEB;
+            --dark-blue: #4682B4;
+            --light-blue: #B0E0E6;
+            --accent-blue: #00B7EB;
             --primary-gradient: linear-gradient(135deg, #87CEEB 0%, #4682B4 100%);
             --secondary-gradient: linear-gradient(135deg, #B0E0E6 0%, #87CEEB 100%);
-            --bg-dark: #1a2a44; /* Dark Slate Blue */
-            --bg-light: #f5faff; /* Light Blue Background */
+            --bg-dark: #1a2a44;
+            --bg-light: #f5faff;
             --text-dark: #16213e;
             --text-light: #ffffff;
             --error-color: #ff4757;
@@ -913,6 +918,15 @@ const Chat = () => {
             margin-top: 0.2rem;
           }
 
+          .translated-text {
+            font-size: 0.9rem;
+            color: #4682B4;
+            margin-top: 0.5rem;
+            background: #f0f8ff;
+            padding: 0.5rem;
+            border-radius: 10px;
+          }
+
           .dropdown-toggle::after {
             display: none;
           }
@@ -967,7 +981,7 @@ const Chat = () => {
             box-shadow: 0 0 10px rgba(0, 183, 235, 0.3);
           }
 
-          .emoji-button, .video-button, .voice-button, .refresh-button, .send-button {
+          .emoji-button, .video-button, .voice-button, .refresh-button, .send-button, .translate-button {
             background: none;
             border: none;
             font-size: 1.3rem;
@@ -977,7 +991,7 @@ const Chat = () => {
             transition: all 0.3s ease;
           }
 
-          .emoji-button:hover, .video-button:hover, .refresh-button:hover, .send-button:hover {
+          .emoji-button:hover, .video-button:hover, .refresh-button:hover, .send-button:hover, .translate-button:hover {
             color: var(--accent-blue);
             transform: scale(1.1);
           }
@@ -1132,67 +1146,6 @@ const Chat = () => {
             background: var(--light-blue);
           }
 
-          .audio-recorder {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: var(--light-blue);
-            border-radius: 10px;
-            padding: 0.75rem;
-            width: 100%;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-          }
-
-          .audio-recorder:hover {
-            background: #a0d6e0;
-          }
-
-          .audio-recorder button {
-            background: none;
-            border: none;
-            font-size: 1.3rem;
-            cursor: pointer;
-            padding: 0.5rem;
-            color: var(--dark-blue);
-            transition: all 0.3s ease;
-          }
-
-          .audio-recorder button:hover {
-            color: var(--accent-blue);
-            transform: scale(1.1);
-          }
-
-          .audio-recorder .cancel-button:hover {
-            color: var(--error-color);
-          }
-
-          .audio-recorder .stop-button:hover {
-            color: var(--error-color);
-          }
-
-          .audio-recorder .duration {
-            font-size: 1rem;
-            color: var(--text-dark);
-            margin: 0 0.5rem;
-            font-weight: 500;
-          }
-
-          .audio-recorder .recording-indicator {
-            width: 12px;
-            height: 12px;
-            background: var(--error-color);
-            border-radius: 50%;
-            margin-right: 0.5rem;
-            animation: pulse 1.5s infinite;
-          }
-
-          @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.2); opacity: 0.7; }
-            100% { transform: scale(1); opacity: 1; }
-          }
-
           .divider {
             display: none;
           }
@@ -1228,6 +1181,14 @@ const Chat = () => {
           .btn-secondary:hover {
             background: #5a6268;
             transform: scale(1.05);
+          }
+
+          .language-select {
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+            padding: 0.5rem;
+            font-size: 0.9rem;
+            margin-right: 0.5rem;
           }
 
           #user-avatar {
@@ -1389,15 +1350,29 @@ const Chat = () => {
                                             msg.message
                                           )}
                                           {!msg.isVoice && (
-                                            <button
-                                              className="btn btn-link p-0 ms-2 dropdown-toggle"
-                                              onClick={() => toggleDropdown(msg._id)}
-                                              style={{ color: 'inherit', textDecoration: 'none' }}
-                                            >
-                                              <i className="fas fa-ellipsis-v"></i>
-                                            </button>
+                                            <>
+                                              <button
+                                                className="btn btn-link p-0 ms-2 dropdown-toggle"
+                                                onClick={() => toggleDropdown(msg._id)}
+                                                style={{ color: 'inherit', textDecoration: 'none' }}
+                                              >
+                                                <i className="fas fa-ellipsis-v"></i>
+                                              </button>
+                                              <button
+                                                className="translate-button ms-2"
+                                                onClick={() => handleTranslate(msg._id, msg.message)}
+                                                title="Translate Message"
+                                              >
+                                                <i className="fas fa-language"></i>
+                                              </button>
+                                            </>
                                           )}
                                         </p>
+                                        {translatedMessages[msg._id] && (
+                                          <p className="translated-text me-3">
+                                            Translated: {translatedMessages[msg._id].text}
+                                          </p>
+                                        )}
                                         {activeDropdown === msg._id && !msg.isVoice && (
                                           <div
                                             className="dropdown-menu show"
@@ -1473,7 +1448,21 @@ const Chat = () => {
                                       ) : (
                                         msg.message
                                       )}
+                                      {!msg.isVoice && (
+                                        <button
+                                          className="translate-button ms-2"
+                                          onClick={() => handleTranslate(msg._id, msg.message)}
+                                          title="Translate Message"
+                                        >
+                                          <i className="fas fa-language"></i>
+                                        </button>
+                                      )}
                                     </p>
+                                    {translatedMessages[msg._id] && (
+                                      <p className="translated-text ms-3">
+                                        Translated: {translatedMessages[msg._id].text}
+                                      </p>
+                                    )}
                                     <p
                                       className="small timestamp ms-3 text-muted"
                                       style={{ alignSelf: 'flex-start' }}
@@ -1489,109 +1478,75 @@ const Chat = () => {
                       )}
                     </div>
                     <div className="card-footer">
-                      {recordingState === 'idle' ? (
-                        <>
-                          <div style={{ display: 'flex', alignItems: 'center', marginRight: '15px' }}>
-                            <img
-                              id="user-avatar"
-                              src={
-                                messages.find((m) => m.sender._id === userId)?.sender?.user_photo
-                                  ? `http://localhost:5000${messages.find((m) => m.sender._id === userId).sender.user_photo}`
-                                  : '/assets/img/user_icon.png'
-                              }
-                              alt="User Avatar"
-                              style={{
-                                width: '40px',
-                                height: '40px',
-                                borderRadius: '50%',
-                                cursor: 'pointer',
-                                objectFit: 'cover',
-                              }}
-                              onClick={() => (window.location.href = '/student')}
-                            />
-                          </div>
-                          <input
-                            type="text"
-                            className="form-control form-control-lg mx-3"
-                            id="exampleFormControlInput1"
-                            placeholder="Type message"
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            onKeyPress={handleMessageKeyPress}
-                          />
-                          <button className="voice-button" onClick={startRecording}>
-                            <i className="fas fa-microphone"></i>
-                          </button>
-                          <button
-                            className="emoji-button"
-                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                          >
-                            <i className="fas fa-smile"></i>
-                          </button>
-                          <button onClick={sendMessage} className="send-button">
-                            <i className="fas fa-paper-plane"></i>
-                          </button>
-                          <button
-                            onClick={async () => {
-                              const key = await importKeyFromRoomCode(joinedRoom);
-                              fetchMessages(key);
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', marginRight: '15px' }}>
+                          <img
+                            id="user-avatar"
+                            src={
+                              messages.find((m) => m.sender._id === userId)?.sender?.user_photo
+                                ? `http://localhost:5000${messages.find((m) => m.sender._id === userId).sender.user_photo}`
+                                : '/assets/img/user_icon.png'
+                            }
+                            alt="User Avatar"
+                            style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '50%',
+                              cursor: 'pointer',
+                              objectFit: 'cover',
                             }}
-                            className="refresh-button"
-                          >
-                            <i className="fas fa-sync-alt"></i>
-                          </button>
-                          <button onClick={joinVideoChat} className="video-button">
-                            <i className="fas fa-video"></i>
-                          </button>
-                          {showEmojiPicker && (
-                            <div className="emoji-picker-container">
-                              <EmojiPicker onEmojiClick={handleEmojiClick} />
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <div className="audio-recorder">
-                          {recordingState === 'recording' && (
-                            <>
-                              <div style={{ display: 'flex', alignItems: 'center' }}>
-                                <div className="recording-indicator"></div>
-                                <span className="duration">{formatDuration(recordingDuration)}</span>
-                              </div>
-                              <button onClick={pauseRecording}>
-                                <i className="fas fa-pause"></i>
-                              </button>
-                              <button onClick={stopRecording} className="stop-button">
-                                <i className="fas fa-stop"></i>
-                              </button>
-                            </>
-                          )}
-                          {recordingState === 'paused' && (
-                            <>
-                              <span className="duration">{formatDuration(recordingDuration)}</span>
-                              <button onClick={resumeRecording}>
-                                <i className="fas fa-play"></i>
-                              </button>
-                              <button onClick={stopRecording} className="stop-button">
-                                <i className="fas fa-stop"></i>
-                              </button>
-                            </>
-                          )}
-                          {recordingState === 'stopped' && (
-                            <>
-                              <span className="duration">{formatDuration(recordingDuration)}</span>
-                              <button onClick={playRecording}>
-                                <i className="fas fa-play"></i>
-                              </button>
-                              <button onClick={sendVoiceMessage} className="send-button">
-                                <i className="fas fa-paper-plane"></i>
-                              </button>
-                            </>
-                          )}
-                          <button onClick={cancelRecording} className="cancel-button">
-                            <i className="fas fa-trash"></i>
-                          </button>
+                            onClick={() => (window.location.href = '/student')}
+                          />
                         </div>
-                      )}
+                        <select
+                          className="language-select"
+                          value={targetLanguage}
+                          onChange={(e) => setTargetLanguage(e.target.value)}
+                        >
+                          <option value="fr">French</option>
+                          <option value="es">Spanish</option>
+                          <option value="de">German</option>
+
+                        </select>
+                        <input
+                          type="text"
+                          className="form-control form-control-lg mx-3"
+                          id="exampleFormControlInput1"
+                          placeholder="Type message"
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          onKeyPress={handleMessageKeyPress}
+                        />
+                        <button className="voice-button" onClick={startRecording} disabled={isRecording}>
+                          <i className="fas fa-microphone"></i>
+                        </button>
+                        <button
+                          className="emoji-button"
+                          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                        >
+                          <i className="fas fa-smile"></i>
+                        </button>
+                        <button onClick={sendMessage} className="send-button">
+                          <i className="fas fa-paper-plane"></i>
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const key = await importKeyFromRoomCode(joinedRoom);
+                            fetchMessages(key);
+                          }}
+                          className="refresh-button"
+                        >
+                          <i className="fas fa-sync-alt"></i>
+                        </button>
+                        <button onClick={joinVideoChat} className="video-button">
+                          <i className="fas fa-video"></i>
+                        </button>
+                        {showEmojiPicker && (
+                          <div className="emoji-picker-container">
+                            <EmojiPicker onEmojiClick={handleEmojiClick} />
+                          </div>
+                        )}
+                      </>
                     </div>
                   </>
                 )}
