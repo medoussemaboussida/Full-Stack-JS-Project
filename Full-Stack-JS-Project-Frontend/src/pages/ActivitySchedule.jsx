@@ -69,6 +69,7 @@ function ActivitySchedule() {
   const [weatherData, setWeatherData] = useState({});
   const [currentMoodDate, setCurrentMoodDate] = useState(null);
   const [showForumRulesModal, setShowForumRulesModal] = useState(false);
+  const [prayerTimes, setPrayerTimes] = useState({}); // State to store dynamic prayer times
   const dates = generateDatesForMonth(currentDate);
   const navigate = useNavigate();
 
@@ -92,6 +93,40 @@ function ActivitySchedule() {
     "11": "⛈️", // thunderstorm
     "13": "❄️", // snow
     "50": "🌫️", // mist
+  };
+
+  // Fetch prayer times from Aladhan API for Ariana, Tunis
+  const fetchPrayerTimes = async () => {
+    try {
+      const response = await fetch(
+        `http://api.aladhan.com/v1/timingsByCity?city=Ariana&country=Tunisia&method=3`
+      );
+      const data = await response.json();
+      if (data.code === 200) {
+        const timings = data.data.timings;
+        // Convert times to HH:MM format and store them
+        setPrayerTimes({
+          Fajr: timings.Fajr.slice(0, 5),
+          Dhuhr: timings.Dhuhr.slice(0, 5),
+          Asr: timings.Asr.slice(0, 5),
+          Maghrib: timings.Maghrib.slice(0, 5),
+          Isha: timings.Isha.slice(0, 5),
+        });
+      } else {
+        throw new Error("Failed to fetch prayer times");
+      }
+    } catch (error) {
+      console.error("Error fetching prayer times:", error);
+      toast.error("Failed to fetch prayer times. Using default times.");
+      // Fallback to static times if API fails
+      setPrayerTimes({
+        Fajr: "05:00",
+        Dhuhr: "12:00",
+        Asr: "15:00",
+        Maghrib: "18:00",
+        Isha: "20:00",
+      });
+    }
   };
 
   // Fetch favorite activities
@@ -496,6 +531,7 @@ function ActivitySchedule() {
         fetchScheduledActivities(decoded.id),
         fetchMoods().then((moodsData) => setMoods(moodsData)),
         fetchWeatherData(),
+        fetchPrayerTimes(), // Fetch prayer times on component mount
       ]).finally(() => {
         setIsLoading(false);
       });
@@ -522,6 +558,48 @@ function ActivitySchedule() {
       }
     };
   }, [scheduledActivities]);
+
+  // Logic to play Azan on the 25th if "prayer" is scheduled
+  useEffect(() => {
+    const checkPrayerTimes = () => {
+      const today = new Date();
+      const day = today.getDate();
+      const dateStr = today.toISOString().split("T")[0]; // YYYY-MM-DD
+
+      // Check if today is the 25th
+      if (day !== 25) return;
+
+      // Check if "prayer" is scheduled for the 25th
+      const scheduledForDay = scheduledActivities[dateStr] || [];
+      const prayerActivity = activities.find((act) => act.title.toLowerCase() === "prayer");
+      const isPrayerScheduled = scheduledForDay.some(
+        (act) => act.activityId === prayerActivity?._id
+      );
+
+      if (!isPrayerScheduled) return;
+
+      // Get current time in HH:MM format
+      const currentTime = today.toTimeString().slice(0, 5); // HH:MM
+
+      // Check if current time matches any prayer time
+      Object.values(prayerTimes).forEach((prayerTime) => {
+        if (currentTime === prayerTime) {
+          const azanAudio = new Audio("/assets/sounds/azan.mp3");
+          azanAudio.play().catch((error) => {
+            console.error("Error playing Azan:", error);
+            toast.error("Failed to play Azan sound.");
+          });
+          toast.info("Time for prayer! Azan is playing.");
+        }
+      });
+    };
+
+    // Check every minute
+    const interval = setInterval(checkPrayerTimes, 60000);
+    checkPrayerTimes(); // Check immediately on mount
+
+    return () => clearInterval(interval);
+  }, [scheduledActivities, activities, prayerTimes]);
 
   if (isLoading) {
     return <div style={{ textAlign: "center", padding: "20px", fontSize: "18px" }}>Loading...</div>;
@@ -609,19 +687,19 @@ function ActivitySchedule() {
         onClick={handleOpenForumRulesModal}
         style={{
           position: "fixed",
-          bottom: "20px", // Changed from top to bottom
-          left: "20px",   // Changed from right to left
+          bottom: "20px",
+          left: "20px",
           width: "60px",
           height: "60px",
-          backgroundColor: "#ff9500", // Orange background
-          borderRadius: "50%", // Circular shape
+          backgroundColor: "#ff9500",
+          borderRadius: "50%",
           border: "none",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           cursor: "pointer",
-          boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)", // Shadow for depth
-          zIndex: 1001, // Above other content, but below modals
+          boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+          zIndex: 1001,
           transition: "transform 0.2s ease, box-shadow 0.2s ease",
         }}
         onMouseEnter={(e) => {
@@ -635,7 +713,7 @@ function ActivitySchedule() {
       >
         <span style={{
           fontSize: "30px",
-          color: "#ff0000", // Red question mark
+          color: "#ff0000",
           fontWeight: "bold",
         }}>
           ?
