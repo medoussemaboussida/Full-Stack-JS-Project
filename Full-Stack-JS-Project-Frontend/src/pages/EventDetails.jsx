@@ -7,8 +7,9 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import '../App.css';
 import { jwtDecode } from 'jwt-decode';
 import jsPDF from 'jspdf';
+import { Helmet } from 'react-helmet';
 
-const BASE_URL = "http://localhost:5000";
+const BASE_URL = "http://localhost:5000"; // Local backend URL
 
 const EventDetails = () => {
   const { id } = useParams();
@@ -21,7 +22,8 @@ const EventDetails = () => {
   const [formData, setFormData] = useState({});
   const [relatedEvents, setRelatedEvents] = useState([]);
   const [imageSrc, setImageSrc] = useState("/assets/img/event/single.jpg");
-  const [showParticipants, setShowParticipants] = useState(false); // New state for toggling participants list
+  const [showParticipants, setShowParticipants] = useState(false);
+  const [promoContent, setPromoContent] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
@@ -152,7 +154,6 @@ const EventDetails = () => {
       const token = localStorage.getItem("jwt-token");
       if (!token) throw new Error("No token found");
 
-      // Convert formData to FormData object for multipart/form-data
       const formDataToSend = new FormData();
       formDataToSend.append("title", formData.title);
       formDataToSend.append("description", formData.description);
@@ -176,7 +177,7 @@ const EventDetails = () => {
         },
         timeout: 10000,
         validateStatus: (status) => {
-          return status >= 200 && status < 300; // Treat 2xx status codes as success
+          return status >= 200 && status < 300;
         },
       });
 
@@ -336,7 +337,7 @@ const EventDetails = () => {
         addField('Start Date', event.start_date ? formatDate(event.start_date) : 'N/A');
         addField('End Date', event.end_date ? formatDate(event.end_date) : 'N/A');
         addField('Time', event.heure || 'N/A');
-        addField('Event Type', event.event_type === 'in-person' ? 'In-Person' : 'Online');
+        addField('Event Type', event.event_type === "in-person" ? 'In-Person' : 'Online');
         addField('Organizer', event.created_by?.username || 'Unknown Organizer');
         addField('Contact', event.contact_email || event.created_by?.email || 'N/A');
         addField('Participants', `${event.participants?.length || 1} / ${event.max_participants || 'No limit'}`);
@@ -351,6 +352,61 @@ const EventDetails = () => {
     }
   };
 
+  const handleShareOnFacebook = async () => {
+    try {
+      const pageId = '239959405871715';
+      const accessToken = 'EAAERIQJ4OLsBOyFLCXOZC6kRSJorQl5sFtGXXDLZCleXNNm400sq7H0ZB8HAzPjs1hL6ereJweE2gGtaZAgw3XhOKrFymMX5sYu1lCs962rE8bsvdCig5DiAipkmoZAaGbsJqFbLRW0JaHaLp8FGMwHec691FC9mYAilEQgbfPnZADfARmLVkeXKB26UAgTR0ZD';
+
+      if (!accessToken) {
+        throw new Error("Facebook access token is missing.");
+      }
+
+      // Include event details in the message without a link
+      const message = `${event.title}\n\n${event.description || 'Check out this event!'}\n\nDate: ${formatDate(event.start_date)} at ${event.heure || 'TBD'}\nLocation: ${event.event_type === 'in-person' ? event.lieu || 'TBD' : event.online_link || 'Online'}\n\nVisit our website for more details!`;
+
+      const postData = {
+        message: message,
+        access_token: accessToken,
+      };
+
+      const postResponse = await axios.post(
+        `https://graph.facebook.com/v20.0/${pageId}/feed`,
+        postData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      console.log('Post created successfully:', postResponse.data);
+      toast.success("Event shared successfully on your Facebook page!", { autoClose: 2000 });
+    } catch (error) {
+      console.error("Error sharing on Facebook:", error.response?.data || error.message);
+      toast.error("Failed to share event on Facebook: " + (error.response?.data?.error?.message || error.message), { autoClose: 3000 });
+    }
+  };
+
+  const generatePromoContent = () => {
+    try {
+      const { title, description, start_date, lieu, online_link, event_type, heure } = event;
+      const shortDescription = description?.slice(0, 100) || 'An exciting event awaits!';
+      const location = event_type === 'in-person' ? lieu || 'TBD' : online_link || 'Online';
+      const formattedDate = formatDate(start_date);
+      const time = heure || 'Check details';
+
+      const promoText = `Join us for "${title}" on ${formattedDate} at ${time}! ${shortDescription} 📍 ${location}. Visit our website for more details! #Event`;
+
+      const finalText = promoText.length > 280 ? `${promoText.slice(0, 275)}...` : promoText;
+
+      setPromoContent(finalText);
+      toast.success("Promotional content generated!", { autoClose: 2000 });
+    } catch (error) {
+      console.error("Error generating promo content:", error);
+      toast.error("Failed to generate promotional content", { autoClose: 3000 });
+    }
+  };
+
   if (loading) return <div className="text-center py-5">Loading...</div>;
   if (!event) return <div className="text-center py-5">Event not found</div>;
 
@@ -358,6 +414,18 @@ const EventDetails = () => {
 
   return (
     <>
+      <Helmet>
+        <title>{event.title || "Event Details"}</title>
+        <meta property="og:title" content={event.title || "Event Details"} />
+        <meta property="og:description" content={event.description || "Check out this event!"} />
+        <meta
+          property="og:image"
+          content="https://via.placeholder.com/1200x630.png?text=Event+Image" // Public fallback image
+        />
+        <meta property="og:url" content="https://yourdomain.com/events" /> {/* Replace with production URL later */}
+        <meta property="og:type" content="website" />
+      </Helmet>
+
       <div className="site-breadcrumb" style={{ background: "url(/assets/img/breadcrumb/01.jpg)" }}>
         <div className="container">
           <h2 className="breadcrumb-title">Event Details</h2>
@@ -650,17 +718,41 @@ const EventDetails = () => {
                           <button onClick={handleDownloadPDF} className="theme-btn me-2">
                             Download PDF <i className="fas fa-file-pdf"></i>
                           </button>
+                          <button onClick={handleShareOnFacebook} className="theme-btn me-2" style={{ backgroundColor: '#3b5998' }}>
+                            Share on FB <i className="fab fa-facebook-f"></i>
+                          </button>
                           {isCreator && !isEditing && (
                             <>
                               <button onClick={handleUpdate} className="theme-btn me-2">
                                 Edit <i className="fas fa-edit"></i>
                               </button>
-                              <button onClick={handleDelete} className="theme-btn btn-danger">
+                              <button onClick={handleDelete} className="theme-btn btn-danger me-2">
                                 Delete <i className="fas fa-trash"></i>
+                              </button>
+                              <button onClick={generatePromoContent} className="theme-btn">
+                                Generate Promo <i className="fas fa-bullhorn"></i>
                               </button>
                             </>
                           )}
                         </div>
+                        {isCreator && promoContent && (
+                          <div className="mt-3">
+                            <h5>Promotional Content</h5>
+                            <textarea
+                              className="form-control"
+                              rows="4"
+                              value={promoContent}
+                              readOnly
+                              style={{ resize: "none" }}
+                            />
+                            <button
+                              className="theme-btn mt-2"
+                              onClick={() => navigator.clipboard.writeText(promoContent).then(() => toast.success("Copied to clipboard!", { autoClose: 2000 }))}
+                            >
+                              Copy Text <i className="fas fa-copy"></i>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
