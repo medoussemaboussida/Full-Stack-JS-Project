@@ -127,71 +127,6 @@ function Forum() {
     localStorage.setItem("chatMessages", JSON.stringify(chatMessages));
   }, [chatMessages]);
 
-  const classifyText = async (text) => {
-    const cacheKey = `sentiment_${text}`;
-    const cachedResult = localStorage.getItem(cacheKey);
-    if (cachedResult) {
-      return cachedResult;
-    }
-
-    try {
-      const response = await fetch(
-        "https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.REACT_APP_HUGGINGFACE_API_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ inputs: text }),
-        }
-      );
-
-      // Vérifier le statut de la réponse
-      if (!response.ok) {
-        console.error("Erreur HTTP:", response.status, response.statusText);
-        const errorData = await response.json();
-        console.error("Détails de l'erreur:", errorData);
-        return "UNKNOWN";
-      }
-
-      const data = await response.json();
-      console.log("Réponse de l'API Hugging Face:", data); // Ajouter pour déboguer
-
-      if (data && data[0] && data[0][0] && data[0][0].label) {
-        const sentiment = data[0][0].label;
-        localStorage.setItem(cacheKey, sentiment);
-        return sentiment;
-      } else {
-        console.error("Structure inattendue de la réponse:", data);
-        return "UNKNOWN";
-      }
-    } catch (error) {
-      console.error("Erreur lors de la classification:", error);
-      return "UNKNOWN";
-    }
-  };
-
-  // Fonction pour ajouter un délai entre les requêtes
-  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-  // Analyser le sentiment des commentaires
-  useEffect(() => {
-    const analyzeCommentSentiments = async () => {
-      const sentiments = {};
-      for (let i = 0; i < comments.length; i++) {
-        const comment = comments[i];
-        const sentiment = await classifyText(comment.content);
-        sentiments[comment._id] = sentiment;
-        await delay(12000); // Attendre 2 secondes entre chaque requête pour respecter les limites de l'API
-      }
-      setCommentSentiments(sentiments);
-    };
-
-    if (showCommentModal && comments.length > 0) {
-      analyzeCommentSentiments();
-    }
-  }, [comments, showCommentModal]);
 
   // Fonction pour basculer l'état d'expansion
   const toggleDescription = (forumId) => {
@@ -1013,7 +948,7 @@ function Forum() {
               <div
                 style={{
                   position: "relative",
-                  width: isSearchOpen ? "400px" : "40px",
+                  width: isSearchOpen ? "250px" : "40px", // Réduit de 400px à 250px
                   transition: "width 0.3s ease",
                 }}
               >
@@ -1052,7 +987,7 @@ function Forum() {
                         borderRadius: "50px",
                         border: "1px solid #007bff",
                         outline: "none",
-                        width: isSearchOpen ? "100%" : "0%",
+                        width: isSearchOpen ? "80%" : "0%",
                         boxSizing: "border-box",
                         opacity: isSearchOpen ? 1 : 0,
                         transition: "opacity 0.10s ease, width 0.10s ease",
@@ -1171,7 +1106,6 @@ function Forum() {
                 )}
               </div>
             </div>
-
             <div
               className="forum-list"
               style={{
@@ -1457,7 +1391,7 @@ function Forum() {
                               border: "1px solid #007bff",
                               paddingLeft: "10px",
                               fontSize: "14px",
-                              maxWidth: "90%",
+                              maxWidth: "65%",
                               paddingRight: "40px",
                               opacity: isBanned ? 0.5 : 1,
                             }}
@@ -1474,7 +1408,7 @@ function Forum() {
                             icon={faSmile}
                             style={{
                               position: "absolute",
-                              right: "100px",
+                              left: "440px",
                               top: "50%",
                               transform: "translateY(-50%)",
                               fontSize: "18px",
@@ -1502,7 +1436,7 @@ function Forum() {
                               />
                             </div>
                           )}
-                          <button
+                        <button
                             onClick={() =>
                               handleAddComment(
                                 forum._id,
@@ -1510,45 +1444,61 @@ function Forum() {
                                 anonymous
                               )
                             }
-                            className="btn btn-primary d-flex align-items-center justify-content-center"
+                            className="theme-btn"
                             style={{
-                              width: "40px",
-                              height: "40px",
-                              borderRadius: "50%",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              padding: "5px",
+                              backgroundColor: "#28a745", // Vert pour "Send Comment"
+                              color: "white",
+                              borderRadius: "50px",
+                              border: "none",
+                              fontSize: "14px",
                               opacity: isBanned ? 0.5 : 1,
                               cursor: isBanned ? "not-allowed" : "pointer",
+                              transition: "background-color 0.3s ease, transform 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isBanned) {
+                                e.currentTarget.style.backgroundColor = "#218838";
+                                e.currentTarget.style.transform = "scale(1.05)";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isBanned) {
+                                e.currentTarget.style.backgroundColor = "#28a745";
+                                e.currentTarget.style.transform = "scale(1)";
+                              }
                             }}
                             disabled={isBanned}
                           >
-                            <FontAwesomeIcon
-                              icon={faPaperPlane}
-                              style={{ fontSize: "14px" }}
-                            />
-                          </button>
+                            Send
+                          </button>&nbsp;
                           <button
                             onClick={() => handleViewComments(forum._id)}
-                            className="btn btn-secondary d-flex align-items-center justify-content-center ms-2"
+                            className="theme-btn"
                             style={{
-                              width: "40px",
-                              height: "40px",
-                              borderRadius: "50%",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              padding: "5px",
+                              backgroundColor: "#007bff", // Bleu pour "View Comments"
+                              color: "white",
+                              borderRadius: "50px",
+                              border: "none",
+                              fontSize: "14px",
                               opacity: isBanned ? 0.5 : 1,
                               cursor: isBanned ? "not-allowed" : "pointer",
+                              transition: "background-color 0.3s ease, transform 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isBanned) {
+                                e.currentTarget.style.backgroundColor = "#0056b3";
+                                e.currentTarget.style.transform = "scale(1.05)";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isBanned) {
+                                e.currentTarget.style.backgroundColor = "#007bff";
+                                e.currentTarget.style.transform = "scale(1)";
+                              }
                             }}
                             disabled={isBanned}
                           >
-                            <FontAwesomeIcon
-                              icon={faEye}
-                              style={{ fontSize: "14px" }}
-                            />
+                            View Comments
                           </button>
                         </div>
                         <div className="mt-2 d-flex align-items-center">
@@ -1644,7 +1594,7 @@ function Forum() {
           style={{
             position: "fixed",
             bottom: "20px",
-            right: "160px",
+            right: "100px",
             zIndex: 1000,
             cursor: "pointer",
           }}
@@ -2694,7 +2644,7 @@ function Forum() {
         style={{
           position: "fixed",
           bottom: "20px",
-          right: "100px",
+          right: "30px",
           zIndex: 1000,
           cursor: "pointer",
         }}
