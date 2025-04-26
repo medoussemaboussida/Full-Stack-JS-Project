@@ -73,17 +73,21 @@ function Forum() {
   const [username, setUsername] = useState(null);
   const [likedTopics, setLikedTopics] = useState(new Set());
   const [likedComments, setLikedComments] = useState(new Set());
-  const [commentSentiments, setCommentSentiments] = useState({}); // Nouvel état pour les sentiments
+  const [commentSentiments, setCommentSentiments] = useState({});
   const [showChatbotModal, setShowChatbotModal] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [showForumRulesModal, setShowForumRulesModal] = useState(false);
   const [userMessage, setUserMessage] = useState("");
   const [showBanModal, setShowBanModal] = useState(false);
   const [banDetails, setBanDetails] = useState({ reason: "", expiresAt: "" });
+  const [translatedTopics, setTranslatedTopics] = useState({});
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [targetLanguage, setTargetLanguage] = useState("en"); // Langue cible par défaut : anglais
   const navigate = useNavigate();
+
   // Fonction pour interagir avec l'API Gemini
   const interactWithGemini = async (message) => {
-    const GEMINI_API_KEY = "AIzaSyCfw_jacNIo7ORhBYWXr9b6uYDeeOc4C7o"; // Remplacez par votre clé API réelle
+    const GEMINI_API_KEY = "AIzaSyCfw_jacNIo7ORhBYWXr9b6uYDeeOc4C7o";
 
     try {
       const response = await fetch(
@@ -123,10 +127,80 @@ function Forum() {
       return "An error occurred while interacting with the chatbot.";
     }
   };
+
+  // Fonction pour traduire un topic avec LibreTranslate
+  const handleTranslateTopic = async (forumId, title, description) => {
+    if (isBanned) {
+      toast.error("You are banned and cannot translate topics!");
+      return;
+    }
+  
+    setIsTranslating(true);
+  
+    try {
+      // Déterminer la paire de langues (par exemple, "en|fr" pour anglais vers français)
+      const sourceLanguage = "en"; // Langue source : anglais
+      const langPair = `${sourceLanguage}|${targetLanguage}`;
+  
+      // Traduire le titre
+      const titleResponse = await fetch(
+        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(
+          title
+        )}&langpair=${langPair}`,
+        {
+          method: "GET",
+        }
+      );
+  
+      if (!titleResponse.ok) {
+        const errorData = await titleResponse.json();
+        console.error("Erreur lors de la traduction du titre:", errorData);
+        throw new Error("Erreur lors de la requête de traduction du titre");
+      }
+  
+      const titleData = await titleResponse.json();
+      const translatedTitle = titleData.responseData.translatedText;
+  
+      // Traduire la description
+      const descResponse = await fetch(
+        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(
+          description
+        )}&langpair=${langPair}`,
+        {
+          method: "GET",
+        }
+      );
+  
+      if (!descResponse.ok) {
+        const errorData = await descResponse.json();
+        console.error("Erreur lors de la traduction de la description:", errorData);
+        throw new Error("Erreur lors de la requête de traduction de la description");
+      }
+  
+      const descData = await descResponse.json();
+      const translatedDesc = descData.responseData.translatedText;
+  
+      // Mettre à jour l'état avec les traductions
+      setTranslatedTopics((prev) => ({
+        ...prev,
+        [forumId]: {
+          title: translatedTitle,
+          description: translatedDesc,
+        },
+      }));
+  
+      toast.success("Topic translated successfully!");
+    } catch (error) {
+      console.error("Erreur lors de la traduction:", error);
+      toast.error("Failed to translate the topic!");
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
   useEffect(() => {
     localStorage.setItem("chatMessages", JSON.stringify(chatMessages));
   }, [chatMessages]);
-
 
   // Fonction pour basculer l'état d'expansion
   const toggleDescription = (forumId) => {
@@ -143,6 +217,7 @@ function Forum() {
       setSearchQuery("");
     }
   };
+
   useEffect(() => {
     if (userId && comments.length > 0) {
       const liked = new Set(
@@ -155,6 +230,7 @@ function Forum() {
       setLikedComments(liked);
     }
   }, [userId, comments]);
+
   // Fonction pour basculer l'affichage du sélecteur d'emojis
   const toggleEmojiPicker = (forumId) => {
     if (isBanned) {
@@ -272,7 +348,7 @@ function Forum() {
                   reason: data.ban.reason || "No reason provided",
                   expiresAt: expiresAt.toLocaleString("fr-FR"),
                 });
-                setShowBanModal(true); // Ouvre le modal automatiquement
+                setShowBanModal(true);
               } else {
                 setIsBanned(false);
                 setShowBanModal(false);
@@ -821,6 +897,7 @@ function Forum() {
     },
     [isBanned, userId, token]
   );
+
   const toggleLikeComment = useCallback(
     async (commentId) => {
       if (isBanned) {
@@ -885,6 +962,7 @@ function Forum() {
     },
     [isBanned, userId, token]
   );
+
   // Calculer le nombre de notifications non lues
   const unreadNotificationsCount = notifications.filter(
     (notif) => !notif.read
@@ -948,7 +1026,7 @@ function Forum() {
               <div
                 style={{
                   position: "relative",
-                  width: isSearchOpen ? "250px" : "40px", // Réduit de 400px à 250px
+                  width: isSearchOpen ? "250px" : "40px",
                   transition: "width 0.3s ease",
                 }}
               >
@@ -1009,7 +1087,7 @@ function Forum() {
               >
                 <div
                   style={{
-                    backgroundColor: "#ff9800", // Orange pour se démarquer
+                    backgroundColor: "#ff9800",
                     borderRadius: "50%",
                     width: "50px",
                     height: "50px",
@@ -1328,7 +1406,7 @@ function Forum() {
                         margin: 0,
                       }}
                     >
-                      {forum.title}
+                      {translatedTopics[forum._id]?.title || forum.title}
                     </h3>
                     <br />
                     <p
@@ -1340,7 +1418,7 @@ function Forum() {
                       }}
                     >
                       {truncateDescription(
-                        forum.description,
+                        translatedTopics[forum._id]?.description || forum.description,
                         expanded[forum._id]
                       )}
                       {forum.description.length > 150 && (
@@ -1436,7 +1514,7 @@ function Forum() {
                               />
                             </div>
                           )}
-                        <button
+                          <button
                             onClick={() =>
                               handleAddComment(
                                 forum._id,
@@ -1446,7 +1524,7 @@ function Forum() {
                             }
                             className="theme-btn"
                             style={{
-                              backgroundColor: "#28a745", // Vert pour "Send Comment"
+                              backgroundColor: "#28a745",
                               color: "white",
                               borderRadius: "50px",
                               border: "none",
@@ -1470,12 +1548,12 @@ function Forum() {
                             disabled={isBanned}
                           >
                             Send
-                          </button>&nbsp;
+                          </button>{" "}
                           <button
                             onClick={() => handleViewComments(forum._id)}
                             className="theme-btn"
                             style={{
-                              backgroundColor: "#007bff", // Bleu pour "View Comments"
+                              backgroundColor: "#007bff",
                               color: "white",
                               borderRadius: "50px",
                               border: "none",
@@ -1547,6 +1625,7 @@ function Forum() {
                               color: "black",
                               cursor: isBanned ? "not-allowed" : "pointer",
                               opacity: isBanned ? 0.5 : 1,
+                              marginRight: "10px",
                             }}
                             onClick={() => {
                               if (isBanned) {
@@ -1560,6 +1639,64 @@ function Forum() {
                           >
                             Anonymous comment ?
                           </label>
+                          {/* Liste déroulante pour choisir la langue cible */}
+                          <select
+                            value={targetLanguage}
+                            onChange={(e) => setTargetLanguage(e.target.value)}
+                            style={{
+                              padding: "5px",
+                              borderRadius: "50px",
+                              border: "1px solid #007bff",
+                              outline: "none",
+                              cursor: isBanned ? "not-allowed" : "pointer",
+                              fontSize: "14px",
+                              marginRight: "10px",
+                              opacity: isBanned ? 0.5 : 1,
+                            }}
+                            disabled={isBanned}
+                          >
+                            <option value="en">English</option>
+                            <option value="es">Spanish</option>
+                            <option value="fr">French</option>
+                            <option value="de">German</option>
+                            <option value="it">Italian</option>
+                          </select>
+                          {/* Bouton Translate rose */}
+                          <button
+                            onClick={() =>
+                              handleTranslateTopic(
+                                forum._id,
+                                forum.title,
+                                forum.description
+                              )
+                            }
+                            className="theme-btn"
+                            style={{
+                              backgroundColor: "#ff69b4",
+                              color: "white",
+                              borderRadius: "50px",
+                              border: "none",
+                              fontSize: "14px",
+                              opacity: isBanned ? 0.5 : 1,
+                              cursor: isBanned ? "not-allowed" : "pointer",
+                              transition: "background-color 0.3s ease, transform 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isBanned) {
+                                e.currentTarget.style.backgroundColor = "#ff1493";
+                                e.currentTarget.style.transform = "scale(1.05)";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isBanned) {
+                                e.currentTarget.style.backgroundColor = "#ff69b4";
+                                e.currentTarget.style.transform = "scale(1)";
+                              }
+                            }}
+                            disabled={isBanned || isTranslating}
+                          >
+                            {isTranslating ? "Translating..." : "Translate"}
+                          </button>
                         </div>
                       </>
                     )}
