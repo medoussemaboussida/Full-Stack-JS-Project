@@ -134,14 +134,14 @@ function Forum() {
       toast.error("You are banned and cannot translate topics!");
       return;
     }
-  
+
     setIsTranslating(true);
-  
+
     try {
       // Déterminer la paire de langues (par exemple, "en|fr" pour anglais vers français)
       const sourceLanguage = "en"; // Langue source : anglais
       const langPair = `${sourceLanguage}|${targetLanguage}`;
-  
+
       // Traduire le titre
       const titleResponse = await fetch(
         `https://api.mymemory.translated.net/get?q=${encodeURIComponent(
@@ -151,16 +151,16 @@ function Forum() {
           method: "GET",
         }
       );
-  
+
       if (!titleResponse.ok) {
         const errorData = await titleResponse.json();
         console.error("Erreur lors de la traduction du titre:", errorData);
         throw new Error("Erreur lors de la requête de traduction du titre");
       }
-  
+
       const titleData = await titleResponse.json();
       const translatedTitle = titleData.responseData.translatedText;
-  
+
       // Traduire la description
       const descResponse = await fetch(
         `https://api.mymemory.translated.net/get?q=${encodeURIComponent(
@@ -170,16 +170,21 @@ function Forum() {
           method: "GET",
         }
       );
-  
+
       if (!descResponse.ok) {
         const errorData = await descResponse.json();
-        console.error("Erreur lors de la traduction de la description:", errorData);
-        throw new Error("Erreur lors de la requête de traduction de la description");
+        console.error(
+          "Erreur lors de la traduction de la description:",
+          errorData
+        );
+        throw new Error(
+          "Erreur lors de la requête de traduction de la description"
+        );
       }
-  
+
       const descData = await descResponse.json();
       const translatedDesc = descData.responseData.translatedText;
-  
+
       // Mettre à jour l'état avec les traductions
       setTranslatedTopics((prev) => ({
         ...prev,
@@ -188,7 +193,7 @@ function Forum() {
           description: translatedDesc,
         },
       }));
-  
+
       toast.success("Topic translated successfully!");
     } catch (error) {
       console.error("Erreur lors de la traduction:", error);
@@ -1233,8 +1238,9 @@ function Forum() {
                                 backgroundColor: "transparent",
                                 border: "1px solid #00BFFF",
                                 color: "#00BFFF",
-                                padding: "2px 8px",
+                                padding: "5px 8px",
                                 borderRadius: "20px",
+                                marginRight: "5px",
                                 boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
                                 fontSize: "0.875rem",
                               }}
@@ -1249,8 +1255,9 @@ function Forum() {
                               backgroundColor: "transparent",
                               border: "1px solid #FF0000",
                               color: "#FF0000",
-                              padding: "2px 8px",
+                              padding: "5px 8px",
                               borderRadius: "20px",
+                              marginLeft: "5px",
                               boxShadow: "0 0 10px rgba(255, 0, 0, 0.5)",
                               fontSize: "0.875rem",
                             }}
@@ -1418,7 +1425,8 @@ function Forum() {
                       }}
                     >
                       {truncateDescription(
-                        translatedTopics[forum._id]?.description || forum.description,
+                        translatedTopics[forum._id]?.description ||
+                          forum.description,
                         expanded[forum._id]
                       )}
                       {forum.description.length > 150 && (
@@ -1531,17 +1539,20 @@ function Forum() {
                               fontSize: "14px",
                               opacity: isBanned ? 0.5 : 1,
                               cursor: isBanned ? "not-allowed" : "pointer",
-                              transition: "background-color 0.3s ease, transform 0.2s ease",
+                              transition:
+                                "background-color 0.3s ease, transform 0.2s ease",
                             }}
                             onMouseEnter={(e) => {
                               if (!isBanned) {
-                                e.currentTarget.style.backgroundColor = "#218838";
+                                e.currentTarget.style.backgroundColor =
+                                  "#218838";
                                 e.currentTarget.style.transform = "scale(1.05)";
                               }
                             }}
                             onMouseLeave={(e) => {
                               if (!isBanned) {
-                                e.currentTarget.style.backgroundColor = "#28a745";
+                                e.currentTarget.style.backgroundColor =
+                                  "#28a745";
                                 e.currentTarget.style.transform = "scale(1)";
                               }
                             }}
@@ -1558,19 +1569,23 @@ function Forum() {
                               borderRadius: "50px",
                               border: "none",
                               fontSize: "14px",
+                              marginLeft: "10px",
                               opacity: isBanned ? 0.5 : 1,
                               cursor: isBanned ? "not-allowed" : "pointer",
-                              transition: "background-color 0.3s ease, transform 0.2s ease",
+                              transition:
+                                "background-color 0.3s ease, transform 0.2s ease",
                             }}
                             onMouseEnter={(e) => {
                               if (!isBanned) {
-                                e.currentTarget.style.backgroundColor = "#0056b3";
+                                e.currentTarget.style.backgroundColor =
+                                  "#0056b3";
                                 e.currentTarget.style.transform = "scale(1.05)";
                               }
                             }}
                             onMouseLeave={(e) => {
                               if (!isBanned) {
-                                e.currentTarget.style.backgroundColor = "#007bff";
+                                e.currentTarget.style.backgroundColor =
+                                  "#007bff";
                                 e.currentTarget.style.transform = "scale(1)";
                               }
                             }}
@@ -1582,20 +1597,15 @@ function Forum() {
                         <div className="mt-2 d-flex align-items-center">
                           <div
                             style={{
-                              width: "20px",
-                              height: "20px",
-                              borderRadius: "50%",
-                              border: "1px solid black",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
+                              position: "relative",
+                              width: "50px",
+                              height: "24px",
+                              backgroundColor: anonymous ? "#28a745" : "#ccc",
+                              borderRadius: "50px",
                               cursor: isBanned ? "not-allowed" : "pointer",
-                              marginRight: "10px",
                               transition: "background-color 0.3s ease",
-                              backgroundColor: anonymous
-                                ? "rgba(0, 128, 0, 0.2)"
-                                : "white",
                               opacity: isBanned ? 0.5 : 1,
+                              marginRight: "10px",
                             }}
                             onClick={() => {
                               if (isBanned) {
@@ -1609,14 +1619,30 @@ function Forum() {
                           >
                             <div
                               style={{
-                                width: anonymous ? "10px" : "0px",
-                                height: anonymous ? "10px" : "0px",
-                                backgroundColor: "green",
+                                position: "absolute",
+                                top: "2px",
+                                left: anonymous ? "28px" : "2px",
+                                width: "20px",
+                                height: "20px",
+                                backgroundColor: "white",
                                 borderRadius: "50%",
-                                transition: "all 0.3s ease",
-                                opacity: anonymous ? 1 : 0,
+                                transition: "left 0.3s ease",
+                                boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
                               }}
                             />
+                            <span
+                              style={{
+                                position: "absolute",
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                left: anonymous ? "5px" : "25px",
+                                fontSize: "10px",
+                                color: anonymous ? "white" : "#666",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              {anonymous ? "ON" : "OFF"}
+                            </span>
                           </div>
                           <label
                             htmlFor="anonymousComment"
@@ -1640,27 +1666,6 @@ function Forum() {
                             Anonymous comment ?
                           </label>
                           {/* Liste déroulante pour choisir la langue cible */}
-                          <select
-                            value={targetLanguage}
-                            onChange={(e) => setTargetLanguage(e.target.value)}
-                            style={{
-                              padding: "5px",
-                              borderRadius: "50px",
-                              border: "1px solid #007bff",
-                              outline: "none",
-                              cursor: isBanned ? "not-allowed" : "pointer",
-                              fontSize: "14px",
-                              marginRight: "10px",
-                              opacity: isBanned ? 0.5 : 1,
-                            }}
-                            disabled={isBanned}
-                          >
-                            <option value="en">English</option>
-                            <option value="es">Spanish</option>
-                            <option value="fr">French</option>
-                            <option value="de">German</option>
-                            <option value="it">Italian</option>
-                          </select>
                           {/* Bouton Translate rose */}
                           <button
                             onClick={() =>
@@ -1677,19 +1682,24 @@ function Forum() {
                               borderRadius: "50px",
                               border: "none",
                               fontSize: "14px",
+                              padding: "5px 20px", // Réduit le padding pour un bouton plus petit
+                              fontSize: "14px", // Réduit la taille de la police
                               opacity: isBanned ? 0.5 : 1,
                               cursor: isBanned ? "not-allowed" : "pointer",
-                              transition: "background-color 0.3s ease, transform 0.2s ease",
+                              transition:
+                                "background-color 0.3s ease, transform 0.2s ease",
                             }}
                             onMouseEnter={(e) => {
                               if (!isBanned) {
-                                e.currentTarget.style.backgroundColor = "#ff1493";
+                                e.currentTarget.style.backgroundColor =
+                                  "#ff1493";
                                 e.currentTarget.style.transform = "scale(1.05)";
                               }
                             }}
                             onMouseLeave={(e) => {
                               if (!isBanned) {
-                                e.currentTarget.style.backgroundColor = "#ff69b4";
+                                e.currentTarget.style.backgroundColor =
+                                  "#ff69b4";
                                 e.currentTarget.style.transform = "scale(1)";
                               }
                             }}
@@ -1697,6 +1707,27 @@ function Forum() {
                           >
                             {isTranslating ? "Translating..." : "Translate"}
                           </button>
+                          <select
+                            value={targetLanguage}
+                            onChange={(e) => setTargetLanguage(e.target.value)}
+                            style={{
+                              padding: "5px",
+                              borderRadius: "50px",
+                              border: "1px solid #007bff",
+                              outline: "none",
+                              cursor: isBanned ? "not-allowed" : "pointer",
+                              fontSize: "14px",
+                              marginLeft: "10px",
+                              opacity: isBanned ? 0.5 : 1,
+                            }}
+                            disabled={isBanned}
+                          >
+                            <option value="en">English</option>
+                            <option value="es">Spanish</option>
+                            <option value="fr">French</option>
+                            <option value="de">German</option>
+                            <option value="it">Italian</option>
+                          </select>
                         </div>
                       </>
                     )}
