@@ -73,14 +73,15 @@ function ForumModerate() {
     if (cachedResult) {
       return cachedResult;
     }
-
+ //don't use it because is my personal key yehdik rabi aman aaychekkkkkkkkkkkkkkkkkkk
+    const REACT_APP_HUGGINGFACE_API_TOKEN="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"
     try {
       const response = await fetch(
         "https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english",
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${process.env.REACT_APP_HUGGINGFACE_API_TOKEN}`,
+            Authorization: `Bearer ${REACT_APP_HUGGINGFACE_API_TOKEN}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ inputs: text }),
