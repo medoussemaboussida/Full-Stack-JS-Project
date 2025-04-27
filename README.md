@@ -25,11 +25,11 @@ The goal of this project is to provide a structured, secure and efficient platfo
 </p>  
 
 ## Forum 🗨️
-A discussion space where students can share their experiences, ask questions, and support each other in a safe and moderated environment.  
-#### Advanced features 🚀 :
+✔️ A discussion space where students can share their experiences, ask questions, and support each other in a safe and moderated environment.  
+#### 🚀 Advanced features :
 Bad words filter, Gemini AI chatbot for real-time assistance, Hugging Face sentiment analysis for emotional monitoring, detailed PDF report generation, usage statistics tracking, and QR code generation for easy access.
 
 ## Complaint 📩
-A secure system that allows users to confidentially submit complaints or concerns, ensuring they are addressed by the appropriate university support services.  
-#### Advanced features 🚀 :
+✔️ A secure system that allows users to confidentially submit complaints or concerns, ensuring they are addressed by the appropriate university support services.  
+#### 🚀 Advanced features :
 Rich text editing with CKEditor for precise complaint formulation, automatic PDF generation of complaint reports, usage statistics monitoring, and a direct chat system with administrators to quickly resolve more complex issues.
