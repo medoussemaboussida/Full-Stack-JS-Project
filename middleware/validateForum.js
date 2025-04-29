@@ -6,13 +6,13 @@ async function validateForumTopic(req, res, next) {
             title: yup.string()
                 .min(5, "Title must be at least 5 characters long.")
                 .max(100, "Title cannot exceed 100 characters.")
-                .matches(/^[A-Za-z0-9\s.,!?]+$/, "Title can only contain letters, numbers, spaces, and some characters (.,!?).")
+                .matches(/^[A-Za-z0-9\s.,!?']+$/, "Title can only contain letters, numbers, spaces, and some characters (.,!?).")
                 .required("Title is required."),
             
             description: yup.string()
                 .min(10, "Description must be at least 10 characters long.")
                 .max(1000, "Description cannot exceed 1000 characters.")
-                .matches(/^[A-Za-z0-9\s.,!?]+$/, "Description can only contain letters, numbers, spaces, and some characters (.,!?).")
+                .matches(/^[A-Za-z0-9\s.,!?']+$/, "Description can only contain letters, numbers, spaces, and some characters (.,!?).")
                 .required("Description is required."),
             
 
