@@ -55,6 +55,7 @@ router.post('/related', async (req, res) => {
       res.status(500).json({ message: 'Server error', error: error.message });
     }
   });
+  router.put('/updateEvent/:id',  userController.verifyToken, eventController.updateEvent);
 router.post("/like/:id", userController.verifyToken, eventController.likeEvent);
 router.post("/dislike/:id", userController.verifyToken, eventController.dislikeEvent);
 router.post("/favorite/:id", userController.verifyToken, eventController.favoriteEvent);

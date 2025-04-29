@@ -640,7 +640,10 @@ const Publication = () => {
         .title { font-weight: bold; font-size: 16px; color: #2c3e50; }
         .description { font-size: 14px; color: #666; }
         .meta { font-size: 12px; color: #888; }
+        .logo { display: left; margin: left 0 auto 20px auto; max-width: 150px; height: auto; text-align: left; }
       </style>
+      <img src="/assets/logo.png" class="logo" alt="Logo" />
+ 
       <h1>All Publications</h1>
     `;
 

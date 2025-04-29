@@ -63,6 +63,7 @@ function ForumModerate() {
   const [showBannedListModal, setShowBannedListModal] = useState(false);
   const [bannedUsers, setBannedUsers] = useState([]);
   const [commentSentiments, setCommentSentiments] = useState({}); // Nouvel état pour les sentiments
+  const [isAnalyzing, setIsAnalyzing] = useState(false); // État pour indiquer si l'analyse est en cours
   const navigate = useNavigate();
 
   //sentiment ia
@@ -72,14 +73,15 @@ function ForumModerate() {
     if (cachedResult) {
       return cachedResult;
     }
-
+ //don't use it because is my personal key yehdik rabi aman aaychekkkkkkkkkkkkkkkkkkk
+    const REACT_APP_HUGGINGFACE_API_TOKEN="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"
     try {
       const response = await fetch(
         "https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english",
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${process.env.REACT_APP_HUGGINGFACE_API_TOKEN}`,
+            Authorization: `Bearer ${REACT_APP_HUGGINGFACE_API_TOKEN}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ inputs: text }),
@@ -111,34 +113,23 @@ function ForumModerate() {
     }
   };
 
-  // Fonction pour ajouter un délai entre les requêtes
-  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-  // Analyser le sentiment des commentaires
-  useEffect(() => {
-    const analyzeCommentSentiments = async () => {
-      const sentiments = {};
-      for (let i = 0; i < comments.length; i++) {
-        const comment = comments[i];
-        const sentiment = await classifyText(comment.content);
-        sentiments[comment._id] = sentiment;
-        await delay(2000); // Attendre 2 secondes entre chaque requête pour respecter les limites de l'API
-      }
-      setCommentSentiments(sentiments);
-    };
-
-    if (showCommentModal && comments.length > 0) {
-      analyzeCommentSentiments();
+  const handleAnalyzeSentiment = async () => {
+    setIsAnalyzing(true); // Indiquer que l'analyse commence
+    const sentiments = {};
+    for (let i = 0; i < comments.length; i++) {
+      const comment = comments[i];
+      const sentiment = await classifyText(comment.content);
+      sentiments[comment._id] = sentiment;
     }
-  }, [comments, showCommentModal]);
-
+    setCommentSentiments(sentiments);
+    setIsAnalyzing(false); // Indiquer que l'analyse est terminée
+  };
   const toggleDescription = (forumId) => {
     setExpanded((prev) => ({
       ...prev,
       [forumId]: !prev[forumId],
     }));
   };
-
   const toggleSearch = () => {
     setIsSearchOpen((prev) => !prev);
     if (isSearchOpen) {
@@ -866,8 +857,9 @@ function ForumModerate() {
                               backgroundColor: "transparent",
                               border: "1px solid #00BFFF",
                               color: "#00BFFF",
-                              padding: "2px 8px",
+                              padding: "5px 8px",
                               borderRadius: "20px",
+                              marginRight:"5px",
                               boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
                               fontSize: "0.875rem",
                             }}
@@ -882,7 +874,7 @@ function ForumModerate() {
                               backgroundColor: "transparent",
                               border: "1px solid #FF0000",
                               color: "#FF0000",
-                              padding: "2px 8px",
+                              padding: "5px 8px",
                               borderRadius: "20px",
                               boxShadow: "0 0 10px rgba(255, 0, 0, 0.5)",
                               fontSize: "0.875rem",
@@ -1327,6 +1319,51 @@ function ForumModerate() {
             <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
               Comments
             </h3>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px" }}>
+              <button
+                onClick={handleAnalyzeSentiment}
+                disabled={isAnalyzing}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: isAnalyzing ? "#ccc" : "#800080", // Mauve pour le bouton, gris si en cours d'analyse
+                  color: "white",
+                  border: "none",
+                  borderRadius: "20px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: isAnalyzing ? "not-allowed" : "pointer",
+                  transition: "all 0.3s ease",
+                  boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
+                  outline: "none",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isAnalyzing) {
+                    e.target.style.backgroundColor = "#660066"; // Mauve plus foncé au survol
+                    e.target.style.transform = "scale(1.05)";
+                    e.target.style.boxShadow = "0 4px 10px rgba(0, 0, 0, 0.3)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isAnalyzing) {
+                    e.target.style.backgroundColor = "#800080";
+                    e.target.style.transform = "scale(1)";
+                    e.target.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.2)";
+                  }
+                }}
+                onMouseDown={(e) => {
+                  if (!isAnalyzing) {
+                    e.target.style.transform = "scale(0.95)";
+                  }
+                }}
+                onMouseUp={(e) => {
+                  if (!isAnalyzing) {
+                    e.target.style.transform = "scale(1.05)";
+                  }
+                }}
+              >
+                {isAnalyzing ? "Analyzing..." : "Analyze"}
+              </button>
+            </div>
             <div
               style={{
                 maxHeight: comments.length > 3 ? "300px" : "auto",

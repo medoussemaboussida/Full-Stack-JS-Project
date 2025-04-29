@@ -73,17 +73,21 @@ function Forum() {
   const [username, setUsername] = useState(null);
   const [likedTopics, setLikedTopics] = useState(new Set());
   const [likedComments, setLikedComments] = useState(new Set());
-  const [commentSentiments, setCommentSentiments] = useState({}); // Nouvel état pour les sentiments
+  const [commentSentiments, setCommentSentiments] = useState({});
   const [showChatbotModal, setShowChatbotModal] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [showForumRulesModal, setShowForumRulesModal] = useState(false);
   const [userMessage, setUserMessage] = useState("");
   const [showBanModal, setShowBanModal] = useState(false);
   const [banDetails, setBanDetails] = useState({ reason: "", expiresAt: "" });
+  const [translatedTopics, setTranslatedTopics] = useState({});
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [targetLanguage, setTargetLanguage] = useState("en"); // Langue cible par défaut : anglais
   const navigate = useNavigate();
+
   // Fonction pour interagir avec l'API Gemini
   const interactWithGemini = async (message) => {
-    const GEMINI_API_KEY = "AIzaSyCfw_jacNIo7ORhBYWXr9b6uYDeeOc4C7o"; // Remplacez par votre clé API réelle
+    const GEMINI_API_KEY = "AIzaSyCfw_jacNIo7ORhBYWXr9b6uYDeeOc4C7o";
 
     try {
       const response = await fetch(
@@ -123,75 +127,85 @@ function Forum() {
       return "An error occurred while interacting with the chatbot.";
     }
   };
-  useEffect(() => {
-    localStorage.setItem("chatMessages", JSON.stringify(chatMessages));
-  }, [chatMessages]);
 
-  const classifyText = async (text) => {
-    const cacheKey = `sentiment_${text}`;
-    const cachedResult = localStorage.getItem(cacheKey);
-    if (cachedResult) {
-      return cachedResult;
+  // Fonction pour traduire un topic avec LibreTranslate
+  const handleTranslateTopic = async (forumId, title, description) => {
+    if (isBanned) {
+      toast.error("You are banned and cannot translate topics!");
+      return;
     }
 
+    setIsTranslating(true);
+
     try {
-      const response = await fetch(
-        "https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english",
+      // Déterminer la paire de langues (par exemple, "en|fr" pour anglais vers français)
+      const sourceLanguage = "en"; // Langue source : anglais
+      const langPair = `${sourceLanguage}|${targetLanguage}`;
+
+      // Traduire le titre
+      const titleResponse = await fetch(
+        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(
+          title
+        )}&langpair=${langPair}`,
         {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.REACT_APP_HUGGINGFACE_API_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ inputs: text }),
+          method: "GET",
         }
       );
 
-      // Vérifier le statut de la réponse
-      if (!response.ok) {
-        console.error("Erreur HTTP:", response.status, response.statusText);
-        const errorData = await response.json();
-        console.error("Détails de l'erreur:", errorData);
-        return "UNKNOWN";
+      if (!titleResponse.ok) {
+        const errorData = await titleResponse.json();
+        console.error("Erreur lors de la traduction du titre:", errorData);
+        throw new Error("Erreur lors de la requête de traduction du titre");
       }
 
-      const data = await response.json();
-      console.log("Réponse de l'API Hugging Face:", data); // Ajouter pour déboguer
+      const titleData = await titleResponse.json();
+      const translatedTitle = titleData.responseData.translatedText;
 
-      if (data && data[0] && data[0][0] && data[0][0].label) {
-        const sentiment = data[0][0].label;
-        localStorage.setItem(cacheKey, sentiment);
-        return sentiment;
-      } else {
-        console.error("Structure inattendue de la réponse:", data);
-        return "UNKNOWN";
+      // Traduire la description
+      const descResponse = await fetch(
+        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(
+          description
+        )}&langpair=${langPair}`,
+        {
+          method: "GET",
+        }
+      );
+
+      if (!descResponse.ok) {
+        const errorData = await descResponse.json();
+        console.error(
+          "Erreur lors de la traduction de la description:",
+          errorData
+        );
+        throw new Error(
+          "Erreur lors de la requête de traduction de la description"
+        );
       }
+
+      const descData = await descResponse.json();
+      const translatedDesc = descData.responseData.translatedText;
+
+      // Mettre à jour l'état avec les traductions
+      setTranslatedTopics((prev) => ({
+        ...prev,
+        [forumId]: {
+          title: translatedTitle,
+          description: translatedDesc,
+        },
+      }));
+
+      toast.success("Topic translated successfully!");
     } catch (error) {
-      console.error("Erreur lors de la classification:", error);
-      return "UNKNOWN";
+      console.error("Erreur lors de la traduction:", error);
+      toast.error("Failed to translate the topic!");
+    } finally {
+      setIsTranslating(false);
     }
   };
 
-  // Fonction pour ajouter un délai entre les requêtes
-  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-  // Analyser le sentiment des commentaires
   useEffect(() => {
-    const analyzeCommentSentiments = async () => {
-      const sentiments = {};
-      for (let i = 0; i < comments.length; i++) {
-        const comment = comments[i];
-        const sentiment = await classifyText(comment.content);
-        sentiments[comment._id] = sentiment;
-        await delay(2000); // Attendre 2 secondes entre chaque requête pour respecter les limites de l'API
-      }
-      setCommentSentiments(sentiments);
-    };
-
-    if (showCommentModal && comments.length > 0) {
-      analyzeCommentSentiments();
-    }
-  }, [comments, showCommentModal]);
+    localStorage.setItem("chatMessages", JSON.stringify(chatMessages));
+  }, [chatMessages]);
 
   // Fonction pour basculer l'état d'expansion
   const toggleDescription = (forumId) => {
@@ -208,6 +222,7 @@ function Forum() {
       setSearchQuery("");
     }
   };
+
   useEffect(() => {
     if (userId && comments.length > 0) {
       const liked = new Set(
@@ -220,6 +235,7 @@ function Forum() {
       setLikedComments(liked);
     }
   }, [userId, comments]);
+
   // Fonction pour basculer l'affichage du sélecteur d'emojis
   const toggleEmojiPicker = (forumId) => {
     if (isBanned) {
@@ -337,7 +353,7 @@ function Forum() {
                   reason: data.ban.reason || "No reason provided",
                   expiresAt: expiresAt.toLocaleString("fr-FR"),
                 });
-                setShowBanModal(true); // Ouvre le modal automatiquement
+                setShowBanModal(true);
               } else {
                 setIsBanned(false);
                 setShowBanModal(false);
@@ -886,6 +902,7 @@ function Forum() {
     },
     [isBanned, userId, token]
   );
+
   const toggleLikeComment = useCallback(
     async (commentId) => {
       if (isBanned) {
@@ -950,6 +967,7 @@ function Forum() {
     },
     [isBanned, userId, token]
   );
+
   // Calculer le nombre de notifications non lues
   const unreadNotificationsCount = notifications.filter(
     (notif) => !notif.read
@@ -1013,7 +1031,7 @@ function Forum() {
               <div
                 style={{
                   position: "relative",
-                  width: isSearchOpen ? "400px" : "40px",
+                  width: isSearchOpen ? "250px" : "40px",
                   transition: "width 0.3s ease",
                 }}
               >
@@ -1052,7 +1070,7 @@ function Forum() {
                         borderRadius: "50px",
                         border: "1px solid #007bff",
                         outline: "none",
-                        width: isSearchOpen ? "100%" : "0%",
+                        width: isSearchOpen ? "80%" : "0%",
                         boxSizing: "border-box",
                         opacity: isSearchOpen ? 1 : 0,
                         transition: "opacity 0.10s ease, width 0.10s ease",
@@ -1074,7 +1092,7 @@ function Forum() {
               >
                 <div
                   style={{
-                    backgroundColor: "#ff9800", // Orange pour se démarquer
+                    backgroundColor: "#ff9800",
                     borderRadius: "50%",
                     width: "50px",
                     height: "50px",
@@ -1171,7 +1189,6 @@ function Forum() {
                 )}
               </div>
             </div>
-
             <div
               className="forum-list"
               style={{
@@ -1221,8 +1238,9 @@ function Forum() {
                                 backgroundColor: "transparent",
                                 border: "1px solid #00BFFF",
                                 color: "#00BFFF",
-                                padding: "2px 8px",
+                                padding: "5px 8px",
                                 borderRadius: "20px",
+                                marginRight: "5px",
                                 boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
                                 fontSize: "0.875rem",
                               }}
@@ -1237,8 +1255,9 @@ function Forum() {
                               backgroundColor: "transparent",
                               border: "1px solid #FF0000",
                               color: "#FF0000",
-                              padding: "2px 8px",
+                              padding: "5px 8px",
                               borderRadius: "20px",
+                              marginLeft: "5px",
                               boxShadow: "0 0 10px rgba(255, 0, 0, 0.5)",
                               fontSize: "0.875rem",
                             }}
@@ -1394,7 +1413,7 @@ function Forum() {
                         margin: 0,
                       }}
                     >
-                      {forum.title}
+                      {translatedTopics[forum._id]?.title || forum.title}
                     </h3>
                     <br />
                     <p
@@ -1406,7 +1425,8 @@ function Forum() {
                       }}
                     >
                       {truncateDescription(
-                        forum.description,
+                        translatedTopics[forum._id]?.description ||
+                          forum.description,
                         expanded[forum._id]
                       )}
                       {forum.description.length > 150 && (
@@ -1457,7 +1477,7 @@ function Forum() {
                               border: "1px solid #007bff",
                               paddingLeft: "10px",
                               fontSize: "14px",
-                              maxWidth: "90%",
+                              maxWidth: "65%",
                               paddingRight: "40px",
                               opacity: isBanned ? 0.5 : 1,
                             }}
@@ -1474,7 +1494,7 @@ function Forum() {
                             icon={faSmile}
                             style={{
                               position: "absolute",
-                              right: "100px",
+                              left: "440px",
                               top: "50%",
                               transform: "translateY(-50%)",
                               fontSize: "18px",
@@ -1510,64 +1530,82 @@ function Forum() {
                                 anonymous
                               )
                             }
-                            className="btn btn-primary d-flex align-items-center justify-content-center"
+                            className="theme-btn"
                             style={{
-                              width: "40px",
-                              height: "40px",
-                              borderRadius: "50%",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              padding: "5px",
+                              backgroundColor: "#28a745",
+                              color: "white",
+                              borderRadius: "50px",
+                              border: "none",
+                              fontSize: "14px",
                               opacity: isBanned ? 0.5 : 1,
                               cursor: isBanned ? "not-allowed" : "pointer",
+                              transition:
+                                "background-color 0.3s ease, transform 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isBanned) {
+                                e.currentTarget.style.backgroundColor =
+                                  "#218838";
+                                e.currentTarget.style.transform = "scale(1.05)";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isBanned) {
+                                e.currentTarget.style.backgroundColor =
+                                  "#28a745";
+                                e.currentTarget.style.transform = "scale(1)";
+                              }
                             }}
                             disabled={isBanned}
                           >
-                            <FontAwesomeIcon
-                              icon={faPaperPlane}
-                              style={{ fontSize: "14px" }}
-                            />
-                          </button>
+                            Send
+                          </button>{" "}
                           <button
                             onClick={() => handleViewComments(forum._id)}
-                            className="btn btn-secondary d-flex align-items-center justify-content-center ms-2"
+                            className="theme-btn"
                             style={{
-                              width: "40px",
-                              height: "40px",
-                              borderRadius: "50%",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              padding: "5px",
+                              backgroundColor: "#007bff",
+                              color: "white",
+                              borderRadius: "50px",
+                              border: "none",
+                              fontSize: "14px",
+                              marginLeft: "10px",
                               opacity: isBanned ? 0.5 : 1,
                               cursor: isBanned ? "not-allowed" : "pointer",
+                              transition:
+                                "background-color 0.3s ease, transform 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isBanned) {
+                                e.currentTarget.style.backgroundColor =
+                                  "#0056b3";
+                                e.currentTarget.style.transform = "scale(1.05)";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isBanned) {
+                                e.currentTarget.style.backgroundColor =
+                                  "#007bff";
+                                e.currentTarget.style.transform = "scale(1)";
+                              }
                             }}
                             disabled={isBanned}
                           >
-                            <FontAwesomeIcon
-                              icon={faEye}
-                              style={{ fontSize: "14px" }}
-                            />
+                            View Comments
                           </button>
                         </div>
                         <div className="mt-2 d-flex align-items-center">
                           <div
                             style={{
-                              width: "20px",
-                              height: "20px",
-                              borderRadius: "50%",
-                              border: "1px solid black",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
+                              position: "relative",
+                              width: "50px",
+                              height: "24px",
+                              backgroundColor: anonymous ? "#28a745" : "#ccc",
+                              borderRadius: "50px",
                               cursor: isBanned ? "not-allowed" : "pointer",
-                              marginRight: "10px",
                               transition: "background-color 0.3s ease",
-                              backgroundColor: anonymous
-                                ? "rgba(0, 128, 0, 0.2)"
-                                : "white",
                               opacity: isBanned ? 0.5 : 1,
+                              marginRight: "10px",
                             }}
                             onClick={() => {
                               if (isBanned) {
@@ -1581,14 +1619,30 @@ function Forum() {
                           >
                             <div
                               style={{
-                                width: anonymous ? "10px" : "0px",
-                                height: anonymous ? "10px" : "0px",
-                                backgroundColor: "green",
+                                position: "absolute",
+                                top: "2px",
+                                left: anonymous ? "28px" : "2px",
+                                width: "20px",
+                                height: "20px",
+                                backgroundColor: "white",
                                 borderRadius: "50%",
-                                transition: "all 0.3s ease",
-                                opacity: anonymous ? 1 : 0,
+                                transition: "left 0.3s ease",
+                                boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
                               }}
                             />
+                            <span
+                              style={{
+                                position: "absolute",
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                left: anonymous ? "5px" : "25px",
+                                fontSize: "10px",
+                                color: anonymous ? "white" : "#666",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              {anonymous ? "ON" : "OFF"}
+                            </span>
                           </div>
                           <label
                             htmlFor="anonymousComment"
@@ -1597,6 +1651,7 @@ function Forum() {
                               color: "black",
                               cursor: isBanned ? "not-allowed" : "pointer",
                               opacity: isBanned ? 0.5 : 1,
+                              marginRight: "10px",
                             }}
                             onClick={() => {
                               if (isBanned) {
@@ -1610,6 +1665,69 @@ function Forum() {
                           >
                             Anonymous comment ?
                           </label>
+                          {/* Liste déroulante pour choisir la langue cible */}
+                          {/* Bouton Translate rose */}
+                          <button
+                            onClick={() =>
+                              handleTranslateTopic(
+                                forum._id,
+                                forum.title,
+                                forum.description
+                              )
+                            }
+                            className="theme-btn"
+                            style={{
+                              backgroundColor: "#ff69b4",
+                              color: "white",
+                              borderRadius: "50px",
+                              border: "none",
+                              fontSize: "14px",
+                              padding: "5px 20px", // Réduit le padding pour un bouton plus petit
+                              fontSize: "14px", // Réduit la taille de la police
+                              opacity: isBanned ? 0.5 : 1,
+                              cursor: isBanned ? "not-allowed" : "pointer",
+                              transition:
+                                "background-color 0.3s ease, transform 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isBanned) {
+                                e.currentTarget.style.backgroundColor =
+                                  "#ff1493";
+                                e.currentTarget.style.transform = "scale(1.05)";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isBanned) {
+                                e.currentTarget.style.backgroundColor =
+                                  "#ff69b4";
+                                e.currentTarget.style.transform = "scale(1)";
+                              }
+                            }}
+                            disabled={isBanned || isTranslating}
+                          >
+                            {isTranslating ? "Translating..." : "Translate"}
+                          </button>
+                          <select
+                            value={targetLanguage}
+                            onChange={(e) => setTargetLanguage(e.target.value)}
+                            style={{
+                              padding: "5px",
+                              borderRadius: "50px",
+                              border: "1px solid #007bff",
+                              outline: "none",
+                              cursor: isBanned ? "not-allowed" : "pointer",
+                              fontSize: "14px",
+                              marginLeft: "10px",
+                              opacity: isBanned ? 0.5 : 1,
+                            }}
+                            disabled={isBanned}
+                          >
+                            <option value="en">English</option>
+                            <option value="es">Spanish</option>
+                            <option value="fr">French</option>
+                            <option value="de">German</option>
+                            <option value="it">Italian</option>
+                          </select>
                         </div>
                       </>
                     )}
@@ -1644,7 +1762,7 @@ function Forum() {
           style={{
             position: "fixed",
             bottom: "20px",
-            right: "160px",
+            right: "100px",
             zIndex: 1000,
             cursor: "pointer",
           }}
@@ -2694,7 +2812,7 @@ function Forum() {
         style={{
           position: "fixed",
           bottom: "20px",
-          right: "100px",
+          right: "30px",
           zIndex: 1000,
           cursor: "pointer",
         }}
