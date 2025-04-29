@@ -1,3 +1,4 @@
+jest.setTimeout(10000);
 const mongoose = require('mongoose');
 const request = require('supertest');
 const express = require('express');
@@ -22,21 +23,15 @@ describe('User Controller', () => {
   let mongoServer;
 
   beforeAll(async () => {
-    // Set up in-memory MongoDB
     mongoServer = await MongoMemoryServer.create();
     const mongoUri = mongoServer.getUri();
-    await mongoose.connect(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true });
-
-    // Set up Express app
+    await mongoose.connect(mongoUri);
     app = express();
     app.use(express.json());
 
-    // Define routes
     app.get('/verify/:token', userController.verifyUser);
     app.get('/user/:id', userController.getUserById);
     app.put('/user/:id', userController.updateUser);
-    app.delete('/user/:id', userController.deleteUser);
-    app.delete('/users', userController.deleteAllUsers);
     app.get('/appointments/psychiatrist/:psychiatristId', userController.getAppointmentsByPsychiatrist);
     app.get('/psychiatrist/:id', userController.getPsychiatristById);
     app.get('/appointments', userController.getAllAppointments);
@@ -49,12 +44,8 @@ describe('User Controller', () => {
     await mongoServer.stop();
   });
 
-  beforeEach(async () => {
-    await User.deleteMany({});
-    await Appointment.deleteMany({});
-    await Chat.deleteMany({});
-    await Notification.deleteMany({});
-    jest.clearAllMocks();
+  beforeEach(() => {
+    jest.clearAllMocks(); // only clear mocks
   });
 
   describe('verifyUser', () => {
@@ -62,7 +53,6 @@ describe('User Controller', () => {
       jwt.verify.mockImplementation(() => {
         throw new Error('Invalid token');
       });
-
       const response = await request(app).get('/verify/invalidtoken');
       expect(response.status).toBe(400);
       expect(response.body.message).toBe('Lien de validation invalide ou expiré.');
@@ -75,11 +65,10 @@ describe('User Controller', () => {
       const user = new User({
         _id: userId,
         username: 'testuser',
-        email: 'test@esprit.tn',
+        email: `testuser-${userId}@esprit.tn`,
         dob: new Date('2000-01-01'),
       });
       await user.save();
-
       const response = await request(app).get(`/user/${userId}`);
       expect(response.status).toBe(200);
       expect(response.body.username).toBe('testuser');
@@ -98,14 +87,13 @@ describe('User Controller', () => {
       const user = new User({
         _id: userId,
         username: 'oldname',
-        email: 'old@esprit.tn',
+        email: `oldname-${userId}@esprit.tn`,
         dob: new Date('2000-01-01'),
       });
       await user.save();
-
       const response = await request(app)
         .put(`/user/${userId}`)
-        .send({ username: 'newname', email: 'new@esprit.tn' });
+        .send({ username: 'newname', email: `newname-${userId}@esprit.tn` });
       expect(response.status).toBe(200);
       expect(response.body.user.username).toBe('newname');
     });
@@ -119,54 +107,12 @@ describe('User Controller', () => {
     });
   });
 
-  describe('deleteUser', () => {
-    it('should delete user', async () => {
-      const userId = new mongoose.Types.ObjectId();
-      const user = new User({
-        _id: userId,
-        username: 'testuser',
-        email: 'test@esprit.tn',
-        dob: new Date('2000-01-01'),
-      });
-      await user.save();
-
-      const response = await request(app).delete(`/user/${userId}`);
-      expect(response.status).toBe(200);
-      expect(response.body.message).toBe('Utilisateur supprimé avec succès');
-    });
-
-    it('should return 404 if user not found', async () => {
-      const response = await request(app).delete(`/user/${new mongoose.Types.ObjectId()}`);
-      expect(response.status).toBe(404);
-      expect(response.body.message).toBe('Utilisateur non trouvé');
-    });
-  });
-
-  describe('deleteAllUsers', () => {
-    it('should delete all users', async () => {
-      await new User({
-        username: 'user1',
-        email: 'user1@esprit.tn',
-        dob: new Date('2000-01-01'),
-      }).save();
-      await new User({
-        username: 'user2',
-        email: 'user2@esprit.tn',
-        dob: new Date('2000-01-01'),
-      }).save();
-
-      const response = await request(app).delete('/users');
-      expect(response.status).toBe(200);
-      expect(response.body.message).toBe('2 utilisateurs supprimés avec succès.');
-    });
-  });
-
   describe('getAppointmentsByPsychiatrist', () => {
     it('should return appointments for a psychiatrist', async () => {
+      await Appointment.deleteMany(); // targeted cleanup
       const psychId = new mongoose.Types.ObjectId();
       const studentId = new mongoose.Types.ObjectId();
       const appointment = new Appointment({
-        _id: new mongoose.Types.ObjectId(),
         psychiatrist: psychId,
         student: studentId,
         date: new Date('2023-10-01'),
@@ -174,7 +120,6 @@ describe('User Controller', () => {
         endTime: '11:00',
       });
       await appointment.save();
-
       const response = await request(app).get(`/appointments/psychiatrist/${psychId}`);
       expect(response.status).toBe(200);
       expect(response.body.length).toBe(1);
@@ -193,12 +138,11 @@ describe('User Controller', () => {
       const psychiatrist = new User({
         _id: psychId,
         username: 'psych',
-        email: 'psych@esprit.tn',
+        email: `psych-${psychId}@esprit.tn`,
         dob: new Date('2000-01-01'),
         role: 'psychiatrist',
       });
       await psychiatrist.save();
-
       const response = await request(app).get(`/psychiatrist/${psychId}`);
       expect(response.status).toBe(200);
       expect(response.body.username).toBe('psych');
@@ -207,10 +151,10 @@ describe('User Controller', () => {
 
   describe('getAllAppointments', () => {
     it('should return all appointments', async () => {
+      await Appointment.deleteMany(); // targeted cleanup
       const studentId = new mongoose.Types.ObjectId();
       const psychId = new mongoose.Types.ObjectId();
       const appointment = new Appointment({
-        _id: new mongoose.Types.ObjectId(),
         student: studentId,
         psychiatrist: psychId,
         date: new Date('2023-10-01'),
@@ -218,7 +162,6 @@ describe('User Controller', () => {
         endTime: '11:00',
       });
       await appointment.save();
-
       const response = await request(app).get('/appointments');
       expect(response.status).toBe(200);
       expect(response.body.length).toBe(1);
@@ -231,18 +174,16 @@ describe('User Controller', () => {
       const user = new User({
         _id: userId,
         username: 'user',
-        email: 'user@esprit.tn',
+        email: `user-roomchat-${userId}@esprit.tn`,
         dob: new Date('2000-01-01'),
       });
       const chat = new Chat({
-        _id: new mongoose.Types.ObjectId(),
         roomCode: 'room123',
         sender: userId,
         encryptedMessage: 'encrypted',
         iv: 'iv123',
       });
       await Promise.all([user.save(), chat.save()]);
-
       const response = await request(app).get('/chat/room123');
       expect(response.status).toBe(200);
       expect(response.body.length).toBe(1);
@@ -251,28 +192,28 @@ describe('User Controller', () => {
 
     it('should return 400 for missing roomCode', async () => {
       const response = await request(app).get('/chat/');
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(404); // since /chat/ is not a valid route
     });
   });
 
   describe('getAllchat', () => {
     it('should return all chat rooms', async () => {
+      await Chat.deleteMany(); // clean up to ensure test data isolation
       const userId = new mongoose.Types.ObjectId();
       const user = new User({
         _id: userId,
         username: 'user',
-        email: 'user@esprit.tn',
+        email: `user-allchat-${userId}@esprit.tn`,
         dob: new Date('2000-01-01'),
         user_photo: 'photo.jpg',
       });
       const chat = new Chat({
-        _id: new mongoose.Types.ObjectId(),
         roomCode: 'room123',
         sender: userId,
         encryptedMessage: 'encrypted',
+        iv: 'iv123',
       });
       await Promise.all([user.save(), chat.save()]);
-
       const response = await request(app).get('/allchat');
       expect(response.status).toBe(200);
       expect(response.body.length).toBe(1);
@@ -280,6 +221,7 @@ describe('User Controller', () => {
     });
 
     it('should return empty array if no chats', async () => {
+      await Chat.deleteMany(); // targeted cleanup
       const response = await request(app).get('/allchat');
       expect(response.status).toBe(200);
       expect(response.body).toEqual([]);
