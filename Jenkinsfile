@@ -10,6 +10,14 @@ pipeline {
       }
     }
 
+    stage('Unit Test') { 
+steps{ 
+script { 
+sh('npm test') 
+} 
+} 
+} 
+
     stage('Build application') {
       steps {
         script {
