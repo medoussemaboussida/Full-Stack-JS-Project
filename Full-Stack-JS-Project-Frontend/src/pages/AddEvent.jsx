@@ -22,6 +22,13 @@ const emailDomains = [
   "@yahoo.com", "@msn.com"
 ];
 
+// Common stop words to filter out
+const stopWords = new Set([
+  "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "has", "he",
+  "in", "is", "it", "its", "of", "on", "that", "the", "to", "was", "were",
+  "will", "with", "this", "there", "where", "when", "who", "whom", "which"
+]);
+
 const AddEvent = () => {
   const [formData, setFormData] = useState({
     title: "",
@@ -70,6 +77,65 @@ const AddEvent = () => {
       setTimeout(() => navigate("/login"), 3000);
     }
   }, [navigate]);
+
+  // Automatically generate title when description changes
+  useEffect(() => {
+    if (!formData.description) {
+      setFormData((prev) => ({ ...prev, title: "" }));
+      return;
+    }
+
+    const generateTitle = () => {
+      // Split description into words, remove punctuation, and convert to lowercase
+      const words = formData.description
+        .toLowerCase()
+        .replace(/[^\w\s]/g, "") // Remove punctuation
+        .split(/\s+/);
+
+      // Filter out stop words and short words (less than 3 characters)
+      const filteredWords = words.filter(
+        (word) => !stopWords.has(word) && word.length >= 3
+      );
+
+      // Count word frequency to prioritize important words
+      const wordFreq = {};
+      filteredWords.forEach((word) => {
+        wordFreq[word] = (wordFreq[word] || 0) + 1;
+      });
+
+      // Sort words by frequency and length (longer words might be more specific)
+      const sortedWords = Object.keys(wordFreq).sort((a, b) => {
+        const freqDiff = wordFreq[b] - wordFreq[a];
+        if (freqDiff !== 0) return freqDiff;
+        return b.length - a.length;
+      });
+
+      // Take the top 3 words (or fewer if not enough words)
+      const topWords = sortedWords.slice(0, 3);
+
+      // Capitalize each word and join them into a title
+      let generatedTitle = topWords
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+
+      // Ensure the title isn't too long or too short
+      if (generatedTitle.length > 60) {
+        generatedTitle = generatedTitle.substring(0, 57) + "...";
+      }
+      if (generatedTitle.length < 10 || topWords.length === 0) {
+        generatedTitle = "Generated Event Title";
+      }
+
+      setFormData((prev) => ({ ...prev, title: generatedTitle }));
+    };
+
+    // Debounce the title generation to avoid excessive updates while typing
+    const debounce = setTimeout(() => {
+      generateTitle();
+    }, 1000); // Wait 1 second after the user stops typing
+
+    return () => clearTimeout(debounce); // Cleanup on unmount or description change
+  }, [formData.description]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -126,11 +192,9 @@ const AddEvent = () => {
     const apiUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=600`;
 
     try {
-      // Since Pollinations AI returns an image directly, set the image preview to the API URL
       setImagePreview(apiUrl);
       toast.success("Image generated successfully!", { autoClose: 2000 });
       
-      // Optionally, fetch the image as a blob to store it in formData.image
       const response = await fetch(apiUrl);
       const blob = await response.blob();
       const file = new File([blob], "generated-image.png", { type: "image/png" });
@@ -323,7 +387,7 @@ const AddEvent = () => {
                             cursor: isGeneratingImage || !formData.description ? "not-allowed" : "pointer",
                           }}
                         >
-                          {isGeneratingImage ? "Generating Image..." : "Generate Image from Description"}
+                          {isGeneratingImage ? "Generating Image..." : "Generate Image"}
                         </button>
                       </div>
                       <div className="col-md-6" style={{ marginBottom: "15px" }}>

@@ -234,7 +234,7 @@ const AddForum = () => {
   }, 500);
 
   const validateForm = (field, value) => {
-    const titleRegex = /^[A-Za-z0-9\s.,!?]+$/;
+    const titleRegex = /^[A-Za-z0-9\s.,!?']+$/;
     const tagsAllowed = [
       "anxiety",
       "stress",

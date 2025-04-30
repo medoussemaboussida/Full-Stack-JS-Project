@@ -33,11 +33,16 @@ const upload = multer({
     const filetypes = /jpeg|jpg|png|gif/;
     const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = filetypes.test(file.mimetype);
-    if (extname && mimetype) cb(null, true);
-    else cb(new Error("Only JPEG, JPG, PNG, and GIF images are allowed!"));
+    if (extname && mimetype) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only JPEG, JPG, PNG, and GIF images are allowed!"));
+    }
   },
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB max
 }).single("image");
+
+
 
 // Fonction pour géocoder une adresse avec Google Maps
 const geocodeAddress = async (address) => {

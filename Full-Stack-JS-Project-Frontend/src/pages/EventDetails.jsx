@@ -24,6 +24,7 @@ const EventDetails = () => {
   const [imageSrc, setImageSrc] = useState("/assets/img/event/single.jpg");
   const [showParticipants, setShowParticipants] = useState(false);
   const [promoContent, setPromoContent] = useState('');
+  const [loadedImages, setLoadedImages] = useState({});
 
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
@@ -361,7 +362,6 @@ const EventDetails = () => {
         throw new Error("Facebook access token is missing.");
       }
 
-      // Include event details in the message without a link
       const message = `${event.title}\n\n${event.description || 'Check out this event!'}\n\nDate: ${formatDate(event.start_date)} at ${event.heure || 'TBD'}\nLocation: ${event.event_type === 'in-person' ? event.lieu || 'TBD' : event.online_link || 'Online'}\n\nVisit our website for more details!`;
 
       const postData = {
@@ -407,6 +407,19 @@ const EventDetails = () => {
     }
   };
 
+  const ImageWithFallback = ({ src, alt, fallback, ...props }) => {
+    const [imgSrc, setImgSrc] = useState(src);
+
+    return (
+      <img 
+        src={imgSrc} 
+        alt={alt}
+        onError={() => setImgSrc(fallback)}
+        {...props}
+      />
+    );
+  };
+
   if (loading) return <div className="text-center py-5">Loading...</div>;
   if (!event) return <div className="text-center py-5">Event not found</div>;
 
@@ -420,9 +433,9 @@ const EventDetails = () => {
         <meta property="og:description" content={event.description || "Check out this event!"} />
         <meta
           property="og:image"
-          content="https://via.placeholder.com/1200x630.png?text=Event+Image" // Public fallback image
+          content="https://via.placeholder.com/1200x630.png?text=Event+Image"
         />
-        <meta property="og:url" content="https://yourdomain.com/events" /> {/* Replace with production URL later */}
+        <meta property="og:url" content="https://yourdomain.com/events" />
         <meta property="og:type" content="website" />
       </Helmet>
 
@@ -700,14 +713,14 @@ const EventDetails = () => {
                     <h4 className="title">Organizer</h4>
                     <div className="event-single-author">
                       <div className="author-info">
-                        <img
+                        <ImageWithFallback
                           src={
                             event.created_by?.imageUrl
                               ? `${BASE_URL}/${event.created_by.imageUrl.replace(/^\/+/, '')}`
                               : "/assets/img/event/author.jpg"
                           }
                           alt={event.created_by?.username || "Organizer"}
-                          onError={handleOrganizerImageError}
+                          fallback="/assets/img/event/author.jpg"
                           style={{ width: "200px", height: "200px", objectFit: "cover" }}
                         />
                         <h5>{event.created_by?.username || "Unknown Organizer"}</h5>
@@ -759,30 +772,56 @@ const EventDetails = () => {
                   <div className="widget recent-post">
                     <h5 className="title">Related Events</h5>
                     {relatedEvents.length > 0 ? (
-                      <ul>
-                        {relatedEvents.map((relatedEvent) => (
-                          <li key={relatedEvent._id} className="related-event-item">
-                            <Link to={`/events/${relatedEvent._id}`}>
-                              <strong>{relatedEvent.title}</strong>
-                            </Link>
-                            <p className="related-event-location">
-                              <i className="fas fa-map-marker-alt me-2"></i>
-                              {relatedEvent.event_type === "in-person" ? (
-                                <>
-                                  {relatedEvent.localisation || "Location not specified"}
-                                  {relatedEvent.distance === 0
-                                    ? " (Same Location)"
-                                    : relatedEvent.distance
-                                    ? ` (Nearby, ~${Math.round(relatedEvent.distance)} km)`
-                                    : ""}
-                                </>
-                              ) : (
-                                relatedEvent.online_link || "Online link not specified"
-                              )}
-                            </p>
-                          </li>
-                        ))}
-                      </ul>
+                      <div className="related-events-container">
+                        {relatedEvents.map((relatedEvent) => {
+                          const eventImage = relatedEvent.imageUrl 
+                            ? `${BASE_URL}/${relatedEvent.imageUrl.replace(/^\/+/, '')}`
+                            : "/assets/img/event/single.jpg";
+                          
+                          return (
+                            <div key={relatedEvent._id} className="related-event-item mb-3">
+                              <Link to={`/events/${relatedEvent._id}`} className="d-flex align-items-start">
+                                <ImageWithFallback
+                                  src={eventImage}
+                                  alt={relatedEvent.title}
+                                  fallback="/assets/img/event/single.jpg"
+                                  className="me-3"
+                                  style={{ 
+                                    width: "80px", 
+                                    height: "80px", 
+                                    objectFit: "cover", 
+                                    borderRadius: "4px",
+                                    opacity: loadedImages[relatedEvent._id] ? 1 : 0.7,
+                                    transition: 'opacity 0.3s ease'
+                                  }}
+                                  onLoad={() => setLoadedImages(prev => ({...prev, [relatedEvent._id]: true}))}
+                                />
+                                <div>
+                                  <strong>{relatedEvent.title}</strong>
+                                  <p className="related-event-location mb-0">
+                                    <i className="fas fa-map-marker-alt me-2"></i>
+                                    {relatedEvent.event_type === "in-person" ? (
+                                      <>
+                                        {relatedEvent.localisation || "Location not specified"}
+                                        {relatedEvent.distance === 0
+                                          ? " (Same Location)"
+                                          : relatedEvent.distance
+                                          ? ` (Nearby, ~${Math.round(relatedEvent.distance)} km)`
+                                          : ""}
+                                      </>
+                                    ) : (
+                                      relatedEvent.online_link || "Online link not specified"
+                                    )}
+                                  </p>
+                                  <small className="text-muted">
+                                    {formatDate(relatedEvent.start_date)}
+                                  </small>
+                                </div>
+                              </Link>
+                            </div>
+                          );
+                        })}
+                      </div>
                     ) : (
                       <p>No related events found.</p>
                     )}
