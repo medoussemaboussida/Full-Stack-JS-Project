@@ -73,8 +73,9 @@ function ForumModerate() {
     if (cachedResult) {
       return cachedResult;
     }
- //don't use it because is my personal key yehdik rabi aman aaychekkkkkkkkkkkkkkkkkkk
-    const REACT_APP_HUGGINGFACE_API_TOKEN="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"
+    //don't use it because is my personal key yehdik rabi aman aaychekkkkkkkkkkkkkkkkkkk
+    const REACT_APP_HUGGINGFACE_API_TOKEN =
+      "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";
     try {
       const response = await fetch(
         "https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english",
@@ -859,7 +860,7 @@ function ForumModerate() {
                               color: "#00BFFF",
                               padding: "5px 8px",
                               borderRadius: "20px",
-                              marginRight:"5px",
+                              marginRight: "5px",
                               boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
                               fontSize: "0.875rem",
                             }}
@@ -965,43 +966,49 @@ function ForumModerate() {
                         >
                           View Reports
                         </button>
-                        <button
-                          onClick={() => handleOpenBanModal(forum.user_id._id)}
-                          className="ban-btn"
-                          style={{
-                            padding: "8px 16px",
-                            backgroundColor: "#dc3545",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "20px",
-                            fontSize: "14px",
-                            fontWeight: "500",
-                            cursor: "pointer",
-                            transition: "all 0.3s ease",
-                            boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
-                            outline: "none",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.target.style.backgroundColor = "#c82333";
-                            e.target.style.transform = "scale(1.05)";
-                            e.target.style.boxShadow =
-                              "0 4px 10px rgba(0, 0, 0, 0.3)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.target.style.backgroundColor = "#dc3545";
-                            e.target.style.transform = "scale(1)";
-                            e.target.style.boxShadow =
-                              "0 2px 5px rgba(0, 0, 0, 0.2)";
-                          }}
-                          onMouseDown={(e) => {
-                            e.target.style.transform = "scale(0.95)";
-                          }}
-                          onMouseUp={(e) => {
-                            e.target.style.transform = "scale(1.05)";
-                          }}
-                        >
-                          Ban User
-                        </button>
+                        {userId &&
+                          forum.user_id &&
+                          userId !== forum.user_id._id && (
+                            <button
+                              onClick={() =>
+                                handleOpenBanModal(forum.user_id._id)
+                              }
+                              className="ban-btn"
+                              style={{
+                                padding: "8px 16px",
+                                backgroundColor: "#dc3545",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "20px",
+                                fontSize: "14px",
+                                fontWeight: "500",
+                                cursor: "pointer",
+                                transition: "all 0.3s ease",
+                                boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
+                                outline: "none",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.target.style.backgroundColor = "#c82333";
+                                e.target.style.transform = "scale(1.05)";
+                                e.target.style.boxShadow =
+                                  "0 4px 10px rgba(0, 0, 0, 0.3)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.target.style.backgroundColor = "#dc3545";
+                                e.target.style.transform = "scale(1)";
+                                e.target.style.boxShadow =
+                                  "0 2px 5px rgba(0, 0, 0, 0.2)";
+                              }}
+                              onMouseDown={(e) => {
+                                e.target.style.transform = "scale(0.95)";
+                              }}
+                              onMouseUp={(e) => {
+                                e.target.style.transform = "scale(1.05)";
+                              }}
+                            >
+                              Ban User
+                            </button>
+                          )}
                       </div>
                     </div>
                     <h3
@@ -1319,7 +1326,13 @@ function ForumModerate() {
             <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
               Comments
             </h3>
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                marginBottom: "20px",
+              }}
+            >
               <button
                 onClick={handleAnalyzeSentiment}
                 disabled={isAnalyzing}
@@ -1507,18 +1520,24 @@ function ForumModerate() {
                       >
                         <FontAwesomeIcon icon={faTrashAlt} />
                       </span>
-                      <span
-                        className="icon"
-                        style={{
-                          cursor: "pointer",
-                          fontSize: "18px",
-                          color: "purple",
-                        }}
-                        onClick={() => handleOpenBanModal(comment.user_id._id)}
-                        title="Ban User"
-                      >
-                        <FontAwesomeIcon icon={faBan} />
-                      </span>
+                      {userId &&
+                        comment.user_id &&
+                        userId !== comment.user_id._id && (
+                          <span
+                            className="icon"
+                            style={{
+                              cursor: "pointer",
+                              fontSize: "18px",
+                              color: "purple",
+                            }}
+                            onClick={() =>
+                              handleOpenBanModal(comment.user_id._id)
+                            }
+                            title="Ban User"
+                          >
+                            <FontAwesomeIcon icon={faBan} />
+                          </span>
+                        )}
                     </div>
                   </div>
                 ))

@@ -82,17 +82,68 @@ function Forum() {
   const [banDetails, setBanDetails] = useState({ reason: "", expiresAt: "" });
   const [translatedTopics, setTranslatedTopics] = useState({});
   const [isTranslating, setIsTranslating] = useState(false);
-  const [targetLanguage, setTargetLanguage] = useState("en"); // Langue cible par défaut : anglais
+  const [targetLanguage, setTargetLanguage] = useState(""); // Initialiser à une valeur vide
+  const [forumToTranslate, setForumToTranslate] = useState(null);
   const navigate = useNavigate();
 
   // Fonction pour interagir avec l'API Gemini
   const interactWithGemini = async (message) => {
+    // Clé API Gemini
     const GEMINI_API_KEY = "AIzaSyCfw_jacNIo7ORhBYWXr9b6uYDeeOc4C7o";
 
+    // Liste des tags et de leurs synonymes
+    const allowedTagsAndSynonyms = {
+      anxiety: ["anxious", "nervous", "worried", "panic", "uneasy"],
+      stress: ["tense", "pressure", "strain", "overwhelm", "burden"],
+      depression: ["sad", "hopeless", "depressed", "melancholy", "despair"],
+      burnout: ["exhausted", "overworked", "fatigue", "drained", "collapse"],
+      studies: ["school", "academic", "learning", "education", "homework"],
+      loneliness: ["alone", "isolated", "solitude", "lonesome", "detached"],
+      motivation: [
+        "drive",
+        "inspiration",
+        "ambition",
+        "enthusiasm",
+        "willpower",
+      ],
+      support: ["help", "assistance", "encouragement", "aid", "care"],
+      insomnia: ["sleepless", "restless", "awake", "sleep", "wakeful"],
+      pressure: ["stress", "demand", "expectation", "load", "tension"],
+    };
+
+    // Vérifier si la clé API est définie
+    if (!GEMINI_API_KEY) {
+      console.error("Erreur: Clé API Gemini manquante.");
+      return "Erreur: La clé API est manquante. Veuillez configurer l'API correctement.";
+    }
+
+    // Vérifier si le message est vide ou non défini
+    if (!message || message.trim() === "") {
+      console.error("Erreur: Message vide ou non défini.");
+      return "Erreur: Veuillez fournir un message valide.";
+    }
+
+    // Convertir le message en minuscules pour une comparaison insensible à la casse
+    const messageLower = message.toLowerCase().trim();
+
+    // Vérifier si le message contient un tag ou un synonyme
+    const isRelevant = Object.keys(allowedTagsAndSynonyms).some((tag) => {
+      const synonyms = allowedTagsAndSynonyms[tag];
+      return (
+        messageLower.includes(tag) ||
+        synonyms.some((synonym) => messageLower.includes(synonym))
+      );
+    });
+
+    // Si le message ne correspond pas aux tags ou synonymes, renvoyer un message d'erreur
+    if (!isRelevant) {
+      return "Sorry, I can only assist with topics related to anxiety, stress, depression, burnout, studies, loneliness, motivation, support, insomnia, pressure, or similar topics. Please ask something related to these areas.";
+    }
+
+    // Si le message est pertinent, procéder à l'appel API
     try {
       const response = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" +
-          GEMINI_API_KEY,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: {
@@ -103,7 +154,7 @@ function Forum() {
               {
                 parts: [
                   {
-                    text: message,
+                    text: messageLower,
                   },
                 ],
               },
@@ -112,37 +163,79 @@ function Forum() {
         }
       );
 
+      // Vérifier si la réponse HTTP est correcte
       if (!response.ok) {
-        console.error("Erreur HTTP:", response.status, response.statusText);
         const errorData = await response.json();
-        console.error("Détails de l'erreur:", errorData);
-        return "Sorry, I couldn't process your request.";
+        console.error(
+          "Erreur HTTP:",
+          response.status,
+          response.statusText,
+          errorData
+        );
+        return `Erreur: Impossible de traiter votre demande (Code: ${response.status}).`;
       }
 
+      // Parser les données de la réponse
       const data = await response.json();
-      const reply = data.candidates[0].content.parts[0].text;
+
+      // Vérifier si la réponse contient des candidats
+      if (!data.candidates || data.candidates.length === 0) {
+        console.error("Erreur: Aucune réponse générée par Gemini.");
+        return "Erreur: Aucune réponse générée par le chatbot.";
+      }
+
+      // Vérifier si le contenu de la réponse est valide
+      const reply = data.candidates[0]?.content?.parts?.[0]?.text;
+      if (!reply) {
+        console.error("Erreur: Réponse de Gemini mal formée.");
+        return "Erreur: La réponse du chatbot est mal formée.";
+      }
+
       return reply;
     } catch (error) {
-      console.error("Erreur lors de l'interaction avec Gemini:", error);
-      return "An error occurred while interacting with the chatbot.";
+      console.error("Erreur lors de l'interaction avec Gemini:", error.message);
+      return "Une erreur s'est produite lors de l'interaction avec le chatbot.";
     }
   };
 
-  // Fonction pour traduire un topic avec LibreTranslate
   const handleTranslateTopic = async (forumId, title, description) => {
     if (isBanned) {
       toast.error("You are banned and cannot translate topics!");
       return;
     }
 
+    console.log("Langue cible sélectionnée:", targetLanguage);
+
+    if (
+      !targetLanguage ||
+      !["en", "es", "fr", "de", "it"].includes(targetLanguage)
+    ) {
+      toast.error("Please select a valid language for translation!");
+      return;
+    }
+
+    const sourceLanguage = "en";
+
+    if (sourceLanguage === targetLanguage) {
+      console.log(
+        "Langue source et cible identiques, réinitialisation de la traduction."
+      );
+      setTranslatedTopics((prev) => {
+        const updated = { ...prev };
+        delete updated[forumId];
+        return updated;
+      });
+      toast.info("Content is already in English, translation reset.");
+      setIsTranslating(false); // Ajout pour s'assurer que isTranslating est réinitialisé
+      return;
+    }
+
     setIsTranslating(true);
 
     try {
-      // Déterminer la paire de langues (par exemple, "en|fr" pour anglais vers français)
-      const sourceLanguage = "en"; // Langue source : anglais
       const langPair = `${sourceLanguage}|${targetLanguage}`;
+      console.log("Paire de langues utilisée pour la traduction:", langPair);
 
-      // Traduire le titre
       const titleResponse = await fetch(
         `https://api.mymemory.translated.net/get?q=${encodeURIComponent(
           title
@@ -161,7 +254,6 @@ function Forum() {
       const titleData = await titleResponse.json();
       const translatedTitle = titleData.responseData.translatedText;
 
-      // Traduire la description
       const descResponse = await fetch(
         `https://api.mymemory.translated.net/get?q=${encodeURIComponent(
           description
@@ -185,7 +277,6 @@ function Forum() {
       const descData = await descResponse.json();
       const translatedDesc = descData.responseData.translatedText;
 
-      // Mettre à jour l'état avec les traductions
       setTranslatedTopics((prev) => ({
         ...prev,
         [forumId]: {
@@ -194,7 +285,9 @@ function Forum() {
         },
       }));
 
-      toast.success("Topic translated successfully!");
+      toast.success("Topic translated successfully!", {
+        toastId: `translate-${forumId}`,
+      });
     } catch (error) {
       console.error("Erreur lors de la traduction:", error);
       toast.error("Failed to translate the topic!");
@@ -202,7 +295,22 @@ function Forum() {
       setIsTranslating(false);
     }
   };
-
+  useEffect(() => {
+    if (forumToTranslate && targetLanguage && !isBanned && !isTranslating) {
+      console.log(
+        "Déclenchement de la traduction pour le forum:",
+        forumToTranslate
+      );
+      handleTranslateTopic(
+        forumToTranslate._id,
+        forumToTranslate.title,
+        forumToTranslate.description
+      ).then(() => {
+        // Réinitialiser forumToTranslate après la traduction pour éviter une boucle
+        setForumToTranslate(null);
+      });
+    }
+  }, [targetLanguage, forumToTranslate, isBanned, isTranslating]);
   useEffect(() => {
     localStorage.setItem("chatMessages", JSON.stringify(chatMessages));
   }, [chatMessages]);
@@ -1325,30 +1433,33 @@ function Forum() {
                               </span>
                             </>
                           )}
-                        {userId && forum.status === "actif" && (
-                          <span
-                            className="icon"
-                            style={{
-                              cursor: isBanned ? "not-allowed" : "pointer",
-                              fontSize: "20px",
-                              color: "orange",
-                              marginRight: "15px",
-                              opacity: isBanned ? 0.5 : 1,
-                            }}
-                            onClick={() => {
-                              if (isBanned) {
-                                toast.error(
-                                  "You are banned and cannot report forums!"
-                                );
-                                return;
-                              }
-                              setForumToReport(forum._id);
-                              setShowReportForumModal(true);
-                            }}
-                          >
-                            <FontAwesomeIcon icon={faFlag} />
-                          </span>
-                        )}
+                        {userId &&
+                          forum.status === "actif" &&
+                          forum.user_id &&
+                          userId !== forum.user_id._id && (
+                            <span
+                              className="icon"
+                              style={{
+                                cursor: isBanned ? "not-allowed" : "pointer",
+                                fontSize: "20px",
+                                color: "orange",
+                                marginRight: "15px",
+                                opacity: isBanned ? 0.5 : 1,
+                              }}
+                              onClick={() => {
+                                if (isBanned) {
+                                  toast.error(
+                                    "You are banned and cannot report forums!"
+                                  );
+                                  return;
+                                }
+                                setForumToReport(forum._id);
+                                setShowReportForumModal(true);
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faFlag} />
+                            </span>
+                          )}
                         {userId && forum.status === "actif" && (
                           <span
                             className="icon"
@@ -1458,13 +1569,22 @@ function Forum() {
                       />
                     )}
                     {forum.status === "inactif" ? (
-                      <div
-                        className="mt-3 text-muted"
-                        style={{ fontSize: "14px", color: "red" }}
-                      >
-                        <p style={{ margin: 0, fontStyle: "italic" }}>
-                          This topic is inactive for now.
-                        </p>
+                      <div className="mt-3">
+                        <span
+                          className="badge"
+                          style={{
+                            backgroundColor: "transparent",
+                            border: "1px solid #FF0000",
+                            color: "#FF0000",
+                            padding: "5px 8px",
+                            borderRadius: "20px",
+                            boxShadow: "0 0 10px rgba(255, 0, 0, 0.5)",
+                            fontSize: "0.875rem",
+                            fontStyle: "italic",
+                          }}
+                        >
+                          This topic has been deactivated by a moderator.
+                        </span>
                       </div>
                     ) : (
                       <>
@@ -1665,63 +1785,46 @@ function Forum() {
                           >
                             Anonymous comment ?
                           </label>
-                          {/* Liste déroulante pour choisir la langue cible */}
-                          {/* Bouton Translate rose */}
-                          <button
-                            onClick={() =>
-                              handleTranslateTopic(
-                                forum._id,
-                                forum.title,
-                                forum.description
-                              )
-                            }
-                            className="theme-btn"
-                            style={{
-                              backgroundColor: "#ff69b4",
-                              color: "white",
-                              borderRadius: "50px",
-                              border: "none",
-                              fontSize: "14px",
-                              padding: "5px 20px", // Réduit le padding pour un bouton plus petit
-                              fontSize: "14px", // Réduit la taille de la police
-                              opacity: isBanned ? 0.5 : 1,
-                              cursor: isBanned ? "not-allowed" : "pointer",
-                              transition:
-                                "background-color 0.3s ease, transform 0.2s ease",
-                            }}
-                            onMouseEnter={(e) => {
-                              if (!isBanned) {
-                                e.currentTarget.style.backgroundColor =
-                                  "#ff1493";
-                                e.currentTarget.style.transform = "scale(1.05)";
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (!isBanned) {
-                                e.currentTarget.style.backgroundColor =
-                                  "#ff69b4";
-                                e.currentTarget.style.transform = "scale(1)";
-                              }
-                            }}
-                            disabled={isBanned || isTranslating}
-                          >
-                            {isTranslating ? "Translating..." : "Translate"}
-                          </button>
+                          {/* Liste déroulante pour choisir la langue cible et déclencher la traduction */}
                           <select
                             value={targetLanguage}
-                            onChange={(e) => setTargetLanguage(e.target.value)}
+                            onChange={(e) => {
+                              const newLanguage = e.target.value;
+                              console.log(
+                                "Nouvelle langue sélectionnée:",
+                                newLanguage
+                              );
+                              setTargetLanguage(newLanguage);
+                              if (newLanguage && !isBanned) {
+                                setForumToTranslate(forum);
+                              } else if (isBanned) {
+                                toast.error(
+                                  "You are banned and cannot perform this action!"
+                                );
+                              }
+                            }}
                             style={{
-                              padding: "5px",
+                              padding: "5px 10px",
                               borderRadius: "50px",
                               border: "1px solid #007bff",
                               outline: "none",
                               cursor: isBanned ? "not-allowed" : "pointer",
                               fontSize: "14px",
                               marginLeft: "10px",
-                              opacity: isBanned ? 0.5 : 1,
+                              opacity: isBanned || isTranslating ? 0.5 : 1,
+                              backgroundColor: isTranslating
+                                ? "#f0f0f0"
+                                : "white",
+                              color: isTranslating ? "#888" : "black",
+                              transition: "background-color 0.3s ease",
                             }}
-                            disabled={isBanned}
+                            disabled={isBanned || isTranslating}
                           >
+                            <option value="" disabled>
+                              {isTranslating
+                                ? "Translating..."
+                                : "Select Language"}
+                            </option>
                             <option value="en">English</option>
                             <option value="es">Spanish</option>
                             <option value="fr">French</option>
@@ -2049,104 +2152,122 @@ function Forum() {
               width: "900px",
               maxWidth: "100%",
               boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              maxHeight: "80vh", // Limite la hauteur du modal à 80% de la hauteur de la fenêtre
+              display: "flex",
+              flexDirection: "column",
             }}
           >
             <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
               Update Forum
             </h3>
-            <div style={{ marginBottom: "15px" }}>
-              <label style={{ color: "black" }}>Title:</label>
-              <input
-                type="text"
-                value={updatedTitle}
-                onChange={(e) => setUpdatedTitle(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  borderRadius: "50px",
-                  border: "1px solid #ddd",
-                }}
-              />
-            </div>
-            <div style={{ marginBottom: "15px" }}>
-              <label style={{ color: "black" }}>Description:</label>
-              <textarea
-                value={updatedDescription}
-                onChange={(e) => setUpdatedDescription(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  borderRadius: "20px",
-                  border: "1px solid #ddd",
-                  minHeight: "100px",
-                }}
-              />
-            </div>
-            <div style={{ marginBottom: "15px" }}>
-              <label style={{ color: "black" }}>Anonymous:</label>
-              <select
-                value={updatedAnonymous}
-                onChange={(e) => setUpdatedAnonymous(e.target.value === "true")}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  borderRadius: "50px",
-                  border: "1px solid #ddd",
-                }}
-              >
-                <option value="false">No</option>
-                <option value="true">Yes</option>
-              </select>
-            </div>
-            <div style={{ marginBottom: "15px" }}>
-              <label style={{ color: "black" }}>Tag:</label>
-              <select
-                value={updatedTag}
-                onChange={(e) => setUpdatedTag(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  borderRadius: "50px",
-                  border: "1px solid #ddd",
-                }}
-              >
-                <option value="">Select a tag</option>
-                {tagOptions.map((tag) => (
-                  <option key={tag} value={tag}>
-                    {tag}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div style={{ marginBottom: "15px" }}>
-              <label>Forum Photo:</label>
-              <input
-                type="file"
-                onChange={(e) => setUpdatedPhoto(e.target.files[0])}
-                style={{ width: "100%" }}
-              />
-              {updatedPhoto && (
-                <div
+            <div
+              style={{
+                maxHeight: "60vh", // Limite la hauteur du contenu pour permettre le défilement
+                overflowY: "auto", // Active le défilement vertical
+                paddingRight: "10px", // Ajoute un padding pour éviter que le contenu touche la scrollbar
+              }}
+            >
+              <div style={{ marginBottom: "15px" }}>
+                <label style={{ color: "black" }}>Title:</label>
+                <input
+                  type="text"
+                  value={updatedTitle}
+                  onChange={(e) => setUpdatedTitle(e.target.value)}
                   style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    marginTop: "10px",
+                    width: "100%",
+                    padding: "8px",
+                    borderRadius: "50px",
+                    border: "1px solid #ddd",
+                  }}
+                />
+              </div>
+              <div style={{ marginBottom: "15px" }}>
+                <label style={{ color: "black" }}>Description:</label>
+                <textarea
+                  value={updatedDescription}
+                  onChange={(e) => setUpdatedDescription(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    borderRadius: "20px",
+                    border: "1px solid #ddd",
+                    minHeight: "100px",
+                  }}
+                />
+              </div>
+              <div style={{ marginBottom: "15px" }}>
+                <label style={{ color: "black" }}>Anonymous:</label>
+                <select
+                  value={updatedAnonymous}
+                  onChange={(e) =>
+                    setUpdatedAnonymous(e.target.value === "true")
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    borderRadius: "50px",
+                    border: "1px solid #ddd",
                   }}
                 >
-                  <img
-                    src={URL.createObjectURL(updatedPhoto)}
-                    alt="Choisir une image"
+                  <option value="false">No</option>
+                  <option value="true">Yes</option>
+                </select>
+              </div>
+              <div style={{ marginBottom: "15px" }}>
+                <label style={{ color: "black" }}>Tag:</label>
+                <select
+                  value={updatedTag}
+                  onChange={(e) => setUpdatedTag(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    borderRadius: "50px",
+                    border: "1px solid #ddd",
+                  }}
+                >
+                  <option value="">Select a tag</option>
+                  {tagOptions.map((tag) => (
+                    <option key={tag} value={tag}>
+                      {tag}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ marginBottom: "15px" }}>
+                <label>Forum Photo:</label>
+                <input
+                  type="file"
+                  onChange={(e) => setUpdatedPhoto(e.target.files[0])}
+                  style={{ width: "100%" }}
+                />
+                {updatedPhoto && (
+                  <div
                     style={{
-                      maxWidth: "200px",
-                      maxHeight: "200px",
-                      borderRadius: "100px",
+                      display: "flex",
+                      justifyContent: "center",
+                      marginTop: "10px",
                     }}
-                  />
-                </div>
-              )}
+                  >
+                    <img
+                      src={URL.createObjectURL(updatedPhoto)}
+                      alt="Choisir une image"
+                      style={{
+                        maxWidth: "200px",
+                        maxHeight: "200px",
+                        borderRadius: "100px",
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             <div
-              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: "10px",
+                marginTop: "20px", // Ajoute un espace entre le contenu scrollable et les boutons
+              }}
             >
               <button
                 onClick={() => setShowUpdateModal(false)}
@@ -2406,29 +2527,31 @@ function Forum() {
                           <FontAwesomeIcon icon={faTrashAlt} />
                         </span>
                       )}
-                      {userId && (
-                        <span
-                          className="icon"
-                          style={{
-                            cursor: isBanned ? "not-allowed" : "pointer",
-                            fontSize: "18px",
-                            color: "orange",
-                            opacity: isBanned ? 0.5 : 1,
-                          }}
-                          onClick={() => {
-                            if (isBanned) {
-                              toast.error(
-                                "You are banned and cannot report comments!"
-                              );
-                              return;
-                            }
-                            setCommentToReport(comment._id);
-                            setShowReportCommentModal(true);
-                          }}
-                        >
-                          <FontAwesomeIcon icon={faFlag} />
-                        </span>
-                      )}
+                      {userId &&
+                        comment.user_id &&
+                        userId !== comment.user_id._id && (
+                          <span
+                            className="icon"
+                            style={{
+                              cursor: isBanned ? "not-allowed" : "pointer",
+                              fontSize: "18px",
+                              color: "orange",
+                              opacity: isBanned ? 0.5 : 1,
+                            }}
+                            onClick={() => {
+                              if (isBanned) {
+                                toast.error(
+                                  "You are banned and cannot report comments!"
+                                );
+                                return;
+                              }
+                              setCommentToReport(comment._id);
+                              setShowReportCommentModal(true);
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faFlag} />
+                          </span>
+                        )}
                       {userId && (
                         <div className="d-flex align-items-center">
                           <span
