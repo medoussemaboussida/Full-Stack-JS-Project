@@ -1219,6 +1219,7 @@ function ForumModerate() {
                               borderRadius: "20px",
                               boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
                               fontSize: "0.875rem",
+                              marginLeft:"15px"
                             }}
                           >
                             {report.user_id.level} {report.user_id.speciality}
@@ -1285,7 +1286,7 @@ function ForumModerate() {
                   backgroundColor: "#f44336",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}
@@ -1559,7 +1560,7 @@ function ForumModerate() {
                   backgroundColor: "#f44336",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}
@@ -1653,6 +1654,7 @@ function ForumModerate() {
                               borderRadius: "20px",
                               boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
                               fontSize: "0.875rem",
+                              marginLeft:"15px"
                             }}
                           >
                             {report.user_id.level} {report.user_id.speciality}
@@ -1719,7 +1721,7 @@ function ForumModerate() {
                   backgroundColor: "#f44336",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}
@@ -1775,7 +1777,7 @@ function ForumModerate() {
                 style={{
                   width: "100%",
                   padding: "8px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "1px solid #ddd",
                   outline: "none",
                 }}
@@ -1796,7 +1798,7 @@ function ForumModerate() {
                 style={{
                   width: "100%",
                   padding: "8px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "1px solid #ddd",
                   outline: "none",
                 }}
@@ -1821,7 +1823,7 @@ function ForumModerate() {
                   backgroundColor: "#f44336",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}
@@ -1834,7 +1836,7 @@ function ForumModerate() {
                   backgroundColor: "#4CAF50",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}
@@ -1970,7 +1972,7 @@ function ForumModerate() {
                   backgroundColor: "#f44336",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}
@@ -2023,7 +2025,7 @@ function ForumModerate() {
                   backgroundColor: "#f44336",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}
@@ -2036,7 +2038,7 @@ function ForumModerate() {
                   backgroundColor: "#4CAF50",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}
@@ -2089,7 +2091,7 @@ function ForumModerate() {
                   backgroundColor: "#f44336",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}
@@ -2102,7 +2104,7 @@ function ForumModerate() {
                   backgroundColor: "#4CAF50",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}

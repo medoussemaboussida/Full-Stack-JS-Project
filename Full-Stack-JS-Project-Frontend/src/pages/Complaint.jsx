@@ -749,7 +749,7 @@ function Complaint() {
           style={{
             position: "fixed",
             bottom: "20px",
-            right: "90px",
+            right: "30px",
             zIndex: 1000,
             cursor: "pointer",
           }}
@@ -962,22 +962,44 @@ function Complaint() {
                       boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
                     }}
                   >
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "10px",
-                        right: "10px",
-                        width: "20px",
-                        height: "20px",
-                        borderRadius: "50%",
-                        backgroundColor:
-                          complaint.status === "pending"
-                            ? "orange"
-                            : complaint.status === "resolved"
-                            ? "green"
-                            : "red",
-                      }}
-                    />
+        <div
+  style={{
+    position: "absolute",
+    top: "30px",
+    right: "15px",
+  }}
+>
+  <span
+    className="badge"
+    style={{
+      backgroundColor: "transparent",
+      border: "1px solid",
+      color: "#00BFFF",
+      padding: "5px 8px",
+      borderRadius: "20px",
+      marginRight: "5px",
+      boxShadow: "0 0 10px",
+      fontSize: "0.875rem",
+      ...(complaint.status === "pending" && {
+        borderColor: "#FFA500",
+        color: "#FFA500",
+        boxShadow: "0 0 10px rgba(255, 165, 0, 0.5)",
+      }),
+      ...(complaint.status === "resolved" && {
+        borderColor: "#008000",
+        color: "#008000",
+        boxShadow: "0 0 10px rgba(0, 128, 0, 0.5)",
+      }),
+      ...(complaint.status === "rejected" && {
+        borderColor: "#FF0000",
+        color: "#FF0000",
+        boxShadow: "0 0 10px rgba(255, 0, 0, 0.5)",
+      }),
+    }}
+  >
+    {complaint.status || "Unknown"}
+  </span>
+</div>
                     <h3
                       style={{
                         wordBreak: "break-word",
@@ -1007,6 +1029,7 @@ function Complaint() {
                     </div>
                     <div className="d-flex justify-content-between align-items-center mt-2">
                       <div className="text-muted" style={{ fontSize: "14px" }}>
+                        
                         <p style={{ margin: 0 }}>
                           Posted at:{" "}
                           {new Date(complaint.createdAt).toLocaleString(
@@ -1019,9 +1042,6 @@ function Complaint() {
                               minute: "2-digit",
                             }
                           )}
-                        </p>
-                        <p style={{ margin: "0" }}>
-                          Status: {complaint.status || "Unknown"}
                         </p>
                       </div>
                       <div className="d-flex align-items-center">
@@ -1135,7 +1155,7 @@ function Complaint() {
                   backgroundColor: "#f44336",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}
@@ -1148,7 +1168,7 @@ function Complaint() {
                   backgroundColor: "#4CAF50",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}
@@ -1162,126 +1182,137 @@ function Complaint() {
 
       {showUpdateModal && complaintToUpdate && (
         <div
+  style={{
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  }}
+>
+  <div
+    style={{
+      backgroundColor: "white",
+      padding: "20px",
+      borderRadius: "8px",
+      width: "500px",
+      maxWidth: "90%",
+      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+      maxHeight: "80vh", // Limite la hauteur du modal à 80% de la fenêtre
+      display: "flex",
+      flexDirection: "column",
+    }}
+  >
+    <h3
+      style={{
+        marginBottom: "20px",
+        textAlign: "center",
+        color: "#333",
+      }}
+    >
+      Update Complaint
+    </h3>
+    <div
+      style={{
+        maxHeight: "60vh", // Limite la hauteur du contenu scrollable
+        overflowY: "auto", // Active le défilement vertical
+        paddingRight: "10px", // Évite que le contenu touche la scrollbar
+      }}
+    >
+      <div style={{ marginBottom: "15px" }}>
+        <label
           style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
+            color: "black",
+            display: "block",
+            marginBottom: "5px",
           }}
         >
-          <div
-            style={{
-              backgroundColor: "white",
-              padding: "20px",
-              borderRadius: "8px",
-              width: "500px",
-              maxWidth: "90%",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-            }}
-          >
-            <h3
-              style={{
-                marginBottom: "20px",
-                textAlign: "center",
-                color: "#333",
-              }}
-            >
-              Update Complaint
-            </h3>
-            <div style={{ marginBottom: "15px" }}>
-              <label
-                style={{
-                  color: "black",
-                  display: "block",
-                  marginBottom: "5px",
-                }}
-              >
-                Subject:
-              </label>
-              <input
-                type="text"
-                value={updatedSubject}
-                onChange={(e) => setUpdatedSubject(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  borderRadius: "50px",
-                  border: "1px solid #ddd",
-                  boxSizing: "border-box",
-                }}
-              />
-            </div>
-            <div style={{ marginBottom: "15px" }}>
-              <label
-                style={{
-                  color: "black",
-                  display: "block",
-                  marginBottom: "5px",
-                }}
-              >
-                Description:
-              </label>
-              <CKEditor
-                editor={ClassicEditor}
-                data={updatedDescription}
-                onChange={(event, editor) => {
-                  const data = editor.getData();
-                  setUpdatedDescription(data);
-                }}
-                config={{
-                  toolbar: [
-                    "heading",
-                    "|",
-                    "bold",
-                    "italic",
-                    "link",
-                    "bulletedList",
-                    "numberedList",
-                    "|",
-                    "undo",
-                    "redo",
-                  ],
-                }}
-              />
-            </div>
-            <div
-              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
-            >
-              <button
-                onClick={() => setShowUpdateModal(false)}
-                style={{
-                  backgroundColor: "#f44336",
-                  color: "white",
-                  padding: "10px 20px",
-                  borderRadius: "5px",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleUpdate(complaintToUpdate._id)}
-                style={{
-                  backgroundColor: "#4CAF50",
-                  color: "white",
-                  padding: "10px 20px",
-                  borderRadius: "5px",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                Update
-              </button>
-            </div>
-          </div>
-        </div>
+          Subject:
+        </label>
+        <input
+          type="text"
+          value={updatedSubject}
+          onChange={(e) => setUpdatedSubject(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "8px",
+            borderRadius: "50px",
+            border: "1px solid #ddd",
+            boxSizing: "border-box",
+          }}
+        />
+      </div>
+      <div style={{ marginBottom: "15px" }}>
+        <label
+          style={{
+            color: "black",
+            display: "block",
+            marginBottom: "5px",
+          }}
+        >
+          Description:
+        </label>
+        <CKEditor
+          editor={ClassicEditor}
+          data={updatedDescription}
+          onChange={(event, editor) => {
+            const data = editor.getData();
+            setUpdatedDescription(data);
+          }}
+          config={{
+            toolbar: [
+              "heading",
+              "|",
+              "bold",
+              "italic",
+              "link",
+              "bulletedList",
+              "numberedList",
+              "|",
+              "undo",
+              "redo",
+            ],
+          }}
+        />
+      </div>
+    </div>
+    <div
+      style={{ display: "flex", justifyContent: "center", gap: "10px", marginTop: "20px" }}
+    >
+      <button
+        onClick={() => setShowUpdateModal(false)}
+        style={{
+          backgroundColor: "#f44336",
+          color: "white",
+          padding: "10px 20px",
+          borderRadius: "50px",
+          border: "none",
+          cursor: "pointer",
+        }}
+      >
+        Cancel
+      </button>
+      <button
+        onClick={() => handleUpdate(complaintToUpdate._id)}
+        style={{
+          backgroundColor: "#4CAF50",
+          color: "white",
+          padding: "10px 20px",
+          borderRadius: "50px",
+          border: "none",
+          cursor: "pointer",
+        }}
+      >
+        Update
+      </button>
+    </div>
+  </div>
+</div>
       )}
 
       {showResponsesModal && selectedComplaint && (
@@ -1389,7 +1420,7 @@ function Complaint() {
                 backgroundColor: "#f44336",
                 color: "white",
                 padding: "10px 20px",
-                borderRadius: "5px",
+                borderRadius: "50px",
                 border: "none",
                 cursor: "pointer",
                 alignSelf: "center",
@@ -1442,7 +1473,7 @@ function Complaint() {
                   backgroundColor: "#007bff",
                   color: "white",
                   padding: "5px 10px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                   fontSize: "14px",
@@ -1502,7 +1533,7 @@ function Complaint() {
                             backgroundColor: "#28a745",
                             color: "white",
                             padding: "5px 10px",
-                            borderRadius: "5px",
+                            borderRadius: "50px",
                             border: "none",
                             cursor: "pointer",
                             fontSize: "12px",
@@ -1533,7 +1564,7 @@ function Complaint() {
                   backgroundColor: "#f44336",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}
@@ -1596,13 +1627,6 @@ function Complaint() {
                 possible.
               </li>
               <li style={{ marginBottom: "10px" }}>
-                <span role="img" aria-label="robot">
-                  🤖
-                </span>{" "}
-                Use the chatbot Gemini to help you draft and submit a new
-                complaint easily.
-              </li>
-              <li style={{ marginBottom: "10px" }}>
                 <span role="img" aria-label="check">
                   ✅
                 </span>{" "}
@@ -1624,7 +1648,7 @@ function Complaint() {
                   backgroundColor: "#f44336",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}
