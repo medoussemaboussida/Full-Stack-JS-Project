@@ -27,6 +27,7 @@ const reportSchema = new mongoose.Schema(
         "harassment",
         "offensive_language",
         "misinformation",
+        "other"
       ],
       required: true, 
     },
