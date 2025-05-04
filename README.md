@@ -25,7 +25,7 @@ The goal of this project is to provide a structured, secure and efficient platfo
 </p>  
 
 ## User Roles and Authentication 👥 
-🚀 The platform supports multiple user roles with distinct registration and management processes .
+🚀 The platform supports multiple user roles with distinct registration and management processes .  
 ✔️ Student: Can self-register via the sign-up form or using Google/Facebook authentication.  
 ✔️ Psychologist, Teacher, Associative Member: Accounts created and managed only by the Admin.  
 ✔️ Admin: Has full access to manage all users and platform settings.  
