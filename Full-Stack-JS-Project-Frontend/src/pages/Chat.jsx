@@ -81,7 +81,7 @@ const Chat = () => {
   const [targetLanguage, setTargetLanguage] = useState('en');
   const [translatedMessages, setTranslatedMessages] = useState({});
 
-  const hfToken = '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';
+  const GROQ_API__KEY = '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'; // Replace with your Groq API key or move to backend
 
   useEffect(() => {
     const storedToken = localStorage.getItem('jwt-token');
@@ -233,27 +233,43 @@ const Chat = () => {
       console.log('Skipping translation for invalid text:', text);
       return text;
     }
+    if (!GROQ_API__KEY) {
+      console.error('Groq API key is missing');
+      setError('Translation failed: API key is missing');
+      return text;
+    }
     try {
       console.log(`Translating text to ${targetLang}:`, text);
-      const modelMap = {
-        en: 'Helsinki-NLP/opus-mt-fr-en',
-        fr: 'Helsinki-NLP/opus-mt-en-fr',
-        es: 'Helsinki-NLP/opus-mt-en-es',
-        de: 'Helsinki-NLP/opus-mt-en-de',
+      const languageMap = {
+        en: 'English',
+        fr: 'French',
+        es: 'Spanish',
+        de: 'German',
       };
-      const model = modelMap[targetLang] || 'Helsinki-NLP/opus-mt-en-fr';
+      const targetLanguageName = languageMap[targetLang] || 'English';
+      const prompt = `Translate the following text to ${targetLanguageName} and return only the translated text, without any explanations or additional details: "${text}"`;
       const response = await axios.post(
-        `https://api-inference.huggingface.co/models/${model}`,
-        { inputs: text },
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          model: 'llama3-70b-8192',
+          messages: [
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          max_tokens: 500,
+          temperature: 0.7,
+        },
         {
           headers: {
-            Authorization: `Bearer ${hfToken}`,
+            Authorization: `Bearer ${GROQ_API__KEY}`,
             'Content-Type': 'application/json',
           },
           timeout: 15000,
         }
       );
-      const translatedText = response.data[0]?.translation_text || text;
+      const translatedText = response.data.choices[0]?.message?.content?.trim() || text;
       console.log('Translation successful:', translatedText);
       return translatedText;
     } catch (err) {
@@ -263,10 +279,14 @@ const Chat = () => {
         data: err.response?.data,
       });
       let errorMessage = 'Failed to translate message';
-      if (err.response?.status === 429) {
+      if (err.response?.status === 400) {
+        errorMessage = `Translation failed: ${err.response?.data?.error || 'Invalid request'}`;
+      } else if (err.response?.status === 401) {
+        errorMessage = 'Translation failed: Invalid API key';
+      } else if (err.response?.status === 429) {
         errorMessage = 'Translation quota exceeded. Please try again later.';
-      } else if (err.response?.status === 400) {
-        errorMessage = 'Invalid text for translation.';
+      } else if (err.code === 'ECONNABORTED') {
+        errorMessage = 'Translation request timed out.';
       }
       setError(errorMessage);
       return text;
@@ -281,60 +301,18 @@ const Chat = () => {
     }));
   };
 
-  const generateSpeech = async (text) => {
-    if (!text || text === '[Decryption failed]' || text === '[Voice Message]') {
-      console.log('Skipping TTS for invalid text:', text);
-      setError('Cannot generate speech for this message.');
-      return;
-    }
-    try {
-      console.log('Generating speech for text:', text);
-      const response = await axios.post(
-        'https://api-inference.huggingface.co/models/espnet/kan-bayashi_ljspeech_vits',
-        { inputs: text },
-        {
-          headers: {
-            Authorization: `Bearer ${hfToken}`,
-            'Content-Type': 'application/json',
-          },
-          responseType: 'arraybuffer',
-          timeout: 30000,
-        }
-      );
-      const audioBlob = new Blob([response.data], { type: 'audio/wav' });
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      audio.play().catch((err) => setError('Failed to play TTS audio: ' + err.message));
-    } catch (err) {
-      console.error('TTS error:', {
-        message: err.message,
-        status: err.response?.status,
-        data: err.response?.data,
-      });
-      let errorMessage = 'Failed to generate speech.';
-      if (err.response?.status === 429) {
-        errorMessage = 'TTS quota exceeded. Please try again later.';
-      } else if (err.response?.status === 400) {
-        errorMessage = 'Invalid text for TTS.';
-      } else if (err.code === 'ECONNABORTED') {
-        errorMessage = 'TTS request timed out.';
-      }
-      setError(errorMessage);
-    }
-  };
 
   const summarizeConversation = async () => {
     console.log('Starting summarizeConversation');
-    
     if (messages.length === 0) {
       setSummary('No messages to summarize.');
       setShowSummaryModal(true);
       return;
     }
-  
+
     setIsSummarizing(true);
     setError(null);
-  
+
     const conversationText = messages
       .map((msg) => {
         if (!msg.isVoice) {
@@ -344,36 +322,50 @@ const Chat = () => {
       })
       .filter((text) => text)
       .join('\n');
-  
+
     if (!conversationText.trim()) {
       setSummary('No text messages available to summarize.');
       setShowSummaryModal(true);
       setIsSummarizing(false);
       return;
     }
-  
+
+    if (!GROQ_API__KEY) {
+      console.error('Groq API key is missing');
+      setError('Summarization failed: API key is missing');
+      setSummary('An error occurred while summarizing. Please try again.');
+      setShowSummaryModal(true);
+      setIsSummarizing(false);
+      return;
+    }
+
     try {
-      console.log('Sending summarization request to Hugging Face API');
+      console.log('Sending summarization request to Groq API');
+      const prompt = `Summarize the following conversation concisely in up to 100 words:\n\n${conversationText}`;
       const response = await axios.post(
-        'https://api-inference.huggingface.co/models/facebook/bart-large-cnn',
+        'https://api.groq.com/openai/v1/chat/completions',
         {
-          inputs: conversationText,
-          parameters: {
-            max_length: 100,
-            min_length: 30,
-            do_sample: false,
-          },
+          model: 'llama3-70b-8192', // Updated to a supported model
+          messages: [
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          max_tokens: 150,
+          temperature: 0.7,
         },
         {
           headers: {
-            Authorization: `Bearer ${hfToken}`,
+            Authorization: `Bearer ${GROQ_API__KEY}`,
             'Content-Type': 'application/json',
           },
+          timeout: 15000,
         }
       );
-  
+
       console.log('Summarization response:', response.data);
-      const summaryText = response.data[0]?.summary_text || 'Failed to generate summary.';
+      const summaryText = response.data.choices[0]?.message?.content?.trim() || 'Failed to generate summary.';
       setSummary(summaryText);
       setShowSummaryModal(true);
     } catch (err) {
@@ -383,12 +375,14 @@ const Chat = () => {
         message: err.message,
       });
       let errorMessage = 'Failed to summarize conversation.';
-      if (err.response?.status === 401) {
-        errorMessage = 'Unauthorized: Invalid Hugging Face API token.';
-      } else if (err.response?.data?.error) {
-        errorMessage = `Hugging Face API error: ${err.response.data.error}`;
-      } else {
-        errorMessage = `Error: ${err.message}`;
+      if (err.response?.status === 400) {
+        errorMessage = `Summarization failed: ${err.response?.data?.error || 'Invalid request'}`;
+      } else if (err.response?.status === 401) {
+        errorMessage = 'Summarization failed: Invalid API key';
+      } else if (err.response?.status === 429) {
+        errorMessage = 'Summarization quota exceeded. Please try again later.';
+      } else if (err.code === 'ECONNABORTED') {
+        errorMessage = 'Summarization request timed out.';
       }
       setError(errorMessage);
       setSummary('An error occurred while summarizing. Please try again.');
@@ -530,14 +524,14 @@ const Chat = () => {
       unit: 'mm',
       format: 'a4'
     });
-  
+
     const logoImg = new Image();
     logoImg.src = '/assets/img/logo/logo.png';
     await logoImg.decode();
-  
+
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-  
+
     doc.addImage(logoImg, 'PNG', 10, 10, 30, 30);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
@@ -547,28 +541,28 @@ const Chat = () => {
     doc.setLineWidth(0.5);
     doc.setDrawColor(0, 51, 102);
     doc.line(10, 45, pageWidth - 10, 45);
-  
+
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
     doc.text(`Exported on: ${new Date().toLocaleString()}`, pageWidth - 10, 25, { align: 'right' });
-  
+
     let yOffset = 55;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
     doc.setTextColor(0, 0, 0);
-  
+
     messages.forEach((msg, index) => {
       const sender = msg.sender?.username || 'Unknown';
       const time = new Date(msg.createdAt).toLocaleTimeString();
       const messageText = msg.isVoice
         ? `[${time}] ${sender}: [Voice Message]`
         : `[${time}] ${sender}: ${msg.message}`;
-  
+
       if (index % 2 === 0) {
         doc.setFillColor(240, 248, 255);
         doc.rect(10, yOffset - 4, pageWidth - 20, 10, 'F');
       }
-  
+
       const splitText = doc.splitTextToSize(messageText, pageWidth - 40);
       splitText.forEach((line) => {
         if (yOffset > pageHeight - 20) {
@@ -612,11 +606,11 @@ const Chat = () => {
       });
       yOffset += 5;
     }
-  
+
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text('EspritCare - Chat History', pageWidth / 2, pageHeight - 10, { align: 'center' });
-  
+
     doc.save(`chat_room_${joinedRoom}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
@@ -1023,7 +1017,7 @@ const Chat = () => {
             box-shadow: 0 0 10px rgba(0, 183, 235, 0.3);
           }
 
-          .emoji-button, .video-button, .voice-button, .refresh-button, .send-button, .translate-button, .tts-button {
+          .emoji-button, .video-button, .voice-button, .refresh-button, .send-button, .translate-button {
             background: none;
             border: none;
             font-size: 1.3rem;
@@ -1033,7 +1027,7 @@ const Chat = () => {
             transition: all 0.3s ease;
           }
 
-          .emoji-button:hover, .video-button:hover, .refresh-button:hover, .send-button:hover, .translate-button:hover, .tts-button:hover {
+          .emoji-button:hover, .video-button:hover, .refresh-button:hover, .send-button:hover, .translate-button:hover {
             color: var(--accent-blue);
             transform: scale(1.1);
           }
@@ -1057,15 +1051,6 @@ const Chat = () => {
           }
 
           .play-voice-button:hover {
-            color: #0099c7;
-          }
-
-          .tts-button {
-            font-size: 1rem;
-            margin-left: 0.5rem;
-          }
-
-          .tts-button:hover {
             color: #0099c7;
           }
 
@@ -1416,13 +1401,6 @@ const Chat = () => {
                                               >
                                                 <i className="fas fa-language"></i>
                                               </button>
-                                              <button
-                                                className="tts-button ms-2"
-                                                onClick={() => generateSpeech(msg.message)}
-                                                title="Play Message Aloud"
-                                              >
-                                                <i className="fas fa-volume-up"></i>
-                                              </button>
                                             </>
                                           )}
                                         </p>
@@ -1507,22 +1485,13 @@ const Chat = () => {
                                         msg.message
                                       )}
                                       {!msg.isVoice && (
-                                        <>
-                                          <button
-                                            className="translate-button ms-2"
-                                            onClick={() => handleTranslate(msg._id, msg.message)}
-                                            title="Translate Message"
-                                          >
-                                            <i className="fas fa-language"></i>
-                                          </button>
-                                          <button
-                                            className="tts-button ms-2"
-                                            onClick={() => generateSpeech(msg.message)}
-                                            title="Play Message Aloud"
-                                          >
-                                            <i className="fas fa-volume-up"></i>
-                                          </button>
-                                        </>
+                                        <button
+                                          className="translate-button ms-2"
+                                          onClick={() => handleTranslate(msg._id, msg.message)}
+                                          title="Translate Message"
+                                        >
+                                          <i className="fas fa-language"></i>
+                                        </button>
                                       )}
                                     </p>
                                     {translatedMessages[msg._id] && (
