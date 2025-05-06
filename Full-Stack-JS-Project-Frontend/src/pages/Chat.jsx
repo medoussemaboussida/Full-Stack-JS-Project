@@ -83,6 +83,7 @@ const Chat = () => {
   const [translatedMessages, setTranslatedMessages] = useState({});
 
   const GROQ_API__KEY = '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'; // Replace with your Groq API key or move to backend
+  const tts_new = 'sk_9a528300cb9d0fde2f09a122f90b3895d0f5adca31387585'; // Replace with your new API key (temporary for testing)
 
   useEffect(() => {
     const storedToken = localStorage.getItem('jwt-token');
@@ -226,6 +227,64 @@ const Chat = () => {
     } catch (err) {
       console.error('Error sending message:', err.response?.data || err.message);
       setError('Failed to send message: ' + (err.response?.data?.message || err.message || 'Network error'));
+    }
+  };
+
+  const speakMessage = async (text) => {
+    if (!text || text === '[Decryption failed]' || text === '[Voice Message]') {
+      console.log('Skipping TTS for invalid text:', text);
+      setError('Cannot convert this message to speech.');
+      return;
+    }
+  
+    try {
+      const languageMap = {
+        en: 'en',
+        fr: 'fr',
+        es: 'es',
+        de: 'de',
+      };
+      const language = languageMap[targetLanguage] || 'en';
+  
+      // ElevenLabs API request
+      const response = await axios.post(
+        'https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM', // Voice ID: Rachel (default)
+        {
+          text,
+          model_id: 'eleven_multilingual_v2', // Supports en, fr, es, de
+          voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.5,
+          },
+        },
+        {
+          headers: {
+            'xi-api-key': tts_new,
+            'Content-Type': 'application/json',
+          },
+          responseType: 'arraybuffer',
+        }
+      );
+  
+      const audioBlob = new Blob([response.data], { type: 'audio/mpeg' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.play().catch((err) => {
+        console.error('Audio playback error:', err);
+        setError('Failed to play audio: ' + err.message);
+      });
+      audio.onended = () => URL.revokeObjectURL(audioUrl);
+    } catch (err) {
+      console.error('TTS error:', err);
+      let errorMessage = 'Failed to convert text to speech';
+      if (err.response?.status === 401) {
+        errorMessage = 'Text-to-speech failed: Invalid API key';
+      } else if (err.response?.status === 429) {
+        errorMessage = 'Text-to-speech quota exceeded. Check your ElevenLabs plan.';
+      } else if (err.response?.status === 400) {
+        errorMessage = 'Invalid request. Check text or language settings.';
+      }
+      setError(errorMessage);
     }
   };
 
@@ -1130,7 +1189,7 @@ const Chat = () => {
           }
 
           .export-pdf-icon:hover {
-            color: var(--accent-blue);
+            color MMA: var(--accent-blue);
             transform: scale(1.1);
           }
 
@@ -1434,7 +1493,16 @@ const Chat = () => {
                                         </button>
                                       </>
                                     ) : (
-                                      msg.message
+                                      <>
+                                        {msg.message}
+                                        <button
+                                          onClick={() => speakMessage(msg.message)}
+                                          className="play-voice-button"
+                                          title="Speak Message"
+                                        >
+                                          <i className="fas fa-volume-up"></i>
+                                        </button>
+                                      </>
                                     )}
                                     {msg.sender._id === userId && !msg.isVoice && (
                                       <div className="dropdown">
