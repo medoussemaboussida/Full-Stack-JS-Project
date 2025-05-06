@@ -3,12 +3,18 @@ const router = express.Router();
 const eventController = require('../controller/eventController'); // Chemin correct supposé
 const userController = require('../controller/userController'); // Middleware pour JWT
 const Event = require('../model/event'); // Assurez-vous que ce chemin est correct
+//const Story = require('../model/story');
+
 
 
 console.log('Event controller loaded:', eventController.getEvents);
 console.log('Upload middleware loaded:', eventController.upload);
 console.log('Create story handler loaded:', eventController.createStory);
-console.log('Cancel partner participation loaded:', eventController.cancelPartnerParticipation);// Ajouter un événement (authentification requise)
+console.log('Cancel partner participation loaded:', eventController.cancelPartnerParticipation);
+
+
+
+// Ajouter un événement (authentification requise)
 router.post('/addEvent', userController.verifyToken, eventController.addEvent);
 // Récupérer tous les événements (accessible publiquement)
 router.get("/getEvents", eventController.getEvents); // Frontend (événements approuvés)
@@ -67,11 +73,12 @@ router.get("/checkLike/:id", userController.verifyToken, eventController.checkLi
 router.get("/checkDislike/:id",userController.verifyToken, eventController.checkDislike);
 router.get("/checkFavorite/:id", userController.verifyToken, eventController.checkFavorite);
 router.post("/events/cancelPartnerParticipation/:eventId", userController.verifyToken, eventController.cancelPartnerParticipation);
-router.get("/events/checkPartnerParticipation/:eventId",  userController.verifyToken, eventController.checkPartnerParticipation);
+router.get("/checkPartnerParticipation/:eventId",  userController.verifyToken, eventController.checkPartnerParticipation);
 //router.post("/cancelPartnerParticipation/:id", userController.verifyToken, eventController.cancelPartnerParticipation);
 router.get("/verifyParticipation/:eventId/:userId", eventController.verifyParticipation);
 router.get("/verifyPartner/:eventId/:userId", eventController.verifyPartner);
 
+//router.get('/getEventsByCreator/:creatorId', eventController.getEventsByCreator);
 // New story routes
 router.post("/stories/upload", userController.verifyToken, eventController.uploadStory);
 router.get("/stories", eventController.getStories);
@@ -81,5 +88,5 @@ router.post("/stories/replies/:storyId",userController.verifyToken ,eventControl
 //router.get("/checkPartnerParticipation/:eventId", userController.verifyToken, eventController.checkPartnerParticipation); // Ajouté
 
 router.get('/getEventsByUser/:userId', userController.verifyToken , eventController.getEventsByUser);
-//router.get("/checkPartnerParticipation/:eventId", userController.verifyToken, eventController.checkPartnerParticipation); // Ajouté
+
 module.exports = router;
