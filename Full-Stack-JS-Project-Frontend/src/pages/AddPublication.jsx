@@ -235,7 +235,7 @@ function AddPublication() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'Bearer sk-nnlzUOu4LBf5acAo4HYKFWITeBn9Gs7Y1nIxROiTQ03Uu3JN',
+                    'Authorization': 'Bearer sk-I1MmJEBdA9yy5Wx4y5uHhqXcMiUQ8dDgDqQYkVXA4xtyaqSD',
                     'Accept': 'application/json',
                 },
                 body: JSON.stringify({
