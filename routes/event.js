@@ -3,8 +3,12 @@ const router = express.Router();
 const eventController = require('../controller/eventController'); // Chemin correct supposé
 const userController = require('../controller/userController'); // Middleware pour JWT
 const Event = require('../model/event'); // Assurez-vous que ce chemin est correct
-console.log('Event controller loaded:', eventController.getEvents); // Vérifiez ceci
-// Ajouter un événement (authentification requise)
+
+
+console.log('Event controller loaded:', eventController.getEvents);
+console.log('Upload middleware loaded:', eventController.upload);
+console.log('Create story handler loaded:', eventController.createStory);
+console.log('Cancel partner participation loaded:', eventController.cancelPartnerParticipation);// Ajouter un événement (authentification requise)
 router.post('/addEvent', userController.verifyToken, eventController.addEvent);
 // Récupérer tous les événements (accessible publiquement)
 router.get("/getEvents", eventController.getEvents); // Frontend (événements approuvés)
@@ -67,5 +71,15 @@ router.get("/events/checkPartnerParticipation/:eventId",  userController.verifyT
 //router.post("/cancelPartnerParticipation/:id", userController.verifyToken, eventController.cancelPartnerParticipation);
 router.get("/verifyParticipation/:eventId/:userId", eventController.verifyParticipation);
 router.get("/verifyPartner/:eventId/:userId", eventController.verifyPartner);
+
+// New story routes
+router.post("/stories/upload", userController.verifyToken, eventController.uploadStory);
+router.get("/stories", eventController.getStories);
+router.get("/stories/replies/:storyId", eventController.getStoryReplies);
+router.post("/stories/like/:storyId",userController.verifyToken,  eventController.likeStory);
+router.post("/stories/replies/:storyId",userController.verifyToken ,eventController.replyToStory);
+//router.get("/checkPartnerParticipation/:eventId", userController.verifyToken, eventController.checkPartnerParticipation); // Ajouté
+
+router.get('/getEventsByUser/:userId', userController.verifyToken , eventController.getEventsByUser);
 //router.get("/checkPartnerParticipation/:eventId", userController.verifyToken, eventController.checkPartnerParticipation); // Ajouté
 module.exports = router;

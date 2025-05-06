@@ -31,71 +31,82 @@ const upload = multer({
 
 // Add a new association
 exports.addAssociation = async (req, res) => {
-    console.time("addAssociation");
-    upload(req, res, async (err) => {
-      if (err) {
-        console.error("Multer error:", err.message);
-        return res.status(400).json({ message: err.message });
+  console.time("addAssociation");
+  upload(req, res, async (err) => {
+    if (err) {
+      console.error("Multer error:", err.message);
+      return res.status(400).json({ message: err.message });
+    }
+    try {
+      console.log("Request body:", req.body);
+      console.log("File:", req.file);
+      console.log("User ID from token:", req.userId);
+
+      const { Name_association, Description_association, contact_email_association, support_type } = req.body;
+      if (!Name_association || !Description_association || !contact_email_association || !support_type || !req.file) {
+        return res.status(400).json({ message: "All fields and logo are required" });
       }
-      try {
-        console.log("Request body:", req.body);
-        console.log("File:", req.file);
-        console.log("User ID from token:", req.userId);
-  
-        const { Name_association, Description_association, contact_email_association, support_type } = req.body;
-        if (!Name_association || !Description_association || !contact_email_association || !support_type || !req.file) {
-          return res.status(400).json({ message: "All fields and logo are required" });
-        }
-  
-        const user = await User.findById(req.userId);
-        console.log("User:", user ? { id: user._id, role: user.role, association_id: user.association_id } : null);
-        if (!user) {
-          return res.status(404).json({ message: "User not found" });
-        }
-        if (user.role !== "association_member") {
-          return res.status(403).json({ message: "Only association members can add an association" });
-        }
-        if (user.association_id) {
-          return res.status(400).json({ message: "User is already linked to an association" });
-        }
-  
-        const logoPath = `/Uploads/${req.file.filename}`;
-        const newAssociation = new Association({
-          Name_association,
-          Description_association,
-          contact_email_association,
-          support_type,
-          logo_association: logoPath,
-          created_by: req.userId,
-        });
-  
-        const savedAssociation = await newAssociation.save();
-        console.log(`✅ Association "${Name_association}" created. ID: ${savedAssociation._id}`);
-  
-        user.association_id = savedAssociation._id;
-        await user.save();
-        console.log(`✅ User ${user.username} linked to association ${savedAssociation._id}`);
-  
-        console.timeEnd("addAssociation");
-        res.status(201).json({
-          message: "Association added successfully",
-          association_id: savedAssociation._id.toString(),
-          data: savedAssociation,
-        });
-      } catch (error) {
-        console.error("Error in addAssociation:", error.stack);
-        if (error.code === 11000 && error.keyPattern.contact_email_association) {
-          return res.status(409).json({
-            message: `The email ${req.body.contact_email_association} is already used`,
-          });
-        }
-        if (error.name === "ValidationError") {
-          return res.status(400).json({ message: "Validation error", errors: error.errors });
-        }
-        res.status(500).json({ message: "Internal server error", error: error.message });
+
+      const user = await User.findById(req.userId);
+      console.log("User:", user ? { id: user._id, role: user.role, email: user.email, association_id: user.association_id } : null);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
       }
-    });
-  };
+      if (user.role !== "association_member") {
+        return res.status(403).json({ message: "Only association members can add an association" });
+      }
+      if (user.association_id) {
+        return res.status(400).json({ message: "User is already linked to an association" });
+      }
+
+      const logoPath = `/Uploads/${req.file.filename}`;
+      const newAssociation = new Association({
+        Name_association,
+        Description_association,
+        contact_email_association,
+        support_type,
+        logo_association: logoPath,
+        created_by: req.userId,
+      });
+
+      const savedAssociation = await newAssociation.save();
+      console.log(`✅ Association "${Name_association}" created. ID: ${savedAssociation._id}`);
+
+      user.association_id = savedAssociation._id;
+      await user.save({ validateModifiedOnly: true }); // Skip validation of unchanged fields like email
+      console.log(`✅ User ${user.username} linked to association ${savedAssociation._id}`);
+
+      console.timeEnd("addAssociation");
+      res.status(201).json({
+        message: "Association added successfully",
+        association_id: savedAssociation._id.toString(),
+        data: savedAssociation,
+      });
+    } catch (error) {
+      console.error("Error in addAssociation:", error.stack);
+      if (error.code === 11000 && error.keyPattern.contact_email_association) {
+        return res.status(409).json({
+          message: `The email ${req.body.contact_email_association} is already used`,
+        });
+      }
+      if (error.name === "ValidationError") {
+        const errors = Object.keys(error.errors).reduce((acc, key) => {
+          if (key === "created_by" && error.errors[key].message.includes("association_member")) {
+            acc[key] = "The creator must be an association_member user.";
+          } else if (key === "contact_email_association") {
+            acc[key] = error.errors[key].message || "Invalid email format for association contact email.";
+          } else {
+            acc[key] = error.errors[key].message;
+          }
+          return acc;
+        }, {});
+        console.log("Validation errors:", errors);
+        return res.status(400).json({ message: "Validation error", errors });
+      }
+      res.status(500).json({ message: "Internal server error", error: error.message });
+    }
+  });
+};
 
 // Get all associations (for back-office)
 exports.getAssociations = async (req, res, next) => {

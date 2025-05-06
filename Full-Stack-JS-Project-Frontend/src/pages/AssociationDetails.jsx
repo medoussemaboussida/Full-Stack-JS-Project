@@ -26,17 +26,17 @@ const AssociationDetails = () => {
         setUserId(decoded.id);
         console.log("User ID from token:", decoded.id);
       } catch (error) {
-        console.error("Erreur lors du décodage du token:", error);
-        toast.error("Session invalide, veuillez vous reconnecter");
+        console.error("Error decoding token:", error);
+        toast.error("Invalid session, please log in again");
       }
     } else {
-      console.log("Aucun token trouvé dans localStorage");
+      console.log("No token found in localStorage");
     }
 
     const fetchAssociationDetails = async () => {
       try {
         const token = localStorage.getItem("jwt-token");
-        if (!token) throw new Error("Aucun token trouvé dans localStorage");
+        if (!token) throw new Error("No token found in localStorage");
         console.log(`Fetching association details for ID: ${id}`);
         const response = await axios.get(`${BASE_URL}/association/getAssociationById/${id}`, {
           headers: {
@@ -50,9 +50,9 @@ const AssociationDetails = () => {
         setIsLoading(false);
       } catch (err) {
         console.error('Error fetching association details:', err.response || err);
-        setError(`Erreur: ${err.response?.data?.message || err.message}`);
+        setError(`Error: ${err.response?.data?.message || err.message}`);
         setIsLoading(false);
-        toast.error(`Erreur: ${err.response?.data?.message || err.message}`);
+        toast.error(`Error: ${err.response?.data?.message || err.message}`);
       }
     };
 
@@ -70,7 +70,7 @@ const AssociationDetails = () => {
     e.preventDefault();
     try {
       const token = localStorage.getItem("jwt-token");
-      if (!token) throw new Error("Aucun token trouvé");
+      if (!token) throw new Error("No token found");
       const updatedData = { ...formData };
       const response = await axios.put(`${BASE_URL}/association/updateAssociation/${id}`, updatedData, {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -78,9 +78,9 @@ const AssociationDetails = () => {
       setAssociation(response.data);
       setFormData(response.data);
       setIsEditing(false);
-      toast.success("Mise à jour réussie !");
+      toast.success("Update successful!");
     } catch (error) {
-      toast.error(error.response?.data?.message || "Erreur mise à jour");
+      toast.error(error.response?.data?.message || "Error updating");
     }
   };
 
@@ -90,22 +90,22 @@ const AssociationDetails = () => {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("Supprimer cette association ?")) return;
+    if (!window.confirm("Are you sure you want to delete this association?")) return;
     try {
       const token = localStorage.getItem("jwt-token");
       await axios.delete(`${BASE_URL}/association/deleteAssociation/${id}`, {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
-      toast.success("Suppression réussie !");
+      toast.success("Deletion successful!");
       setTimeout(() => navigate("/Associations"), 2000);
     } catch (error) {
-      toast.error(error.response?.data?.message || "Erreur suppression");
+      toast.error(error.response?.data?.message || "Error deleting");
     }
   };
 
-  if (isLoading) return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Chargement...</div>;
+  if (isLoading) return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Loading...</div>;
   if (error) return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>{error}</div>;
-  if (!association) return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Association non trouvée</div>;
+  if (!association) return <div style={{ textAlign: 'center', padding: '20px', fontSize: '18px' }}>Association not found</div>;
 
   const isCreator = userId && association.user_id?._id === userId;
   console.log("isCreator:", isCreator);
@@ -116,8 +116,8 @@ const AssociationDetails = () => {
         <div className="container">
           <h2 className="breadcrumb-title">{association.Name_association}</h2>
           <ul className="breadcrumb-menu">
-            <li><Link to="/Home">Accueil</Link></li>
-            <li><Link to="/Associations">Nos Associations</Link></li>
+            <li><Link to="/Home">Home</Link></li>
+            <li><Link to="/Associations">Our Associations</Link></li>
             <li className="active">{association.Name_association}</li>
           </ul>
         </div>
@@ -166,7 +166,7 @@ const AssociationDetails = () => {
                   <div className="team-single-info">
                     <ul>
                       <li>
-                        <span className="team-single-info-left">Email :</span>
+                        <span className="team-single-info-left">Email:</span>
                         {isEditing ? (
                           <input
                             type="email"
@@ -177,12 +177,12 @@ const AssociationDetails = () => {
                           />
                         ) : (
                           <span className="team-single-info-right">
-                            {association.contact_email_association || 'Non spécifié'}
+                            {association.contact_email_association || 'Not specified'}
                           </span>
                         )}
                       </li>
                       <li>
-                        <span className="team-single-info-left">Type de soutien :</span>
+                        <span className="team-single-info-left">Support Type:</span>
                         {isEditing ? (
                           <input
                             type="text"
@@ -193,7 +193,7 @@ const AssociationDetails = () => {
                           />
                         ) : (
                           <span className="team-single-info-right">
-                            {association.support_type || 'Non spécifié'}
+                            {association.support_type || 'Not specified'}
                           </span>
                         )}
                       </li>
@@ -203,11 +203,11 @@ const AssociationDetails = () => {
                   <div className="team-single-social">
                     {isEditing ? (
                       <>
-                        <input type="text" name="facebook" value={formData.facebook || ''} onChange={handleFormChange} className="form-control mb-2" placeholder="Lien Facebook" />
-                        <input type="text" name="twitter" value={formData.twitter || ''} onChange={handleFormChange} className="form-control mb-2" placeholder="Lien Twitter" />
-                        <input type="text" name="instagram" value={formData.instagram || ''} onChange={handleFormChange} className="form-control mb-2" placeholder="Lien Instagram" />
-                        <input type="text" name="linkedin" value={formData.linkedin || ''} onChange={handleFormChange} className="form-control mb-2" placeholder="Lien LinkedIn" />
-                        <input type="text" name="youtube" value={formData.youtube || ''} onChange={handleFormChange} className="form-control mb-2" placeholder="Lien YouTube" />
+                        <input type="text" name="facebook" value={formData.facebook || ''} onChange={handleFormChange} className="form-control mb-2" placeholder="Facebook Link" />
+                        <input type="text" name="twitter" value={formData.twitter || ''} onChange={handleFormChange} className="form-control mb-2" placeholder="Twitter Link" />
+                        <input type="text" name="instagram" value={formData.instagram || ''} onChange={handleFormChange} className="form-control mb-2" placeholder="Instagram Link" />
+                        <input type="text" name="linkedin" value={formData.linkedin || ''} onChange={handleFormChange} className="form-control mb-2" placeholder="LinkedIn Link" />
+                        <input type="text" name="youtube" value={formData.youtube || ''} onChange={handleFormChange} className="form-control mb-2" placeholder="YouTube Link" />
                       </>
                     ) : (
                       <>
@@ -237,7 +237,7 @@ const AssociationDetails = () => {
                       rows="5"
                     />
                   ) : (
-                    <p>{association.Description_association || 'Aucune description disponible.'}</p>
+                    <p>{association.Description_association || 'No description available.'}</p>
                   )}
                   {isCreator && (
                     <div className="mt-3">

@@ -96,6 +96,8 @@ const userSchema = new mongoose.Schema({
         maxlength: [500, 'Description cannot exceed 500 characters'] // Optional limit
     },
     receiveEmails: { type: Boolean, default: true },
+    stories: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Story' }], // New field
+
     
     attendanceSheets: [{
         type: mongoose.Schema.Types.ObjectId,
