@@ -74,6 +74,7 @@ const Chat = () => {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const streamRef = useRef(null);
   const intervalRef = useRef(null);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [editMessageId, setEditMessageId] = useState(null);
@@ -81,7 +82,8 @@ const Chat = () => {
   const [targetLanguage, setTargetLanguage] = useState('en');
   const [translatedMessages, setTranslatedMessages] = useState({});
 
-  const hfToken = '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';
+  const GROQ_API__KEY = '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'; // Replace with your Groq API key or move to backend
+  const tts_new = 'sk_9a528300cb9d0fde2f09a122f90b3895d0f5adca31387585'; // Replace with your new API key (temporary for testing)
 
   useEffect(() => {
     const storedToken = localStorage.getItem('jwt-token');
@@ -228,32 +230,106 @@ const Chat = () => {
     }
   };
 
+  const speakMessage = async (text) => {
+    if (!text || text === '[Decryption failed]' || text === '[Voice Message]') {
+      console.log('Skipping TTS for invalid text:', text);
+      setError('Cannot convert this message to speech.');
+      return;
+    }
+  
+    try {
+      const languageMap = {
+        en: 'en',
+        fr: 'fr',
+        es: 'es',
+        de: 'de',
+      };
+      const language = languageMap[targetLanguage] || 'en';
+  
+      // ElevenLabs API request
+      const response = await axios.post(
+        'https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM', // Voice ID: Rachel (default)
+        {
+          text,
+          model_id: 'eleven_multilingual_v2', // Supports en, fr, es, de
+          voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.5,
+          },
+        },
+        {
+          headers: {
+            'xi-api-key': tts_new,
+            'Content-Type': 'application/json',
+          },
+          responseType: 'arraybuffer',
+        }
+      );
+  
+      const audioBlob = new Blob([response.data], { type: 'audio/mpeg' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audio.play().catch((err) => {
+        console.error('Audio playback error:', err);
+        setError('Failed to play audio: ' + err.message);
+      });
+      audio.onended = () => URL.revokeObjectURL(audioUrl);
+    } catch (err) {
+      console.error('TTS error:', err);
+      let errorMessage = 'Failed to convert text to speech';
+      if (err.response?.status === 401) {
+        errorMessage = 'Text-to-speech failed: Invalid API key';
+      } else if (err.response?.status === 429) {
+        errorMessage = 'Text-to-speech quota exceeded. Check your ElevenLabs plan.';
+      } else if (err.response?.status === 400) {
+        errorMessage = 'Invalid request. Check text or language settings.';
+      }
+      setError(errorMessage);
+    }
+  };
+
   const translateMessage = async (text, targetLang) => {
     if (!text || text === '[Decryption failed]' || text === '[Voice Message]') {
       console.log('Skipping translation for invalid text:', text);
       return text;
     }
+    if (!GROQ_API__KEY) {
+      console.error('Groq API key is missing');
+      setError('Translation failed: API key is missing');
+      return text;
+    }
     try {
       console.log(`Translating text to ${targetLang}:`, text);
-      const modelMap = {
-        en: 'Helsinki-NLP/opus-mt-fr-en',
-        fr: 'Helsinki-NLP/opus-mt-en-fr',
-        es: 'Helsinki-NLP/opus-mt-en-es',
-        de: 'Helsinki-NLP/opus-mt-en-de',
+      const languageMap = {
+        en: 'English',
+        fr: 'French',
+        es: 'Spanish',
+        de: 'German',
       };
-      const model = modelMap[targetLang] || 'Helsinki-NLP/opus-mt-en-fr';
+      const targetLanguageName = languageMap[targetLang] || 'English';
+      const prompt = `Translate the following text to ${targetLanguageName} and return only the translated text, without any explanations or additional details: "${text}"`;
       const response = await axios.post(
-        `https://api-inference.huggingface.co/models/${model}`,
-        { inputs: text },
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          model: 'llama3-70b-8192',
+          messages: [
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          max_tokens: 500,
+          temperature: 0.7,
+        },
         {
           headers: {
-            Authorization: `Bearer ${hfToken}`,
+            Authorization: `Bearer ${GROQ_API__KEY}`,
             'Content-Type': 'application/json',
           },
           timeout: 15000,
         }
       );
-      const translatedText = response.data[0]?.translation_text || text;
+      const translatedText = response.data.choices[0]?.message?.content?.trim() || text;
       console.log('Translation successful:', translatedText);
       return translatedText;
     } catch (err) {
@@ -263,10 +339,14 @@ const Chat = () => {
         data: err.response?.data,
       });
       let errorMessage = 'Failed to translate message';
-      if (err.response?.status === 429) {
+      if (err.response?.status === 400) {
+        errorMessage = `Translation failed: ${err.response?.data?.error || 'Invalid request'}`;
+      } else if (err.response?.status === 401) {
+        errorMessage = 'Translation failed: Invalid API key';
+      } else if (err.response?.status === 429) {
         errorMessage = 'Translation quota exceeded. Please try again later.';
-      } else if (err.response?.status === 400) {
-        errorMessage = 'Invalid text for translation.';
+      } else if (err.code === 'ECONNABORTED') {
+        errorMessage = 'Translation request timed out.';
       }
       setError(errorMessage);
       return text;
@@ -281,60 +361,17 @@ const Chat = () => {
     }));
   };
 
-  const generateSpeech = async (text) => {
-    if (!text || text === '[Decryption failed]' || text === '[Voice Message]') {
-      console.log('Skipping TTS for invalid text:', text);
-      setError('Cannot generate speech for this message.');
-      return;
-    }
-    try {
-      console.log('Generating speech for text:', text);
-      const response = await axios.post(
-        'https://api-inference.huggingface.co/models/espnet/kan-bayashi_ljspeech_vits',
-        { inputs: text },
-        {
-          headers: {
-            Authorization: `Bearer ${hfToken}`,
-            'Content-Type': 'application/json',
-          },
-          responseType: 'arraybuffer',
-          timeout: 30000,
-        }
-      );
-      const audioBlob = new Blob([response.data], { type: 'audio/wav' });
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      audio.play().catch((err) => setError('Failed to play TTS audio: ' + err.message));
-    } catch (err) {
-      console.error('TTS error:', {
-        message: err.message,
-        status: err.response?.status,
-        data: err.response?.data,
-      });
-      let errorMessage = 'Failed to generate speech.';
-      if (err.response?.status === 429) {
-        errorMessage = 'TTS quota exceeded. Please try again later.';
-      } else if (err.response?.status === 400) {
-        errorMessage = 'Invalid text for TTS.';
-      } else if (err.code === 'ECONNABORTED') {
-        errorMessage = 'TTS request timed out.';
-      }
-      setError(errorMessage);
-    }
-  };
-
   const summarizeConversation = async () => {
     console.log('Starting summarizeConversation');
-    
     if (messages.length === 0) {
       setSummary('No messages to summarize.');
       setShowSummaryModal(true);
       return;
     }
-  
+
     setIsSummarizing(true);
     setError(null);
-  
+
     const conversationText = messages
       .map((msg) => {
         if (!msg.isVoice) {
@@ -344,36 +381,50 @@ const Chat = () => {
       })
       .filter((text) => text)
       .join('\n');
-  
+
     if (!conversationText.trim()) {
       setSummary('No text messages available to summarize.');
       setShowSummaryModal(true);
       setIsSummarizing(false);
       return;
     }
-  
+
+    if (!GROQ_API__KEY) {
+      console.error('Groq API key is missing');
+      setError('Summarization failed: API key is missing');
+      setSummary('An error occurred while summarizing. Please try again.');
+      setShowSummaryModal(true);
+      setIsSummarizing(false);
+      return;
+    }
+
     try {
-      console.log('Sending summarization request to Hugging Face API');
+      console.log('Sending summarization request to Groq API');
+      const prompt = `Summarize the following conversation concisely in up to 100 words:\n\n${conversationText}`;
       const response = await axios.post(
-        'https://api-inference.huggingface.co/models/facebook/bart-large-cnn',
+        'https://api.groq.com/openai/v1/chat/completions',
         {
-          inputs: conversationText,
-          parameters: {
-            max_length: 100,
-            min_length: 30,
-            do_sample: false,
-          },
+          model: 'llama3-70b-8192',
+          messages: [
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          max_tokens: 150,
+          temperature: 0.7,
         },
         {
           headers: {
-            Authorization: `Bearer ${hfToken}`,
+            Authorization: `Bearer ${GROQ_API__KEY}`,
             'Content-Type': 'application/json',
           },
+          timeout: 15000,
         }
       );
-  
+
       console.log('Summarization response:', response.data);
-      const summaryText = response.data[0]?.summary_text || 'Failed to generate summary.';
+      const summaryText = response.data.choices[0]?.message?.content?.trim() || 'Failed to generate summary.';
       setSummary(summaryText);
       setShowSummaryModal(true);
     } catch (err) {
@@ -383,12 +434,14 @@ const Chat = () => {
         message: err.message,
       });
       let errorMessage = 'Failed to summarize conversation.';
-      if (err.response?.status === 401) {
-        errorMessage = 'Unauthorized: Invalid Hugging Face API token.';
-      } else if (err.response?.data?.error) {
-        errorMessage = `Hugging Face API error: ${err.response.data.error}`;
-      } else {
-        errorMessage = `Error: ${err.message}`;
+      if (err.response?.status === 400) {
+        errorMessage = `Summarization failed: ${err.response?.data?.error || 'Invalid request'}`;
+      } else if (err.response?.status === 401) {
+        errorMessage = 'Summarization failed: Invalid API key';
+      } else if (err.response?.status === 429) {
+        errorMessage = 'Summarization quota exceeded. Please try again later.';
+      } else if (err.code === 'ECONNABORTED') {
+        errorMessage = 'Summarization request timed out.';
       }
       setError(errorMessage);
       setSummary('An error occurred while summarizing. Please try again.');
@@ -401,37 +454,71 @@ const Chat = () => {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream);
+      streamRef.current = stream;
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType });
       audioChunksRef.current = [];
+
       mediaRecorderRef.current.ondataavailable = (event) => {
-        audioChunksRef.current.push(event.data);
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
       };
-      mediaRecorderRef.current.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+
+      mediaRecorderRef.current.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        audioChunksRef.current = []; // Clear chunks after use
         if (audioBlob.size > 5 * 1024 * 1024) {
           setError('Audio file too large. Keep it under 5MB.');
           setIsRecording(false);
-          stream.getTracks().forEach((track) => track.stop());
           return;
         }
-        sendVoiceMessage(audioBlob);
-        stream.getTracks().forEach((track) => track.stop());
+        if (audioBlob.size === 0) {
+          setError('No audio recorded. Please try again.');
+          setIsRecording(false);
+          return;
+        }
+        await sendVoiceMessage(audioBlob);
       };
+
+      mediaRecorderRef.current.onerror = (event) => {
+        console.error('MediaRecorder error:', event.error);
+        setError(`Recording failed: ${event.error.name}`);
+        setIsRecording(false);
+        stopStream();
+      };
+
       mediaRecorderRef.current.start();
       setIsRecording(true);
-      setTimeout(() => stopRecording(), 10000);
+      console.log('Recording started with MIME type:', mimeType);
     } catch (err) {
-      setError('Failed to start recording: ' + err.message);
+      console.error('Error starting recording:', err);
+      setError(`Failed to start recording: ${err.message}`);
       if (err.name === 'NotAllowedError') {
-        setError('Microphone access denied. Please allow microphone access to record voice messages.');
+        setError('Microphone access denied. Please allow microphone access.');
+      } else if (err.name === 'NotSupportedError') {
+        setError('Audio recording is not supported in this browser.');
       }
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current) {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      stopStream();
+      console.log('Recording stopped');
+    } else {
+      console.log('No active recording to stop');
+      setIsRecording(false);
+      stopStream();
+    }
+  };
+
+  const stopStream = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
     }
   };
 
@@ -441,11 +528,18 @@ const Chat = () => {
       setError('Cannot send voice message: Missing required fields');
       return;
     }
+
     try {
       const reader = new FileReader();
       reader.readAsDataURL(audioBlob);
       reader.onloadend = async () => {
         const base64Audio = reader.result.split(',')[1];
+        if (!base64Audio) {
+          setError('Failed to encode audio. Please try again.');
+          setIsRecording(false);
+          return;
+        }
+
         const payload = {
           roomCode: joinedRoom,
           voiceMessage: base64Audio,
@@ -456,37 +550,51 @@ const Chat = () => {
           voiceMessageLength: payload.voiceMessage.length,
           isVoice: payload.isVoice,
         });
-        try {
-          const response = await axios.post(
-            'http://localhost:5000/users/chat',
-            payload,
-            { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
-          );
-          console.log('Voice message sent successfully:', response.data);
-          const messageId = response.data.data._id;
-          setSentMessages((prev) => ({
-            ...prev,
-            [joinedRoom]: {
-              ...(prev[joinedRoom] || {}),
-              [messageId]: '[Voice Message]',
-            },
-          }));
-          setIsRecording(false);
-          const key = await importKeyFromRoomCode(joinedRoom);
-          fetchMessages(key);
-        } catch (err) {
-          console.error('Voice message request failed:', {
-            status: err.response?.status,
-            data: err.response?.data,
-            message: err.message,
-          });
-          setError('Failed to send voice message. Please try again later.');
-          setIsRecording(false);
+
+        let attempts = 0;
+        const maxAttempts = 3;
+        while (attempts < maxAttempts) {
+          try {
+            const response = await axios.post(
+              'http://localhost:5000/users/chat',
+              payload,
+              { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+            );
+            console.log('Voice message sent successfully:', response.data);
+            const messageId = response.data.data._id;
+            setSentMessages((prev) => ({
+              ...prev,
+              [joinedRoom]: {
+                ...(prev[joinedRoom] || {}),
+                [messageId]: '[Voice Message]',
+              },
+            }));
+            setIsRecording(false);
+            const key = await importKeyFromRoomCode(joinedRoom);
+            fetchMessages(key);
+            return;
+          } catch (err) {
+            attempts++;
+            console.error(`Voice message attempt ${attempts} failed:`, {
+              status: err.response?.status,
+              data: err.response?.data,
+              message: err.message,
+            });
+            if (attempts === maxAttempts) {
+              setError('Failed to send voice message after multiple attempts.');
+              setIsRecording(false);
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait before retry
+          }
         }
+      };
+      reader.onerror = () => {
+        setError('Failed to read audio data.');
+        setIsRecording(false);
       };
     } catch (err) {
       console.error('Error in sendVoiceMessage:', err);
-      setError('Failed to send voice message. Please try again later.');
+      setError('Failed to send voice message: ' + err.message);
       setIsRecording(false);
     }
   };
@@ -530,14 +638,14 @@ const Chat = () => {
       unit: 'mm',
       format: 'a4'
     });
-  
+
     const logoImg = new Image();
     logoImg.src = '/assets/img/logo/logo.png';
     await logoImg.decode();
-  
+
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-  
+
     doc.addImage(logoImg, 'PNG', 10, 10, 30, 30);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
@@ -547,28 +655,28 @@ const Chat = () => {
     doc.setLineWidth(0.5);
     doc.setDrawColor(0, 51, 102);
     doc.line(10, 45, pageWidth - 10, 45);
-  
+
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
     doc.text(`Exported on: ${new Date().toLocaleString()}`, pageWidth - 10, 25, { align: 'right' });
-  
+
     let yOffset = 55;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
     doc.setTextColor(0, 0, 0);
-  
+
     messages.forEach((msg, index) => {
       const sender = msg.sender?.username || 'Unknown';
       const time = new Date(msg.createdAt).toLocaleTimeString();
       const messageText = msg.isVoice
         ? `[${time}] ${sender}: [Voice Message]`
         : `[${time}] ${sender}: ${msg.message}`;
-  
+
       if (index % 2 === 0) {
         doc.setFillColor(240, 248, 255);
         doc.rect(10, yOffset - 4, pageWidth - 20, 10, 'F');
       }
-  
+
       const splitText = doc.splitTextToSize(messageText, pageWidth - 40);
       splitText.forEach((line) => {
         if (yOffset > pageHeight - 20) {
@@ -612,11 +720,11 @@ const Chat = () => {
       });
       yOffset += 5;
     }
-  
+
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text('EspritCare - Chat History', pageWidth / 2, pageHeight - 10, { align: 'center' });
-  
+
     doc.save(`chat_room_${joinedRoom}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
@@ -1023,7 +1131,7 @@ const Chat = () => {
             box-shadow: 0 0 10px rgba(0, 183, 235, 0.3);
           }
 
-          .emoji-button, .video-button, .voice-button, .refresh-button, .send-button, .translate-button, .tts-button {
+          .emoji-button, .video-button, .voice-button, .refresh-button, .send-button, .translate-button {
             background: none;
             border: none;
             font-size: 1.3rem;
@@ -1033,7 +1141,7 @@ const Chat = () => {
             transition: all 0.3s ease;
           }
 
-          .emoji-button:hover, .video-button:hover, .refresh-button:hover, .send-button:hover, .translate-button:hover, .tts-button:hover {
+          .emoji-button:hover, .video-button:hover, .refresh-button:hover, .send-button:hover, .translate-button:hover {
             color: var(--accent-blue);
             transform: scale(1.1);
           }
@@ -1060,15 +1168,6 @@ const Chat = () => {
             color: #0099c7;
           }
 
-          .tts-button {
-            font-size: 1rem;
-            margin-left: 0.5rem;
-          }
-
-          .tts-button:hover {
-            color: #0099c7;
-          }
-
           .emoji-picker-container {
             position: absolute;
             bottom: 70px;
@@ -1090,7 +1189,7 @@ const Chat = () => {
           }
 
           .export-pdf-icon:hover {
-            color: var(--accent-blue);
+            color MMA: var(--accent-blue);
             transform: scale(1.1);
           }
 
@@ -1353,92 +1452,71 @@ const Chat = () => {
                                   />
                                 </div>
                               )}
-                              {msg.sender._id === userId ? (
-                                <>
-                                  <div className="message-wrapper">
-                                    <p className="small username me-3">
-                                      {msg.sender.username || 'Unknown'}
-                                    </p>
-                                    {editMessageId === msg._id ? (
-                                      <div className="edit-input-container">
-                                        <input
-                                          type="text"
-                                          className="form-control edit-input"
-                                          value={editMessageContent}
-                                          onChange={(e) => setEditMessageContent(e.target.value)}
-                                          onKeyPress={(e) => e.key === 'Enter' && updateMessage()}
-                                        />
-                                        <button onClick={updateMessage} className="btn btn-sm btn-primary">
-                                          Save
-                                        </button>
+                              <div className="message-wrapper">
+                                <div className="username">{msg.sender.username || 'Unknown'}</div>
+                                {editMessageId === msg._id ? (
+                                  <div className="edit-input-container">
+                                    <input
+                                      type="text"
+                                      value={editMessageContent}
+                                      onChange={(e) => setEditMessageContent(e.target.value)}
+                                      className="form-control edit-input"
+                                      placeholder="Edit message..."
+                                    />
+                                    <button
+                                      onClick={updateMessage}
+                                      className="btn btn-primary ms-2"
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      onClick={() => setEditMessageId(null)}
+                                      className="btn btn-secondary ms-2"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div
+                                    className={`message-content p-3 mb-2 ${
+                                      msg.sender._id === userId ? 'bg-primary' : 'bg-body-tertiary'
+                                    }`}
+                                  >
+                                    {msg.isVoice ? (
+                                      <>
+                                        <span>Voice Message</span>
                                         <button
-                                          onClick={() => {
-                                            setEditMessageId(null);
-                                            setEditMessageContent('');
-                                          }}
-                                          className="btn btn-sm btn-secondary ms-2"
+                                          onClick={() => playVoiceMessage(msg.voiceMessage)}
+                                          className="play-voice-button"
                                         >
-                                          Cancel
+                                          <i className="fas fa-play"></i>
                                         </button>
-                                      </div>
+                                      </>
                                     ) : (
                                       <>
-                                        <p
-                                          className={`small message-content me-3 mb-0 rounded-3 bg-primary`}
-                                          style={{ alignSelf: 'flex-end' }}
+                                        {msg.message}
+                                        <button
+                                          onClick={() => speakMessage(msg.message)}
+                                          className="play-voice-button"
+                                          title="Speak Message"
                                         >
-                                          {msg.isVoice ? (
-                                            <>
-                                              [Voice Message]
-                                              <button
-                                                className="play-voice-button"
-                                                onClick={() => playVoiceMessage(msg.voiceMessage)}
-                                              >
-                                                <i className="fas fa-play"></i>
-                                              </button>
-                                            </>
-                                          ) : (
-                                            msg.message
-                                          )}
-                                          {!msg.isVoice && (
-                                            <>
-                                              <button
-                                                className="btn btn-link p-0 ms-2 dropdown-toggle"
-                                                onClick={() => toggleDropdown(msg._id)}
-                                                style={{ color: 'inherit', textDecoration: 'none' }}
-                                              >
-                                                <i className="fas fa-ellipsis-v"></i>
-                                              </button>
-                                              <button
-                                                className="translate-button ms-2"
-                                                onClick={() => handleTranslate(msg._id, msg.message)}
-                                                title="Translate Message"
-                                              >
-                                                <i className="fas fa-language"></i>
-                                              </button>
-                                              <button
-                                                className="tts-button ms-2"
-                                                onClick={() => generateSpeech(msg.message)}
-                                                title="Play Message Aloud"
-                                              >
-                                                <i className="fas fa-volume-up"></i>
-                                              </button>
-                                            </>
-                                          )}
-                                        </p>
-                                        {translatedMessages[msg._id] && (
-                                          <p className="translated-text me-3">
-                                            Translated: {translatedMessages[msg._id].text}
-                                          </p>
-                                        )}
-                                        {activeDropdown === msg._id && !msg.isVoice && (
+                                          <i className="fas fa-volume-up"></i>
+                                        </button>
+                                      </>
+                                    )}
+                                    {msg.sender._id === userId && !msg.isVoice && (
+                                      <div className="dropdown">
+                                        <button
+                                          className="btn btn-link dropdown-toggle"
+                                          type="button"
+                                          onClick={() => toggleDropdown(msg._id)}
+                                        >
+                                          <i className="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        {activeDropdown === msg._id && (
                                           <div
-                                            className="dropdown-menu show"
-                                            style={{
-                                              position: 'absolute',
-                                              right: '0',
-                                              zIndex: 10,
-                                            }}
+                                            className="dropdown-menu dropdown-menu-end show"
+                                            style={{ position: 'absolute' }}
                                           >
                                             <button
                                               className="dropdown-item"
@@ -1447,97 +1525,55 @@ const Chat = () => {
                                               Edit
                                             </button>
                                             <button
-                                              className="dropdown-item text-danger"
+                                              className="dropdown-item"
                                               onClick={() => deleteMessage(msg._id)}
                                             >
                                               Delete
                                             </button>
                                           </div>
                                         )}
-                                        <p
-                                          className="small timestamp me-3 text-muted d-flex justify-content-end"
-                                          style={{ alignSelf: 'flex-end' }}
-                                        >
-                                          {new Date(msg.createdAt).toLocaleTimeString()}
-                                        </p>
-                                      </>
+                                      </div>
+                                    )}
+                                    {!msg.isVoice && (
+                                      <button
+                                        onClick={() => handleTranslate(msg._id, msg.message)}
+                                        className="translate-button"
+                                        title="Translate Message"
+                                      >
+                                        <i className="fas fa-language"></i>
+                                      </button>
                                     )}
                                   </div>
-                                  <div style={{ display: 'flex', alignItems: 'center', marginLeft: '15px' }}>
-                                    <img
-                                      id="user-avatar"
-                                      src={
-                                        msg.sender?.user_photo
-                                          ? `http://localhost:5000${msg.sender.user_photo}`
-                                          : '/assets/img/user_icon.png'
-                                      }
-                                      alt={msg.sender.username || 'User Avatar'}
-                                      style={{
-                                        width: '45px',
-                                        height: '45px',
-                                        borderRadius: '50%',
-                                        cursor: 'pointer',
-                                        objectFit: 'cover',
-                                      }}
-                                      onClick={() => (window.location.href = '/student')}
-                                    />
+                                )}
+                                <div className="timestamp">
+                                  {new Date(msg.createdAt).toLocaleTimeString()}
+                                </div>
+                                {translatedMessages[msg._id] && (
+                                  <div className="translated-text">
+                                    {translatedMessages[msg._id].text}
                                   </div>
-                                </>
-                              ) : (
-                                <>
-                                  <div className="message-wrapper">
-                                    <p className="small username ms-3">
-                                      {msg.sender.username || 'Unknown'}
-                                    </p>
-                                    <p
-                                      className={`small message-content ms-3 mb-0 rounded-3 bg-body-tertiary`}
-                                      style={{ alignSelf: 'flex-start' }}
-                                    >
-                                      {msg.isVoice ? (
-                                        <>
-                                          [Voice Message]
-                                          <button
-                                            className="play-voice-button"
-                                            onClick={() => playVoiceMessage(msg.voiceMessage)}
-                                          >
-                                            <i className="fas fa-play"></i>
-                                          </button>
-                                        </>
-                                      ) : (
-                                        msg.message
-                                      )}
-                                      {!msg.isVoice && (
-                                        <>
-                                          <button
-                                            className="translate-button ms-2"
-                                            onClick={() => handleTranslate(msg._id, msg.message)}
-                                            title="Translate Message"
-                                          >
-                                            <i className="fas fa-language"></i>
-                                          </button>
-                                          <button
-                                            className="tts-button ms-2"
-                                            onClick={() => generateSpeech(msg.message)}
-                                            title="Play Message Aloud"
-                                          >
-                                            <i className="fas fa-volume-up"></i>
-                                          </button>
-                                        </>
-                                      )}
-                                    </p>
-                                    {translatedMessages[msg._id] && (
-                                      <p className="translated-text ms-3">
-                                        Translated: {translatedMessages[msg._id].text}
-                                      </p>
-                                    )}
-                                    <p
-                                      className="small timestamp ms-3 text-muted"
-                                      style={{ alignSelf: 'flex-start' }}
-                                    >
-                                      {new Date(msg.createdAt).toLocaleTimeString()}
-                                    </p>
-                                  </div>
-                                </>
+                                )}
+                              </div>
+                              {msg.sender._id === userId && (
+                                <div style={{ display: 'flex', alignItems: 'center', marginLeft: '15px' }}>
+                                  <img
+                                    id="user-avatar"
+                                    src={
+                                      msg.sender?.user_photo
+                                        ? `http://localhost:5000${msg.sender.user_photo}`
+                                        : '/assets/img/user_icon.png'
+                                    }
+                                    alt={msg.sender.username || 'User Avatar'}
+                                    style={{
+                                      width: '45px',
+                                      height: '45px',
+                                      borderRadius: '50%',
+                                      cursor: 'pointer',
+                                      objectFit: 'cover',
+                                    }}
+                                    onClick={() => (window.location.href = '/student')}
+                                  />
+                                </div>
                               )}
                             </div>
                           ))}
@@ -1545,75 +1581,57 @@ const Chat = () => {
                       )}
                     </div>
                     <div className="card-footer">
-                      <>
-                        <div style={{ display: 'flex', alignItems: 'center', marginRight: '15px' }}>
-                          <img
-                            id="user-avatar"
-                            src={
-                              messages.find((m) => m.sender._id === userId)?.sender?.user_photo
-                                ? `http://localhost:5000${messages.find((m) => m.sender._id === userId).sender.user_photo}`
-                                : '/assets/img/user_icon.png'
-                            }
-                            alt="User Avatar"
-                            style={{
-                              width: '40px',
-                              height: '40px',
-                              borderRadius: '50%',
-                              cursor: 'pointer',
-                              objectFit: 'cover',
-                            }}
-                            onClick={() => (window.location.href = '/student')}
-                          />
+                      <select
+                        value={targetLanguage}
+                        onChange={(e) => setTargetLanguage(e.target.value)}
+                        className="language-select"
+                      >
+                        <option value="en">English</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
+                      </select>
+                      <input
+                        type="text"
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyPress={handleMessageKeyPress}
+                        placeholder="Type a message..."
+                        className="form-control"
+                      />
+                      <button
+                        onClick={isRecording ? stopRecording : startRecording}
+                        className="voice-button ms-2"
+                        title={isRecording ? 'Stop Recording' : 'Record Voice'}
+                        disabled={isRecording && mediaRecorderRef.current?.state !== 'recording'}
+                      >
+                        <i className={isRecording ? 'fas fa-stop' : 'fas fa-microphone'}></i>
+                      </button>
+                      <button
+                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                        className="emoji-button ms-2"
+                      >
+                        <i className="fas fa-smile"></i>
+                      </button>
+                      <button
+                        onClick={joinVideoChat}
+                        className="video-button ms-2"
+                        title="Start Video Call"
+                      >
+                        <i className="fas fa-video"></i>
+                      </button>
+                      <button
+                        onClick={sendMessage}
+                        className="send-button ms-2"
+                        disabled={!newMessage.trim()}
+                      >
+                        <i className="fas fa-paper-plane"></i>
+                      </button>
+                      {showEmojiPicker && (
+                        <div className="emoji-picker-container">
+                          <EmojiPicker onEmojiClick={handleEmojiClick} />
                         </div>
-                        <select
-                          className="language-select"
-                          value={targetLanguage}
-                          onChange={(e) => setTargetLanguage(e.target.value)}
-                        >
-                          <option value="en">English</option>
-                          <option value="fr">French</option>
-                          <option value="es">Spanish</option>
-                          <option value="de">German</option>
-                        </select>
-                        <input
-                          type="text"
-                          className="form-control form-control-lg mx-3"
-                          id="exampleFormControlInput1"
-                          placeholder="Type message"
-                          value={newMessage}
-                          onChange={(e) => setNewMessage(e.target.value)}
-                          onKeyPress={handleMessageKeyPress}
-                        />
-                        <button className="voice-button" onClick={startRecording} disabled={isRecording}>
-                          <i className="fas fa-microphone"></i>
-                        </button>
-                        <button
-                          className="emoji-button"
-                          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                        >
-                          <i className="fas fa-smile"></i>
-                        </button>
-                        <button onClick={sendMessage} className="send-button">
-                          <i className="fas fa-paper-plane"></i>
-                        </button>
-                        <button
-                          onClick={async () => {
-                            const key = await importKeyFromRoomCode(joinedRoom);
-                            fetchMessages(key);
-                          }}
-                          className="refresh-button"
-                        >
-                          <i className="fas fa-sync-alt"></i>
-                        </button>
-                        <button onClick={joinVideoChat} className="video-button">
-                          <i className="fas fa-video"></i>
-                        </button>
-                        {showEmojiPicker && (
-                          <div className="emoji-picker-container">
-                            <EmojiPicker onEmojiClick={handleEmojiClick} />
-                          </div>
-                        )}
-                      </>
+                      )}
                     </div>
                   </>
                 )}
@@ -1625,33 +1643,29 @@ const Chat = () => {
       {showVideoCall && (
         <div className="video-call-modal">
           <div className="video-call-content">
-            <button onClick={closeVideoChat} className="close-video-call">
+            <VideoChat roomId={joinedRoom} userId={userId} />
+            <button
+              onClick={closeVideoChat}
+              className="close-video-call"
+            >
               Close
             </button>
-            <VideoChat userId={userId} roomCode={joinedRoom} onClose={closeVideoChat} />
           </div>
         </div>
       )}
       {showSummaryModal && (
         <div className="summary-modal">
           <div className="summary-content">
+            <h5>Conversation Summary</h5>
+            <div className="summary-text">
+              {isSummarizing ? 'Summarizing...' : summary}
+            </div>
             <button
-              className="close-summary"
               onClick={() => setShowSummaryModal(false)}
+              className="close-summary"
             >
               Close
             </button>
-            <h5>Conversation Summary</h5>
-            <div className="summary-text">
-              {isSummarizing ? (
-                <p>Summarizing conversation...</p>
-              ) : (
-                <>
-                  {error && <p className="text-danger">{error}</p>}
-                  <p>{summary}</p>
-                </>
-              )}
-            </div>
           </div>
         </div>
       )}

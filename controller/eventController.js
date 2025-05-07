@@ -2,8 +2,9 @@ const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const Event = require("../model/event");
 const User = require("../model/user");
-const Association = require("../model/association"); // Ajouter cette ligne
-const Ticket = require("../model/Ticket"); // Ajouter cette ligne
+const Association = require("../model/association");
+const Ticket = require("../model/Ticket");
+const Notification = require("../model/Notification"); // Importation du modèle Notification
 const multer = require("multer");
 const path = require("path");
 const crypto = require('crypto');
@@ -24,7 +25,7 @@ if (!GOOGLE_MAPS_API_KEY) {
 // Configuration de Multer
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "uploads/"),
-  filename: (req, file, cb) => cb(null, `event-${Date.now()}-${file.originalname}`),
+  filename: (req, file, cb) => cb(null, `story-${Date.now()}-${file.originalname}`),
 });
 
 const upload = multer({
@@ -42,7 +43,27 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB max
 }).single("image");
 
+// Story Schema
+const storySchema = new mongoose.Schema({
+  imageUrl: { type: String, required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  createdAt: { type: Date, default: Date.now, expires: '24h' }, // Stories expire after 24 hours
+  likes: { type: Number, default: 0 },
+  likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+});
 
+const Story = mongoose.model('Story', storySchema);
+
+// Reply Schema
+const replySchema = new mongoose.Schema({
+  storyId: { type: mongoose.Schema.Types.ObjectId, ref: "Story", required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  text: { type: String, trim: true },
+  emoji: { type: String },
+  createdAt: { type: Date, default: Date.now },
+});
+
+const Reply = mongoose.model('Reply', replySchema);
 
 // Fonction pour géocoder une adresse avec Google Maps
 const geocodeAddress = async (address) => {
@@ -208,6 +229,7 @@ exports.addEvent = (req, res) => {
     }
   });
 };
+
 // Récupérer tous les événements pour le frontend (seulement approuvés)
 exports.getEvents = async (req, res) => {
   console.time("getEvents");
@@ -524,8 +546,6 @@ exports.participate = async (req, res) => {
   }
 };
 
-
-
 // Vérifier la participation
 exports.checkParticipation = async (req, res) => {
   console.time("checkParticipation");
@@ -686,7 +706,7 @@ exports.participateAsPartner = async (req, res) => {
 
     // Ensure partners is an array
     if (!Array.isArray(event.partners)) {
-      console.log(`Fixing partners field for event ${eventId}: was ${typeof event.partners}`);
+      console.warn(`Fixing partners field for event ${eventId}: was ${typeof event.partners}`);
       event.partners = [];
     }
 
@@ -721,8 +741,6 @@ exports.participateAsPartner = async (req, res) => {
     console.timeEnd("participateAsPartner");
   }
 };
-
-
 
 // Annuler la participation à un événement
 exports.cancelParticipation = async (req, res) => {
@@ -778,7 +796,6 @@ exports.cancelParticipation = async (req, res) => {
     console.timeEnd("cancelParticipation");
   }
 };
-
 
 exports.cancelPartnerParticipation = async (req, res) => {
   console.time("cancelPartnerParticipation");
@@ -886,6 +903,7 @@ exports.cancelPartnerParticipation = async (req, res) => {
     console.timeEnd("cancelPartnerParticipation");
   }
 };
+
 exports.checkPartnerParticipation = async (req, res) => {
   console.time("checkPartnerParticipation");
   try {
@@ -935,14 +953,6 @@ exports.checkPartnerParticipation = async (req, res) => {
     console.timeEnd("checkPartnerParticipation");
   }
 };
-////kghir badelt check partner , bouton join now et cancel 
-
-
-
-
-
-
-
 
 exports.likeEvent = async (req, res) => {
   try {
@@ -1071,8 +1081,6 @@ exports.checkFavorite = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
-
 
 // Générer un ticketId unique (UUID simplifié)
 const generateTicketId = () => {
@@ -1259,5 +1267,299 @@ exports.verifyPartner = async (req, res) => {
   }
 };
 
+// Upload Story Image
+exports.uploadStory = (req, res) => {
+  console.time("uploadStory");
+  upload(req, res, async (err) => {
+    if (err) {
+      console.error("Multer Error:", err.message);
+      return res.status(400).json({ message: err.message });
+    }
 
-module.exports = exports;
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const user = await User.findById(req.userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const story = new Story({
+        imageUrl: `/uploads/${req.file.filename}`,
+        userId: req.userId,
+      });
+
+      const savedStory = await story.save();
+      console.log(`✅ Story uploaded by user ${req.userId}. ID: ${savedStory._id}`);
+
+      res.status(201).json({ message: "Story uploaded successfully", imageUrl: story.imageUrl });
+    } catch (error) {
+      console.error("Error uploading story:", error.stack);
+      res.status(500).json({ message: "Internal server error", error: error.message });
+    } finally {
+      console.timeEnd("uploadStory");
+    }
+  });
+};
+
+// Get All Stories
+exports.getStories = async (req, res) => {
+  console.time("getStories");
+  try {
+    const stories = await Story.find()
+      .sort({ createdAt: -1 }) // Sort by newest first
+      .populate("userId", "username")
+      .lean();
+
+    console.log("Stories retrieved:", stories.length);
+    res.status(200).json(stories);
+  } catch (error) {
+    console.error("Error fetching stories:", error.stack);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  } finally {
+    console.timeEnd("getStories");
+  }
+};
+
+// Get Story Replies
+exports.getStoryReplies = async (req, res) => {
+  console.time("getStoryReplies");
+  try {
+    const { storyId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(storyId)) {
+      return res.status(400).json({ message: "Invalid story ID" });
+    }
+
+    const replies = await Reply.find({ storyId })
+      .populate("userId", "username")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    console.log(`Retrieved ${replies.length} replies for story ${storyId}`);
+    res.status(200).json(replies);
+  } catch (error) {
+    console.error("Error fetching story replies:", error.stack);
+    res.status(500).json({ message: "Internal server error", error: process.env.NODE_ENV === "development" ? error.message : undefined });
+  } finally {
+    console.timeEnd("getStoryReplies");
+  }
+};
+
+// Like a Story
+exports.likeStory = async (req, res) => {
+  console.time("likeStory");
+  try {
+    const { storyId } = req.params;
+    const userId = req.userId;
+
+    console.log(`Attempting to like story ${storyId} by user ${userId}`);
+
+    if (!mongoose.Types.ObjectId.isValid(storyId)) {
+      return res.status(400).json({ message: "Invalid story ID" });
+    }
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    const story = await Story.findById(storyId).populate("userId", "username");
+    if (!story) {
+      return res.status(404).json({ message: "Story not found" });
+    }
+
+    const user = await User.findById(userId).select("username");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const hasLiked = story.likedBy.includes(userObjectId);
+
+    let notificationMessage;
+    if (hasLiked) {
+      story.likedBy = story.likedBy.filter((id) => !id.equals(userObjectId));
+      story.likes = Math.max(0, story.likes - 1);
+      notificationMessage = `${user.username} removed their like from your story.`;
+    } else {
+      story.likedBy.push(userObjectId);
+      story.likes += 1;
+      notificationMessage = `${user.username} liked your story.`;
+    }
+
+    await story.save({ validateBeforeSave: true });
+
+    // Envoyer une notification au propriétaire de la story (si ce n'est pas l'utilisateur qui like)
+    if (story.userId._id.toString() !== userId) {
+      const notification = new Notification({
+        userId: story.userId._id,
+        message: notificationMessage,
+        type: hasLiked ? "story_unlike" : "story_like",
+        storyId: story._id,
+        read: false,
+      });
+      await notification.save();
+      console.log(`Notification sent to user ${story.userId._id} for ${hasLiked ? "unlike" : "like"} on story ${storyId}`);
+    }
+
+    console.log(`User ${userId} ${hasLiked ? "unliked" : "liked"} story ${storyId}, new likes count: ${story.likes}`);
+    res.status(200).json({
+      message: hasLiked ? "Like removed" : "Story liked",
+      likes: story.likes,
+      likedBy: story.likedBy.map(id => id.toString()),
+    });
+  } catch (error) {
+    console.error("Error in likeStory:", {
+      message: error.message,
+      stack: error.stack,
+      storyId: req.params.storyId,
+      userId: req.userId,
+    });
+    res.status(500).json({ message: "Internal server error", error: process.env.NODE_ENV === "development" ? error.message : undefined });
+  } finally {
+    console.timeEnd("likeStory");
+  }
+};
+
+// Reply to a Story
+exports.replyToStory = async (req, res) => {
+  console.time("replyToStory");
+  try {
+    const { storyId } = req.params;
+    const userId = req.userId;
+    const { text, emoji } = req.body;
+
+    console.log(`Attempting to reply to story ${storyId} by user ${userId}`, { text, emoji });
+
+    if (!mongoose.Types.ObjectId.isValid(storyId)) {
+      return res.status(400).json({ message: "Invalid story ID" });
+    }
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+    if (!text && !emoji) {
+      return res.status(400).json({ message: "Either text or emoji is required" });
+    }
+
+    const story = await Story.findById(storyId).populate("userId", "username");
+    if (!story) {
+      return res.status(404).json({ message: "Story not found" });
+    }
+
+    const user = await User.findById(userId).select("username");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const reply = new Reply({
+      storyId,
+      userId,
+      text: text ? text.trim() : "",
+      emoji: emoji || "",
+    });
+
+    const savedReply = await reply.save({ validateBeforeSave: true });
+
+    // Envoyer une notification au propriétaire de la story (si ce n'est pas l'utilisateur qui répond)
+    if (story.userId._id.toString() !== userId) {
+      let notificationMessage;
+      if (text && emoji) {
+        notificationMessage = `${user.username} replied to your story with: "${text}" and ${emoji}.`;
+      } else if (text) {
+        notificationMessage = `${user.username} replied to your story with: "${text}".`;
+      } else {
+        notificationMessage = `${user.username} replied to your story with ${emoji}.`;
+      }
+
+      const notification = new Notification({
+        userId: story.userId._id,
+        message: notificationMessage,
+        type: "story_reply",
+        storyId: story._id,
+        read: false,
+      });
+      await notification.save();
+      console.log(`Notification sent to user ${story.userId._id} for reply on story ${storyId}`);
+    }
+
+    const replyData = {
+      _id: savedReply._id,
+      text: savedReply.text,
+      emoji: savedReply.emoji,
+      username: user.username,
+      createdAt: savedReply.createdAt,
+    };
+
+    console.log(`User ${userId} replied to story ${storyId} with reply ${savedReply._id}`);
+    res.status(201).json(replyData); // 201 for resource creation
+  } catch (error) {
+    console.error("Error in replyToStory:", {
+      message: error.message,
+      stack: error.stack,
+      storyId: req.params.storyId,
+      userId: req.userId,
+      body: req.body,
+    });
+    res.status(500).json({ message: "Internal server error", error: process.env.NODE_ENV === "development" ? error.message : undefined });
+  } finally {
+    console.timeEnd("replyToStory");
+  }
+};
+
+
+// Récupérer les événements créés par un utilisateur spécifique
+exports.getEventsByUser = async (req, res) => {
+  console.time("getEventsByUser");
+  try {
+    const { userId } = req.params;
+    console.log(`Fetching events for userId: ${userId}`);
+
+    // Valider l'ObjectId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      console.log(`Invalid user ID: ${userId}`);
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
+    // Vérifier la connexion MongoDB
+    console.log(`MongoDB connection state: ${mongoose.connection.readyState}`);
+    if (mongoose.connection.readyState !== 1) {
+      throw new Error("Database not connected");
+    }
+
+    // Vérifier si l'utilisateur existe
+    const user = await User.findById(userId).select('username email').lean();
+    if (!user) {
+      console.log(`User not found: ${userId}`);
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Récupérer les événements
+    console.log(`Executing query: Event.find({ created_by: ${userId} })`);
+    const events = await Event.find({ created_by: userId })
+      .populate({
+        path: 'created_by',
+        select: 'username email',
+        options: { lean: true },
+      })
+      .populate({
+        path: 'participants',
+        select: 'username',
+        options: { lean: true },
+      })
+      .sort({ start_date: 1 })
+      .lean();
+
+    console.log(`Retrieved ${events.length} events for user ${userId}`);
+    res.status(200).json(events);
+  } catch (error) {
+    console.error("Error fetching events by user:", {
+      message: error.message,
+      stack: error.stack,
+      userId: req.params.userId,
+    });
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  } finally {
+    console.timeEnd("getEventsByUser");
+  }
+};

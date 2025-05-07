@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { ToastContainer, toast } from "react-toastify";
 import { QRCodeCanvas } from "qrcode.react";
+import EmojiPicker from "emoji-picker-react";
 import "react-toastify/dist/ReactToastify.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../App.css";
@@ -60,7 +61,6 @@ const Countdown = ({ targetDate }) => {
 const QRCodeModal = ({ isOpen, onClose, qrCodeValue, eventTitle, isPartner, ticketDetails }) => {
   if (!isOpen) return null;
 
-  // Format the ticket details to match the desired output
   const formattedTicketDetails = `Ticket Details:
 🎟️ Event Ticket 🎟️
 Event: ${ticketDetails.eventTitle}
@@ -102,9 +102,6 @@ ${ticketDetails.onlineLink ? `Online Link: ${ticketDetails.onlineLink}` : ""}`.t
         <h3>{isPartner ? "Partner" : "Participation"} Ticket</h3>
         <p>Scan this QR code to view your ticket for: <strong>{eventTitle}</strong></p>
         <QRCodeCanvas value={qrCodeValue} size={300} />
-        {/* <p style={{ marginTop: "10px", color: "#666", fontSize: "14px", whiteSpace: "pre-line" }}>
-          {formattedTicketDetails}
-        </p> */}
         <div style={{ marginTop: "20px" }}>
           <button
             onClick={onClose}
@@ -122,6 +119,206 @@ ${ticketDetails.onlineLink ? `Online Link: ${ticketDetails.onlineLink}` : ""}`.t
           >
             Close
           </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const StoryModal = ({ isOpen, onClose, story, userId, onLike, onReply, onEmojiSelect, replies, replyText, setReplyText, showEmojiPicker, setShowEmojiPicker }) => {
+  if (!isOpen || !story) return null;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 10001,
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          backgroundColor: "#fff",
+          padding: "30px",
+          borderRadius: "20px",
+          textAlign: "center",
+          maxWidth: "800px",
+          width: "95%",
+          boxShadow: "0 6px 25px rgba(0, 0, 0, 0.3)",
+          position: "relative",
+          maxHeight: "90vh",
+          overflowY: "auto",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: "15px",
+            right: "15px",
+            backgroundColor: "#ff7f5d",
+            color: "#fff",
+            width: "35px",
+            height: "35px",
+            borderRadius: "50%",
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "background-color 0.3s ease",
+          }}
+          onMouseEnter={(e) => (e.target.style.backgroundColor = "#ff5733")}
+          onMouseLeave={(e) => (e.target.style.backgroundColor = "#ff7f5d")}
+        >
+          <i className="fas fa-times"></i>
+        </button>
+        <img
+          src={story.url}
+          alt={`Story by ${story.username || "Unknown"}`}
+          style={{
+            width: "100%",
+            maxHeight: "600px",
+            objectFit: "contain",
+            borderRadius: "15px",
+            marginBottom: "20px",
+          }}
+        />
+        <p style={{ fontSize: "18px", color: "#333", fontWeight: "500", marginBottom: "15px" }}>
+          Posted by: <strong>{story.username || "Anonymous"}</strong>
+        </p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "15px", marginBottom: "20px" }}>
+          <button
+            onClick={() => onLike(story._id)}
+            style={{
+              backgroundColor: story.likedBy?.includes(userId) ? "#ff0000" : "#e9ecef",
+              color: story.likedBy?.includes(userId) ? "#fff" : "#333",
+              padding: "10px 20px",
+              borderRadius: "25px",
+              border: "none",
+              transition: "background-color 0.3s ease",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <i className="fas fa-heart"></i> {story.likes || 0}
+          </button>
+          <button
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            style={{
+              backgroundColor: "#e9ecef",
+              color: "#333",
+              padding: "10px 20px",
+              borderRadius: "25px",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            <i className="fas fa-smile"></i>
+          </button>
+        </div>
+        {showEmojiPicker && (
+          <div style={{ position: "absolute", zIndex: 10002 }}>
+            <EmojiPicker
+              onEmojiClick={(emojiObject) => {
+                onEmojiSelect(story._id, emojiObject.emoji);
+                setShowEmojiPicker(false);
+              }}
+            />
+          </div>
+        )}
+        <div style={{ marginBottom: "20px" }}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              onReply(story._id, { text: replyText });
+            }}
+            style={{ display: "flex", alignItems: "center", gap: "15px", justifyContent: "center" }}
+          >
+            <input
+              type="text"
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              placeholder="Reply to this story..."
+              style={{
+                width: "70%",
+                padding: "12px",
+                borderRadius: "25px",
+                border: "1px solid #ccc",
+                outline: "none",
+                fontSize: "16px",
+              }}
+            />
+            <button
+              type="submit"
+              disabled={!replyText.trim()}
+              style={{
+                backgroundColor: replyText.trim() ? "#ff7f5d" : "#ccc",
+                color: "#fff",
+                padding: "12px 20px",
+                borderRadius: "25px",
+                border: "none",
+                cursor: replyText.trim() ? "pointer" : "not-allowed",
+                transition: "background-color 0.3s ease",
+              }}
+              onMouseEnter={(e) => {
+                if (replyText.trim()) e.target.style.backgroundColor = "#ff5733";
+              }}
+              onMouseLeave={(e) => {
+                if (replyText.trim()) e.target.style.backgroundColor = "#ff7f5d";
+              }}
+            >
+              Send
+            </button>
+          </form>
+        </div>
+        <div style={{ textAlign: "left", maxHeight: "200px", overflowY: "auto", padding: "0 15px" }}>
+          {replies.length > 0 ? (
+            replies.map((reply, index) => (
+              <div
+                key={index}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  marginBottom: "15px",
+                  padding: "8px",
+                  backgroundColor: "#f9f9f9",
+                  borderRadius: "15px",
+                }}
+              >
+                <span style={{ fontWeight: "bold", fontSize: "16px", color: "#333" }}>
+                  {reply.username || "Anonymous"}:
+                </span>
+                <span style={{ fontSize: "16px", color: "#666" }}>{reply.text || ""}</span>
+                {reply.emoji && <span style={{ fontSize: "18px" }}>{reply.emoji}</span>}
+              </div>
+            ))
+          ) : (
+            <p style={{ color: "#666", fontSize: "16px", textAlign: "center" }}>
+              No replies yet.
+            </p>
+          )}
+          {story.likedBy && story.likedBy.length > 0 && (
+            <div style={{ marginTop: "15px", padding: "8px", backgroundColor: "#f0f0f0", borderRadius: "15px" }}>
+              <span style={{ fontWeight: "bold", fontSize: "16px", color: "#333" }}>Likes by:</span>
+              {story.likedBy.map((user, idx) => (
+                <span key={idx} style={{ fontSize: "16px", color: "#666", marginLeft: "5px" }}>
+                  {user.username || `Anonymous${idx + 1}`}{idx < story.likedBy.length - 1 ? ", " : ""}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -152,6 +349,13 @@ const Events = () => {
   const [ticketDetails, setTicketDetails] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [storyImages, setStoryImages] = useState([]);
+  const [storyFile, setStoryFile] = useState(null);
+  const [selectedStory, setSelectedStory] = useState(null);
+  const [storyReplies, setStoryReplies] = useState({});
+  const [replyText, setReplyText] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [error, setError] = useState(null);
   const eventsPerPage = 6;
 
   const navigate = useNavigate();
@@ -222,6 +426,190 @@ const Events = () => {
       : date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   };
 
+  const fetchStories = async () => {
+    try {
+      const token = localStorage.getItem("jwt-token");
+      const headers = token && isValidJwt(token) ? { Authorization: `Bearer ${token}` } : {};
+
+      const response = await axios.get(`${BASE_URL}/events/stories`, { headers });
+      console.log("Stories fetched:", response.data);
+      setStoryImages(response.data.map(story => ({
+        _id: story._id,
+        url: `${BASE_URL}${story.imageUrl}`,
+        username: story.userId?.username || "Anonymous",
+        userId: story.userId?._id || null,
+        likes: story.likes || 0,
+        likedBy: story.likedBy?.map(user => ({
+          userId: user._id || user.userId,
+          username: user.username || "Anonymous"
+        })) || [],
+      })));
+    } catch (error) {
+      console.error("Error fetching stories:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      if (error.response?.status === 401) {
+        toast.error("Session expired. Please log in again.");
+        localStorage.removeItem("jwt-token");
+        setTimeout(() => navigate("/login"), 2000);
+      } else {
+        toast.error(error.response?.data?.message || "Failed to load stories");
+      }
+    }
+  };
+
+  const fetchReplies = async (storyId) => {
+    try {
+      const token = localStorage.getItem("jwt-token");
+      if (!token || !isValidJwt(token)) return;
+
+      const response = await axios.get(`${BASE_URL}/events/stories/replies/${storyId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      console.log("Replies fetched for story", storyId, ":", response.data);
+      setStoryReplies((prev) => ({
+        ...prev,
+        [storyId]: response.data.map(reply => ({
+          ...reply,
+          username: reply.userId?.username || "Anonymous",
+          userId: reply.userId?._id || reply.userId,
+        }))
+      }));
+    } catch (error) {
+      console.error("Error fetching replies:", error);
+      toast.error("Failed to load replies. Please try again later.");
+      setStoryReplies((prev) => ({ ...prev, [storyId]: [] }));
+    }
+  };
+
+  const handleLikeStory = async (storyId) => {
+    try {
+      const token = localStorage.getItem("jwt-token");
+      if (!token) {
+        setError("Please log in to like a story.");
+        return;
+      }
+
+      const response = await axios.post(`${BASE_URL}/events/stories/like/${storyId}`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setStoryImages(prevStories =>
+        prevStories.map(story =>
+          story._id === storyId ? {
+            ...story,
+            likes: response.data.likes,
+            likedBy: response.data.likedBy.map(user => ({
+              userId: user._id || user.userId,
+              username: user.username || "Anonymous"
+            }))
+          } : story
+        )
+      );
+    } catch (error) {
+      console.error("Error liking story:", error);
+      if (error.response?.status === 400) {
+        setError("Invalid request. Please try again.");
+      } else if (error.response?.status === 403) {
+        setError("Authentication failed. Please log in again.");
+      } else {
+        setError("Failed to like story. Please try again.");
+      }
+    }
+  };
+
+  const handleReplyStory = async (storyId, replyData) => {
+    try {
+      const token = localStorage.getItem("jwt-token");
+      if (!token) {
+        setError("Please log in to reply.");
+        return;
+      }
+
+      const response = await axios.post(`${BASE_URL}/events/stories/replies/${storyId}`, replyData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const newReply = {
+        ...response.data,
+        username: response.data.userId?.username || "Anonymous",
+        userId: response.data.userId?._id || response.data.userId,
+      };
+      setStoryReplies(prev => ({
+        ...prev,
+        [storyId]: [...(prev[storyId] || []), newReply]
+      }));
+      setReplyText("");
+      setShowEmojiPicker(false);
+    } catch (error) {
+      console.error("Error replying to story:", error);
+      setError("Failed to submit reply. Please try again.");
+    }
+  };
+
+  const handleEmojiSelect = async (storyId, emoji) => {
+    try {
+      const token = localStorage.getItem("jwt-token");
+      if (!token) {
+        setError("Please log in to send an emoji.");
+        return;
+      }
+
+      const response = await axios.post(`${BASE_URL}/events/stories/replies/${storyId}`, { emoji }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const newReply = {
+        ...response.data,
+        username: response.data.userId?.username || "Anonymous",
+        userId: response.data.userId?._id || response.data.userId,
+      };
+      setStoryReplies(prev => ({
+        ...prev,
+        [storyId]: [...(prev[storyId] || []), newReply]
+      }));
+      setShowEmojiPicker(false);
+    } catch (error) {
+      console.error("Error sending emoji:", error);
+      setError("Failed to send emoji. Please try again.");
+    }
+  };
+
+  const handleImageUpload = async (file) => {
+    if (!file) {
+      toast.error("Please select an image to upload");
+      return;
+    }
+
+    const token = localStorage.getItem("jwt-token");
+    if (!token || !isValidJwt(token)) {
+      toast.error("Please log in to upload a story");
+      navigate("/login");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    try {
+      const response = await axios.post(`${BASE_URL}/events/stories/upload`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      toast.success("Story uploaded successfully!");
+      setStoryFile(null);
+      fetchStories();
+    } catch (error) {
+      console.error("Error uploading story:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      toast.error(error.response?.data?.message || "Failed to upload story");
+    }
+  };
+
   useEffect(() => {
     const fetchEvents = async () => {
       try {
@@ -247,6 +635,7 @@ const Events = () => {
         if (!token || !isValidJwt(token)) {
           console.warn("No valid JWT token found, skipping user-specific checks.");
           setLoading(false);
+          await fetchStories();
           return;
         }
 
@@ -260,6 +649,7 @@ const Events = () => {
           localStorage.removeItem("jwt-token");
           setTimeout(() => navigate("/login"), 2000);
           setLoading(false);
+          await fetchStories();
           return;
         }
 
@@ -392,6 +782,7 @@ const Events = () => {
           }
         }
 
+        await fetchStories();
         setLoading(false);
       } catch (error) {
         console.error("Error fetching events:", {
@@ -401,6 +792,7 @@ const Events = () => {
         });
         toast.error("Unable to load events");
         setLoading(false);
+        await fetchStories();
       }
     };
 
@@ -507,7 +899,6 @@ const Events = () => {
           location: event.event_type === "in-person" ? `${event.localisation} - ${event.lieu}` : null,
           onlineLink: event.event_type === "online" ? event.online_link : null,
         };
-        // Format the QR code value to match the desired output
         const qrValue = `Ticket Details:\n🎟️ Event Ticket 🎟️\nEvent: ${ticket.eventTitle}\nType: ${ticket.participationType}\nUser ID: ${ticket.userId}\nDate: ${ticket.startDate} to ${ticket.endDate}\nTime: ${ticket.time || "N/A"}\nLocation: ${ticket.location || "N/A"}${ticket.onlineLink ? `\nOnline Link: ${ticket.onlineLink}` : ""}`;
         console.log("Partner Ticket QR Code Value:", qrValue);
         setQRCodeValue(qrValue);
@@ -548,7 +939,6 @@ const Events = () => {
           location: event.event_type === "in-person" ? `${event.localisation} - ${event.lieu}` : null,
           onlineLink: event.event_type === "online" ? event.online_link : null,
         };
-        // Format the QR code value to match the desired output
         const qrValue = `Ticket Details:\n🎟️ Event Ticket 🎟️\nEvent: ${ticket.eventTitle}\nType: ${ticket.participationType}\nUser ID: ${ticket.userId}\nDate: ${ticket.startDate} to ${ticket.endDate}\nTime: ${ticket.time || "N/A"}\nLocation: ${ticket.location || "N/A"}${ticket.onlineLink ? `\nOnline Link: ${ticket.onlineLink}` : ""}`;
         console.log("Regular Participation Ticket QR Code Value:", qrValue);
         setQRCodeValue(qrValue);
@@ -787,6 +1177,102 @@ const Events = () => {
             </div>
           </div>
 
+          <div style={{ marginBottom: "30px" }}>
+            <h3 style={{ textAlign: "center", marginBottom: "20px" }}>Stories</h3>
+            {userId && (
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px" }}>
+                <button
+                  type="button"
+                  onClick={() => document.getElementById("storyFileInput").click()}
+                  style={{
+                    backgroundColor: "#ff7f5d",
+                    color: "#fff",
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "50%",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "20px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: "background-color 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => (e.target.style.backgroundColor = "#ff5733")}
+                  onMouseLeave={(e) => (e.target.style.backgroundColor = "#ff7f5d")}
+                >
+                  +
+                </button>
+                <input
+                  id="storyFileInput"
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      handleImageUpload(file);
+                    }
+                  }}
+                  style={{ display: "none" }}
+                />
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "center", gap: "15px", flexWrap: "wrap" }}>
+              {storyImages.length > 0 ? (
+                storyImages.map((story, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      width: "80px",
+                      height: "80px",
+                      borderRadius: "50%",
+                      overflow: "hidden",
+                      border: "3px solid #ff7f5d",
+                      cursor: "pointer",
+                      transition: "transform 0.3s ease, box-shadow 0.3s ease",
+                      position: "relative",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = "scale(1.1)";
+                      e.currentTarget.style.boxShadow = "0 4px 15px rgba(0, 0, 0, 0.2)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = "scale(1)";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
+                    onClick={() => {
+                      setSelectedStory(story);
+                      fetchReplies(story._id);
+                    }}
+                  >
+                    <img
+                      src={story.url}
+                      alt={`Story ${index + 1}`}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: "5px",
+                        width: "100%",
+                        textAlign: "center",
+                        backgroundColor: "rgba(0, 0, 0, 0.5)",
+                        color: "#fff",
+                        fontSize: "12px",
+                        padding: "2px",
+                      }}
+                    >
+                      {truncateText(story.username, 10)}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p style={{ color: "#666", fontSize: "16px" }}>No stories yet. Upload an image to add a story!</p>
+              )}
+            </div>
+            {error && <p style={{ color: "red", textAlign: "center" }}>{error}</p>}
+          </div>
+
           <div style={{ marginBottom: "30px", display: "flex", justifyContent: "center", gap: "20px", flexWrap: "wrap" }}>
             <input
               type="text"
@@ -1001,7 +1487,7 @@ const Events = () => {
                             </ul>
                           </div>
                           <h4 className="event-title" style={{ margin: "10px 0", fontSize: "20px", fontWeight: "600" }}>
-                            <Link
+                          <Link
                               to={`/event/${event._id}`}
                               style={{ color: "#333", textDecoration: "none", transition: "color 0.3s ease" }}
                               onMouseEnter={(e) => (e.target.style.color = "#ff7f5d")}
@@ -1292,6 +1778,25 @@ const Events = () => {
           </div>
         </div>
       )}
+
+      <StoryModal
+        isOpen={!!selectedStory}
+        onClose={() => {
+          setSelectedStory(null);
+          setReplyText("");
+          setShowEmojiPicker(false);
+        }}
+        story={selectedStory}
+        userId={userId}
+        onLike={handleLikeStory}
+        onReply={handleReplyStory}
+        onEmojiSelect={handleEmojiSelect}
+        replies={storyReplies[selectedStory?._id] || []}
+        replyText={replyText}
+        setReplyText={setReplyText}
+        showEmojiPicker={showEmojiPicker}
+        setShowEmojiPicker={setShowEmojiPicker}
+      />
 
       <QRCodeModal
         isOpen={showQRCodeModal}
