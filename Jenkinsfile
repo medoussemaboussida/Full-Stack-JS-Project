@@ -1,5 +1,8 @@
 pipeline {
   agent any
+  environment {
+    MONGOMS_VERSION = '4.4.18' // Force MongoDB 4.4, compatible sans AVX
+  }
   stages {
     stage('Install dependencies') {
       steps {
