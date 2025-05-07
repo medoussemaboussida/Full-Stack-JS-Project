@@ -1,4 +1,7 @@
 module.exports = {
-    testMatch: ['<rootDir>/tests/**/*.test.js'],
-    testPathIgnorePatterns: ['<rootDir>/Full-Stack-JS-Project-Frontend/'],
+    testEnvironment : 'node' ,
+    coveragePathIgnorePatterns: [
+      '/node_modules/',
+      '/tests/'
+    ]
   };
