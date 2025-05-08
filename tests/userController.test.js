@@ -11,6 +11,7 @@ const Notification = require('../model/Notification');
 const userController = require('../controller/userController');
 const sendEmail = require('../utils/emailSender');
 const { MongoMemoryServer } = require('mongodb-memory-server');
+const mongodbMemoryServerConfig = require('./mongodb-memory-server-config');
 
 // Mock dependencies
 jest.mock('bcryptjs');
@@ -23,25 +24,38 @@ describe('User Controller', () => {
   let mongoServer;
 
   beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create();
-    const mongoUri = mongoServer.getUri();
-    await mongoose.connect(mongoUri);
-    app = express();
-    app.use(express.json());
+    try {
+      // Create MongoDB Memory Server with custom configuration
+      mongoServer = await MongoMemoryServer.create(mongodbMemoryServerConfig);
+      const mongoUri = mongoServer.getUri();
+      await mongoose.connect(mongoUri);
+      app = express();
+      app.use(express.json());
 
-    app.get('/verify/:token', userController.verifyUser);
-    app.get('/user/:id', userController.getUserById);
-    app.put('/user/:id', userController.updateUser);
-    app.get('/appointments/psychiatrist/:psychiatristId', userController.getAppointmentsByPsychiatrist);
-    app.get('/psychiatrist/:id', userController.getPsychiatristById);
-    app.get('/appointments', userController.getAllAppointments);
-    app.get('/chat/:roomCode', userController.RoomChat);
-    app.get('/allchat', userController.getAllchat);
+      app.get('/verify/:token', userController.verifyUser);
+      app.get('/user/:id', userController.getUserById);
+      app.put('/user/:id', userController.updateUser);
+      app.get('/appointments/psychiatrist/:psychiatristId', userController.getAppointmentsByPsychiatrist);
+      app.get('/psychiatrist/:id', userController.getPsychiatristById);
+      app.get('/appointments', userController.getAllAppointments);
+      app.get('/chat/:roomCode', userController.RoomChat);
+      app.get('/allchat', userController.getAllchat);
+    } catch (error) {
+      console.error('Failed to start MongoDB Memory Server:', error);
+      throw error; // Re-throw to fail the test if we can't set up the database
+    }
   });
 
   afterAll(async () => {
-    await mongoose.disconnect();
-    await mongoServer.stop();
+    try {
+      await mongoose.disconnect();
+      if (mongoServer) {
+        await mongoServer.stop();
+      }
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+      // Don't throw here as we're in cleanup
+    }
   });
 
   beforeEach(() => {

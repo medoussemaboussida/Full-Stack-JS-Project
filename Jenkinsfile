@@ -13,8 +13,10 @@ pipeline {
 stage('Unit Test') {
       steps {
         script {
-          sh 'chmod +x node_modules/.bin/jest || true' 
-          sh 'ls -l node_modules/.bin/jest'
+          // Downgrade mongodb-memory-server to a version compatible with older CPUs
+          sh 'npm uninstall mongodb-memory-server'
+          sh 'npm install mongodb-memory-server@8.15.1 --save-dev'
+          // Run tests
           sh 'npm test'
         }
       }
