@@ -1,17 +1,19 @@
 // Configuration for MongoDB Memory Server
-const { MongoMemoryServerOpts } = require('mongodb-memory-server-core');
 
-// Configure MongoDB Memory Server to use a version compatible with older CPUs
-// MongoDB 4.4.x is the last version that doesn't require AVX instructions
+// Configure MongoDB Memory Server to use a version compatible with the Jenkins environment
 const mongodbMemoryServerConfig = {
   binary: {
-    version: '4.4.18', // Use MongoDB 4.4.x which doesn't require AVX
+    version: '4.2.24', // Use an older version that has fewer dependencies
     skipMD5: true,
+    checkMD5: false,
   },
   instance: {
     dbName: 'jest-test-db',
+    args: ['--noscripting'], // Disable scripting for better compatibility
   },
   autoStart: false,
+  // Try to use system MongoDB if available
+  useSystemMongod: true,
 };
 
 module.exports = mongodbMemoryServerConfig;

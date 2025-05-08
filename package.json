@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "nodemon app.js",
+    "pretest": "node tests/setupMongoDb.js",
     "test": "node node_modules/jest/bin/jest.js",
+    "test:mock": "USE_MOCK_MONGO=true npm test",
     "build-dev": "nodemon app.js"
   },
   "dependencies": {

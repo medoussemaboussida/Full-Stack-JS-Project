@@ -13,18 +13,14 @@ pipeline {
 stage('Unit Test') {
       steps {
         script {
-          // Downgrade mongodb-memory-server to a version compatible with older CPUs
-          sh 'npm uninstall mongodb-memory-server'
-          sh 'npm install mongodb-memory-server@8.15.1 --save-dev'
-
           // Set executable permissions for Jest and other binaries
           sh 'chmod -R +x node_modules/.bin/'
 
           // List Jest binary to verify permissions
           sh 'ls -la node_modules/.bin/jest'
 
-          // Run tests using the updated npm script
-          sh 'npm test'
+          // Run tests with mock MongoDB
+          sh 'npm run test:mock'
         }
       }
     }
