@@ -13,20 +13,11 @@ pipeline {
 stage('Unit Test') {
       steps {
         script {
-          // Install cross-env for environment variables
-          sh 'npm install cross-env --save-dev'
-
-          // Set executable permissions for Jest and other binaries
-          sh 'chmod -R +x node_modules/.bin/'
-
-          // Create environment file for tests
-          sh 'echo "USE_MOCK_MONGO=true" > .env.test'
-
-          // Reset test file to ensure clean state
-          sh 'npm run test:reset'
-
-          // Run tests with mock MongoDB and increased timeout
-          sh 'USE_MOCK_MONGO=true CI=true npm run test:mock -- --testTimeout=60000 --forceExit --detectOpenHandles'
+          sh 'chmod +x node_modules/.bin/jest || true' 
+          sh 'ls -l node_modules/.bin/jest'
+          sh 'node -v'
+          sh 'npm -v'
+          sh 'npm test'
         }
       }
     }
@@ -34,18 +25,11 @@ stage('Unit Test') {
     stage('Build application') {
       steps {
         script {
-          sh 'chmod -R +x node_modules/.bin/'
-      
-          // Timeout pour éviter un blocage en cas de problème
-          timeout(time: 5, unit: 'MINUTES') {
-            sh 'npm run build'
-          }
-
-          echo '✅ Build completed successfully'
-          }
+            sh 'chmod -R +x node_modules/.bin/'
+          sh 'npm run build-dev'
         }
       }
-    
+    }
     stage('SonarQube Analysis') {
       steps {
         script {
