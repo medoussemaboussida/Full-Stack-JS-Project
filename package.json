@@ -6,7 +6,7 @@
     "dev": "nodemon app.js",
     "pretest": "node tests/setupMongoDb.js",
     "test": "node node_modules/jest/bin/jest.js",
-    "test:mock": "USE_MOCK_MONGO=true npm test",
+    "test:mock": "cross-env USE_MOCK_MONGO=true CI=true npm test",
     "build-dev": "nodemon app.js"
   },
   "dependencies": {
@@ -67,6 +67,7 @@
     "@babel/preset-env": "^7.26.9",
     "@babel/preset-react": "^7.26.3",
     "babel-jest": "^29.7.0",
+    "cross-env": "^7.0.3",
     "jest": "^29.7.0",
     "mongodb-memory-server": "^8.15.1",
     "sinon": "^20.0.0",

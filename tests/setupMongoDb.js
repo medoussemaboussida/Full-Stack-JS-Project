@@ -16,16 +16,22 @@ function setupMockMongo() {
   try {
     // Read the test file
     let content = fs.readFileSync(testFilePath, 'utf8');
-    
+
+    // Check if the file has already been modified
+    if (content.includes("require('./mockMongoDb')")) {
+      console.log('Test file already configured to use mock MongoDB');
+      return;
+    }
+
     // Replace the MongoDB Memory Server import with our mock
     content = content.replace(
       "const { MongoMemoryServer } = require('mongodb-memory-server');",
       "const { MongoMemoryServer } = require('./mockMongoDb');"
     );
-    
+
     // Write the modified content back to the file
     fs.writeFileSync(testFilePath, content, 'utf8');
-    
+
     console.log('Successfully configured tests to use mock MongoDB');
   } catch (error) {
     console.error('Error setting up mock MongoDB:', error);

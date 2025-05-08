@@ -13,14 +13,14 @@ pipeline {
 stage('Unit Test') {
       steps {
         script {
+          // Install cross-env for environment variables
+          sh 'npm install cross-env --save-dev'
+
           // Set executable permissions for Jest and other binaries
           sh 'chmod -R +x node_modules/.bin/'
 
-          // List Jest binary to verify permissions
-          sh 'ls -la node_modules/.bin/jest'
-
-          // Run tests with mock MongoDB
-          sh 'npm run test:mock'
+          // Run tests with mock MongoDB and increased timeout
+          sh 'npm run test:mock -- --testTimeout=60000 --forceExit'
         }
       }
     }

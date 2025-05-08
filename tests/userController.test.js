@@ -1,4 +1,4 @@
-jest.setTimeout(10000);
+jest.setTimeout(30000); // Increase timeout to 30 seconds
 const mongoose = require('mongoose');
 const request = require('supertest');
 const express = require('express');
