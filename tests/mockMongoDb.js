@@ -60,23 +60,82 @@ if (!mongoose.Types.ObjectId.isValid) {
 // Mock mongoose model methods
 const createMockModel = (collection) => {
   return {
-    find: jest.fn().mockImplementation(() => {
+    find: jest.fn().mockImplementation((query = {}) => {
+      let results = [...mockDb[collection]];
+
+      // Apply query filters if provided
+      if (query.roomCode) {
+        results = results.filter(item => item.roomCode === query.roomCode);
+      }
+
       return {
-        populate: jest.fn().mockResolvedValue(mockDb[collection]),
-        exec: jest.fn().mockResolvedValue(mockDb[collection])
+        populate: jest.fn().mockImplementation((field, select) => {
+          // Handle population for specific fields
+          if (field === 'sender' && select === 'username user_photo') {
+            results = results.map(item => {
+              if (item.sender) {
+                const sender = mockDb.users.find(user =>
+                  user._id.toString() === item.sender.toString()
+                );
+                return {
+                  ...item,
+                  sender: sender ? {
+                    _id: sender._id,
+                    username: sender.username,
+                    user_photo: sender.user_photo
+                  } : item.sender
+                };
+              }
+              return item;
+            });
+          }
+          return {
+            sort: jest.fn().mockImplementation(() => {
+              return {
+                exec: jest.fn().mockResolvedValue(results)
+              };
+            }),
+            exec: jest.fn().mockResolvedValue(results)
+          };
+        }),
+        sort: jest.fn().mockImplementation(() => {
+          return {
+            exec: jest.fn().mockResolvedValue(results)
+          };
+        }),
+        exec: jest.fn().mockResolvedValue(results)
       };
     }),
-    findOne: jest.fn().mockImplementation(() => {
+    findOne: jest.fn().mockImplementation((query = {}) => {
+      let result = mockDb[collection][0] || null;
+
+      // Apply query filters if provided
+      if (query._id) {
+        result = mockDb[collection].find(item =>
+          item._id.toString() === query._id.toString()
+        );
+      }
+
       return {
-        populate: jest.fn().mockResolvedValue(mockDb[collection][0] || null),
-        exec: jest.fn().mockResolvedValue(mockDb[collection][0] || null)
+        populate: jest.fn().mockImplementation((field, select) => {
+          return {
+            exec: jest.fn().mockResolvedValue(result)
+          };
+        }),
+        exec: jest.fn().mockResolvedValue(result)
       };
     }),
     findById: jest.fn().mockImplementation((id) => {
-      const item = mockDb[collection].find(item => item._id.toString() === id.toString());
+      const item = mockDb[collection].find(item =>
+        item._id.toString() === id.toString()
+      );
       return {
-        populate: jest.fn().mockResolvedValue(item || null),
-        exec: jest.fn().mockResolvedValue(item || null)
+        populate: jest.fn().mockImplementation((field, select) => {
+          return {
+            exec: jest.fn().mockResolvedValue(item)
+          };
+        }),
+        exec: jest.fn().mockResolvedValue(item)
       };
     }),
     create: jest.fn().mockImplementation((data) => {
@@ -91,7 +150,9 @@ const createMockModel = (collection) => {
     }),
     save: jest.fn().mockImplementation(function() {
       if (this._id) {
-        const index = mockDb[collection].findIndex(item => item._id.toString() === this._id.toString());
+        const index = mockDb[collection].findIndex(item =>
+          item._id.toString() === this._id.toString()
+        );
         if (index !== -1) {
           mockDb[collection][index] = this;
         } else {
@@ -107,18 +168,51 @@ const createMockModel = (collection) => {
       return Promise.resolve({ nModified: 1 });
     }),
     findByIdAndDelete: jest.fn().mockImplementation((id) => {
-      const index = mockDb[collection].findIndex(item => item._id.toString() === id.toString());
+      const index = mockDb[collection].findIndex(item =>
+        item._id.toString() === id.toString()
+      );
       if (index !== -1) {
         mockDb[collection].splice(index, 1);
       }
       return Promise.resolve(true);
     }),
     findByIdAndUpdate: jest.fn().mockImplementation((id, update) => {
-      const index = mockDb[collection].findIndex(item => item._id.toString() === id.toString());
+      const index = mockDb[collection].findIndex(item =>
+        item._id.toString() === id.toString()
+      );
       if (index !== -1) {
         mockDb[collection][index] = { ...mockDb[collection][index], ...update };
       }
       return Promise.resolve(mockDb[collection][index] || null);
+    }),
+    // Add aggregate method for Chat model
+    aggregate: jest.fn().mockImplementation((pipeline) => {
+      if (collection === 'chats') {
+        // Simple implementation for the getAllchat aggregation
+        const roomCodes = [...new Set(mockDb.chats.map(chat => chat.roomCode))];
+
+        return Promise.resolve(
+          roomCodes.map(roomCode => {
+            const roomMessages = mockDb.chats.filter(chat => chat.roomCode === roomCode);
+            const participantIds = [...new Set(roomMessages.map(msg => msg.sender.toString()))];
+            const participants = participantIds.map(id => {
+              const user = mockDb.users.find(user => user._id.toString() === id);
+              return user ? {
+                _id: user._id,
+                username: user.username,
+                user_photo: user.user_photo
+              } : { _id: id, username: 'Unknown', user_photo: null };
+            });
+
+            return {
+              roomCode,
+              messages: roomMessages,
+              participants
+            };
+          })
+        );
+      }
+      return Promise.resolve([]);
     })
   };
 };

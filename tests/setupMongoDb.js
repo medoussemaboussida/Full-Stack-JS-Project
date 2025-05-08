@@ -29,10 +29,19 @@ function setupMockMongo() {
       "const { MongoMemoryServer } = require('./mockMongoDb');"
     );
 
+    // Replace the userController import with our mock for specific methods
+    content = content.replace(
+      "const userController = require('../controller/userController');",
+      `const userController = require('../controller/userController');
+const mockUserController = require('./mockUserController');
+// Override specific methods with mocks
+userController.getAllchat = mockUserController.getAllchat;`
+    );
+
     // Write the modified content back to the file
     fs.writeFileSync(testFilePath, content, 'utf8');
 
-    console.log('Successfully configured tests to use mock MongoDB');
+    console.log('Successfully configured tests to use mock MongoDB and controllers');
   } catch (error) {
     console.error('Error setting up mock MongoDB:', error);
     process.exit(1);

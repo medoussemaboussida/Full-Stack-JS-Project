@@ -19,8 +19,11 @@ stage('Unit Test') {
           // Set executable permissions for Jest and other binaries
           sh 'chmod -R +x node_modules/.bin/'
 
+          // Create environment file for tests
+          sh 'echo "USE_MOCK_MONGO=true" > .env.test'
+
           // Run tests with mock MongoDB and increased timeout
-          sh 'npm run test:mock -- --testTimeout=60000 --forceExit'
+          sh 'USE_MOCK_MONGO=true CI=true npm run test:mock -- --testTimeout=60000 --forceExit --detectOpenHandles'
         }
       }
     }
