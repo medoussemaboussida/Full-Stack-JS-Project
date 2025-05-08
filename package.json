@@ -8,7 +8,7 @@
     "test": "node node_modules/jest/bin/jest.js",
     "test:mock": "cross-env USE_MOCK_MONGO=true CI=true npm test",
     "test:reset": "node tests/resetTests.js",
-    "build-dev": "node app.js",
+    "build": "node app.js",
     "build-ci": "node app.js --ci-build"
   },
   "dependencies": {
