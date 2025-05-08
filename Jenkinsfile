@@ -35,15 +35,17 @@ stage('Unit Test') {
       steps {
         script {
           sh 'chmod -R +x node_modules/.bin/'
-          // Utiliser le script de build CI qui se termine automatiquement
-          sh 'npm run build'
-          // Ajouter un timeout de sécurité
+      
+          // Timeout pour éviter un blocage en cas de problème
           timeout(time: 2, unit: 'MINUTES') {
-            echo 'Build completed successfully'
+            sh 'npm run build'
+          }
+
+          echo '✅ Build completed successfully'
           }
         }
       }
-    }
+    
     stage('SonarQube Analysis') {
       steps {
         script {
