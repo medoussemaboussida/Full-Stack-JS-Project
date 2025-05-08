@@ -37,7 +37,7 @@ stage('Unit Test') {
           sh 'chmod -R +x node_modules/.bin/'
       
           // Timeout pour éviter un blocage en cas de problème
-          timeout(time: 2, unit: 'MINUTES') {
+          timeout(time: 5, unit: 'MINUTES') {
             sh 'npm run build'
           }
 
