@@ -107,16 +107,16 @@ const userSchema = new mongoose.Schema({
     banExpiration: { type: Date, default: null },
     banReason: { type: String, default: "" },
 
+
+
+    
+
 // Nouveau champ pour les événements auxquels l'étudiant participe
 partneredEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Event", default: [] }],
 association_id: { type: mongoose.Schema.Types.ObjectId, ref: "Association" },
 association: { type: mongoose.Schema.Types.ObjectId, ref: "Association", default: null },
-},
-  { timestamps: true }
-);
-
-
-
+questionnaireResponses: [{ type: mongoose.Schema.Types.ObjectId, ref: 'QuestionnaireResponse' }],
+}, { timestamps: true });
 
 // ✅ Middleware pour hacher le mot de passe avant de sauvegarder
 userSchema.pre("save", async function(next) {

@@ -82,6 +82,8 @@ router.get('/users/chat/rooms', userController.verifyToken, userController.getAl
 router.put('/notifications/:notificationId/read', userController.verifyToken, userController.markNotificationAsRead);
 router.get('/notifications', userController.verifyToken, userController.getUserNotifications);
 router.get('/appointments/psychiatrist/:psychiatristId',userController.verifyToken, userController.getAppointmentsByPsychiatrist);
+router.post('/questionnaire/submit', userController.verifyToken, userController.submitQuestionnaire);
+
 
 
 
