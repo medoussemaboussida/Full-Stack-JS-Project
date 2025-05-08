@@ -59,6 +59,55 @@ if (!mongoose.Types.ObjectId.isValid) {
 
 // Mock mongoose model methods
 const createMockModel = (collection) => {
+  // Helper function to create chainable query methods
+  const createQueryChain = (results) => {
+    return {
+      populate: jest.fn().mockImplementation((field, select) => {
+        // Handle population for specific fields
+        if (field === 'sender' && select === 'username user_photo') {
+          results = results.map(item => {
+            if (item.sender) {
+              const sender = mockDb.users.find(user =>
+                user._id.toString() === item.sender.toString()
+              );
+              return {
+                ...item,
+                sender: sender ? {
+                  _id: sender._id,
+                  username: sender.username,
+                  user_photo: sender.user_photo
+                } : item.sender
+              };
+            }
+            return item;
+          });
+        } else if (field === 'student' || field === 'psychiatrist') {
+          // Handle population for appointments
+          results = results.map(item => {
+            if (item[field]) {
+              const user = mockDb.users.find(user =>
+                user._id.toString() === item[field].toString()
+              );
+              return {
+                ...item,
+                [field]: user ? {
+                  _id: user._id,
+                  username: user.username,
+                  email: user.email
+                } : item[field]
+              };
+            }
+            return item;
+          });
+        }
+        return createQueryChain(results);
+      }),
+      sort: jest.fn().mockImplementation(() => createQueryChain(results)),
+      lean: jest.fn().mockImplementation(() => createQueryChain(results)),
+      exec: jest.fn().mockResolvedValue(results)
+    };
+  };
+
   return {
     find: jest.fn().mockImplementation((query = {}) => {
       let results = [...mockDb[collection]];
@@ -67,76 +116,33 @@ const createMockModel = (collection) => {
       if (query.roomCode) {
         results = results.filter(item => item.roomCode === query.roomCode);
       }
+      if (query.psychiatrist) {
+        results = results.filter(item =>
+          item.psychiatrist && item.psychiatrist.toString() === query.psychiatrist.toString()
+        );
+      }
 
-      return {
-        populate: jest.fn().mockImplementation((field, select) => {
-          // Handle population for specific fields
-          if (field === 'sender' && select === 'username user_photo') {
-            results = results.map(item => {
-              if (item.sender) {
-                const sender = mockDb.users.find(user =>
-                  user._id.toString() === item.sender.toString()
-                );
-                return {
-                  ...item,
-                  sender: sender ? {
-                    _id: sender._id,
-                    username: sender.username,
-                    user_photo: sender.user_photo
-                  } : item.sender
-                };
-              }
-              return item;
-            });
-          }
-          return {
-            sort: jest.fn().mockImplementation(() => {
-              return {
-                exec: jest.fn().mockResolvedValue(results)
-              };
-            }),
-            exec: jest.fn().mockResolvedValue(results)
-          };
-        }),
-        sort: jest.fn().mockImplementation(() => {
-          return {
-            exec: jest.fn().mockResolvedValue(results)
-          };
-        }),
-        exec: jest.fn().mockResolvedValue(results)
-      };
+      return createQueryChain(results);
     }),
     findOne: jest.fn().mockImplementation((query = {}) => {
-      let result = mockDb[collection][0] || null;
+      let result = null;
 
-      // Apply query filters if provided
+      // Apply query filters
       if (query._id) {
         result = mockDb[collection].find(item =>
           item._id.toString() === query._id.toString()
         );
+      } else {
+        result = mockDb[collection][0] || null;
       }
 
-      return {
-        populate: jest.fn().mockImplementation((field, select) => {
-          return {
-            exec: jest.fn().mockResolvedValue(result)
-          };
-        }),
-        exec: jest.fn().mockResolvedValue(result)
-      };
+      return createQueryChain(result ? [result] : []);
     }),
     findById: jest.fn().mockImplementation((id) => {
       const item = mockDb[collection].find(item =>
         item._id.toString() === id.toString()
       );
-      return {
-        populate: jest.fn().mockImplementation((field, select) => {
-          return {
-            exec: jest.fn().mockResolvedValue(item)
-          };
-        }),
-        exec: jest.fn().mockResolvedValue(item)
-      };
+      return createQueryChain(item ? [item] : []);
     }),
     create: jest.fn().mockImplementation((data) => {
       const newItem = { ...data, _id: new mongoose.Types.ObjectId() };
@@ -164,7 +170,7 @@ const createMockModel = (collection) => {
       }
       return Promise.resolve(this);
     }),
-    updateOne: jest.fn().mockImplementation((query, update) => {
+    updateOne: jest.fn().mockImplementation(() => {
       return Promise.resolve({ nModified: 1 });
     }),
     findByIdAndDelete: jest.fn().mockImplementation((id) => {
@@ -186,7 +192,7 @@ const createMockModel = (collection) => {
       return Promise.resolve(mockDb[collection][index] || null);
     }),
     // Add aggregate method for Chat model
-    aggregate: jest.fn().mockImplementation((pipeline) => {
+    aggregate: jest.fn().mockImplementation(() => {
       if (collection === 'chats') {
         // Simple implementation for the getAllchat aggregation
         const roomCodes = [...new Set(mockDb.chats.map(chat => chat.roomCode))];
@@ -223,25 +229,79 @@ const chatModel = createMockModel('chats');
 const appointmentModel = createMockModel('appointments');
 const notificationModel = createMockModel('notifications');
 
+// Create constructor functions for models
+function createModelConstructor(modelName, mockModel) {
+  const ModelConstructor = function(data) {
+    if (!(this instanceof ModelConstructor)) {
+      return new ModelConstructor(data);
+    }
+
+    // Copy all properties from data to this instance
+    Object.assign(this, data);
+
+    // Add _id if not present
+    if (!this._id) {
+      this._id = new mongoose.Types.ObjectId();
+    }
+
+    // Add save method to instance
+    this.save = function() {
+      // Add this instance to the mock database
+      const collection = modelName.toLowerCase() + 's';
+      const existingIndex = mockDb[collection].findIndex(item =>
+        item._id && this._id && item._id.toString() === this._id.toString()
+      );
+
+      if (existingIndex !== -1) {
+        mockDb[collection][existingIndex] = this;
+      } else {
+        mockDb[collection].push(this);
+      }
+
+      return Promise.resolve(this);
+    };
+
+    // Add other instance methods as needed
+    this.populate = function() {
+      return Promise.resolve(this);
+    };
+  };
+
+  // Add static methods from the mock model
+  Object.assign(ModelConstructor, mockModel);
+
+  return ModelConstructor;
+}
+
+// Create model constructors
+const User = createModelConstructor('user', userModel);
+const Chat = createModelConstructor('chat', chatModel);
+const Appointment = createModelConstructor('appointment', appointmentModel);
+const Notification = createModelConstructor('notification', notificationModel);
+
 // Override mongoose.model to return our mock models
-const originalModel = mongoose.model;
 mongoose.model = jest.fn().mockImplementation((name) => {
   switch (name.toLowerCase()) {
     case 'user':
-      return userModel;
+      return User;
     case 'chat':
-      return chatModel;
+      return Chat;
     case 'appointment':
-      return appointmentModel;
+      return Appointment;
     case 'notification':
-      return notificationModel;
+      return Notification;
     default:
-      return createMockModel(name.toLowerCase() + 's');
+      const mockModel = createMockModel(name.toLowerCase() + 's');
+      return createModelConstructor(name, mockModel);
   }
 });
 
 // Export the mock
 module.exports = {
   MongoMemoryServer: MockMongoMemoryServer,
-  mockDb
+  mockDb,
+  User,
+  Chat,
+  Appointment,
+  Notification
 };

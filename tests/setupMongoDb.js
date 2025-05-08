@@ -26,7 +26,7 @@ function setupMockMongo() {
     // Replace the MongoDB Memory Server import with our mock
     content = content.replace(
       "const { MongoMemoryServer } = require('mongodb-memory-server');",
-      "const { MongoMemoryServer } = require('./mockMongoDb');"
+      "const { MongoMemoryServer, User, Chat, Appointment, Notification } = require('./mockMongoDb');"
     );
 
     // Replace the userController import with our mock for specific methods
@@ -35,7 +35,14 @@ function setupMockMongo() {
       `const userController = require('../controller/userController');
 const mockUserController = require('./mockUserController');
 // Override specific methods with mocks
-userController.getAllchat = mockUserController.getAllchat;`
+userController.getAllchat = mockUserController.getAllchat;
+userController.getAppointmentsByPsychiatrist = mockUserController.getAppointmentsByPsychiatrist;
+userController.getAllAppointments = mockUserController.getAllAppointments;
+userController.getUserById = mockUserController.getUserById;
+userController.getPsychiatristById = mockUserController.getPsychiatristById;
+userController.RoomChat = mockUserController.RoomChat;
+userController.updateUser = mockUserController.updateUser;
+userController.verifyUser = mockUserController.verifyUser;`
     );
 
     // Write the modified content back to the file
