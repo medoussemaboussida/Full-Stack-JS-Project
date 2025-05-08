@@ -11,9 +11,6 @@
     "build-dev": "nodemon app.js",
     "build-ci": "node app.js --ci-build"
   },
-  "publishConfig": {
-    "registry": "http://192.168.50.4:8081/repository/npm-hosted/"
-  },
   "dependencies": {
     "@ckeditor/ckeditor5-build-classic": "^40.2.0",
     "@ckeditor/ckeditor5-react": "^6.2.0",

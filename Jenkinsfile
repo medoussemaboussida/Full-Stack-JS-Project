@@ -1,10 +1,5 @@
 pipeline {
   agent any
-   environment {
-        NEXUS_URL = 'http://192.168.50.4:8081/repository/npm-hosted/'
-        NEXUS_USERNAME = 'admin'
-        NEXUS_PASSWORD = 'nexus'
-    }
   stages {
     stage('Install dependencies') {
       steps {
