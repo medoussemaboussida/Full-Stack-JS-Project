@@ -15,8 +15,6 @@ stage('Unit Test') {
         script {
           sh 'chmod +x node_modules/.bin/jest || true' 
           sh 'ls -l node_modules/.bin/jest'
-          sh 'node -v'
-          sh 'npm -v'
           sh 'npm test'
         }
       }
