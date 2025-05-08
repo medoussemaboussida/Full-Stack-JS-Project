@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "nodemon app.js",
-    "test": "npx jest",
+    "test": "node node_modules/jest/bin/jest.js",
     "build-dev": "nodemon app.js"
   },
   "dependencies": {
