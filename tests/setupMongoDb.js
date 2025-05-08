@@ -18,15 +18,49 @@ function setupMockMongo() {
     let content = fs.readFileSync(testFilePath, 'utf8');
 
     // Check if the file has already been modified
-    if (content.includes("require('./mockMongoDb')")) {
+    if (content.includes("// Original model import:")) {
       console.log('Test file already configured to use mock MongoDB');
       return;
     }
 
-    // Replace the MongoDB Memory Server import with our mock
+    // Replace the model imports with our mocks
     content = content.replace(
       "const { MongoMemoryServer } = require('mongodb-memory-server');",
-      "const { MongoMemoryServer, User, Chat, Appointment, Notification } = require('./mockMongoDb');"
+      "const { MongoMemoryServer } = require('./mockMongoDb');"
+    );
+
+    // Comment out unused imports
+    content = content.replace(
+      "const jwt = require('jsonwebtoken');",
+      "// const jwt = require('jsonwebtoken'); // Not needed with mocks"
+    );
+    content = content.replace(
+      "const bcrypt = require('bcryptjs');",
+      "// const bcrypt = require('bcryptjs'); // Not needed with mocks"
+    );
+
+    // Replace the model imports with our mocks
+    content = content.replace(
+      "const User = require('../model/user');",
+      "// Original model import: const User = require('../model/user');"
+    );
+    content = content.replace(
+      "const Appointment = require('../model/appointment');",
+      "// Original model import: const Appointment = require('../model/appointment');"
+    );
+    content = content.replace(
+      "const Chat = require('../model/chat');",
+      "// Original model import: const Chat = require('../model/chat');"
+    );
+    content = content.replace(
+      "const Notification = require('../model/Notification');",
+      "// Original model import: const Notification = require('../model/Notification');"
+    );
+
+    // Add our mock models
+    content = content.replace(
+      "const mongodbMemoryServerConfig = require('./mongodb-memory-server-config');",
+      "const mongodbMemoryServerConfig = require('./mongodb-memory-server-config');\nconst { User, Chat, Appointment, Notification } = require('./mockMongoDb');"
     );
 
     // Replace the userController import with our mock for specific methods

@@ -22,6 +22,9 @@ stage('Unit Test') {
           // Create environment file for tests
           sh 'echo "USE_MOCK_MONGO=true" > .env.test'
 
+          // Reset test file to ensure clean state
+          sh 'npm run test:reset'
+
           // Run tests with mock MongoDB and increased timeout
           sh 'USE_MOCK_MONGO=true CI=true npm run test:mock -- --testTimeout=60000 --forceExit --detectOpenHandles'
         }

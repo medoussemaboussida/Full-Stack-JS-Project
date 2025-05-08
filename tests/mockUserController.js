@@ -164,12 +164,12 @@ const updateUser = async (req, res) => {
   }
 };
 
-// Mock implementation of verifyUser
+// Mock implementation of verifyUser that doesn't rely on jwt
 const verifyUser = async (req, res) => {
   try {
     const { token } = req.params;
 
-    // Simulate JWT verification failure
+    // Simulate verification failure
     if (token === 'invalidtoken') {
       return res.status(400).json({ message: 'Lien de validation invalide ou expiré.' });
     }

@@ -68,9 +68,7 @@ describe('User Controller', () => {
 
   describe('verifyUser', () => {
     it('should return 400 for invalid token', async () => {
-      jwt.verify.mockImplementation(() => {
-        throw new Error('Invalid token');
-      });
+      // No need to mock jwt.verify when using our mock implementation
       const response = await request(app).get('/verify/invalidtoken');
       expect(response.status).toBe(400);
       expect(response.body.message).toBe('Lien de validation invalide ou expiré.');
