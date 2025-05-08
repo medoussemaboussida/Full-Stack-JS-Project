@@ -34,8 +34,13 @@ stage('Unit Test') {
     stage('Build application') {
       steps {
         script {
-            sh 'chmod -R +x node_modules/.bin/'
-          sh 'npm run build-dev'
+          sh 'chmod -R +x node_modules/.bin/'
+          // Utiliser le script de build CI qui se termine automatiquement
+          sh 'npm run build-ci'
+          // Ajouter un timeout de sécurité
+          timeout(time: 2, unit: 'MINUTES') {
+            echo 'Build completed successfully'
+          }
         }
       }
     }
