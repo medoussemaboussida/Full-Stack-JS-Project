@@ -10,7 +10,9 @@ const mockDb = {
   publications: [], // Ajout du tableau pour les publications
   commentaires: [], // Ajout du tableau pour les commentaires
   reportPublications: [], // Ajout du tableau pour les signalements de publications
-  commentReports: [] // Ajout du tableau pour les signalements de commentaires
+  commentReports: [], // Ajout du tableau pour les signalements de commentaires
+  activities: [], // Ajout du tableau pour les activités
+  categories: [] // Ajout du tableau pour les catégories
 };
 
 class MockMongoMemoryServer {
@@ -35,6 +37,8 @@ class MockMongoMemoryServer {
     mockDb.commentaires = []; // Vider aussi les commentaires
     mockDb.reportPublications = []; // Vider aussi les signalements de publications
     mockDb.commentReports = []; // Vider aussi les signalements de commentaires
+    mockDb.activities = []; // Vider aussi les activités
+    mockDb.categories = []; // Vider aussi les catégories
   }
 
   getUri() {
@@ -290,6 +294,8 @@ const Publication = createModelConstructor('publication', createMockModel('publi
 const Commentaire = createModelConstructor('commentaire', createMockModel('commentaires'));
 const ReportPublication = createModelConstructor('reportPublication', createMockModel('reportPublications'));
 const CommentReport = createModelConstructor('commentReport', createMockModel('commentReports'));
+const Activity = createModelConstructor('activity', createMockModel('activities'));
+const Category = createModelConstructor('category', createMockModel('categories'));
 
 // Override mongoose.model to return our mock models
 mongoose.model = jest.fn().mockImplementation((name) => {
@@ -310,6 +316,10 @@ mongoose.model = jest.fn().mockImplementation((name) => {
       return ReportPublication;
     case 'commentreport':
       return CommentReport;
+    case 'activity':
+      return Activity;
+    case 'category':
+      return Category;
     default:
       const mockModel = createMockModel(name.toLowerCase() + 's');
       return createModelConstructor(name, mockModel);
@@ -327,5 +337,7 @@ module.exports = {
   Publication,
   Commentaire,
   ReportPublication,
-  CommentReport
+  CommentReport,
+  Activity,
+  Category
 };
