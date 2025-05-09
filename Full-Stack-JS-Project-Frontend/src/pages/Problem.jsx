@@ -137,16 +137,16 @@ const Problem = () => {
             }}
           >
             <li style={{ marginRight: '10px' }}>
-              <a href="/Home" style={{ color: '#fff', textDecoration: 'none', fontWeight: 'bold' }}>
+              <a href="/Home" style={{ color: '#fff', textDecoration: 'none' }}>
                 Home
               </a>
             </li>
             <li style={{ marginRight: '10px' }}>
-              <a href="/list-problems" style={{ color: '#fff', textDecoration: 'none', fontWeight: 'bold' }}>
+              <a href="/list-problems" style={{ color: '#fff', textDecoration: 'none' }}>
                 Problems
               </a>
             </li>
-            <li style={{ color: '#ff5a5f', textDecoration: 'none', fontWeight: 'bold' }}>
+            <li style={{ color: '#ff5a5f', textDecoration: 'none' }}>
               Report a Problem
             </li>
           </ul>
@@ -195,7 +195,7 @@ const Problem = () => {
                       onChange={handleChange}
                       placeholder="What is the problem?"
                       className="form-control"
-                      style={{ width: '100%', padding: '12px', borderRadius: '5px', border: '1px solid #ddd' }}
+                      style={{ width: '100%', padding: '12px', borderRadius: '50px', border: '1px solid #ddd' }}
                     />
                   </div>
                   <div className="form-group" style={{ marginBottom: '20px' }}>
@@ -206,7 +206,7 @@ const Problem = () => {
                       onChange={handleChange}
                       placeholder="Where does the problem come from?"
                       className="form-control"
-                      style={{ width: '100%', padding: '12px', borderRadius: '5px', border: '1px solid #ddd' }}
+                      style={{ width: '100%', padding: '12px', borderRadius: '50px', border: '1px solid #ddd' }}
                     />
                   </div>
                   <div className="form-group" style={{ marginBottom: '20px' }}>
@@ -217,7 +217,7 @@ const Problem = () => {
                       onChange={handleChange}
                       placeholder="How did you react to the problem?"
                       className="form-control"
-                      style={{ width: '100%', padding: '12px', borderRadius: '5px', border: '1px solid #ddd' }}
+                      style={{ width: '100%', padding: '12px', borderRadius: '50px', border: '1px solid #ddd' }}
                     />
                   </div>
                   <div className="form-group" style={{ marginBottom: '20px' }}>
@@ -228,7 +228,7 @@ const Problem = () => {
                       value={formData.startDate}
                       onChange={handleChange}
                       className="form-control"
-                      style={{ width: '100%', padding: '12px', borderRadius: '5px', border: '1px solid #ddd' }}
+                      style={{ width: '100%', padding: '12px', borderRadius: '50px', border: '1px solid #ddd' }}
                     />
                   </div>
                   <div className="form-group" style={{ marginBottom: '20px' }}>
@@ -239,7 +239,7 @@ const Problem = () => {
                       value={formData.endDate}
                       onChange={handleChange}
                       className="form-control"
-                      style={{ width: '100%', padding: '12px', borderRadius: '5px', border: '1px solid #ddd' }}
+                      style={{ width: '100%', padding: '12px', borderRadius: '50px', border: '1px solid #ddd' }}
                     />
                   </div>
                   <div className="form-group" style={{ marginBottom: '20px' }}>
@@ -255,7 +255,7 @@ const Problem = () => {
                             alignItems: 'center',
                             gap: '8px',
                             padding: '8px 12px',
-                            borderRadius: '6px',
+                            borderRadius: '50px',
                             border: formData.satisfaction === value ? '2px solid #2A5B84' : '1px solid #ccc',
                             backgroundColor: formData.satisfaction === value ? '#e6f0fa' : '#fff',
                             cursor: 'pointer',
@@ -295,7 +295,7 @@ const Problem = () => {
                       style={{
                         width: '100%',
                         padding: '12px',
-                        borderRadius: '5px',
+                        borderRadius: '30px',
                         border: '1px solid #ddd',
                         minHeight: '100px',
                         resize: 'vertical',
