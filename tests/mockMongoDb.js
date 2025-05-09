@@ -8,7 +8,9 @@ const mockDb = {
   appointments: [],
   notifications: [],
   publications: [], // Ajout du tableau pour les publications
-  commentaires: [] // Ajout du tableau pour les commentaires
+  commentaires: [], // Ajout du tableau pour les commentaires
+  reportPublications: [], // Ajout du tableau pour les signalements de publications
+  commentReports: [] // Ajout du tableau pour les signalements de commentaires
 };
 
 class MockMongoMemoryServer {
@@ -31,6 +33,8 @@ class MockMongoMemoryServer {
     mockDb.notifications = [];
     mockDb.publications = []; // Vider aussi les publications
     mockDb.commentaires = []; // Vider aussi les commentaires
+    mockDb.reportPublications = []; // Vider aussi les signalements de publications
+    mockDb.commentReports = []; // Vider aussi les signalements de commentaires
   }
 
   getUri() {
@@ -284,6 +288,8 @@ const Appointment = createModelConstructor('appointment', appointmentModel);
 const Notification = createModelConstructor('notification', notificationModel);
 const Publication = createModelConstructor('publication', createMockModel('publications'));
 const Commentaire = createModelConstructor('commentaire', createMockModel('commentaires'));
+const ReportPublication = createModelConstructor('reportPublication', createMockModel('reportPublications'));
+const CommentReport = createModelConstructor('commentReport', createMockModel('commentReports'));
 
 // Override mongoose.model to return our mock models
 mongoose.model = jest.fn().mockImplementation((name) => {
@@ -300,6 +306,10 @@ mongoose.model = jest.fn().mockImplementation((name) => {
       return Publication;
     case 'commentaire':
       return Commentaire;
+    case 'reportpublication':
+      return ReportPublication;
+    case 'commentreport':
+      return CommentReport;
     default:
       const mockModel = createMockModel(name.toLowerCase() + 's');
       return createModelConstructor(name, mockModel);
@@ -315,5 +325,7 @@ module.exports = {
   Appointment,
   Notification,
   Publication,
-  Commentaire
+  Commentaire,
+  ReportPublication,
+  CommentReport
 };
