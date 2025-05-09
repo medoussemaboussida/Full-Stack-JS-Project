@@ -90,7 +90,7 @@ const Chat = () => {
   const [targetLanguage, setTargetLanguage] = useState('en');
   const [translatedMessages, setTranslatedMessages] = useState({});
 
-  const GROQ_API_KEY = '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';
+  const GROQ_API_KEY = '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';
   const tts_new = 'sk_9a528300cb9d0fde2f09a122f90b3895d0f5adca31387585';
 
   const questions = [

@@ -643,50 +643,70 @@ function DetailsStudents() {
         </div>
       )}
 
-      {showAvailabilityModal && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 2000 }}>
-          <div style={{ backgroundColor: "white", padding: "20px", borderRadius: "5px", width: "350px", boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}>
-            <h3 style={{ textAlign: "center", marginBottom: "15px" }}>Add Availability</h3>
-            <div style={{ marginBottom: "15px" }}>
-              <label style={{ display: "block", marginBottom: "5px" }}>Date</label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                min={formatDateForInput(new Date())}
-                style={{ width: "100%", padding: "8px", borderRadius: "3px", border: "1px solid #ccc" }}
-              />
-            </div>
-            <div style={{ marginBottom: "15px" }}>
-              <label style={{ display: "block", marginBottom: "5px" }}>Start Time</label>
-              <input
-                type="time"
-                value={selectedStartTime}
-                onChange={(e) => setSelectedStartTime(e.target.value)}
-                min="08:00"
-                max="20:00"
-                style={{ width: "100%", padding: "8px", borderRadius: "3px", border: "1px solid #ccc" }}
-              />
-            </div>
-            <div style={{ marginBottom: "15px" }}>
-              <label style={{ display: "block", marginBottom: "5px" }}>End Time</label>
-              <input
-                type="time"
-                value={selectedEndTime}
-                onChange={(e) => setSelectedEndTime(e.target.value)}
-                min={selectedStartTime}
-                max="20:00"
-                style={{ width: "100%", padding: "8px", borderRadius: "3px", border: "1px solid #ccc" }}
-              />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-around" }}>
-              <button onClick={handleAvailabilityConfirm} style={{ backgroundColor: "#4CAF50", color: "white", padding: "8px 16px", border: "none", borderRadius: "50px", cursor: "pointer" }}>Confirm</button>
-              <button onClick={() => setShowAvailabilityModal(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "8px 16px", border: "none", borderRadius: "50px", cursor: "pointer" }}>Cancel</button>
-            </div>
-          </div>
+{showAvailabilityModal && (
+  <div className="auth-area" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 2000 }}>
+    <div className="auth-form" style={{ backgroundColor: "white", padding: "30px", borderRadius: "10px", width: "350px", maxWidth: "90%", boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}>
+      <div className="auth-header" style={{ textAlign: "center", marginBottom: "20px" }}>
+        <h3 style={{ fontSize: "1.5rem", fontWeight: "600", color: "#2d3748" }}>Add Availability</h3>
+      </div>
+      <div className="form-group" style={{ marginBottom: "20px" }}>
+        <div className="form-icon" style={{ position: "relative" }}>
+          <i className="far fa-calendar" style={{ position: "absolute", left: "15px", top: "50%", transform: "translateY(-50%)", color: "#718096" }}></i>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            min={formatDateForInput(new Date())}
+            style={{ width: "100%", padding: "10px 15px 10px 40px", borderRadius: "50px", border: "1px solid #e2e8f0", fontSize: "14px", outline: "none" }}
+          />
         </div>
-      )}
-
+      </div>
+      <div className="form-group" style={{ marginBottom: "20px" }}>
+        <div className="form-icon" style={{ position: "relative" }}>
+          <i className="far fa-clock" style={{ position: "absolute", left: "15px", top: "50%", transform: "translateY(-50%)", color: "#718096" }}></i>
+          <input
+            type="time"
+            value={selectedStartTime}
+            onChange={(e) => setSelectedStartTime(e.target.value)}
+            min="08:00"
+            max="20:00"
+            style={{ width: "100%", padding: "10px 15px 10px 40px", borderRadius: "50px", border: "1px solid #e2e8f0", fontSize: "14px", outline: "none" }}
+          />
+        </div>
+      </div>
+      <div className="form-group" style={{ marginBottom: "20px" }}>
+        <div className="form-icon" style={{ position: "relative" }}>
+          <i className="far fa-clock" style={{ position: "absolute", left: "15px", top: "50%", transform: "translateY(-50%)", color: "#718096" }}></i>
+          <input
+            type="time"
+            value={selectedEndTime}
+            onChange={(e) => setSelectedEndTime(e.target.value)}
+            min={selectedStartTime}
+            max="20:00"
+            style={{ width: "100%", padding: "10px 15px 10px 40px", borderRadius: "50px", border: "1px solid #e2e8f0", fontSize: "14px", outline: "none" }}
+          />
+        </div>
+      </div>
+    
+      <div className="auth-btn" style={{ display: "flex", justifyContent: "center", gap: "20px" }}>
+  <button
+    onClick={handleAvailabilityConfirm}
+    className="theme-btn w-full py-3 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    style={{ borderRadius: "50px", fontSize: "16px" }}
+  >
+    <span className="far fa-check"></span> Confirm
+  </button>
+  <button
+    onClick={() => setShowAvailabilityModal(false)}
+    className="theme-btn w-full py-3 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+    style={{ borderRadius: "50px", fontSize: "16px" }}
+  >
+    <span className="far fa-times"></span> Cancel
+  </button>
+</div>
+    </div>
+  </div>
+)}
       <main style={{ padding: "20px", backgroundColor: "#f9f9f9" }}>
         <div className="site-breadcrumb" style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}>
           <div className="container">
