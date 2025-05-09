@@ -4,7 +4,8 @@ import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
 import debounce from "lodash/debounce";
 import { Filter } from "bad-words";
-
+import { Navigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom"; // Ajout de useNavigate
 const AddForum = () => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -25,7 +26,11 @@ const AddForum = () => {
   const [chatMessages, setChatMessages] = useState([]);
   const [userMessage, setUserMessage] = useState("");
   const badWordsFilter = new Filter();
-
+  const navigate = useNavigate(); // Ajout au début du composant
+  // Fonction pour nettoyer le texte en supprimant les * *
+  const cleanText = (text) => {
+    return text ? text.replace(/\*\*/g, "") : text;
+  };
   const interactWithGemini = async (message) => {
     const GEMINI_API_KEY = "AIzaSyCfw_jacNIo7ORhBYWXr9b6uYDeeOc4C7o";
 
@@ -131,6 +136,26 @@ const AddForum = () => {
     "ta gueule",
     "ferme-la",
     "va te faire",
+    "hate",
+    "stupid",
+    "idiot",
+    "dumb",
+    "loser",
+    "useless",
+    "worthless",
+    "moron",
+    "bitch",
+    "bastard",
+    "asshole",
+    "retard",
+    "psycho",
+    "fat",
+    "ugly",
+    "kill",
+    "die",
+    "shut up",
+    "garbage",
+    "freak",
   ];
 
   const detectToxicPatterns = (text) => {
@@ -401,6 +426,7 @@ const AddForum = () => {
       setDescriptionError("");
       setTagsError("");
       toast.success("Your topic has been successfully added!");
+      navigate("/forum"); // Redirection vers /forum
     } catch (error) {
       console.error("Erreur:", error);
       toast.error(error.message || "Error adding the topic.");
@@ -500,6 +526,7 @@ const AddForum = () => {
                           validateForm("title", newTitle);
                         }}
                         required
+                        style={{ borderRadius: "50px" }}
                       />
                     </div>
                     {titleError && (
@@ -527,7 +554,7 @@ const AddForum = () => {
                             fontWeight: "bold",
                             backgroundColor: "#f0f0f0",
                             padding: "2px 6px",
-                            borderRadius: "12px",
+                            borderRadius: "50px",
                             boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
                           }}
                         >
@@ -651,7 +678,7 @@ const AddForum = () => {
                           width: "100%",
                           height: "12px",
                           backgroundColor: "#e0e0e0",
-                          borderRadius: "20px",
+                          borderRadius: "50px",
                           overflow: "hidden",
                           boxShadow:
                             "inset 0 2px 4px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.05)",
@@ -713,6 +740,7 @@ const AddForum = () => {
                         type="file"
                         onChange={handlePhotoChange}
                         className="form-control"
+                        style={{ borderRadius: "50px" }}
                       />
                     </div>
                   </div>
@@ -722,7 +750,7 @@ const AddForum = () => {
                       htmlFor="anonymous"
                       className="font-semibold text-lg"
                     >
-                      Post your topic anonymously:
+                      Post your topic anonymously :
                     </label>
                     <select
                       id="anonymous"
@@ -730,6 +758,7 @@ const AddForum = () => {
                       value={anonymous}
                       onChange={(e) => setAnonymous(e.target.value)}
                       className="form-control"
+                      style={{ borderRadius: "50px" }}
                     >
                       <option value="yes">Yes</option>
                       <option value="no">No</option>
@@ -737,9 +766,6 @@ const AddForum = () => {
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="tag" className="font-semibold text-lg">
-                      Tag:
-                    </label>
                     <select
                       id="tag"
                       value={tags}
@@ -749,6 +775,7 @@ const AddForum = () => {
                         validateForm("tags", newTag);
                       }}
                       className="form-control"
+                      style={{ borderRadius: "50px" }}
                     >
                       <option value="">Select a tag</option>
                       {tagOptions.map((tagOption) => (
@@ -775,6 +802,7 @@ const AddForum = () => {
                       type="submit"
                       className="theme-btn w-full py-3 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       disabled={containsToxicContent || isToxic}
+                      style={{ borderRadius: "50px", fontSize: "16px" }}
                     >
                       Add topic
                     </button>
@@ -784,7 +812,7 @@ const AddForum = () => {
                   <div
                     style={{
                       position: "fixed",
-                      top: 0,
+                      top: 80,
                       left: 0,
                       right: 0,
                       bottom: 0,
@@ -799,17 +827,25 @@ const AddForum = () => {
                       style={{
                         backgroundColor: "white",
                         padding: "20px",
-                        borderRadius: "8px",
+                        borderRadius: "12px",
                         width: "600px",
                         maxWidth: "100%",
-                        boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
                         display: "flex",
                         flexDirection: "column",
                         maxHeight: "80vh",
                       }}
                     >
-                      <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
-                        Chatbot (Gemini)
+                      <h3
+                        style={{
+                          marginBottom: "20px",
+                          textAlign: "center",
+                          color: "#333",
+                          fontSize: "24px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        Chatbot Powered by Gemini 🤖
                       </h3>
                       <div
                         style={{
@@ -817,9 +853,13 @@ const AddForum = () => {
                           maxHeight: "60vh",
                           overflowY: "auto",
                           marginBottom: "20px",
-                          padding: "10px",
-                          border: "1px solid #ddd",
+                          padding: "15px",
+                          border: "1px solid #e0e0e0",
                           borderRadius: "8px",
+                          backgroundColor: "#f9f9f9",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "10px",
                         }}
                       >
                         {chatMessages.length > 0 ? (
@@ -827,28 +867,89 @@ const AddForum = () => {
                             <div
                               key={index}
                               style={{
-                                marginBottom: "10px",
-                                padding: "10px",
-                                borderRadius: "8px",
-                                backgroundColor:
-                                  msg.sender === "user" ? "#e6f3ff" : "#f9f9f9",
-                                alignSelf:
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems:
                                   msg.sender === "user"
                                     ? "flex-end"
                                     : "flex-start",
-                                maxWidth: "80%",
-                                wordBreak: "break-word",
+                                animation: "fadeIn 0.3s ease-in-out",
                               }}
                             >
-                              <strong>
-                                {msg.sender === "user" ? "You" : "Bot"}:
-                              </strong>{" "}
-                              {msg.text}
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "10px",
+                                  maxWidth: "70%",
+                                }}
+                              >
+                                {msg.sender === "bot" && (
+                                  <span
+                                    style={{
+                                      fontSize: "20px",
+                                      color: "#28a745",
+                                    }}
+                                  ></span>
+                                )}
+                                <div
+                                  style={{
+                                    padding: "10px 15px",
+                                    borderRadius: "15px",
+                                    backgroundColor:
+                                      msg.sender === "user"
+                                        ? "#007bff"
+                                        : "#ffffff",
+                                    color:
+                                      msg.sender === "user" ? "white" : "#333",
+                                    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                                    wordBreak: "break-word",
+                                    border:
+                                      msg.sender === "bot"
+                                        ? "1px solid #e0e0e0"
+                                        : "none",
+                                  }}
+                                >
+                                  <strong>
+                                    {msg.sender === "user" ? "You" : "Bot"}:
+                                  </strong>{" "}
+                                  {cleanText(msg.text)}
+                                </div>
+                                {msg.sender === "user" && (
+                                  <span
+                                    style={{
+                                      fontSize: "20px",
+                                      color: "#007bff",
+                                    }}
+                                  >
+                                    🧑
+                                  </span>
+                                )}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: "12px",
+                                  color: "#999",
+                                  marginTop: "5px",
+                                }}
+                              >
+                                {new Date().toLocaleTimeString("fr-FR", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  second: "2-digit",
+                                })}
+                              </div>
                             </div>
                           ))
                         ) : (
-                          <p style={{ textAlign: "center", color: "#666" }}>
-                            Start a conversation with the chatbot!
+                          <p
+                            style={{
+                              textAlign: "center",
+                              color: "#666",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            Start a conversation with the chatbot! 💬
                           </p>
                         )}
                       </div>
@@ -866,11 +967,17 @@ const AddForum = () => {
                           placeholder="Type your message..."
                           style={{
                             flex: 1,
-                            padding: "10px",
+                            padding: "12px",
                             borderRadius: "50px",
                             border: "1px solid #ddd",
                             outline: "none",
+                            fontSize: "14px",
+                            transition: "border-color 0.3s ease",
                           }}
+                          onFocus={(e) =>
+                            (e.target.style.borderColor = "#007bff")
+                          }
+                          onBlur={(e) => (e.target.style.borderColor = "#ddd")}
                           onKeyPress={(e) => {
                             if (e.key === "Enter" && userMessage.trim()) {
                               setChatMessages((prev) => [
@@ -880,7 +987,7 @@ const AddForum = () => {
                               interactWithGemini(userMessage).then((reply) => {
                                 setChatMessages((prev) => [
                                   ...prev,
-                                  { sender: "bot", text: reply },
+                                  { sender: "bot", text: cleanText(reply) },
                                 ]);
                               });
                               setUserMessage("");
@@ -897,7 +1004,7 @@ const AddForum = () => {
                               interactWithGemini(userMessage).then((reply) => {
                                 setChatMessages((prev) => [
                                   ...prev,
-                                  { sender: "bot", text: reply },
+                                  { sender: "bot", text: cleanText(reply) },
                                 ]);
                               });
                               setUserMessage("");
@@ -906,10 +1013,21 @@ const AddForum = () => {
                           style={{
                             backgroundColor: "#007bff",
                             color: "white",
-                            padding: "10px 20px",
+                            padding: "12px 20px",
                             borderRadius: "50px",
                             border: "none",
                             cursor: "pointer",
+                            fontSize: "14px",
+                            transition:
+                              "background-color 0.3s ease, transform 0.2s ease",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = "#0056b3";
+                            e.currentTarget.style.transform = "scale(1.05)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = "#007bff";
+                            e.currentTarget.style.transform = "scale(1)";
                           }}
                         >
                           Send
@@ -920,6 +1038,7 @@ const AddForum = () => {
                           display: "flex",
                           justifyContent: "center",
                           marginTop: "20px",
+                          gap: "10px",
                         }}
                       >
                         <button
@@ -931,10 +1050,17 @@ const AddForum = () => {
                             backgroundColor: "#f44336",
                             color: "white",
                             padding: "10px 20px",
-                            borderRadius: "5px",
+                            borderRadius: "50px",
                             border: "none",
                             cursor: "pointer",
+                            transition: "background-color 0.3s ease",
                           }}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.backgroundColor = "#d32f2f")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.backgroundColor = "#f44336")
+                          }
                         >
                           Close
                         </button>
@@ -947,11 +1073,17 @@ const AddForum = () => {
                             backgroundColor: "#ff9800",
                             color: "white",
                             padding: "10px 20px",
-                            borderRadius: "5px",
+                            borderRadius: "50px",
                             border: "none",
                             cursor: "pointer",
-                            marginLeft: "10px",
+                            transition: "background-color 0.3s ease",
                           }}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.backgroundColor = "#f57c00")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.backgroundColor = "#ff9800")
+                          }
                         >
                           Clear Chat
                         </button>
