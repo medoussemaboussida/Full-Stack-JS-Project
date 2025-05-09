@@ -12,7 +12,9 @@ const mockDb = {
   reportPublications: [], // Ajout du tableau pour les signalements de publications
   commentReports: [], // Ajout du tableau pour les signalements de commentaires
   activities: [], // Ajout du tableau pour les activités
-  categories: [] // Ajout du tableau pour les catégories
+  categories: [], // Ajout du tableau pour les catégories
+  schedules: [], // Ajout du tableau pour les plannings
+  moods: [] // Ajout du tableau pour les humeurs
 };
 
 class MockMongoMemoryServer {
@@ -39,6 +41,8 @@ class MockMongoMemoryServer {
     mockDb.commentReports = []; // Vider aussi les signalements de commentaires
     mockDb.activities = []; // Vider aussi les activités
     mockDb.categories = []; // Vider aussi les catégories
+    mockDb.schedules = []; // Vider aussi les plannings
+    mockDb.moods = []; // Vider aussi les humeurs
   }
 
   getUri() {
@@ -296,6 +300,8 @@ const ReportPublication = createModelConstructor('reportPublication', createMock
 const CommentReport = createModelConstructor('commentReport', createMockModel('commentReports'));
 const Activity = createModelConstructor('activity', createMockModel('activities'));
 const Category = createModelConstructor('category', createMockModel('categories'));
+const Schedule = createModelConstructor('schedule', createMockModel('schedules'));
+const Mood = createModelConstructor('mood', createMockModel('moods'));
 
 // Override mongoose.model to return our mock models
 mongoose.model = jest.fn().mockImplementation((name) => {
@@ -320,6 +326,10 @@ mongoose.model = jest.fn().mockImplementation((name) => {
       return Activity;
     case 'category':
       return Category;
+    case 'schedule':
+      return Schedule;
+    case 'mood':
+      return Mood;
     default:
       const mockModel = createMockModel(name.toLowerCase() + 's');
       return createModelConstructor(name, mockModel);
@@ -339,5 +349,7 @@ module.exports = {
   ReportPublication,
   CommentReport,
   Activity,
-  Category
+  Category,
+  Schedule,
+  Mood
 };
