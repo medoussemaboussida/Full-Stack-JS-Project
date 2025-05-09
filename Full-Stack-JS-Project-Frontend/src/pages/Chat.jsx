@@ -286,7 +286,7 @@ const Chat = () => {
 
   const handleQuestionnaireSubmit = async () => {
     if (!token || !userId || !joinedRoom) {
-      setError('Please log in and join a room to submit the questionnaire');
+      setError('Please log in and join a room to submit the questionnaire .');
       return;
     }
     try {
