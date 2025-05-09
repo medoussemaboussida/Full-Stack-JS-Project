@@ -707,7 +707,7 @@ function DetailsStudents() {
     </div>
   </div>
 )}
-      <main style={{ padding: "20px", backgroundColor: "#f9f9f9" }}>
+      <main className="main">
         <div className="site-breadcrumb" style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}>
           <div className="container">
             <h2 className="breadcrumb-title">Profile Details</h2>

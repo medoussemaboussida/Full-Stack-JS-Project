@@ -728,10 +728,10 @@ const EventDetails = () => {
                           Contact {event.created_by?.email || event.contact_email || "unknown"} for more details.
                         </p>
                         <div className="mt-3">
-                          <button onClick={handleDownloadPDF} className="theme-btn me-2">
+                          <button onClick={handleDownloadPDF} className="theme-btn me-2" style={{borderRadius:"50px"}}>
                             Download PDF <i className="fas fa-file-pdf"></i>
                           </button>
-                          <button onClick={handleShareOnFacebook} className="theme-btn me-2" style={{ backgroundColor: '#3b5998' }}>
+                          <button onClick={handleShareOnFacebook} className="theme-btn me-2" style={{ backgroundColor: '#3b5998',borderRadius:"50px" }}>
                             Share on FB <i className="fab fa-facebook-f"></i>
                           </button>
                           {isCreator && !isEditing && (
