@@ -25,9 +25,9 @@ const Footer = () => {
                                                     <div className="form-icon">
                                                         <i className="far fa-envelopes"></i>
                                                         <input type="email" className="form-control" placeholder="Your Email" />
-                                                        <button className="theme-btn" type="submit">
+                                                        {/* <button className="theme-btn" type="submit">
                                                             Subscribe <span className="far fa-paper-plane"></span>
-                                                        </button>
+                                                        </button> */}
                                                     </div>
                                                 </div>
                                             </form>

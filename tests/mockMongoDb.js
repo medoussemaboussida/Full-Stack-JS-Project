@@ -6,7 +6,15 @@ const mockDb = {
   users: [],
   chats: [],
   appointments: [],
-  notifications: []
+  notifications: [],
+  publications: [], // Ajout du tableau pour les publications
+  commentaires: [], // Ajout du tableau pour les commentaires
+  reportPublications: [], // Ajout du tableau pour les signalements de publications
+  commentReports: [], // Ajout du tableau pour les signalements de commentaires
+  activities: [], // Ajout du tableau pour les activités
+  categories: [], // Ajout du tableau pour les catégories
+  schedules: [], // Ajout du tableau pour les plannings
+  moods: [] // Ajout du tableau pour les humeurs
 };
 
 class MockMongoMemoryServer {
@@ -27,6 +35,14 @@ class MockMongoMemoryServer {
     mockDb.chats = [];
     mockDb.appointments = [];
     mockDb.notifications = [];
+    mockDb.publications = []; // Vider aussi les publications
+    mockDb.commentaires = []; // Vider aussi les commentaires
+    mockDb.reportPublications = []; // Vider aussi les signalements de publications
+    mockDb.commentReports = []; // Vider aussi les signalements de commentaires
+    mockDb.activities = []; // Vider aussi les activités
+    mockDb.categories = []; // Vider aussi les catégories
+    mockDb.schedules = []; // Vider aussi les plannings
+    mockDb.moods = []; // Vider aussi les humeurs
   }
 
   getUri() {
@@ -278,6 +294,14 @@ const User = createModelConstructor('user', userModel);
 const Chat = createModelConstructor('chat', chatModel);
 const Appointment = createModelConstructor('appointment', appointmentModel);
 const Notification = createModelConstructor('notification', notificationModel);
+const Publication = createModelConstructor('publication', createMockModel('publications'));
+const Commentaire = createModelConstructor('commentaire', createMockModel('commentaires'));
+const ReportPublication = createModelConstructor('reportPublication', createMockModel('reportPublications'));
+const CommentReport = createModelConstructor('commentReport', createMockModel('commentReports'));
+const Activity = createModelConstructor('activity', createMockModel('activities'));
+const Category = createModelConstructor('category', createMockModel('categories'));
+const Schedule = createModelConstructor('schedule', createMockModel('schedules'));
+const Mood = createModelConstructor('mood', createMockModel('moods'));
 
 // Override mongoose.model to return our mock models
 mongoose.model = jest.fn().mockImplementation((name) => {
@@ -290,6 +314,22 @@ mongoose.model = jest.fn().mockImplementation((name) => {
       return Appointment;
     case 'notification':
       return Notification;
+    case 'publication':
+      return Publication;
+    case 'commentaire':
+      return Commentaire;
+    case 'reportpublication':
+      return ReportPublication;
+    case 'commentreport':
+      return CommentReport;
+    case 'activity':
+      return Activity;
+    case 'category':
+      return Category;
+    case 'schedule':
+      return Schedule;
+    case 'mood':
+      return Mood;
     default:
       const mockModel = createMockModel(name.toLowerCase() + 's');
       return createModelConstructor(name, mockModel);
@@ -303,5 +343,13 @@ module.exports = {
   User,
   Chat,
   Appointment,
-  Notification
+  Notification,
+  Publication,
+  Commentaire,
+  ReportPublication,
+  CommentReport,
+  Activity,
+  Category,
+  Schedule,
+  Mood
 };

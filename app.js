@@ -402,7 +402,7 @@ app.get(
 "/auth/google/callback",
 passport.authenticate("google", { failureRedirect: "/" }),
 async (req, res) => {
-  
+
      try{
       const { id, displayName, emails, photos} = req.user;
         console.log("email :",emails)

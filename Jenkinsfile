@@ -1,5 +1,12 @@
 pipeline {
   agent any
+
+   environment {
+        NEXUS_URL = 'http://192.168.50.4:8081/repository/npm-hosted/'
+        NEXUS_USERNAME = 'admin'
+        NEXUS_PASSWORD = 'nexus'
+    }
+
   stages {
     stage('Install dependencies') {
       steps {
@@ -33,13 +40,36 @@ stage('Unit Test') {
 
     stage('Build application') {
       steps {
-        script {
-          sh 'chmod -R +x node_modules/.bin/'
-          // Utiliser le script de build CI qui se termine automatiquement
-          sh 'npm run build-ci'
-          // Ajouter un timeout de sécurité
-          timeout(time: 2, unit: 'MINUTES') {
+        timeout(time: 1, unit: 'MINUTES') {
+          script {
+            // Tuer tous les processus node existants pour éviter les conflits
+            sh 'pkill -f node || true'
+            sh 'pkill -f nodemon || true'
+
+            sh 'chmod -R +x node_modules/.bin/'
+
+            // Vérifier si le port 5000 est déjà utilisé et le libérer si nécessaire
+            sh 'lsof -ti:5000 | xargs kill -9 || true'
+
+            // Utiliser le script de build CI minimal qui ne démarre pas l'application complète
+            sh 'node ci-build.js'
+
             echo 'Build completed successfully'
+          }
+        }
+      }
+      post {
+        always {
+          // Toujours nettoyer les processus à la fin
+          script {
+            // Tuer tous les processus node et nodemon
+            sh 'pkill -f node || true'
+            sh 'pkill -f nodemon || true'
+
+            // Libérer le port 5000
+            sh 'lsof -ti:5000 | xargs kill -9 || true'
+
+            echo 'Cleanup completed'
           }
         }
       }
@@ -54,5 +84,14 @@ stage('Unit Test') {
         }
       }
     }
+    // Building Docker images
+stage('Building images (node and mongo)') {
+steps{
+script {
+sh('docker-compose build')
+}
+}
+}
+
   }
 }
