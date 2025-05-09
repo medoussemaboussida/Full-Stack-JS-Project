@@ -58,6 +58,14 @@ stage('Unit Test') {
         }
       }
     }
+    // Building Docker images 
+stage('Building images (node and mongo)') { 
+steps{ 
+script { 
+sh('docker-compose build') 
+} 
+} 
+} 
     
   }
 }
