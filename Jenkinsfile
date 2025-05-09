@@ -58,35 +58,6 @@ stage('Unit Test') {
         }
       }
     }
-stage('Publish to Nexus') {
-  steps {
-    script {
-      // Créer un dossier temporaire pour la publication
-      sh 'mkdir publish_temp'
-
-      // Copier tout sauf le dossier uploads/ dans ce dossier
-      sh 'rsync -av --exclude=uploads ./ publish_temp/'
-
-      // Aller dans le dossier temporaire
-      dir('publish_temp') {
-        // Générer le fichier .npmrc temporaire avec les infos Nexus
-        sh """
-          echo "//192.168.50.4:8081/repository/npm-hosted/:username=${NEXUS_USERNAME}" > .npmrc
-          echo "//192.168.50.4:8081/repository/npm-hosted/:_password=\$(echo -n '${NEXUS_PASSWORD}' | base64)" >> .npmrc
-        """
-
-        // Publier le package à partir du dossier temporaire
-        sh 'npm publish'
-
-        // Supprimer le .npmrc temporaire
-        sh 'rm -f .npmrc'
-      }
-
-      // Nettoyer le dossier temporaire après publication
-      sh 'rm -rf publish_temp'
-    }
-  }
-}
-
+    
   }
 }
