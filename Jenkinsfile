@@ -31,16 +31,16 @@ stage('Unit Test') {
       }
     }
 
-    stage('Build application') {
-      steps {
-        script {
-          sh 'chmod -R +x node_modules/.bin/'
-          sh 'npm run build-dev'
+    // stage('Build application') {
+    //   steps {
+    //     script {
+    //       sh 'chmod -R +x node_modules/.bin/'
+    //       sh 'npm run build-dev'
           
           
-        }
-      }
-    }
+    //     }
+    //   }
+    // }
     stage('SonarQube Analysis') {
       steps {
         script {
