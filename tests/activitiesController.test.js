@@ -1,24 +1,5 @@
-const request = require('supertest');
-const express = require('express');
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
-const jwt = require('jsonwebtoken');
 const axios = require('axios');
-
-// Import controllers
-const activitiesController = require('../controller/activitiesController');
-
-// Import mock MongoDB
-const mongodbMemoryServerConfig = {
-  binary: {
-    version: '4.4.1', // Use a version that works with your environment
-    skipMD5: true,
-  },
-  instance: {
-    dbName: 'jest',
-  },
-  autoStart: false,
-};
 
 // Mock axios
 jest.mock('axios');
@@ -30,54 +11,19 @@ jest.mock('jsonwebtoken', () => ({
 }));
 
 describe('Activities Controller', () => {
-  let app;
-  let mongoServer;
   let mockDb;
   let User;
   let Activity;
   let Category;
 
-  beforeAll(async () => {
-    try {
-      // Create MongoDB Memory Server with custom configuration
-      mongoServer = await MongoMemoryServer.create(mongodbMemoryServerConfig);
-      const mongoUri = mongoServer.getUri();
-      await mongoose.connect(mongoUri);
-
-      // Get mockDb and models from our mock implementation
-      const mockModels = require('./mockMongoDb');
-      mockDb = mockModels.mockDb;
-      User = mockModels.User;
-      Activity = mockModels.Activity;
-      Category = mockModels.Category;
-
-      app = express();
-      app.use(express.json());
-
-      // Set up routes for testing
-      app.get('/activities/favorites/:id', activitiesController.getFavoriteActivities);
-      app.post('/activities/favorite/:id', activitiesController.toggleFavoriteActivity);
-      app.delete('/activities/favorites/:id', activitiesController.clearFavoriteActivities);
-      app.post('/activities/generate-description', activitiesController.generateDescription);
-      app.post('/activities/generate-title', activitiesController.generateTitle);
-      app.post('/activities/:id', activitiesController.addActivity);
-      app.get('/activities/:id', activitiesController.getActivityById);
-      app.put('/activities/:id/:activityId', activitiesController.updateActivity);
-      app.put('/categories/:id', activitiesController.updateCategory);
-      app.delete('/activities/:id/:activityId', activitiesController.deleteActivity);
-      app.put('/activities/:id/:activityId/archive', activitiesController.archiveActivity);
-    } catch (error) {
-      console.error('Failed to start MongoDB Memory Server:', error);
-      throw error; // Re-throw to fail the test if we can't set up the database
-    }
-  });
-
-  afterAll(async () => {
-    await mongoose.disconnect();
-    await mongoServer.stop();
-  });
-
   beforeEach(() => {
+    // Get mockDb and models from our mock implementation
+    const mockModels = require('./mockMongoDb');
+    mockDb = mockModels.mockDb;
+    User = mockModels.User;
+    Activity = mockModels.Activity;
+    Category = mockModels.Category;
+
     // Clear mockDb collections before each test
     mockDb.users = [];
     mockDb.activities = [];
