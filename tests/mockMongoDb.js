@@ -7,7 +7,8 @@ const mockDb = {
   chats: [],
   appointments: [],
   notifications: [],
-  publications: [] // Ajout du tableau pour les publications
+  publications: [], // Ajout du tableau pour les publications
+  commentaires: [] // Ajout du tableau pour les commentaires
 };
 
 class MockMongoMemoryServer {
@@ -29,6 +30,7 @@ class MockMongoMemoryServer {
     mockDb.appointments = [];
     mockDb.notifications = [];
     mockDb.publications = []; // Vider aussi les publications
+    mockDb.commentaires = []; // Vider aussi les commentaires
   }
 
   getUri() {
@@ -281,6 +283,7 @@ const Chat = createModelConstructor('chat', chatModel);
 const Appointment = createModelConstructor('appointment', appointmentModel);
 const Notification = createModelConstructor('notification', notificationModel);
 const Publication = createModelConstructor('publication', createMockModel('publications'));
+const Commentaire = createModelConstructor('commentaire', createMockModel('commentaires'));
 
 // Override mongoose.model to return our mock models
 mongoose.model = jest.fn().mockImplementation((name) => {
@@ -295,6 +298,8 @@ mongoose.model = jest.fn().mockImplementation((name) => {
       return Notification;
     case 'publication':
       return Publication;
+    case 'commentaire':
+      return Commentaire;
     default:
       const mockModel = createMockModel(name.toLowerCase() + 's');
       return createModelConstructor(name, mockModel);
@@ -309,5 +314,6 @@ module.exports = {
   Chat,
   Appointment,
   Notification,
-  Publication
+  Publication,
+  Commentaire
 };
