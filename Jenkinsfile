@@ -3,7 +3,6 @@ pipeline {
 
    environment {
             DOCKER_CREDENTIALS_ID = credentials('docker-hub-credentials')
-            DOCKER_IMAGE = 'mohamedoussemaboussida/nodemongoapp:6.0' // Remplacez 'yourusername' par votre nom d'utilisateur Docker Hub
     }
 
   stages {
@@ -83,24 +82,7 @@ stage('Unit Test') {
         }
       }
     }
-    // Building Docker images
-stage('Building image') {
-steps{
-script {
-sh 'docker build -t ${DOCKER_IMAGE} .'
-}
-}
-}
-stage('Docker Login') {
-  steps {
-  sh 'echo $DOCKER_CREDENTIALS_ID_PSW | docker login -u $DOCKER_CREDENTIALS_ID_USR --password-stdin'
-  }
-}
-stage('Push Docker Image') {
-  steps {
-    sh 'docker push ${DOCKER_IMAGE}'
-  }
-}
+// WARNING : LA CREATION DES IMAGES DOCKER ET RUN CONTAINER SE FAIT SUR DOCKERDESKTOP 
 
   }
 }

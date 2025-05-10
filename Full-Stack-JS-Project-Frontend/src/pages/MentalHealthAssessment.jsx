@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
@@ -22,6 +22,7 @@ const MentalHealthAssessment = () => {
     anxietyScore: 3,
     depressionScore: 3
   });
+  // We don't need to store userData separately since we're using it immediately
 
   // Get user data on component mount
   useEffect(() => {
@@ -36,9 +37,8 @@ const MentalHealthAssessment = () => {
 
         console.log('Fetching user data with token:', token); // Debug log
 
-        // The /users/me endpoint only returns limited info (username, role, user_photo)
-        // We'll use default values for the form instead
-        const response = await axios.get('http://localhost:5000/users/me', {
+        // First get basic user info
+        const basicResponse = await axios.get('http://localhost:5000/users/me', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -46,13 +46,38 @@ const MentalHealthAssessment = () => {
           withCredentials: true
         });
 
-        console.log('User data:', response.data); // Debug log
+        console.log('Basic user data:', basicResponse.data); // Debug log
 
-        // Set default values for the form
+        // Then get detailed user info including dob
+        const userId = basicResponse.data._id;
+        const detailedResponse = await axios.get(`http://localhost:5000/users/session/${userId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          withCredentials: true
+        });
+
+        console.log('Detailed user data:', detailedResponse.data); // Debug log
+
+        // Calculate age from date of birth
+        let calculatedAge = '';
+        if (detailedResponse.data.dob) {
+          const today = new Date();
+          const birthDate = new Date(detailedResponse.data.dob);
+          let age = today.getFullYear() - birthDate.getFullYear();
+          const monthDiff = today.getMonth() - birthDate.getMonth();
+          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+          }
+          calculatedAge = age;
+        }
+
+        // Set values for the form
         setFormData(prevData => ({
           ...prevData,
-          age: 20, // Default age
-          course: response.data?.speciality || 'Computer Science' // Default course
+          age: calculatedAge || 20, // Use calculated age or default to 20
+          course: detailedResponse.data?.speciality || 'Computer Science' // Use speciality or default
         }));
 
         // Show a message to the user
@@ -188,11 +213,11 @@ const MentalHealthAssessment = () => {
                       id="age"
                       name="age"
                       value={formData.age}
-                      onChange={handleChange}
-                      required
-                      min="18"
-                      max="100"
+                      readOnly
+                      disabled
+                      title="Age is automatically calculated from your date of birth"
                     />
+                    <small className="text-muted">Calculated from your date of birth</small>
                   </div>
                   <div className="col-md-6 mb-3">
                     <label htmlFor="course" className="form-label">Course/Speciality</label>
