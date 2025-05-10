@@ -27,6 +27,7 @@ const EventDetails = () => {
   const [loadedImages, setLoadedImages] = useState({});
   const [locationDetails, setLocationDetails] = useState('');
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
   // Define ImageWithFallback component
   const ImageWithFallback = ({ src, alt, fallback, ...props }) => {
@@ -427,30 +428,45 @@ const EventDetails = () => {
 
   const fetchLocationDetails = async () => {
     try {
-      const location = event.event_type === 'in-person' ? event.localisation : event.online_link;
+      const token = localStorage.getItem("jwt-token");
+      if (!token) {
+        toast.error("Please log in to access location details", { autoClose: 3000 });
+        setTimeout(() => navigate("/login"), 3000);
+        return;
+      }
+
+      if (event.event_type !== 'in-person') {
+        toast.info("Location details are not applicable for online events", { autoClose: 3000 });
+        return;
+      }
+
+      const location = event.localisation;
       if (!location) {
         toast.error("No location information available", { autoClose: 3000 });
         return;
       }
-  
+
+      setIsFetchingLocation(true);
       const response = await axios.post(
         `${BASE_URL}/events/xai-location`,
         {
           location,
           title: event.title,
-          date: formatDate(event.start_date)
+          date: formatDate(event.start_date),
+          bypassCache: true, // Temporary: Bypass cache to ensure fresh API call
         },
         {
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${localStorage.getItem("jwt-token")}`
+            Authorization: `Bearer ${token}`,
           },
-          timeout: 10000
+          timeout: 10000,
         }
       );
-  
-      console.log('Backend xAI Response:', response.data);
-      const details = response.data.choices[0].message.content || 'No additional details provided by the AI.';
+
+      console.log('Backend xAI Response:', JSON.stringify(response.data, null, 2));
+      const details = response.data.choices?.[0]?.message?.content || 'No additional details provided.';
+      console.log('Location Details:', details);
       setLocationDetails(details);
       setShowLocationModal(true);
       toast.success("Location details fetched successfully!", { autoClose: 2000 });
@@ -460,16 +476,15 @@ const EventDetails = () => {
       if (error.response) {
         console.error("Backend Error Response:", error.response.data);
         errorMessage = error.response.data?.message || `Error ${error.response.status}: ${error.response.statusText}`;
-        if (error.response.status === 403 && error.response.data.error === 'jwt expired') {
+        if (error.response.status === 401 || error.response.status === 403) {
           toast.error("Your session has expired. Please log in again.", { autoClose: 3000 });
           localStorage.removeItem("jwt-token");
           setTimeout(() => navigate("/login"), 3000);
           return;
-        } else if (error.response.data.message === 'Authentication error with xAI API. Check API key.') {
-          errorMessage = "Unable to fetch location details due to an xAI API issue. Please try again later or contact support.";
-          console.error("xAI API Error Details:", error.response.data.error);
-        } else if (error.response.data.message === 'xAI API rate limit exceeded. Please try again later.') {
-          errorMessage = "Rate limit exceeded for location details. Please try again later.";
+        } else if (error.response.status === 429) {
+          errorMessage = "Rate limit exceeded. Please try again later.";
+        } else if (error.response.status === 404) {
+          errorMessage = "Location not found. Please check the location name.";
         }
       } else if (error.request) {
         errorMessage = "No response from server. Check your network connection.";
@@ -477,9 +492,11 @@ const EventDetails = () => {
         errorMessage = error.message;
       }
       toast.error(errorMessage, { autoClose: 5000 });
+    } finally {
+      setIsFetchingLocation(false);
     }
   };
-    
+
   if (loading) return <div className="text-center py-5">Loading...</div>;
   if (!event) return <div className="text-center py-5">Event not found</div>;
 
@@ -794,8 +811,22 @@ const EventDetails = () => {
                           <button onClick={handleShareOnFacebook} className="theme-btn me-2" style={{ backgroundColor: '#3b5998',borderRadius:"50px" }}>
                             Share on FB <i className="fab fa-facebook-f"></i>
                           </button>
-                          <button onClick={fetchLocationDetails} className="theme-btn me-2" style={{ backgroundColor: '#28a745' }}>
-                            Location AI <i className="fas fa-map-marked-alt"></i>
+                          <button 
+                            onClick={fetchLocationDetails} 
+                            className="theme-btn me-2" 
+                            style={{ backgroundColor: '#28a745' }}
+                            disabled={isFetchingLocation}
+                          >
+                            {isFetchingLocation ? (
+                              <>
+                                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                Loading...
+                              </>
+                            ) : (
+                              <>
+                                Location AI <i className="fas fa-map-marked-alt"></i>
+                              </>
+                            )}
                           </button>
                           {isCreator && !isEditing && (
                             <>

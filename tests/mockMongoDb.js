@@ -1,9 +1,14 @@
 // Mock MongoDB Memory Server for environments where it can't be installed
 const mongoose = require('mongoose');
+const event = require('../model/event');
 
 // In-memory data store for our mock database
 const mockDb = {
-  users: [],
+users: [],
+  events: [],
+  associations: [],
+  tickets: [],
+  locationCaches: [],
   chats: [],
   appointments: [],
   notifications: [],
@@ -41,6 +46,8 @@ class MockMongoMemoryServer {
     mockDb.chats = [];
     mockDb.appointments = [];
     mockDb.notifications = [];
+    mockDb.events = [];
+    mockDb.associations = [];
     mockDb.publications = []; // Vider aussi les publications
     mockDb.commentaires = []; // Vider aussi les commentaires
     mockDb.reportPublications = []; // Vider aussi les signalements de publications
@@ -320,7 +327,7 @@ const Report = createModelConstructor('report', createMockModel('forumReports'))
 const ForumBan = createModelConstructor('forumBan', createMockModel('forumBans'));
 const Complaint = createModelConstructor('complaint', createMockModel('complaints'));
 const ComplaintResponse = createModelConstructor('complaintResponse', createMockModel('complaintResponses'));
-
+const Event = createModelConstructor('event', createMockModel('events'));
 // Override mongoose.model to return our mock models
 mongoose.model = jest.fn().mockImplementation((name) => {
   switch (name.toLowerCase()) {
@@ -360,6 +367,8 @@ mongoose.model = jest.fn().mockImplementation((name) => {
       return Complaint;
     case 'complaintresponse':
       return ComplaintResponse;
+      case 'event':
+      return Event;
     default:
       const mockModel = createMockModel(name.toLowerCase() + 's');
       return createModelConstructor(name, mockModel);
@@ -372,6 +381,7 @@ module.exports = {
   mockDb,
   User,
   Chat,
+  event,
   Appointment,
   Notification,
   Publication,
