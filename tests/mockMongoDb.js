@@ -263,6 +263,7 @@ const userModel = createMockModel('users');
 const chatModel = createMockModel('chats');
 const appointmentModel = createMockModel('appointments');
 const notificationModel = createMockModel('notifications');
+const eventModel = createMockModel('events');
 
 // Create constructor functions for models
 function createModelConstructor(modelName, mockModel) {
@@ -327,8 +328,7 @@ const Report = createModelConstructor('report', createMockModel('forumReports'))
 const ForumBan = createModelConstructor('forumBan', createMockModel('forumBans'));
 const Complaint = createModelConstructor('complaint', createMockModel('complaints'));
 const ComplaintResponse = createModelConstructor('complaintResponse', createMockModel('complaintResponses'));
-const Event = createModelConstructor('event', createMockModel('events'));
-// Override mongoose.model to return our mock models
+const Event = createModelConstructor('Event', eventModel);// Override mongoose.model to return our mock models
 mongoose.model = jest.fn().mockImplementation((name) => {
   switch (name.toLowerCase()) {
     case 'user':

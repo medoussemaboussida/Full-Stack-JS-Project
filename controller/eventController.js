@@ -18,9 +18,7 @@ console.log("JWT_SECRET dans eventController:", JWT_SECRET);
 
 // Clé API Google Maps depuis .env
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
-if (!GOOGLE_MAPS_API_KEY) {
-  console.warn("⚠️ GOOGLE_MAPS_API_KEY is not set in .env");
-}
+
 
 // Configuration de Multer
 const storage = multer.diskStorage({
