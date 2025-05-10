@@ -203,6 +203,9 @@ const Navbar = () => {
                                                 <li><a className="dropdown-item" href="/Exercices">Breathing Exercises</a></li>
                                                 <li><a className="dropdown-item" href="/SleepCalculator">Sleep Calculator</a></li>
                                                 <li><a className="dropdown-item" href="/list-problems">Problem Management</a></li>
+                                                <li><hr className="dropdown-divider" /></li>
+                                                <li><a className="dropdown-item" href="/mental-health-assessment">Mental Health Assessment</a></li>
+                                                <li><a className="dropdown-item" href="/mental-health-dashboard">Mental Health Dashboard</a></li>
                                             </ul>
                                         </li>
                                     ) : (

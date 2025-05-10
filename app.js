@@ -26,6 +26,7 @@ var complaintRouter = require('./routes/complaint');
 var complaintResponseRouter = require('./routes/complaintResponse');
 const associationRoutes = require('./routes/association');
 const eventRoutes = require('./routes/event');
+const mentalHealthRoutes = require('./routes/mentalHealth');
 const Appointment = require("./model/appointment");
 const Notification = require('./model/Notification'); // Adjust path to your Notification model
 const nodemailer = require('nodemailer'); // Add this line
@@ -103,6 +104,7 @@ app.use('/complaint',complaintRouter);
 app.use('/complaintResponse',complaintResponseRouter);
 app.use('/association', associationRoutes);
 app.use('/events', eventRoutes);
+app.use('/mental-health', mentalHealthRoutes);
 
 //mailing
 // Email transporter configuration
@@ -137,21 +139,21 @@ const sendReminderEmail = async (userEmail, activities, note, date) => {
           box-shadow: 0 0 10px rgba(0,0,0,0.15);
         ">
           <h2 style="color:#007bff; text-align:center;">Your Schedule for ${date}</h2>
-          
+
           <h3 style="font-size:18px;color:#333;margin-top:20px;">Scheduled Activities:</h3>
           ${activities.length > 0 ? `
             <ul style="font-size:15px;color:#333;line-height:1.6;">
               ${activities.map((activity) => `<li>${activity.title} ${activity.completed ? '(✅ Completed)' : ''}</li>`).join('')}
             </ul>
           ` : '<p style="font-size:15px;color:#333;">No activities scheduled for today.</p>'}
-          
+
           <h3 style="font-size:18px;color:#333;margin-top:20px;">Your Note:</h3>
           ${note ? `
             <p style="font-size:15px;color:#333;line-height:1.6;">${note}</p>
           ` : '<p style="font-size:15px;color:#333;">No note for today.</p>'}
-          
+
           <p style="font-size:16px;color:#333;margin-top:20px;">Have a great day!</p>
-  
+
           <hr style="margin:30px 0;">
           <p style="font-size:14px;text-align:center;">
             Cordialement,<br>
@@ -165,7 +167,7 @@ const sendReminderEmail = async (userEmail, activities, note, date) => {
       </div>
     `,
   };
-  
+
   try {
     await transporter.sendMail(mailOptions);
     console.log(`Reminder email sent to ${userEmail}`);
@@ -184,7 +186,7 @@ const sendDailyReminders = async () => {
       // Fetch schedule
       const schedule = await Schedule.findOne({ userId: user._id, date: today });
       const activityDetails = [];
-      
+
       if (schedule && schedule.activities.length > 0) {
         activityDetails.push(...await Promise.all(
           schedule.activities.map(async (sched) => {
@@ -224,13 +226,15 @@ async function generateHashedPassword() {
 
 
 
-//GITHUB CONFIG 
+//GITHUB CONFIG
 // Configuration de Passport GitHub OAuth
 const axios = require("axios");
 const Association = require('./model/association');
 
-passport.use(
-  new GithubStrategy(
+// Only configure GitHub strategy if credentials are available
+if (process.env.GIT_CLIENT_ID && process.env.GIT_CLIENT_SECRET) {
+  passport.use(
+    new GithubStrategy(
       {
           clientID: process.env.GIT_CLIENT_ID,
           clientSecret: process.env.GIT_CLIENT_SECRET,
@@ -285,8 +289,9 @@ passport.use(
               return done(error, null);
           }
       }
-  )
-);
+    )
+  );
+}
 
 
 
@@ -400,21 +405,21 @@ app.get(
 "/auth/google/callback",
 passport.authenticate("google", { failureRedirect: "/" }),
 async (req, res) => {
-  
+
      try{
       const { id, displayName, emails, photos} = req.user;
         console.log("email :",emails)
       const existingUser = await userModel.findOne({ email: emails[0].value });
-      
+
 
       if (existingUser) {
-         const token = createTokenGoogle(existingUser.id); 
-         const verificationUrl = `http://localhost:3000/verify-account/${token}`; 
+         const token = createTokenGoogle(existingUser.id);
+         const verificationUrl = `http://localhost:3000/verify-account/${token}`;
          existingUser.validationToken = token;
          await existingUser.save();
          res.redirect(verificationUrl);
       }
-      else 
+      else
       {
 
 
@@ -431,8 +436,8 @@ async (req, res) => {
           isGoogleAuth: true, // Mark as Google authenticated
           // ✅ Âge 19 ans
         });
-         const token = createTokenGoogle(newUser.id); 
-         const verificationUrl = `http://localhost:3000/verify-account/${token}`; 
+         const token = createTokenGoogle(newUser.id);
+         const verificationUrl = `http://localhost:3000/verify-account/${token}`;
          newUser.validationToken = token;
          await newUser.save();
          res.redirect(verificationUrl);
