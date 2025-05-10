@@ -2,9 +2,8 @@ pipeline {
   agent any
 
    environment {
-        NEXUS_URL = 'http://192.168.50.4:8081/repository/npm-hosted/'
-        NEXUS_USERNAME = 'admin'
-        NEXUS_PASSWORD = 'nexus'
+            DOCKER_CREDENTIALS_ID = credentials('docker-hub-credentials')
+            DOCKER_IMAGE = 'mohamedoussemaboussida/nodemongoapp:6.0' // Remplacez 'yourusername' par votre nom d'utilisateur Docker Hub
     }
 
   stages {
@@ -84,14 +83,7 @@ stage('Unit Test') {
         }
       }
     }
-    // Building Docker images
-stage('Building images (node and mongo)') {
-steps{
-script {
-sh('docker-compose build')
-}
-}
-}
+// WARNING : LA CREATION DES IMAGES DOCKER SE FAIT SUR LOCAL 
 
   }
 }
