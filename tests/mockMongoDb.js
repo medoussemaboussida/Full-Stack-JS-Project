@@ -18,7 +18,9 @@ const mockDb = {
   forums: [], // Ajout du tableau pour les forums
   forumComments: [], // Ajout du tableau pour les commentaires de forum
   forumReports: [], // Ajout du tableau pour les signalements de forum
-  forumBans: [] // Ajout du tableau pour les bannissements de forum
+  forumBans: [], // Ajout du tableau pour les bannissements de forum
+  complaints: [], // Ajout du tableau pour les réclamations
+  complaintResponses: [] // Ajout du tableau pour les réponses aux réclamations
 };
 
 class MockMongoMemoryServer {
@@ -51,6 +53,8 @@ class MockMongoMemoryServer {
     mockDb.forumComments = []; // Vider aussi les commentaires de forum
     mockDb.forumReports = []; // Vider aussi les signalements de forum
     mockDb.forumBans = []; // Vider aussi les bannissements de forum
+    mockDb.complaints = []; // Vider aussi les réclamations
+    mockDb.complaintResponses = []; // Vider aussi les réponses aux réclamations
   }
 
   getUri() {
@@ -314,6 +318,8 @@ const Forum = createModelConstructor('forum', createMockModel('forums'));
 const ForumComment = createModelConstructor('forumComment', createMockModel('forumComments'));
 const Report = createModelConstructor('report', createMockModel('forumReports'));
 const ForumBan = createModelConstructor('forumBan', createMockModel('forumBans'));
+const Complaint = createModelConstructor('complaint', createMockModel('complaints'));
+const ComplaintResponse = createModelConstructor('complaintResponse', createMockModel('complaintResponses'));
 
 // Override mongoose.model to return our mock models
 mongoose.model = jest.fn().mockImplementation((name) => {
@@ -350,6 +356,10 @@ mongoose.model = jest.fn().mockImplementation((name) => {
       return Report;
     case 'forumban':
       return ForumBan;
+    case 'complaint':
+      return Complaint;
+    case 'complaintresponse':
+      return ComplaintResponse;
     default:
       const mockModel = createMockModel(name.toLowerCase() + 's');
       return createModelConstructor(name, mockModel);
@@ -375,5 +385,7 @@ module.exports = {
   Forum,
   ForumComment,
   Report,
-  ForumBan
+  ForumBan,
+  Complaint,
+  ComplaintResponse
 };
