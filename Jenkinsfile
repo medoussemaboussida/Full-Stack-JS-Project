@@ -83,6 +83,20 @@ stage('Unit Test') {
       }
     }
 // WARNING : LA CREATION DES IMAGES DOCKER ET RUN CONTAINER SE FAIT SUR DOCKERDESKTOP 
+    stage('Run Prometheus') {
+      steps {
+        script {
+          sh 'docker start prometheus || true'
+        }
+      }
+    }
 
+    stage('Run Grafana') {
+      steps {
+        script {
+          sh 'docker start grafana || true'
+        }
+      }
+    }
   }
 }
