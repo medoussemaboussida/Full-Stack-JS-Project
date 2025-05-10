@@ -1563,3 +1563,80 @@ exports.getEventsByUser = async (req, res) => {
     console.timeEnd("getEventsByUser");
   }
 };
+
+exports.getLocationDetails = async (req, res) => {
+  console.time("getLocationDetails");
+  try {
+    const { location, title, date } = req.body;
+
+    if (!location || !title || !date) {
+      console.log("Missing required fields:", { location, title, date });
+      return res.status(400).json({ message: "Location, title, and date are required" });
+    }
+
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    if (!OPENAI_API_KEY) {
+      console.error("OPENAI_API_KEY is not set in .env");
+      return res.status(500).json({ message: "Server configuration error: Missing OpenAI API key" });
+    }
+
+    console.log("Calling OpenAI API with:", { location, title, date });
+
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4o-mini', // Cost-effective model
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful assistant providing detailed location information.'
+          },
+          {
+            role: 'user',
+            content: `Provide detailed information about the location "${location}" for the event titled "${title}" held on ${date}. Include details like nearby amenities, accessibility, or virtual platform features if online.`
+          }
+        ],
+        max_tokens: 500,
+        temperature: 0.7
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${OPENAI_API_KEY}`
+        },
+        timeout: 10000
+      }
+    );
+
+    console.log('OpenAI API response received:', response.data);
+    res.status(200).json(response.data);
+  } catch (error) {
+    console.error("Error in getLocationDetails:", {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+      headers: error.response?.headers
+    });
+
+    if (error.response) {
+      let message = "Error from OpenAI API";
+      if (error.response.status === 401 || error.response.status === 403) {
+        message = "Authentication error with OpenAI API. Check API key.";
+      } else if (error.response.status === 429) {
+        message = "OpenAI API rate limit exceeded. Please try again later.";
+      } else if (error.response.status >= 500) {
+        message = "OpenAI API server error. Please try again later.";
+      }
+      res.status(error.response.status).json({
+        message,
+        error: error.response.data || error.message
+      });
+    } else if (error.request) {
+      res.status(504).json({ message: "No response from OpenAI API. Check network or API status." });
+    } else {
+      res.status(500).json({ message: "Internal server error", error: error.message });
+    }
+  } finally {
+    console.timeEnd("getLocationDetails");
+  }
+};

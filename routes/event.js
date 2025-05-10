@@ -88,5 +88,5 @@ router.post("/stories/replies/:storyId",userController.verifyToken ,eventControl
 //router.get("/checkPartnerParticipation/:eventId", userController.verifyToken, eventController.checkPartnerParticipation); // Ajouté
 
 router.get('/getEventsByUser/:userId', userController.verifyToken , eventController.getEventsByUser);
-
+router.post('/xai-location', userController.verifyToken, eventController.getLocationDetails);
 module.exports = router;

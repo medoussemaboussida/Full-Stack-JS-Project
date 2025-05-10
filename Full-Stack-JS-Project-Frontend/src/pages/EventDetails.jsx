@@ -25,6 +25,22 @@ const EventDetails = () => {
   const [showParticipants, setShowParticipants] = useState(false);
   const [promoContent, setPromoContent] = useState('');
   const [loadedImages, setLoadedImages] = useState({});
+  const [locationDetails, setLocationDetails] = useState('');
+  const [showLocationModal, setShowLocationModal] = useState(false);
+
+  // Define ImageWithFallback component
+  const ImageWithFallback = ({ src, alt, fallback, ...props }) => {
+    const [imgSrc, setImgSrc] = useState(src);
+
+    return (
+      <img 
+        src={imgSrc} 
+        alt={alt}
+        onError={() => setImgSrc(fallback)}
+        {...props}
+      />
+    );
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
@@ -356,10 +372,10 @@ const EventDetails = () => {
   const handleShareOnFacebook = async () => {
     try {
       const pageId = '239959405871715';
-      const accessToken = 'EAAERIQJ4OLsBOyFLCXOZC6kRSJorQl5sFtGXXDLZCleXNNm400sq7H0ZB8HAzPjs1hL6ereJweE2gGtaZAgw3XhOKrFymMX5sYu1lCs962rE8bsvdCig5DiAipkmoZAaGbsJqFbLRW0JaHaLp8FGMwHec691FC9mYAilEQgbfPnZADfARmLVkeXKB26UAgTR0ZD';
+      const accessToken = 'EAAERIQJ4OLsBO3J726ZAhwQbArFVaktUmoqRUG31WSbWyTZBA0q8KX62LBhx4y2lkG2HgdZAQBqnOZCMYNU2uCPnoZB5Czs4UCZA3k12ls0r08U3Ct3OpoPoQ91ZAKvRhoffm7xPgYCZAlCpqoJX3gaXdrZAXjXd4HZBzJ5NOXpiM9zAwGbM8S7e9YeliiZAkOMUY7GV1ZCGUKWuFYWaYDhFUK0szqAZD';
 
       if (!accessToken) {
-        throw new Error("Facebook access token is missing.");
+        throw new Error('Facebook access token is missing.');
       }
 
       const message = `${event.title}\n\n${event.description || 'Check out this event!'}\n\nDate: ${formatDate(event.start_date)} at ${event.heure || 'TBD'}\nLocation: ${event.event_type === 'in-person' ? event.lieu || 'TBD' : event.online_link || 'Online'}\n\nVisit our website for more details!`;
@@ -370,20 +386,22 @@ const EventDetails = () => {
       };
 
       const postResponse = await axios.post(
-        `https://graph.facebook.com/v20.0/${pageId}/feed`,
+        `https://graph.facebook.com/v22.0/${pageId}/feed`,
         postData,
         {
           headers: {
             'Content-Type': 'application/json',
           },
+          timeout: 10000,
         }
       );
 
       console.log('Post created successfully:', postResponse.data);
-      toast.success("Event shared successfully on your Facebook page!", { autoClose: 2000 });
+      toast.success('Event shared successfully on your Facebook page!', { autoClose: 2000 });
     } catch (error) {
-      console.error("Error sharing on Facebook:", error.response?.data || error.message);
-      toast.error("Failed to share event on Facebook: " + (error.response?.data?.error?.message || error.message), { autoClose: 3000 });
+      console.error('Full error response:', JSON.stringify(error.response?.data, null, 2));
+      const errorMessage = error.response?.data?.error?.message || error.message;
+      toast.error(`Failed to share event on Facebook: ${errorMessage}`, { autoClose: 3000 });
     }
   };
 
@@ -407,19 +425,61 @@ const EventDetails = () => {
     }
   };
 
-  const ImageWithFallback = ({ src, alt, fallback, ...props }) => {
-    const [imgSrc, setImgSrc] = useState(src);
-
-    return (
-      <img 
-        src={imgSrc} 
-        alt={alt}
-        onError={() => setImgSrc(fallback)}
-        {...props}
-      />
-    );
+  const fetchLocationDetails = async () => {
+    try {
+      const location = event.event_type === 'in-person' ? event.localisation : event.online_link;
+      if (!location) {
+        toast.error("No location information available", { autoClose: 3000 });
+        return;
+      }
+  
+      const response = await axios.post(
+        `${BASE_URL}/events/xai-location`,
+        {
+          location,
+          title: event.title,
+          date: formatDate(event.start_date)
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem("jwt-token")}`
+          },
+          timeout: 10000
+        }
+      );
+  
+      console.log('Backend xAI Response:', response.data);
+      const details = response.data.choices[0].message.content || 'No additional details provided by the AI.';
+      setLocationDetails(details);
+      setShowLocationModal(true);
+      toast.success("Location details fetched successfully!", { autoClose: 2000 });
+    } catch (error) {
+      console.error("Error fetching location details:", error);
+      let errorMessage = "Failed to fetch location details";
+      if (error.response) {
+        console.error("Backend Error Response:", error.response.data);
+        errorMessage = error.response.data?.message || `Error ${error.response.status}: ${error.response.statusText}`;
+        if (error.response.status === 403 && error.response.data.error === 'jwt expired') {
+          toast.error("Your session has expired. Please log in again.", { autoClose: 3000 });
+          localStorage.removeItem("jwt-token");
+          setTimeout(() => navigate("/login"), 3000);
+          return;
+        } else if (error.response.data.message === 'Authentication error with xAI API. Check API key.') {
+          errorMessage = "Unable to fetch location details due to an xAI API issue. Please try again later or contact support.";
+          console.error("xAI API Error Details:", error.response.data.error);
+        } else if (error.response.data.message === 'xAI API rate limit exceeded. Please try again later.') {
+          errorMessage = "Rate limit exceeded for location details. Please try again later.";
+        }
+      } else if (error.request) {
+        errorMessage = "No response from server. Check your network connection.";
+      } else {
+        errorMessage = error.message;
+      }
+      toast.error(errorMessage, { autoClose: 5000 });
+    }
   };
-
+    
   if (loading) return <div className="text-center py-5">Loading...</div>;
   if (!event) return <div className="text-center py-5">Event not found</div>;
 
@@ -734,6 +794,9 @@ const EventDetails = () => {
                           <button onClick={handleShareOnFacebook} className="theme-btn me-2" style={{ backgroundColor: '#3b5998' }}>
                             Share on FB <i className="fab fa-facebook-f"></i>
                           </button>
+                          <button onClick={fetchLocationDetails} className="theme-btn me-2" style={{ backgroundColor: '#28a745' }}>
+                            Location AI <i className="fas fa-map-marked-alt"></i>
+                          </button>
                           {isCreator && !isEditing && (
                             <>
                               <button onClick={handleUpdate} className="theme-btn me-2">
@@ -832,6 +895,35 @@ const EventDetails = () => {
           </div>
         </div>
       </div>
+
+      {showLocationModal && (
+        <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
+          <div className="modal-dialog modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Location Details</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowLocationModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <p>{locationDetails}</p>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="theme-btn"
+                  onClick={() => setShowLocationModal(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ToastContainer />
     </>
