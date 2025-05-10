@@ -1,20 +1,28 @@
-# Étape 1 : utiliser une image officielle Node.js
-FROM node:18
+# Étape 1 : Build stage (construire l'application Node.js)
+FROM node:18 AS build
 
-# Étape 2 : définir le dossier de travail dans le conteneur
+# Définir le répertoire de travail
 WORKDIR /app
 
-# Étape 3 : copier les fichiers package.json et package-lock.json
+# Copier les fichiers package.json et package-lock.json pour installer les dépendances
 COPY package*.json ./
 
-# Étape 4 : installer les dépendances
+# Installer les dépendances
 RUN npm install
-
-# Étape 5 : copier le reste des fichiers du projet
+# Copier le reste des fichiers de l'application
 COPY . .
 
-# Étape 6 : exposer le port (ex : 5000 si ton app écoute sur ce port)
+# Étape 2 : Run stage (exécuter l'application)
+FROM node:18-slim
+
+# Définir le répertoire de travail
+WORKDIR /app
+
+# Copier les fichiers construits depuis l'étape de build
+COPY --from=build /app /app
+
+# Exposer le port 8500 (port de ton application Node.js)
 EXPOSE 5000
 
-# Étape 7 : lancer l'application
-CMD ["npm", "start"]
+# Commande pour démarrer l'application
+CMD ["node", "app.js"]
