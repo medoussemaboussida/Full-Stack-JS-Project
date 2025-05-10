@@ -3,7 +3,6 @@ pipeline {
 
    environment {
             DOCKER_CREDENTIALS_ID = credentials('docker-hub-credentials')
-            DOCKER_IMAGE = 'mohamedoussemaboussida/nodemongoapp:6.0' // Remplacez 'yourusername' par votre nom d'utilisateur Docker Hub
     }
 
   stages {
@@ -83,7 +82,17 @@ stage('Unit Test') {
         }
       }
     }
-// WARNING : LA CREATION DES IMAGES DOCKER SE FAIT SUR LOCAL 
+// WARNING : LA CREATION DES IMAGES DOCKER SE FAIT SUR DOCKERDESKTOP >> PUSH TO DOCKER HUB
+   stage('Docker Login') {
+            steps {
+                sh 'echo $DOCKER_CREDENTIALS_ID_PSW | docker login -u $DOCKER_CREDENTIALS_ID_USR --password-stdin'
+            }
+        }
+        stage("Docker Compose") {
+            steps {
+                sh 'docker compose up -d'
+            }
+        }
 
   }
 }
