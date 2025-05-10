@@ -82,17 +82,7 @@ stage('Unit Test') {
         }
       }
     }
-// WARNING : LA CREATION DES IMAGES DOCKER SE FAIT SUR DOCKERDESKTOP >> PUSH TO DOCKER HUB
-   stage('Docker Login') {
-            steps {
-                sh 'echo $DOCKER_CREDENTIALS_ID_PSW | docker login -u $DOCKER_CREDENTIALS_ID_USR --password-stdin'
-            }
-        }
-        stage("Docker Compose") {
-            steps {
-                sh 'docker compose up -d'
-            }
-        }
+// WARNING : LA CREATION DES IMAGES DOCKER ET RUN CONTAINER SE FAIT SUR DOCKERDESKTOP 
 
   }
 }
