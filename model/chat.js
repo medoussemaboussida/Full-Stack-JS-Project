@@ -8,6 +8,8 @@ const chatSchema = new mongoose.Schema({
   encryptedMessage: { type: String },
   iv: { type: String },
   voiceMessage: { type: String },
+  isQuestionnaireLink: { type: Boolean, default: false }, // New field for questionnaire links
+
   isVoice: { type: Boolean, default: false },
 }, { timestamps: true });
 

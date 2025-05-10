@@ -1,3 +1,5 @@
+const mongoose = require('mongoose');
+
 const User = require('../model/user');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -14,6 +16,8 @@ const AttendanceSheet = require('../model/attendanceSheet'); // Add Problem mode
 const Solution = require('../model/Solution'); // Adjust path to your Solution model
 const axios = require('axios');
 const Notification = require('../model/Notification'); // Import the new Notification model
+const QuestionnaireResponse = require('../model/QuestionnaireResponse');
+
 
 const { v4: uuidv4 } = require('uuid');
 const cron = require('node-cron'); 
@@ -2876,13 +2880,14 @@ module.exports.getAllAppointments = async (req, res) => {
 // Send a message
 module.exports.sendMessage = async (req, res) => {
     try {
-      const { roomCode, encryptedMessage, iv, voiceMessage, isVoice } = req.body;
+      const { roomCode, encryptedMessage, iv, voiceMessage, isVoice, isQuestionnaireLink } = req.body;
       console.log('Received payload:', {
         roomCode,
         encryptedMessage,
         iv,
         voiceMessageLength: voiceMessage?.length,
         isVoice,
+        isQuestionnaireLink,
       });
       console.log('User ID from token:', req.userId);
   
@@ -2895,14 +2900,13 @@ module.exports.sendMessage = async (req, res) => {
         return res.status(401).json({ message: 'User ID not found in token' });
       }
   
-      // Validate userId as a valid ObjectId
       const mongoose = require('mongoose');
       if (!mongoose.Types.ObjectId.isValid(req.userId)) {
         console.log('Validation failed: Invalid userId:', req.userId);
         return res.status(400).json({ message: 'Invalid user ID' });
       }
   
-      if (!isVoice && (!encryptedMessage || !iv)) {
+      if (!isVoice && !isQuestionnaireLink && (!encryptedMessage || !iv)) {
         console.log('Validation failed: encryptedMessage or iv missing for text message');
         return res.status(400).json({ message: 'encryptedMessage and iv are required for text messages' });
       }
@@ -2910,9 +2914,7 @@ module.exports.sendMessage = async (req, res) => {
         console.log('Validation failed: voiceMessage missing for voice message');
         return res.status(400).json({ message: 'voiceMessage is required for voice messages' });
       }
-  
-      // Add a custom size limit for voice messages (optional)
-      if (isVoice && voiceMessage?.length > 10 * 1024 * 1024) { // 10MB base64 limit
+      if (isVoice && voiceMessage?.length > 10 * 1024 * 1024) {
         console.log('Validation failed: Voice message too large');
         return res.status(400).json({ message: 'Voice message too large. Keep it under 10MB.' });
       }
@@ -2921,10 +2923,11 @@ module.exports.sendMessage = async (req, res) => {
       const chat = new Chat({
         roomCode,
         sender: req.userId,
-        encryptedMessage: isVoice ? undefined : encryptedMessage,
-        iv: isVoice ? undefined : iv,
+        encryptedMessage: isVoice || isQuestionnaireLink ? undefined : encryptedMessage,
+        iv: isVoice || isQuestionnaireLink ? undefined : iv,
         voiceMessage: isVoice ? voiceMessage : undefined,
         isVoice: isVoice || false,
+        isQuestionnaireLink: isQuestionnaireLink || false,
       });
   
       console.log('Saving chat document...');
@@ -2945,6 +2948,114 @@ module.exports.sendMessage = async (req, res) => {
       res.status(500).json({ message: 'Failed to send message', error: err.message });
     }
   };
+
+
+  module.exports.submitQuestionnaire = async (req, res) => {
+    try {
+      const { userId, roomCode, responses } = req.body;
+      console.log('Received payload:', {
+        userId,
+        roomCode,
+        responsesLength: responses?.length,
+        responses,
+      });
+      console.log('User ID from token:', req.userId);
+  
+      // Validate request body
+      if (!roomCode || typeof roomCode !== 'string') {
+        console.log('Validation failed: roomCode missing or invalid');
+        return res.status(400).json({ message: 'roomCode is required and must be a string' });
+      }
+      if (!userId) {
+        console.log('Validation failed: userId missing in request body');
+        return res.status(400).json({ message: 'userId is required' });
+      }
+      if (!req.userId) {
+        console.log('Validation failed: userId missing in token');
+        return res.status(401).json({ message: 'User ID not found in token' });
+      }
+      if (userId !== req.userId) {
+        console.log('Validation failed: userId does not match token');
+        return res.status(403).json({ message: 'Unauthorized: User ID does not match token' });
+      }
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        console.log('Validation failed: Invalid userId:', userId);
+        return res.status(400).json({ message: 'Invalid user ID format' });
+      }
+      if (!responses || !Array.isArray(responses) || responses.length === 0) {
+        console.log('Validation failed: responses missing or invalid');
+        return res.status(400).json({ message: 'responses array is required and must not be empty' });
+      }
+  
+      // Validate each response
+      for (const response of responses) {
+        if (
+          !response.question ||
+          typeof response.question !== 'string' ||
+          typeof response.answer !== 'number' ||
+          response.answer < 0 ||
+          response.answer > 3 ||
+          !Number.isInteger(response.answer)
+        ) {
+          console.log('Validation failed: Invalid response format', response);
+          return res.status(400).json({
+            message: 'Each response must have a question (string) and answer (integer between 0 and 3)',
+          });
+        }
+      }
+  
+      // Verify user exists
+      const user = await User.findById(userId);
+      if (!user) {
+        console.log('Validation failed: User not found for userId:', userId);
+        return res.status(404).json({ message: 'User not found' });
+      }
+  
+      console.log('Creating new QuestionnaireResponse document...');
+      const questionnaireResponse = new QuestionnaireResponse({
+        userId,
+        roomCode,
+        responses,
+        submittedAt: new Date(),
+      });
+  
+      console.log('Saving questionnaire response document...');
+      await questionnaireResponse.save();
+      console.log('Questionnaire response document saved:', questionnaireResponse._id);
+  
+      // Update User's questionnaireResponses field
+      console.log('Updating user questionnaireResponses...');
+      user.questionnaireResponses = user.questionnaireResponses || [];
+      user.questionnaireResponses.push(questionnaireResponse._id);
+      await user.save();
+      console.log('User updated with questionnaire response ID:', questionnaireResponse._id);
+  
+      console.log('Populating userId...');
+      const populatedResponse = await QuestionnaireResponse.findById(questionnaireResponse._id).populate(
+        'userId',
+        'username user_photo'
+      );
+      if (!populatedResponse) {
+        console.log('Population failed: Questionnaire response document not found');
+        return res.status(404).json({ message: 'Questionnaire response document not found after saving' });
+      }
+  
+      console.log('Saved questionnaire response:', populatedResponse);
+      res.status(201).json({
+        message: 'Questionnaire submitted successfully',
+        data: populatedResponse,
+      });
+    } catch (err) {
+      console.error('Error submitting questionnaire:', err.message, err.stack);
+      res.status(500).json({
+        message: 'Failed to submit questionnaire',
+        error: err.message,
+      });
+    }
+  };
+  
+
+
 // Fetch messages for a room
 module.exports.RoomChat = async (req, res) => {
   try {

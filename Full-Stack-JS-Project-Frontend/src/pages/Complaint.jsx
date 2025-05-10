@@ -923,10 +923,10 @@ function Complaint() {
             >
               <div
                 style={{
-                  backgroundColor: "#ff9800", // Orange pour se démarquer
+                  backgroundColor: "#f44336", // Orange pour se démarquer
                   borderRadius: "50%",
-                  width: "60px",
-                  height: "60px",
+                  width: "50px",
+                  height: "50px",
                   display: "flex",
                   justifyContent: "center",
                   alignItems: "center",
@@ -940,9 +940,38 @@ function Complaint() {
                   (e.currentTarget.style.transform = "scale(1)")
                 }
               >
-                <span style={{ fontSize: "24px", color: "white" }}>❓</span>
+                <span style={{ fontSize: "24px", color: "white" }}>❔</span>
               </div>
             </div>
+              {/* Scroll Top */}
+              <div>
+                <a
+                  href="#"
+                  style={{
+                    zIndex: 1000,
+                    cursor: "pointer",
+                    position: "fixed",
+                    bottom: "18px",
+                    right: "20px",
+                    background: "#0ea5e6",
+                    color: "#fff",
+                    width: "50px",
+                    height: "50px",
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textDecoration: "none",
+                    marginRight: "1350px",
+                    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+                    transition: "background 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => (e.target.style.background = "#45a049")}
+                  onMouseLeave={(e) => (e.target.style.background = "#0ea5e6")}
+                >
+                  <i className="far fa-arrow-up"></i>
+                </a>
+              </div>
             <div
               className="complaint-list"
               style={{
@@ -962,44 +991,44 @@ function Complaint() {
                       boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
                     }}
                   >
-        <div
-  style={{
-    position: "absolute",
-    top: "30px",
-    right: "15px",
-  }}
->
-  <span
-    className="badge"
-    style={{
-      backgroundColor: "transparent",
-      border: "1px solid",
-      color: "#00BFFF",
-      padding: "5px 8px",
-      borderRadius: "20px",
-      marginRight: "5px",
-      boxShadow: "0 0 10px",
-      fontSize: "0.875rem",
-      ...(complaint.status === "pending" && {
-        borderColor: "#FFA500",
-        color: "#FFA500",
-        boxShadow: "0 0 10px rgba(255, 165, 0, 0.5)",
-      }),
-      ...(complaint.status === "resolved" && {
-        borderColor: "#008000",
-        color: "#008000",
-        boxShadow: "0 0 10px rgba(0, 128, 0, 0.5)",
-      }),
-      ...(complaint.status === "rejected" && {
-        borderColor: "#FF0000",
-        color: "#FF0000",
-        boxShadow: "0 0 10px rgba(255, 0, 0, 0.5)",
-      }),
-    }}
-  >
-    {complaint.status || "Unknown"}
-  </span>
-</div>
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "30px",
+                        right: "15px",
+                      }}
+                    >
+                      <span
+                        className="badge"
+                        style={{
+                          backgroundColor: "transparent",
+                          border: "1px solid",
+                          color: "#00BFFF",
+                          padding: "5px 8px",
+                          borderRadius: "20px",
+                          marginRight: "5px",
+                          boxShadow: "0 0 10px",
+                          fontSize: "0.875rem",
+                          ...(complaint.status === "pending" && {
+                            borderColor: "#FFA500",
+                            color: "#FFA500",
+                            boxShadow: "0 0 10px rgba(255, 165, 0, 0.5)",
+                          }),
+                          ...(complaint.status === "resolved" && {
+                            borderColor: "#008000",
+                            color: "#008000",
+                            boxShadow: "0 0 10px rgba(0, 128, 0, 0.5)",
+                          }),
+                          ...(complaint.status === "rejected" && {
+                            borderColor: "#FF0000",
+                            color: "#FF0000",
+                            boxShadow: "0 0 10px rgba(255, 0, 0, 0.5)",
+                          }),
+                        }}
+                      >
+                        {complaint.status || "Unknown"}
+                      </span>
+                    </div>
                     <h3
                       style={{
                         wordBreak: "break-word",
@@ -1029,7 +1058,6 @@ function Complaint() {
                     </div>
                     <div className="d-flex justify-content-between align-items-center mt-2">
                       <div className="text-muted" style={{ fontSize: "14px" }}>
-                        
                         <p style={{ margin: 0 }}>
                           Posted at:{" "}
                           {new Date(complaint.createdAt).toLocaleString(
@@ -1045,25 +1073,45 @@ function Complaint() {
                         </p>
                       </div>
                       <div className="d-flex align-items-center">
-                        <span
-                          className="icon"
+                        <button
+                          className="theme-btn"
                           style={{
                             cursor: "pointer",
-                            fontSize: "20px",
-                            color: "#007bff",
-                            marginRight: "15px",
+                            fontSize: "14px",
+                            color: "#fff",
+                            backgroundColor: "#007bff",
+                            border: "none",
+                            borderRadius: "50px",
+                            padding: "8px 20px",
+                            marginRight: "10px",
+                            transition:
+                              "background-color 0.3s ease, transform 0.2s ease",
                           }}
                           onClick={() => handleOpenResponsesModal(complaint)}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = "#0056b3";
+                            e.target.style.transform = "scale(1.05)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = "#007bff";
+                            e.target.style.transform = "scale(1)";
+                          }}
                         >
-                          <FontAwesomeIcon icon={faComment} />
-                        </span>
-                        <span
-                          className="icon"
+                          Let's Talk
+                        </button>
+                        <button
+                          className="theme-btn"
                           style={{
                             cursor: "pointer",
-                            fontSize: "20px",
-                            color: "#007bff",
-                            marginRight: "15px",
+                            fontSize: "14px",
+                            color: "#fff",
+                            backgroundColor: "#28a745",
+                            border: "none",
+                            borderRadius: "50px",
+                            padding: "8px 20px",
+                            marginRight: "10px",
+                            transition:
+                              "background-color 0.3s ease, transform 0.2s ease",
                           }}
                           onClick={() => {
                             setComplaintToUpdate(complaint);
@@ -1071,23 +1119,45 @@ function Complaint() {
                             setUpdatedDescription(complaint.description || "");
                             setShowUpdateModal(true);
                           }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = "#218838";
+                            e.target.style.transform = "scale(1.05)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = "#28a745";
+                            e.target.style.transform = "scale(1)";
+                          }}
                         >
-                          <FontAwesomeIcon icon={faEdit} />
-                        </span>
-                        <span
-                          className="icon"
+                          Update
+                        </button>
+                        <button
+                          className="theme-btn"
                           style={{
                             cursor: "pointer",
-                            fontSize: "20px",
-                            color: "red",
+                            fontSize: "14px",
+                            color: "#fff",
+                            backgroundColor: "#dc3545",
+                            border: "none",
+                            borderRadius: "50px",
+                            padding: "8px 20px",
+                            transition:
+                              "background-color 0.3s ease, transform 0.2s ease",
                           }}
                           onClick={() => {
                             setComplaintToDelete(complaint._id);
                             setShowDeleteModal(true);
                           }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = "#c82333";
+                            e.target.style.transform = "scale(1.05)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = "#dc3545";
+                            e.target.style.transform = "scale(1)";
+                          }}
                         >
-                          <FontAwesomeIcon icon={faTrashAlt} />
-                        </span>
+                          Delete
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1182,137 +1252,142 @@ function Complaint() {
 
       {showUpdateModal && complaintToUpdate && (
         <div
-  style={{
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1000,
-  }}
->
-  <div
-    style={{
-      backgroundColor: "white",
-      padding: "20px",
-      borderRadius: "8px",
-      width: "500px",
-      maxWidth: "90%",
-      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-      maxHeight: "80vh", // Limite la hauteur du modal à 80% de la fenêtre
-      display: "flex",
-      flexDirection: "column",
-    }}
-  >
-    <h3
-      style={{
-        marginBottom: "20px",
-        textAlign: "center",
-        color: "#333",
-      }}
-    >
-      Update Complaint
-    </h3>
-    <div
-      style={{
-        maxHeight: "60vh", // Limite la hauteur du contenu scrollable
-        overflowY: "auto", // Active le défilement vertical
-        paddingRight: "10px", // Évite que le contenu touche la scrollbar
-      }}
-    >
-      <div style={{ marginBottom: "15px" }}>
-        <label
           style={{
-            color: "black",
-            display: "block",
-            marginBottom: "5px",
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
           }}
         >
-          Subject:
-        </label>
-        <input
-          type="text"
-          value={updatedSubject}
-          onChange={(e) => setUpdatedSubject(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "8px",
-            borderRadius: "50px",
-            border: "1px solid #ddd",
-            boxSizing: "border-box",
-          }}
-        />
-      </div>
-      <div style={{ marginBottom: "15px" }}>
-        <label
-          style={{
-            color: "black",
-            display: "block",
-            marginBottom: "5px",
-          }}
-        >
-          Description:
-        </label>
-        <CKEditor
-          editor={ClassicEditor}
-          data={updatedDescription}
-          onChange={(event, editor) => {
-            const data = editor.getData();
-            setUpdatedDescription(data);
-          }}
-          config={{
-            toolbar: [
-              "heading",
-              "|",
-              "bold",
-              "italic",
-              "link",
-              "bulletedList",
-              "numberedList",
-              "|",
-              "undo",
-              "redo",
-            ],
-          }}
-        />
-      </div>
-    </div>
-    <div
-      style={{ display: "flex", justifyContent: "center", gap: "10px", marginTop: "20px" }}
-    >
-      <button
-        onClick={() => setShowUpdateModal(false)}
-        style={{
-          backgroundColor: "#f44336",
-          color: "white",
-          padding: "10px 20px",
-          borderRadius: "50px",
-          border: "none",
-          cursor: "pointer",
-        }}
-      >
-        Cancel
-      </button>
-      <button
-        onClick={() => handleUpdate(complaintToUpdate._id)}
-        style={{
-          backgroundColor: "#4CAF50",
-          color: "white",
-          padding: "10px 20px",
-          borderRadius: "50px",
-          border: "none",
-          cursor: "pointer",
-        }}
-      >
-        Update
-      </button>
-    </div>
-  </div>
-</div>
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "500px",
+              maxWidth: "90%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              maxHeight: "80vh", // Limite la hauteur du modal à 80% de la fenêtre
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <h3
+              style={{
+                marginBottom: "20px",
+                textAlign: "center",
+                color: "#333",
+              }}
+            >
+              Update Complaint
+            </h3>
+            <div
+              style={{
+                maxHeight: "60vh", // Limite la hauteur du contenu scrollable
+                overflowY: "auto", // Active le défilement vertical
+                paddingRight: "10px", // Évite que le contenu touche la scrollbar
+              }}
+            >
+              <div style={{ marginBottom: "15px" }}>
+                <label
+                  style={{
+                    color: "black",
+                    display: "block",
+                    marginBottom: "5px",
+                  }}
+                >
+                  Subject:
+                </label>
+                <input
+                  type="text"
+                  value={updatedSubject}
+                  onChange={(e) => setUpdatedSubject(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    borderRadius: "50px",
+                    border: "1px solid #ddd",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+              <div style={{ marginBottom: "15px" }}>
+                <label
+                  style={{
+                    color: "black",
+                    display: "block",
+                    marginBottom: "5px",
+                  }}
+                >
+                  Description:
+                </label>
+                <CKEditor
+                  editor={ClassicEditor}
+                  data={updatedDescription}
+                  onChange={(event, editor) => {
+                    const data = editor.getData();
+                    setUpdatedDescription(data);
+                  }}
+                  config={{
+                    toolbar: [
+                      "heading",
+                      "|",
+                      "bold",
+                      "italic",
+                      "link",
+                      "bulletedList",
+                      "numberedList",
+                      "|",
+                      "undo",
+                      "redo",
+                    ],
+                  }}
+                />
+              </div>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: "10px",
+                marginTop: "20px",
+              }}
+            >
+              <button
+                onClick={() => setShowUpdateModal(false)}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "50px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleUpdate(complaintToUpdate._id)}
+                style={{
+                  backgroundColor: "#4CAF50",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "50px",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Update
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showResponsesModal && selectedComplaint && (
@@ -1436,7 +1511,7 @@ function Complaint() {
         <div
           style={{
             position: "fixed",
-            top: 0,
+            top: 10,
             left: 0,
             right: 0,
             bottom: 0,
@@ -1452,13 +1527,13 @@ function Complaint() {
               backgroundColor: "white",
               padding: "20px",
               borderRadius: "8px",
-              width: "600px",
+              width: "700px",
               maxWidth: "100%",
               boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
             }}
           >
             <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
-              Notifications
+              Complaint notifications
             </h3>
             <div
               style={{
@@ -1467,7 +1542,7 @@ function Complaint() {
                 marginBottom: "10px",
               }}
             >
-              <button
+              <button className="theme-btn"
                 onClick={handleMarkAllAsRead}
                 style={{
                   backgroundColor: "#007bff",
@@ -1527,7 +1602,7 @@ function Complaint() {
                         </p>
                       </div>
                       {!notif.read && (
-                        <button
+                        <button className="theme-btn"
                           onClick={() => handleMarkAsRead(notif.id)}
                           style={{
                             backgroundColor: "#28a745",

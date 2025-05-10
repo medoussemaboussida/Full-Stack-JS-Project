@@ -6,6 +6,7 @@ import debounce from 'lodash/debounce';
 import { Filter } from 'bad-words';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+import { useNavigate } from "react-router-dom"; // Ajout de useNavigate
 
 const AddReclamation = () => {
   const [subject, setSubject] = useState("");
@@ -16,6 +17,7 @@ const AddReclamation = () => {
   const [descriptionError, setDescriptionError] = useState("");
   const [isFormValid, setIsFormValid] = useState(false);
   const [hasBadWords, setHasBadWords] = useState(false);
+const navigate = useNavigate(); // Ajout au début du composant
 
   const badWordsFilter = new Filter();
 
@@ -178,6 +180,8 @@ const AddReclamation = () => {
       setIsFormValid(false);
       setHasBadWords(false);
       toast.success('Your reclamation has been successfully added!');
+      navigate("/complaint"); // Redirection vers /forum
+
     } catch (error) {
       console.error("Erreur:", error);
       toast.error(error.message || "Error adding the reclamation.");
@@ -286,7 +290,7 @@ const AddReclamation = () => {
                     <button
                       type="submit"
                       className="theme-btn w-full py-3 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                      disabled={!isFormValid || hasBadWords}
+                      disabled={!isFormValid || hasBadWords} style={{ borderRadius: "50px", fontSize:"16px"}}
                     >
                       Add a claim
                     </button>

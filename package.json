@@ -4,8 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "nodemon app.js",
-    "test": "npx jest",
-    "build-dev": "nodemon app.js"
+    "pretest": "node tests/setupMongoDb.js",
+    "test": "node node_modules/jest/bin/jest.js",
+    "test:mock": "cross-env USE_MOCK_MONGO=true CI=true npm test",
+    "test:reset": "node tests/resetTests.js",
+    "build-dev": "nodemon app.js",
+    "build-ci": "node app.js --ci-build"
+  },
+  "publishConfig": {
+    "registry": "http://192.168.50.4:8081/repository/npm-hosted/"
   },
   "dependencies": {
     "@ckeditor/ckeditor5-build-classic": "^40.2.0",
@@ -65,8 +72,9 @@
     "@babel/preset-env": "^7.26.9",
     "@babel/preset-react": "^7.26.3",
     "babel-jest": "^29.7.0",
+    "cross-env": "^7.0.3",
     "jest": "^29.7.0",
-    "mongodb-memory-server": "^10.1.4",
+    "mongodb-memory-server": "^8.15.1",
     "sinon": "^20.0.0",
     "supertest": "^7.1.0"
   }

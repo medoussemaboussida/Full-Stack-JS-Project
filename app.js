@@ -14,6 +14,7 @@ const createError = require('http-errors');
 const userModel = require('./model/user');
 const Schedule = require('./model/Schedule'); // Add this line
 const Activity = require('./model/activity'); // Add this line
+const QuestionnaireResponse = require('./model/QuestionnaireResponse');
 const jwt = require("jsonwebtoken");
 const crypto = require('crypto');
 const association = require("./model/association");
@@ -105,6 +106,7 @@ app.use('/complaintResponse',complaintResponseRouter);
 app.use('/association', associationRoutes);
 app.use('/events', eventRoutes);
 app.use('/mental-health', mentalHealthRoutes);
+
 
 //mailing
 // Email transporter configuration
@@ -526,10 +528,20 @@ cron.schedule('* * * * *', async () => { // Runs every minute
 
 
 
-// ✅ Démarrage du serveur backend sur le bon port
-const PORT = 5000;
-const server = http.createServer(app);
+// Vérifier si nous sommes en mode CI build
+const isCiBuild = process.argv.includes('--ci-build');
 
-server.listen(PORT, () => {
-    console.log(`🚀 Serveur backend démarré sur http://localhost:${PORT}`);
-});
+// Démarrage du serveur uniquement si nous ne sommes pas en mode CI build
+// ou si le script ci-build.js n'a pas déjà pris le contrôle
+if (!isCiBuild) {
+  // ✅ Démarrage du serveur backend sur le bon port
+  const PORT = process.env.PORT || 5000;
+  const server = http.createServer(app);
+
+  server.listen(PORT, () => {
+      console.log(`🚀 Serveur backend démarré sur http://localhost:${PORT}`);
+  });
+}
+
+// Exporter l'app pour les tests et le CI build
+module.exports = app;

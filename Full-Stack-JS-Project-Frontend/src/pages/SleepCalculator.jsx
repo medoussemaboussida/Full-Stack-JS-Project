@@ -111,7 +111,7 @@ function SleepCalculator() {
   };
 
   return (
-    <div style={{ padding: "40px", backgroundColor: "#f9f9f9" }}>
+    <div className="main">
       <ToastContainer position="top-right" autoClose={3000} />
 
       {/* Breadcrumb */}
@@ -139,17 +139,17 @@ function SleepCalculator() {
             }}
           >
             <li style={{ marginRight: "10px" }}>
-              <a href="/Home" style={{ color: "#fff", textDecoration: "none", fontWeight: "bold" }}>
+              <a href="/Home" style={{ color: "#fff", textDecoration: "none" }}>
                 Home
               </a>
             </li>
-            <li style={{ color: "#ff5a5f", textDecoration: "none", fontWeight: "bold" }}>
+            <li style={{ color: "#ff5a5f", textDecoration: "none"}}>
               Sleep Calculator
             </li>
           </ul>
         </div>
       </div>
-
+<br/><br/>
       {/* Sleep Calculator Section */}
       <div style={{ maxWidth: "800px", margin: "0 auto", textAlign: "center" }}>
         <h2 style={{ fontSize: "32px", fontWeight: "700", marginBottom: "20px" }}>
@@ -184,7 +184,7 @@ function SleepCalculator() {
               style={{
                 padding: "10px",
                 fontSize: "16px",
-                borderRadius: "5px",
+                borderRadius: "50px",
                 border: "1px solid #ccc",
                 width: "200px",
               }}
@@ -196,7 +196,7 @@ function SleepCalculator() {
                 backgroundColor: "#0ea5e6",
                 color: "white",
                 padding: "10px 20px",
-                borderRadius: "5px",
+                borderRadius: "50px",
                 border: "none",
                 cursor: "pointer",
                 marginLeft: "10px",
@@ -224,7 +224,7 @@ function SleepCalculator() {
               style={{
                 padding: "10px",
                 fontSize: "16px",
-                borderRadius: "5px",
+                borderRadius: "50px",
                 border: "1px solid #ccc",
                 width: "200px",
               }}
@@ -236,7 +236,7 @@ function SleepCalculator() {
                 backgroundColor: "#0ea5e6",
                 color: "white",
                 padding: "10px 20px",
-                borderRadius: "5px",
+                borderRadius: "50px",
                 border: "none",
                 cursor: "pointer",
                 marginLeft: "10px",

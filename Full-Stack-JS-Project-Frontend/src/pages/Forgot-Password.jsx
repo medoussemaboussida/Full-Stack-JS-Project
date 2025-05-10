@@ -132,7 +132,7 @@ function Forgot_Password() {
                     <div className="container">
                         <h2 className="breadcrumb-title">Forgot Password</h2>
                         <ul className="breadcrumb-menu">
-                            <li><a href="index.html">Home</a></li>
+                            <li><a href="/login">Login</a></li>
                             <li className="active">Forgot Password</li>
                         </ul>
                     </div>
@@ -146,7 +146,6 @@ function Forgot_Password() {
                             <div className="auth-form">
                                 <div className="auth-header">
                                     <img src="assets/img/logo/logo.png" alt="" />
-                                    <p>Reset your lovcare account password</p>
                                 </div>
                                 <form onSubmit={handleSubmit}>
                                     <div className="form-group">
@@ -159,13 +158,14 @@ function Forgot_Password() {
                                                 value={email}
                                                 onChange={(e) => setEmail(e.target.value)}
                                                 required
+                                                 style={{ borderRadius: "50px" }}
                                             />
                                         </div>
                                     </div>
                                     {message && <div className="alert alert-success">{message}</div>}
                                     {error && <div className="alert alert-danger">{error}</div>}
                                     <div className="auth-btn">
-                                        <button type="submit" className="theme-btn">
+                                        <button type="submit" className="theme-btn"  style={{ borderRadius: "50px", height:"50px"}}>
                                             <span className="far fa-key"></span> Send Reset Link
                                         </button>
                                     </div>

@@ -229,6 +229,7 @@ function Register() {
                                                 placeholder="Your Name" 
                                                 value={username} 
                                                 onChange={handleChange} 
+                                                 style={{ borderRadius: "50px" }}
                                             />
                                         </div>
                                         {errors.username && <p className="text-danger">{errors.username}</p>}
@@ -245,6 +246,7 @@ function Register() {
                                                 placeholder="Your Email" 
                                                 value={email} 
                                                 onChange={handleChange} 
+                                                 style={{ borderRadius: "50px" }}
                                             />
                                         </div>
                                         {errors.email && <p className="text-danger">{errors.email}</p>}
@@ -262,10 +264,8 @@ function Register() {
                                                 placeholder="Your Password" 
                                                 value={password} 
                                                 onChange={handleChange} 
+                                                 style={{ borderRadius: "50px" }}
                                             />
-                                            <span className="password-view" onClick={togglePasswordVisibility}>
-                                                <i className={`far ${showPassword ? "fa-eye" : "fa-eye-slash"}`}></i>
-                                            </span>
                                         </div>
                                         {/* Barre de progression pour la force du mot de passe */}
                                         {password && (
@@ -273,9 +273,9 @@ function Register() {
                                                 <div
                                                     style={{
                                                         height: '5px',
-                                                        width: '100%',
+                                                        width: '98%',
                                                         backgroundColor: '#e0e0e0',
-                                                        borderRadius: '5px',
+                                                        borderRadius: '100px',
                                                         overflow: 'hidden',
                                                     }}
                                                 >
@@ -312,6 +312,7 @@ function Register() {
                                                 name="dob" 
                                                 value={dob} 
                                                 onChange={handleChange} 
+                                                 style={{ borderRadius: "50px" }}
                                             />
                                         </div>
                                         {errors.dob && <p className="text-danger">{errors.dob}</p>}
@@ -326,6 +327,7 @@ function Register() {
                                                 name="level" 
                                                 value={level} 
                                                 onChange={handleChange}
+                                                 style={{ borderRadius: "50px" }}
                                             >
                                                 <option value="">Select Level</option>
                                                 <option value="1">1</option>
@@ -347,6 +349,7 @@ function Register() {
                                                 name="speciality" 
                                                 value={speciality} 
                                                 onChange={handleChange}
+                                                 style={{ borderRadius: "50px" }}
                                             >
                                                 <option value="">Select Speciality</option>
                                                 <option value="A">A</option>
@@ -368,7 +371,7 @@ function Register() {
                                     </div>
 
                                     <div className="auth-btn">
-                                        <button type="submit" className="theme-btn">
+                                        <button type="submit" className="theme-btn"  style={{ borderRadius: "50px", height:"50px", fontSize:"16px" }}>
                                             <span className="far fa-paper-plane"></span> Register
                                         </button>
                                     </div>

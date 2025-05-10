@@ -10,16 +10,16 @@ function Login() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false); // Ajout de l'état pour gérer la visibilité du mot de passe
   const [rememberMe, setRememberMe] = useState(false);
-// Charger l'email et le mot de passe enregistrés
-useEffect(() => {
-  const savedEmail = localStorage.getItem("rememberedEmail");
-  const savedPassword = localStorage.getItem("rememberedPassword");
-  if (savedEmail && savedPassword) {
-    setEmail(savedEmail);
-    setPassword(savedPassword);
-    setRememberMe(true);
-  }
-}, []);
+  // Charger l'email et le mot de passe enregistrés
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("rememberedEmail");
+    const savedPassword = localStorage.getItem("rememberedPassword");
+    if (savedEmail && savedPassword) {
+      setEmail(savedEmail);
+      setPassword(savedPassword);
+      setRememberMe(true);
+    }
+  }, []);
 
   useEffect(() => {
     const navbar = document.querySelector(".header");
@@ -41,26 +41,25 @@ useEffect(() => {
     e.preventDefault();
 
     if (!recaptchaToken) {
-        setError("Veuillez compléter le reCAPTCHA.");
-        return; // Bloquer la connexion si reCAPTCHA non validé
+      setError("Veuillez compléter le reCAPTCHA.");
+      return; // Bloquer la connexion si reCAPTCHA non validé
     }
 
     try {
-        const response = await fetch("http://localhost:5000/users/login", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ email, password }), // Envoie uniquement email et password
-        });
+      const response = await fetch("http://localhost:5000/users/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }), // Envoie uniquement email et password
+      });
 
-        const data = await response.json();
-        
+      const data = await response.json();
 
-        if (response.ok) {
-          const token = data.token;
-          localStorage.setItem("jwt-token", token);
-              // Stocker les identifiants si "Remember Me" est coché
+      if (response.ok) {
+        const token = data.token;
+        localStorage.setItem("jwt-token", token);
+        // Stocker les identifiants si "Remember Me" est coché
         if (rememberMe) {
           localStorage.setItem("rememberedEmail", email);
           localStorage.setItem("rememberedPassword", password);
@@ -68,27 +67,33 @@ useEffect(() => {
           localStorage.removeItem("rememberedEmail");
           localStorage.removeItem("rememberedPassword");
         }
-            // Vérifier l'état du compte
-            if (data.user.etat === "Désactivé") {
-                navigate("/accountdisabled"); // Redirection si le compte est désactivé
-            } else {
-              const allowedRoles = ["student", "psychiatrist", "teacher", "association_member"];
-              if (allowedRoles.includes(data.user.role)) {
-                navigate("/Home");
-              } else {
-                window.location.href = `http://localhost:5001/?token=${token}`;
-
-              }
-            }     
+        // Vérifier l'état du compte
+        if (data.user.etat === "Désactivé") {
+          navigate("/accountdisabled"); // Redirection si le compte est désactivé
         } else {
-            setError(data.message || "Échec de connexion. Veuillez vérifier vos identifiants.");
+          const allowedRoles = [
+            "student",
+            "psychiatrist",
+            "teacher",
+            "association_member",
+          ];
+          if (allowedRoles.includes(data.user.role)) {
+            navigate("/Home");
+          } else {
+            window.location.href = `http://localhost:5001/?token=${token}`;
+          }
         }
+      } else {
+        setError(
+          data.message ||
+            "Échec de connexion. Veuillez vérifier vos identifiants."
+        );
+      }
     } catch (err) {
-        setError("Une erreur est survenue lors de la connexion.");
-        console.error(err);
+      setError("Une erreur est survenue lors de la connexion.");
+      console.error(err);
     }
-};
-
+  };
 
   return (
     <div>
@@ -99,7 +104,6 @@ useEffect(() => {
               <div className="auth-form">
                 <div className="auth-header">
                   <img src="assets/img/logo/logo.png" alt="" />
-                  <p>Login with your lovcare account</p>
                 </div>
                 <form onSubmit={handleSubmit}>
                   <div className="form-group">
@@ -112,6 +116,7 @@ useEffect(() => {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
+                        style={{ borderRadius: "50px" }}
                       />
                     </div>
                   </div>
@@ -126,8 +131,8 @@ useEffect(() => {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
+                        style={{ borderRadius: "50px" }}
                       />
-
                     </div>
                   </div>
                   <div className="auth-group">
@@ -153,10 +158,10 @@ useEffect(() => {
                     sitekey="6LdClt4qAAAAAKi0ZNeubhh769yQXit1T4Zf29gG"
                     onChange={onRecaptchaChange}
                   />
-
+                  <br/>
                   <div className="auth-btn">
-                    <button type="submit" className="theme-btn">
-                      <span className="far fa-sign-in"></span> Login
+                    <button type="submit" className="theme-btn" style={{ borderRadius: "50px", height:"50px",fontSize: "16px" }}>
+                      <span className="far fa-sign-in" ></span> Login
                     </button>
                   </div>
                 </form>
@@ -168,11 +173,11 @@ useEffect(() => {
                         <i className="fab fa-facebook-f"></i>
                       </a>
                       <a href="http://localhost:5000/auth/google">
-  <i className="fab fa-google"></i>
-</a>
-<a href="http://localhost:5000/auth/github">
-  <i className="fab fa-github"></i>
-</a>
+                        <i className="fab fa-google"></i>
+                      </a>
+                      <a href="http://localhost:5000/auth/github">
+                        <i className="fab fa-github"></i>
+                      </a>
                     </div>
                   </div>
                   <p className="auth-bottom-text">
