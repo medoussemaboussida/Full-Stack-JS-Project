@@ -83,24 +83,7 @@ stage('Unit Test') {
         }
       }
     }
-    // Building Docker images
-stage('Building image') {
-steps{
-script {
-sh 'docker build -t ${DOCKER_IMAGE} .'
-}
-}
-}
-stage('Docker Login') {
-  steps {
-  sh 'echo $DOCKER_CREDENTIALS_ID_PSW | docker login -u $DOCKER_CREDENTIALS_ID_USR --password-stdin'
-  }
-}
-stage('Push Docker Image') {
-  steps {
-    sh 'docker push ${DOCKER_IMAGE}'
-  }
-}
+
 
   }
 }
