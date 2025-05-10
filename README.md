@@ -45,5 +45,19 @@ Rich text editing with CKEditor for precise complaint formulation, automatic PDF
 ✔️ Moderators can publish articles and posts related to news and developments in the mental health sector.  
 ✔️ Students can interact with posts through comments, reactions, and discussions.  
 #### 🚀 Advanced features :
- AI-powered content generation (Images,titles,Descriptions), Sentiment analysis using Hugging Face, Email alerts, detailed PDF report generation, QR code generation for easy access and usage statistics tracking.
+Rich text editing with CKEditor, AI-powered content generation (Images,titles,Descriptions), Sentiment analysis using Hugging Face, Email alerts, detailed PDF report generation, QR code generation for easy access and usage statistics tracking.
 
+##  Workshops & Events 🎓 
+✔️ A dedicated space for organizing and announcing mental health workshops, training sessions, and awareness events targeting students and university staff.  
+#### 🚀 Advanced features :  
+🤖 AI-powered content generation: automatic creation of event titles, descriptions, and visuals, PDF generation: exportable event details and summaries in professional format, Usage statistics: track participation, engagement, and event impact over time and QR code generation for easy access.  
+
+## Consultations 🗓️  
+✔️ Students can book private consultations with psychologists and initiate real-time chat sessions for support and guidance.  
+#### 🚀 Advanced Features :  
+Real-time chat using WebSocket for smooth and instant communication 💬, Sentiment analysis powered by Hugging Face AI to detect emotional state and adapt responses, PDF export of consultation summaries for follow-up or documentation, Usage statistics to monitor the number of sessions, user engagement, and satisfaction trends and of course all interactions are secure and confidential, respecting users' privacy 🔒.  
+
+## Activities & Wellbeing Tracking 🧠  
+✔️ A space where students can access personalized exercises, log their mood, sleep, and thoughts, and view anonymously shared challenges from other users to foster empathy and support.  
+#### 🚀 Advanced Features :
+AI-powered stress detection: intelligent analysis of tracked data to detect signs of stress or burnout, with personalized recommendations for improvement , PDF export of wellbeing logs and activity reports and Statistics & insights: track progress over time, visualize trends in mental health indicators, and support preventive actions.

@@ -72,6 +72,14 @@ const Chat = () => {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [summary, setSummary] = useState('');
   const [isSummarizing, setIsSummarizing] = useState(false);
+  const [showQuestionnaireModal, setShowQuestionnaireModal] = useState(false);
+  const [questionnaireResponses, setQuestionnaireResponses] = useState({
+    q1: 0,
+    q2: 0,
+    q3: 0,
+    q4: 0,
+    q5: 0,
+  });
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const streamRef = useRef(null);
@@ -82,8 +90,16 @@ const Chat = () => {
   const [targetLanguage, setTargetLanguage] = useState('en');
   const [translatedMessages, setTranslatedMessages] = useState({});
 
-  const GROQ_API__KEY = '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'; // Replace with your Groq API key or move to backend
-  const tts_new = 'sk_9a528300cb9d0fde2f09a122f90b3895d0f5adca31387585'; // Replace with your new API key (temporary for testing)
+  const GROQ_API_KEY = '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';
+  const tts_new = 'sk_9a528300cb9d0fde2f09a122f90b3895d0f5adca31387585';
+
+  const questions = [
+    { id: 'q1', text: 'Feeling down, depressed, or hopeless?' },
+    { id: 'q2', text: 'Little interest or pleasure in doing things?' },
+    { id: 'q3', text: 'Trouble falling or staying asleep, or sleeping too much?' },
+    { id: 'q4', text: 'Feeling tired or having little energy?' },
+    { id: 'q5', text: 'Poor appetite or overeating?' },
+  ];
 
   useEffect(() => {
     const storedToken = localStorage.getItem('jwt-token');
@@ -159,6 +175,9 @@ const Chat = () => {
           if (msg.isVoice) {
             return { ...msg, message: '[Voice Message]' };
           }
+          if (msg.isQuestionnaireLink) {
+            return { ...msg, message: 'Click to take the depression score questionnaire' };
+          }
           try {
             const ivBuffer = base64ToArrayBuffer(msg.iv);
             if (ivBuffer.byteLength !== 12) throw new Error('Invalid IV length');
@@ -166,7 +185,7 @@ const Chat = () => {
               encryptedMessage: msg.encryptedMessage,
               iv: msg.iv,
             });
-            return { ...msg, message: decrypted };
+            return { ...msg, message: decrypted, isDepressionQuestion: decrypted.trim().toLowerCase() === 'do you want to test your depression score? (yes/no)' };
           } catch (decryptErr) {
             console.error('Decryption error for message:', msg._id, decryptErr);
             if (msg.sender._id === userId) {
@@ -201,7 +220,7 @@ const Chat = () => {
     try {
       const key = await importKeyFromRoomCode(joinedRoom);
       const { encryptedMessage, iv } = await encryptMessage(key, newMessage);
-      const payload = { roomCode: joinedRoom, encryptedMessage, iv, isVoice: false };
+      const payload = { roomCode: joinedRoom, encryptedMessage, iv, isVoice: false, isQuestionnaireLink: false };
       console.log('Sending message with payload:', payload);
       const response = await axios.post(
         'http://localhost:5000/users/chat',
@@ -230,32 +249,81 @@ const Chat = () => {
     }
   };
 
+  const sendDepressionQuestion = async () => {
+    if (!joinedRoom || !token || !userId) return;
+    try {
+      const key = await importKeyFromRoomCode(joinedRoom);
+      const message = 'Do you want to test your depression score? (Yes/No)';
+      const { encryptedMessage, iv } = await encryptMessage(key, message);
+      const payload = { roomCode: joinedRoom, encryptedMessage, iv, isVoice: false, isQuestionnaireLink: false };
+      const response = await axios.post(
+        'http://localhost:5000/users/chat',
+        payload,
+        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+      );
+      const messageId = response.data.data._id;
+      setSentMessages((prev) => ({
+        ...prev,
+        [joinedRoom]: {
+          ...(prev[joinedRoom] || {}),
+          [messageId]: message,
+        },
+      }));
+      fetchMessages(key);
+    } catch (err) {
+      console.error('Error sending depression question:', err);
+      setError('Failed to send depression question: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleYesClick = () => {
+    setShowQuestionnaireModal(true);
+  };
+
+  const handleNoClick = () => {
+    // Do nothing
+  };
+
+  const handleQuestionnaireSubmit = async () => {
+    if (!token || !userId || !joinedRoom) {
+      setError('Please log in and join a room to submit the questionnaire .');
+      return;
+    }
+    try {
+      const responses = questions.map((q) => ({
+        question: q.text,
+        answer: questionnaireResponses[q.id],
+      }));
+      const response = await axios.post(
+        'http://localhost:5000/users/questionnaire/submit',
+        { userId, roomCode: joinedRoom, responses },
+        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+      );
+      console.log('Questionnaire submitted:', response.data);
+      setShowQuestionnaireModal(false);
+      setQuestionnaireResponses({ q1: 0, q2: 0, q3: 0, q4: 0, q5: 0 });
+      setError(null);
+    } catch (err) {
+      console.error('Error submitting questionnaire:', err);
+      setError('Failed to submit questionnaire: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
   const speakMessage = async (text) => {
-    if (!text || text === '[Decryption failed]' || text === '[Voice Message]') {
+    if (!text || text === '[Decryption failed]' || text === '[Voice Message]' || text.includes('questionnaire')) {
       console.log('Skipping TTS for invalid text:', text);
       setError('Cannot convert this message to speech.');
       return;
     }
-  
     try {
-      const languageMap = {
-        en: 'en',
-        fr: 'fr',
-        es: 'es',
-        de: 'de',
-      };
+      const languageMap = { en: 'en', fr: 'fr', es: 'es', de: 'de' };
       const language = languageMap[targetLanguage] || 'en';
-  
-      // ElevenLabs API request
       const response = await axios.post(
-        'https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM', // Voice ID: Rachel (default)
+        'https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM',
         {
           text,
-          model_id: 'eleven_multilingual_v2', // Supports en, fr, es, de
-          voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.5,
-          },
+          model_id: 'eleven_multilingual_v2',
+          voice_settings: { stability: 0.5, similarity_boost: 0.5 },
         },
         {
           headers: {
@@ -265,7 +333,6 @@ const Chat = () => {
           responseType: 'arraybuffer',
         }
       );
-  
       const audioBlob = new Blob([response.data], { type: 'audio/mpeg' });
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
@@ -277,77 +344,51 @@ const Chat = () => {
     } catch (err) {
       console.error('TTS error:', err);
       let errorMessage = 'Failed to convert text to speech';
-      if (err.response?.status === 401) {
-        errorMessage = 'Text-to-speech failed: Invalid API key';
-      } else if (err.response?.status === 429) {
-        errorMessage = 'Text-to-speech quota exceeded. Check your ElevenLabs plan.';
-      } else if (err.response?.status === 400) {
-        errorMessage = 'Invalid request. Check text or language settings.';
-      }
+      if (err.response?.status === 401) errorMessage = 'Text-to-speech failed: Invalid API key';
+      else if (err.response?.status === 429) errorMessage = 'Text-to-speech quota exceeded.';
+      else if (err.response?.status === 400) errorMessage = 'Invalid request.';
       setError(errorMessage);
     }
   };
 
   const translateMessage = async (text, targetLang) => {
-    if (!text || text === '[Decryption failed]' || text === '[Voice Message]') {
+    if (!text || text === '[Decryption failed]' || text === '[Voice Message]' || text.includes('questionnaire')) {
       console.log('Skipping translation for invalid text:', text);
       return text;
     }
-    if (!GROQ_API__KEY) {
+    if (!GROQ_API_KEY) {
       console.error('Groq API key is missing');
       setError('Translation failed: API key is missing');
       return text;
     }
     try {
-      console.log(`Translating text to ${targetLang}:`, text);
-      const languageMap = {
-        en: 'English',
-        fr: 'French',
-        es: 'Spanish',
-        de: 'German',
-      };
+      const languageMap = { en: 'English', fr: 'French', es: 'Spanish', de: 'German' };
       const targetLanguageName = languageMap[targetLang] || 'English';
-      const prompt = `Translate the following text to ${targetLanguageName} and return only the translated text, without any explanations or additional details: "${text}"`;
+      const prompt = `Translate the following text to ${targetLanguageName} and return only the translated text: "${text}"`;
       const response = await axios.post(
         'https://api.groq.com/openai/v1/chat/completions',
         {
           model: 'llama3-70b-8192',
-          messages: [
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
+          messages: [{ role: 'user', content: prompt }],
           max_tokens: 500,
           temperature: 0.7,
         },
         {
           headers: {
-            Authorization: `Bearer ${GROQ_API__KEY}`,
+            Authorization: `Bearer ${GROQ_API_KEY}`,
             'Content-Type': 'application/json',
           },
           timeout: 15000,
         }
       );
-      const translatedText = response.data.choices[0]?.message?.content?.trim() || text;
-      console.log('Translation successful:', translatedText);
-      return translatedText;
+      return response.data.choices[0]?.message?.content?.trim() || text;
     } catch (err) {
-      console.error('Translation error:', {
-        message: err.message,
-        status: err.response?.status,
-        data: err.response?.data,
-      });
+      console.error('Translation error:', err);
       let errorMessage = 'Failed to translate message';
-      if (err.response?.status === 400) {
-        errorMessage = `Translation failed: ${err.response?.data?.error || 'Invalid request'}`;
-      } else if (err.response?.status === 401) {
-        errorMessage = 'Translation failed: Invalid API key';
-      } else if (err.response?.status === 429) {
-        errorMessage = 'Translation quota exceeded. Please try again later.';
-      } else if (err.code === 'ECONNABORTED') {
-        errorMessage = 'Translation request timed out.';
-      }
+      if (err.response?.status === 400) errorMessage = `Translation failed: ${err.response?.data?.error}`;
+      else if (err.response?.status === 401) errorMessage = 'Translation failed: Invalid API key';
+      else if (err.response?.status === 429) errorMessage = 'Translation quota exceeded.';
+      else if (err.code === 'ECONNABORTED') errorMessage = 'Translation request timed out.';
       setError(errorMessage);
       return text;
     }
@@ -368,83 +409,61 @@ const Chat = () => {
       setShowSummaryModal(true);
       return;
     }
-
     setIsSummarizing(true);
     setError(null);
-
     const conversationText = messages
       .map((msg) => {
-        if (!msg.isVoice) {
+        if (!msg.isVoice && !msg.isQuestionnaireLink) {
           return `${msg.sender.username || 'Unknown'}: ${msg.message}`;
         }
         return '';
       })
       .filter((text) => text)
       .join('\n');
-
     if (!conversationText.trim()) {
       setSummary('No text messages available to summarize.');
       setShowSummaryModal(true);
       setIsSummarizing(false);
       return;
     }
-
-    if (!GROQ_API__KEY) {
+    if (!GROQ_API_KEY) {
       console.error('Groq API key is missing');
       setError('Summarization failed: API key is missing');
-      setSummary('An error occurred while summarizing. Please try again.');
+      setSummary('An error occurred while summarizing.');
       setShowSummaryModal(true);
       setIsSummarizing(false);
       return;
     }
-
     try {
-      console.log('Sending summarization request to Groq API');
       const prompt = `Summarize the following conversation concisely in up to 100 words:\n\n${conversationText}`;
       const response = await axios.post(
         'https://api.groq.com/openai/v1/chat/completions',
         {
           model: 'llama3-70b-8192',
-          messages: [
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
+          messages: [{ role: 'user', content: prompt }],
           max_tokens: 150,
           temperature: 0.7,
         },
         {
           headers: {
-            Authorization: `Bearer ${GROQ_API__KEY}`,
+            Authorization: `Bearer ${GROQ_API_KEY}`,
             'Content-Type': 'application/json',
           },
           timeout: 15000,
         }
       );
-
-      console.log('Summarization response:', response.data);
       const summaryText = response.data.choices[0]?.message?.content?.trim() || 'Failed to generate summary.';
       setSummary(summaryText);
       setShowSummaryModal(true);
     } catch (err) {
-      console.error('Error summarizing conversation:', {
-        status: err.response?.status,
-        data: err.response?.data,
-        message: err.message,
-      });
+      console.error('Error summarizing conversation:', err);
       let errorMessage = 'Failed to summarize conversation.';
-      if (err.response?.status === 400) {
-        errorMessage = `Summarization failed: ${err.response?.data?.error || 'Invalid request'}`;
-      } else if (err.response?.status === 401) {
-        errorMessage = 'Summarization failed: Invalid API key';
-      } else if (err.response?.status === 429) {
-        errorMessage = 'Summarization quota exceeded. Please try again later.';
-      } else if (err.code === 'ECONNABORTED') {
-        errorMessage = 'Summarization request timed out.';
-      }
+      if (err.response?.status === 400) errorMessage = `Summarization failed: ${err.response?.data?.error}`;
+      else if (err.response?.status === 401) errorMessage = 'Summarization failed: Invalid API key';
+      else if (err.response?.status === 429) errorMessage = 'Summarization quota exceeded.';
+      else if (err.code === 'ECONNABORTED') errorMessage = 'Summarization request timed out.';
       setError(errorMessage);
-      setSummary('An error occurred while summarizing. Please try again.');
+      setSummary('An error occurred while summarizing.');
       setShowSummaryModal(true);
     } finally {
       setIsSummarizing(false);
@@ -458,47 +477,38 @@ const Chat = () => {
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
       mediaRecorderRef.current = new MediaRecorder(stream, { mimeType });
       audioChunksRef.current = [];
-
       mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
-
       mediaRecorderRef.current.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-        audioChunksRef.current = []; // Clear chunks after use
+        audioChunksRef.current = [];
         if (audioBlob.size > 5 * 1024 * 1024) {
           setError('Audio file too large. Keep it under 5MB.');
           setIsRecording(false);
           return;
         }
         if (audioBlob.size === 0) {
-          setError('No audio recorded. Please try again.');
+          setError('No audio recorded.');
           setIsRecording(false);
           return;
         }
         await sendVoiceMessage(audioBlob);
       };
-
       mediaRecorderRef.current.onerror = (event) => {
         console.error('MediaRecorder error:', event.error);
         setError(`Recording failed: ${event.error.name}`);
         setIsRecording(false);
         stopStream();
       };
-
       mediaRecorderRef.current.start();
       setIsRecording(true);
       console.log('Recording started with MIME type:', mimeType);
     } catch (err) {
       console.error('Error starting recording:', err);
       setError(`Failed to start recording: ${err.message}`);
-      if (err.name === 'NotAllowedError') {
-        setError('Microphone access denied. Please allow microphone access.');
-      } else if (err.name === 'NotSupportedError') {
-        setError('Audio recording is not supported in this browser.');
-      }
+      if (err.name === 'NotAllowedError') setError('Microphone access denied.');
+      else if (err.name === 'NotSupportedError') setError('Audio recording not supported.');
     }
   };
 
@@ -528,29 +538,27 @@ const Chat = () => {
       setError('Cannot send voice message: Missing required fields');
       return;
     }
-
     try {
       const reader = new FileReader();
       reader.readAsDataURL(audioBlob);
       reader.onloadend = async () => {
         const base64Audio = reader.result.split(',')[1];
         if (!base64Audio) {
-          setError('Failed to encode audio. Please try again.');
+          setError('Failed to encode audio.');
           setIsRecording(false);
           return;
         }
-
         const payload = {
           roomCode: joinedRoom,
           voiceMessage: base64Audio,
           isVoice: true,
+          isQuestionnaireLink: false,
         };
         console.log('Sending voice message payload:', {
           roomCode: payload.roomCode,
           voiceMessageLength: payload.voiceMessage.length,
           isVoice: payload.isVoice,
         });
-
         let attempts = 0;
         const maxAttempts = 3;
         while (attempts < maxAttempts) {
@@ -575,16 +583,12 @@ const Chat = () => {
             return;
           } catch (err) {
             attempts++;
-            console.error(`Voice message attempt ${attempts} failed:`, {
-              status: err.response?.status,
-              data: err.response?.data,
-              message: err.message,
-            });
+            console.error(`Voice message attempt ${attempts} failed:`, err);
             if (attempts === maxAttempts) {
               setError('Failed to send voice message after multiple attempts.');
               setIsRecording(false);
             }
-            await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait before retry
+            await new Promise((resolve) => setTimeout(resolve, 1000));
           }
         }
       };
@@ -633,50 +637,39 @@ const Chat = () => {
   };
 
   const exportToPDF = async () => {
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    });
-
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const logoImg = new Image();
     logoImg.src = '/assets/img/logo/logo.png';
     await logoImg.decode();
-
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-
     doc.addImage(logoImg, 'PNG', 10, 10, 30, 30);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(0, 51, 102);
     doc.text(`Chat Room: ${joinedRoom}`, pageWidth - 135, 15, { align: 'left' });
-
     doc.setLineWidth(0.5);
     doc.setDrawColor(0, 51, 102);
     doc.line(10, 45, pageWidth - 10, 45);
-
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
     doc.text(`Exported on: ${new Date().toLocaleString()}`, pageWidth - 10, 25, { align: 'right' });
-
     let yOffset = 55;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
     doc.setTextColor(0, 0, 0);
-
     messages.forEach((msg, index) => {
       const sender = msg.sender?.username || 'Unknown';
       const time = new Date(msg.createdAt).toLocaleTimeString();
       const messageText = msg.isVoice
         ? `[${time}] ${sender}: [Voice Message]`
+        : msg.isQuestionnaireLink
+        ? `[${time}] ${sender}: [Questionnaire Link]`
         : `[${time}] ${sender}: ${msg.message}`;
-
       if (index % 2 === 0) {
         doc.setFillColor(240, 248, 255);
         doc.rect(10, yOffset - 4, pageWidth - 20, 10, 'F');
       }
-
       const splitText = doc.splitTextToSize(messageText, pageWidth - 40);
       splitText.forEach((line) => {
         if (yOffset > pageHeight - 20) {
@@ -693,14 +686,12 @@ const Chat = () => {
       });
       yOffset += 3;
     });
-
-    if (summary && !['No messages to summarize.', 'No text messages available to summarize.', 'Failed to generate summary.', 'An error occurred while summarizing. Please try again.'].includes(summary)) {
+    if (summary && !['No messages to summarize.', 'No text messages available to summarize.', 'Failed to generate summary.', 'An error occurred while summarizing.'].includes(summary)) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
       doc.setTextColor(0, 102, 204);
       doc.text('Conversation Summary', 15, yOffset);
       yOffset += 10;
-
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(12);
       doc.setTextColor(0, 0, 0);
@@ -720,11 +711,9 @@ const Chat = () => {
       });
       yOffset += 5;
     }
-
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text('EspritCare - Chat History', pageWidth / 2, pageHeight - 10, { align: 'center' });
-
     doc.save(`chat_room_${joinedRoom}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
@@ -766,6 +755,7 @@ const Chat = () => {
   };
 
   const startEditing = (messageId, currentMessage) => {
+    if (currentMessage.includes('questionnaire')) return;
     setEditMessageId(messageId);
     setEditMessageContent(currentMessage);
     setActiveDropdown(null);
@@ -814,7 +804,7 @@ const Chat = () => {
                 </div>
                 <div className="card-body" style={{ position: 'relative', height: '400px' }}>
                   <p>
-                    You need to log in to use the chat. <a href="/login">Go to Login</a>
+                    You need to log in to use the chat. <button onClick={() => (window.location.href = '/login')} style={{ background: 'none', border: 'none', color: '#007bff', textDecoration: 'underline', cursor: 'pointer' }}>Go to Login</button>
                   </p>
                   {error && <p className="text-danger">{error}</p>}
                 </div>
@@ -1131,7 +1121,7 @@ const Chat = () => {
             box-shadow: 0 0 10px rgba(0, 183, 235, 0.3);
           }
 
-          .emoji-button, .video-button, .voice-button, .refresh-button, .send-button, .translate-button {
+          .emoji-button, .video-button, .voice-button, .refresh-button, .send-button, .translate-button, .questionnaire-button {
             background: none;
             border: none;
             font-size: 1.3rem;
@@ -1141,7 +1131,7 @@ const Chat = () => {
             transition: all 0.3s ease;
           }
 
-          .emoji-button:hover, .video-button:hover, .refresh-button:hover, .send-button:hover, .translate-button:hover {
+          .emoji-button:hover, .video-button:hover, .refresh-button:hover, .send-button:hover, .translate-button:hover, .questionnaire-button:hover {
             color: var(--accent-blue);
             transform: scale(1.1);
           }
@@ -1154,7 +1144,7 @@ const Chat = () => {
             color: ${isRecording ? '#e63946' : 'var(--accent-blue)'};
           }
 
-          .play-voice-button {
+          .play-voice-button, .questionnaire-link {
             background: none;
             border: none;
             font-size: 1rem;
@@ -1164,7 +1154,7 @@ const Chat = () => {
             transition: color 0.3s ease;
           }
 
-          .play-voice-button:hover {
+          .play-voice-button:hover, .questionnaire-link:hover {
             color: #0099c7;
           }
 
@@ -1189,7 +1179,7 @@ const Chat = () => {
           }
 
           .export-pdf-icon:hover {
-            color MMA: var(--accent-blue);
+            color: var(--accent-blue);
             transform: scale(1.1);
           }
 
@@ -1203,7 +1193,60 @@ const Chat = () => {
             transform: scale(1.1);
           }
 
-          .video-call-modal {
+         .questionnaire-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+          }
+
+          .questionnaire-content {
+            background: #ffffff;
+            width: 90%;
+            max-width: 600px;
+            padding: 1.5rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            position: relative;
+          }
+
+         .close-questionnaire {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: var(--error-color);
+            color: var(--text-light);
+            border: none;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+          }
+
+          .close-questionnaire:hover {
+            background: #e63946;
+            transform: scale(1.05);
+          }
+
+          .summary-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+          }
+            .video-call-modal {
             position: fixed;
             top: 0;
             left: 0;
@@ -1246,19 +1289,6 @@ const Chat = () => {
             transform: scale(1.05);
           }
 
-          .summary-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-          }
-
           .summary-content {
             background: #ffffff;
             width: 90%;
@@ -1294,6 +1324,27 @@ const Chat = () => {
             border-radius: 10px;
             margin-bottom: 1rem;
             background: var(--light-blue);
+          }
+
+          .questionnaire-form {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 1rem;
+            margin-bottom: 1rem;
+          }
+
+          .questionnaire-form label {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            display: block;
+          }
+
+          .questionnaire-form select {
+            width: 100%;
+            padding: 0.5rem;
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+            margin-bottom: 1rem;
           }
 
           .divider {
@@ -1349,6 +1400,55 @@ const Chat = () => {
             transform: scale(1.1);
             box-shadow: 0 0 10px rgba(0, 183, 235, 0.5);
           }
+
+          .link-button {
+            background: none;
+            border: none;
+            color: #007bff;
+            text-decoration: underline;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+          }
+
+          .link-button:hover {
+            color: #0056b3;
+          }
+
+          .response-buttons {
+            margin-top: 0.5rem;
+            display: flex;
+            gap: 0.5rem;
+          }
+
+          .yes-button, .no-button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+          }
+
+          .yes-button {
+            background: var(--accent-blue);
+            color: var(--text-dark);
+          }
+
+          .yes-button:hover {
+            background: #0099c7;
+            transform: scale(1.05);
+          }
+
+          .no-button {
+            background: #6c757d;
+            color: var(--text-light);
+          }
+
+          .no-button:hover {
+            background: #5a6268;
+            transform: scale(1.05);
+          }
         `}
       </style>
       <section className="chat-section">
@@ -1387,8 +1487,22 @@ const Chat = () => {
                         <p className="encryption-text mb-0">End-to-end encrypted</p>
                       </div>
                       <div>
+                        <button
+                          onClick={joinVideoChat}
+                          className="video-button me-2"
+                          title="Start Video Call"
+                        >
+                          <i className="fas fa-video"></i>
+                        </button>
                         {userRole === 'psychiatrist' && (
                           <>
+                            <button
+                              onClick={sendDepressionQuestion}
+                              className="questionnaire-button me-2"
+                              title="Send Depression Score Question"
+                            >
+                              <i className="fas fa-question-circle"></i>
+                            </button>
                             <button
                               onClick={summarizeConversation}
                               className="summary-button me-2"
@@ -1415,10 +1529,7 @@ const Chat = () => {
                         </button>
                       </div>
                     </div>
-                    <div
-                      className="card-body"
-                      data-mdb-perfect-scrollbar-init
-                    >
+                    <div className="card-body" data-mdb-perfect-scrollbar-init>
                       {error && <p className="text-danger">{error}</p>}
                       {messages.length === 0 ? (
                         <p className="text-center">No messages yet</p>
@@ -1440,7 +1551,7 @@ const Chat = () => {
                                         ? `http://localhost:5000${msg.sender.user_photo}`
                                         : '/assets/img/user_icon.png'
                                     }
-                                    alt={msg.sender.username || 'User Avatar'}
+                                    alt={msg.sender.username || 'User'}
                                     style={{
                                       width: '45px',
                                       height: '45px',
@@ -1463,10 +1574,7 @@ const Chat = () => {
                                       className="form-control edit-input"
                                       placeholder="Edit message..."
                                     />
-                                    <button
-                                      onClick={updateMessage}
-                                      className="btn btn-primary ms-2"
-                                    >
+                                    <button onClick={updateMessage} className="btn btn-primary ms-2">
                                       Save
                                     </button>
                                     <button
@@ -1492,6 +1600,31 @@ const Chat = () => {
                                           <i className="fas fa-play"></i>
                                         </button>
                                       </>
+                                    ) : msg.isQuestionnaireLink ? (
+                                      <>
+                                        <span>Click to take the depression score questionnaire</span>
+                                        {userRole === 'student' && (
+                                          <button
+                                            onClick={() => setShowQuestionnaireModal(true)}
+                                            className="questionnaire-link"
+                                            title="Take Questionnaire"
+                                          >
+                                            <i className="fas fa-clipboard-list"></i>
+                                          </button>
+                                        )}
+                                      </>
+                                    ) : msg.isDepressionQuestion && userRole === 'student' ? (
+                                      <>
+                                        <span>{msg.message}</span>
+                                        <div className="response-buttons">
+                                          <button onClick={handleYesClick} className="yes-button">
+                                            Yes
+                                          </button>
+                                          <button onClick={handleNoClick} className="no-button">
+                                            No
+                                          </button>
+                                        </div>
+                                      </>
                                     ) : (
                                       <>
                                         {msg.message}
@@ -1504,7 +1637,7 @@ const Chat = () => {
                                         </button>
                                       </>
                                     )}
-                                    {msg.sender._id === userId && !msg.isVoice && (
+                                    {msg.sender._id === userId && !msg.isVoice && !msg.isQuestionnaireLink && !msg.isDepressionQuestion && (
                                       <div className="dropdown">
                                         <button
                                           className="btn btn-link dropdown-toggle"
@@ -1534,7 +1667,7 @@ const Chat = () => {
                                         )}
                                       </div>
                                     )}
-                                    {!msg.isVoice && (
+                                    {!msg.isVoice && !msg.isQuestionnaireLink && !msg.isDepressionQuestion && (
                                       <button
                                         onClick={() => handleTranslate(msg._id, msg.message)}
                                         className="translate-button"
@@ -1563,7 +1696,7 @@ const Chat = () => {
                                         ? `http://localhost:5000${msg.sender.user_photo}`
                                         : '/assets/img/user_icon.png'
                                     }
-                                    alt={msg.sender.username || 'User Avatar'}
+                                    alt={msg.sender.username || 'User'}
                                     style={{
                                       width: '45px',
                                       height: '45px',
@@ -1600,6 +1733,13 @@ const Chat = () => {
                         className="form-control"
                       />
                       <button
+                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                        className="emoji-button ms-2"
+                        title="Toggle Emoji Picker"
+                      >
+                        <i className="fas fa-smile"></i>
+                      </button>
+                      <button
                         onClick={isRecording ? stopRecording : startRecording}
                         className="voice-button ms-2"
                         title={isRecording ? 'Stop Recording' : 'Record Voice'}
@@ -1607,24 +1747,7 @@ const Chat = () => {
                       >
                         <i className={isRecording ? 'fas fa-stop' : 'fas fa-microphone'}></i>
                       </button>
-                      <button
-                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                        className="emoji-button ms-2"
-                      >
-                        <i className="fas fa-smile"></i>
-                      </button>
-                      <button
-                        onClick={joinVideoChat}
-                        className="video-button ms-2"
-                        title="Start Video Call"
-                      >
-                        <i className="fas fa-video"></i>
-                      </button>
-                      <button
-                        onClick={sendMessage}
-                        className="send-button ms-2"
-                        disabled={!newMessage.trim()}
-                      >
+                      <button onClick={sendMessage} className="send-button ms-2" title="Send Message">
                         <i className="fas fa-paper-plane"></i>
                       </button>
                       {showEmojiPicker && (
@@ -1643,28 +1766,63 @@ const Chat = () => {
       {showVideoCall && (
         <div className="video-call-modal">
           <div className="video-call-content">
-            <VideoChat roomId={joinedRoom} userId={userId} />
-            <button
-              onClick={closeVideoChat}
-              className="close-video-call"
-            >
+            <button onClick={closeVideoChat} className="close-video-call">
               Close
             </button>
+            <VideoChat roomCode={joinedRoom} userId={userId} />
           </div>
         </div>
       )}
       {showSummaryModal && (
         <div className="summary-modal">
           <div className="summary-content">
-            <h5>Conversation Summary</h5>
-            <div className="summary-text">
-              {isSummarizing ? 'Summarizing...' : summary}
-            </div>
             <button
               onClick={() => setShowSummaryModal(false)}
               className="close-summary"
             >
               Close
+            </button>
+            <h5>Conversation Summary</h5>
+            <div className="summary-text">{summary}</div>
+          </div>
+        </div>
+      )}
+      {showQuestionnaireModal && (
+        <div className="questionnaire-modal">
+          <div className="questionnaire-content">
+            <button
+              onClick={() => setShowQuestionnaireModal(false)}
+              className="close-questionnaire"
+            >
+              Close
+            </button>
+            <h5>Depression Score Questionnaire</h5>
+            <div className="questionnaire-form">
+              {questions.map((question) => (
+                <div key={question.id}>
+                  <label>{question.text}</label>
+                  <select
+                    value={questionnaireResponses[question.id]}
+                    onChange={(e) =>
+                      setQuestionnaireResponses({
+                        ...questionnaireResponses,
+                        [question.id]: parseInt(e.target.value),
+                      })
+                    }
+                  >
+                    <option value={0}>Not at all</option>
+                    <option value={1}>Several days</option>
+                    <option value={2}>More than half the days</option>
+                    <option value={3}>Nearly every day</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={handleQuestionnaireSubmit}
+              className="btn btn-primary"
+            >
+              Submit
             </button>
           </div>
         </div>
@@ -1672,5 +1830,4 @@ const Chat = () => {
     </>
   );
 };
-
 export default Chat;

@@ -84,8 +84,12 @@ function Forum() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [targetLanguage, setTargetLanguage] = useState(""); // Initialiser à une valeur vide
   const [forumToTranslate, setForumToTranslate] = useState(null);
-  const navigate = useNavigate();
 
+  const navigate = useNavigate();
+  // Fonction pour nettoyer le texte en supprimant les * *
+  const cleanText = (text) => {
+    return text ? text.replace(/\*\*/g, "") : text;
+  };
   // Fonction pour interagir avec l'API Gemini
   const interactWithGemini = async (message) => {
     // Clé API Gemini
@@ -1200,7 +1204,7 @@ function Forum() {
               >
                 <div
                   style={{
-                    backgroundColor: "#ff9800",
+                    backgroundColor: "#f44336",
                     borderRadius: "50%",
                     width: "50px",
                     height: "50px",
@@ -1217,8 +1221,37 @@ function Forum() {
                     (e.currentTarget.style.transform = "scale(1)")
                   }
                 >
-                  <span style={{ fontSize: "24px", color: "white" }}>❓</span>
+                  <span style={{ fontSize: "24px", color: "white" }}>❔</span>
                 </div>
+              </div>
+              {/* Scroll Top */}
+              <div>
+                <a
+                  href="#"
+                  style={{
+                    zIndex: 1000,
+                    cursor: "pointer",
+                    position: "fixed",
+                    bottom: "18px",
+                    right: "20px",
+                    background: "#0ea5e6",
+                    color: "#fff",
+                    width: "50px",
+                    height: "50px",
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textDecoration: "none",
+                    marginRight: "1350px",
+                    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+                    transition: "background 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => (e.target.style.background = "#45a049")}
+                  onMouseLeave={(e) => (e.target.style.background = "#0ea5e6")}
+                >
+                  <i className="far fa-arrow-up"></i>
+                </a>
               </div>
               {/* Conteneur pour la liste déroulante et les boutons */}
               <div className="d-flex align-items-center">
@@ -1256,6 +1289,7 @@ function Forum() {
                   style={{
                     borderRadius: "50px",
                     marginRight: "10px",
+                    height: "40px",
                     opacity: isBanned ? 0.5 : 1,
                     cursor: isBanned ? "not-allowed" : "pointer",
                   }}
@@ -1277,6 +1311,7 @@ function Forum() {
                     className="theme-btn"
                     style={{
                       borderRadius: "50px",
+                      height: "40px",
                       backgroundColor: "#ff4d4f",
                       opacity: isBanned ? 0.5 : 1,
                       cursor: isBanned ? "not-allowed" : "pointer",
@@ -1661,6 +1696,7 @@ function Forum() {
                               cursor: isBanned ? "not-allowed" : "pointer",
                               transition:
                                 "background-color 0.3s ease, transform 0.2s ease",
+                              height: "40px",
                             }}
                             onMouseEnter={(e) => {
                               if (!isBanned) {
@@ -1694,6 +1730,7 @@ function Forum() {
                               cursor: isBanned ? "not-allowed" : "pointer",
                               transition:
                                 "background-color 0.3s ease, transform 0.2s ease",
+                              height: "40px",
                             }}
                             onMouseEnter={(e) => {
                               if (!isBanned) {
@@ -1921,7 +1958,7 @@ function Forum() {
         <div
           style={{
             position: "fixed",
-            top: 0,
+            top: 30,
             left: 0,
             right: 0,
             bottom: 0,
@@ -1937,13 +1974,13 @@ function Forum() {
               backgroundColor: "white",
               padding: "20px",
               borderRadius: "8px",
-              width: "600px",
+              width: "700px",
               maxWidth: "100%",
               boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
             }}
           >
             <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
-              Notifications
+              Forum notifications
             </h3>
             <div
               style={{
@@ -1953,6 +1990,7 @@ function Forum() {
               }}
             >
               <button
+                className="theme-btn"
                 onClick={handleMarkAllAsRead}
                 style={{
                   backgroundColor: "#007bff",
@@ -2013,6 +2051,7 @@ function Forum() {
                       </div>
                       {!notif.read && (
                         <button
+                          className="theme-btn"
                           onClick={() => handleMarkAsRead(notif.id)}
                           style={{
                             backgroundColor: "#28a745",
@@ -2133,7 +2172,7 @@ function Forum() {
         <div
           style={{
             position: "fixed",
-            top: 0,
+            top: 80,
             left: 0,
             right: 0,
             bottom: 0,
@@ -2275,7 +2314,7 @@ function Forum() {
                   backgroundColor: "#f44336",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}
@@ -2288,7 +2327,7 @@ function Forum() {
                   backgroundColor: "#4CAF50",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}
@@ -2960,12 +2999,11 @@ function Forum() {
         </div>
       </div>
 
-      {/* Modal du chatbot */}
       {showChatbotModal && (
         <div
           style={{
             position: "fixed",
-            top: 0,
+            top: 80,
             left: 0,
             right: 0,
             bottom: 0,
@@ -2980,17 +3018,25 @@ function Forum() {
             style={{
               backgroundColor: "white",
               padding: "20px",
-              borderRadius: "8px",
+              borderRadius: "12px",
               width: "600px",
               maxWidth: "100%",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
               display: "flex",
               flexDirection: "column",
               maxHeight: "80vh",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
-              Chatbot (Gemini)
+            <h3
+              style={{
+                marginBottom: "20px",
+                textAlign: "center",
+                color: "#333",
+                fontSize: "24px",
+                fontWeight: "bold",
+              }}
+            >
+              Chatbot Powered by Gemini 🤖
             </h3>
             <div
               style={{
@@ -2998,9 +3044,13 @@ function Forum() {
                 maxHeight: "60vh",
                 overflowY: "auto",
                 marginBottom: "20px",
-                padding: "10px",
-                border: "1px solid #ddd",
+                padding: "15px",
+                border: "1px solid #e0e0e0",
                 borderRadius: "8px",
+                backgroundColor: "#f9f9f9",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
               }}
             >
               {chatMessages.length > 0 ? (
@@ -3008,24 +3058,82 @@ function Forum() {
                   <div
                     key={index}
                     style={{
-                      marginBottom: "10px",
-                      padding: "10px",
-                      borderRadius: "8px",
-                      backgroundColor:
-                        msg.sender === "user" ? "#e6f3ff" : "#f9f9f9",
-                      alignSelf:
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems:
                         msg.sender === "user" ? "flex-end" : "flex-start",
-                      maxWidth: "80%",
-                      wordBreak: "break-word",
+                      animation: "fadeIn 0.3s ease-in-out",
                     }}
                   >
-                    <strong>{msg.sender === "user" ? "You" : "Bot"}:</strong>{" "}
-                    {msg.text}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        maxWidth: "70%",
+                      }}
+                    >
+                      {msg.sender === "bot" && (
+                        <span
+                          style={{
+                            fontSize: "20px",
+                            color: "#28a745",
+                          }}
+                        ></span>
+                      )}
+                      <div
+                        style={{
+                          padding: "10px 15px",
+                          borderRadius: "15px",
+                          backgroundColor:
+                            msg.sender === "user" ? "#007bff" : "#ffffff",
+                          color: msg.sender === "user" ? "white" : "#333",
+                          boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                          wordBreak: "break-word",
+                          border:
+                            msg.sender === "bot" ? "1px solid #e0e0e0" : "none",
+                        }}
+                      >
+                        <strong>
+                          {msg.sender === "user" ? "You" : "Bot"}:
+                        </strong>{" "}
+                        {cleanText(msg.text)}
+                      </div>
+                      {msg.sender === "user" && (
+                        <span
+                          style={{
+                            fontSize: "20px",
+                            color: "#007bff",
+                          }}
+                        >
+                          🧑
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "12px",
+                        color: "#999",
+                        marginTop: "5px",
+                      }}
+                    >
+                      {new Date().toLocaleTimeString("fr-FR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })}
+                    </div>
                   </div>
                 ))
               ) : (
-                <p style={{ textAlign: "center", color: "#666" }}>
-                  Start a conversation with the chatbot!
+                <p
+                  style={{
+                    textAlign: "center",
+                    color: "#666",
+                    fontStyle: "italic",
+                  }}
+                >
+                  Start a conversation with the chatbot! 💬
                 </p>
               )}
             </div>
@@ -3043,11 +3151,15 @@ function Forum() {
                 placeholder="Type your message..."
                 style={{
                   flex: 1,
-                  padding: "10px",
+                  padding: "12px",
                   borderRadius: "50px",
                   border: "1px solid #ddd",
                   outline: "none",
+                  fontSize: "14px",
+                  transition: "border-color 0.3s ease",
                 }}
+                onFocus={(e) => (e.target.style.borderColor = "#007bff")}
+                onBlur={(e) => (e.target.style.borderColor = "#ddd")}
                 onKeyPress={(e) => {
                   if (e.key === "Enter" && userMessage.trim()) {
                     setChatMessages((prev) => [
@@ -3057,7 +3169,7 @@ function Forum() {
                     interactWithGemini(userMessage).then((reply) => {
                       setChatMessages((prev) => [
                         ...prev,
-                        { sender: "bot", text: reply },
+                        { sender: "bot", text: cleanText(reply) },
                       ]);
                     });
                     setUserMessage("");
@@ -3074,7 +3186,7 @@ function Forum() {
                     interactWithGemini(userMessage).then((reply) => {
                       setChatMessages((prev) => [
                         ...prev,
-                        { sender: "bot", text: reply },
+                        { sender: "bot", text: cleanText(reply) },
                       ]);
                     });
                     setUserMessage("");
@@ -3083,10 +3195,20 @@ function Forum() {
                 style={{
                   backgroundColor: "#007bff",
                   color: "white",
-                  padding: "10px 20px",
+                  padding: "12px 20px",
                   borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
+                  fontSize: "14px",
+                  transition: "background-color 0.3s ease, transform 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#0056b3";
+                  e.currentTarget.style.transform = "scale(1.05)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "#007bff";
+                  e.currentTarget.style.transform = "scale(1)";
                 }}
               >
                 Send
@@ -3097,13 +3219,13 @@ function Forum() {
                 display: "flex",
                 justifyContent: "center",
                 marginTop: "20px",
+                gap: "10px",
               }}
             >
               <button
                 onClick={() => {
                   setShowChatbotModal(false);
-                  setUserMessage(""); // On réinitialise uniquement le champ de saisie
-                  // On ne réinitialise plus chatMessages pour conserver la discussion
+                  setUserMessage("");
                 }}
                 style={{
                   backgroundColor: "#f44336",
@@ -3112,7 +3234,14 @@ function Forum() {
                   borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
+                  transition: "background-color 0.3s ease",
                 }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#d32f2f")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#f44336")
+                }
               >
                 Close
               </button>
@@ -3128,8 +3257,14 @@ function Forum() {
                   borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
-                  marginLeft: "10px",
+                  transition: "background-color 0.3s ease",
                 }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#f57c00")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#ff9800")
+                }
               >
                 Clear Chat
               </button>
@@ -3213,7 +3348,7 @@ function Forum() {
                   backgroundColor: "#f44336",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}

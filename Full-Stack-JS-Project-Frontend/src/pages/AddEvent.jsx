@@ -347,7 +347,7 @@ const AddEvent = () => {
                           placeholder="Event Title"
                           value={formData.title}
                           onChange={handleChange}
-                          style={{ borderColor: errors.title ? "#dc3545" : "#ced4da" }}
+                          style={{ borderColor: errors.title ? "#dc3545" : "#ced4da",borderRadius:"50px" }}
                         />
                         {errors.title && (
                           <p style={{ color: "#dc3545", fontSize: "14px", marginTop: "5px" }}>
@@ -364,7 +364,7 @@ const AddEvent = () => {
                           placeholder="Description"
                           value={formData.description}
                           onChange={handleChange}
-                          style={{ borderColor: errors.description ? "#dc3545" : "#ced4da" }}
+                          style={{ borderColor: errors.description ? "#dc3545" : "#ced4da",borderRadius:"20px" }}
                         />
                         {errors.description && (
                           <p style={{ color: "#dc3545", fontSize: "14px", marginTop: "5px" }}>
@@ -383,7 +383,7 @@ const AddEvent = () => {
                             color: "#fff",
                             padding: "10px 20px",
                             border: "none",
-                            borderRadius: "5px",
+                            borderRadius: "50px",
                             cursor: isGeneratingImage || !formData.description ? "not-allowed" : "pointer",
                           }}
                         >
@@ -401,7 +401,7 @@ const AddEvent = () => {
                           className="form-control"
                           value={formData.start_date}
                           onChange={handleChange}
-                          style={{ borderColor: errors.start_date ? "#dc3545" : "#ced4da" }}
+                          style={{ borderColor: errors.start_date ? "#dc3545" : "#ced4da",borderRadius:"50px" }}
                         />
                         {errors.start_date && (
                           <p style={{ color: "#dc3545", fontSize: "14px", marginTop: "5px" }}>
@@ -420,7 +420,7 @@ const AddEvent = () => {
                           className="form-control"
                           value={formData.end_date}
                           onChange={handleChange}
-                          style={{ borderColor: errors.end_date ? "#dc3545" : "#ced4da" }}
+                          style={{ borderColor: errors.end_date ? "#dc3545" : "#ced4da",borderRadius:"50px" }}
                         />
                         {errors.end_date && (
                           <p style={{ color: "#dc3545", fontSize: "14px", marginTop: "5px" }}>
@@ -441,7 +441,7 @@ const AddEvent = () => {
                           style={{
                             borderColor: errors.event_type ? "#dc3545" : "#ced4da",
                             padding: "10px",
-                            borderRadius: "5px",
+                            borderRadius: "50px",
                             fontSize: "16px",
                             color: "#333",
                             outline: "none",
@@ -468,7 +468,7 @@ const AddEvent = () => {
                           placeholder="Time (HH:MM)"
                           value={formData.heure}
                           onChange={handleChange}
-                          style={{ borderColor: errors.heure ? "#dc3545" : "#ced4da" }}
+                          style={{ borderColor: errors.heure ? "#dc3545" : "#ced4da",borderRadius:"50px" }}
                         />
                         {errors.heure && (
                           <p style={{ color: "#dc3545", fontSize: "14px", marginTop: "5px" }}>
@@ -491,7 +491,7 @@ const AddEvent = () => {
                               style={{
                                 borderColor: errors.localisation ? "#dc3545" : "#ced4da",
                                 padding: "10px",
-                                borderRadius: "5px",
+                                borderRadius: "50px",
                                 fontSize: "16px",
                                 color: "#333",
                                 outline: "none",
@@ -523,7 +523,7 @@ const AddEvent = () => {
                               placeholder="Venue (e.g., hall)"
                               value={formData.lieu}
                               onChange={handleChange}
-                              style={{ borderColor: errors.lieu ? "#dc3545" : "#ced4da" }}
+                              style={{ borderColor: errors.lieu ? "#dc3545" : "#ced4da",borderRadius:"50px" }}
                             />
                             {errors.lieu && (
                               <p style={{ color: "#dc3545", fontSize: "14px", marginTop: "5px" }}>
@@ -568,7 +568,7 @@ const AddEvent = () => {
                           list="emailSuggestions"
                           value={formData.contact_email}
                           onChange={handleChange}
-                          style={{ borderColor: errors.contact_email ? "#dc3545" : "#ced4da" }}
+                          style={{ borderColor: errors.contact_email ? "#dc3545" : "#ced4da",borderRadius:"50px" }}
                         />
                         <datalist id="emailSuggestions">
                           {emailDomains.map((domain) => (
@@ -599,6 +599,7 @@ const AddEvent = () => {
                             color: "#333",
                             outline: "none",
                             transition: "all 0.3s ease",
+                            borderRadius:"50px"
                           }}
                         >
                           <option value="false">No</option>
@@ -619,6 +620,7 @@ const AddEvent = () => {
                           accept="image/*"
                           onChange={handleImageChange}
                           className="form-control"
+                          style={{borderRadius:"50px"}}
                         />
                       </div>
                       <div className="col-md-12">
@@ -631,7 +633,7 @@ const AddEvent = () => {
                             color: "#fff",
                             padding: "10px 20px",
                             border: "none",
-                            borderRadius: "5px",
+                            borderRadius: "50px",
                             cursor: isSubmitting ? "not-allowed" : "pointer",
                           }}
                         >
@@ -646,7 +648,7 @@ const AddEvent = () => {
                             color: "#fff",
                             padding: "10px 20px",
                             border: "none",
-                            borderRadius: "5px",
+                            borderRadius: "50px",
                             marginLeft: "10px",
                           }}
                         >

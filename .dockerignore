@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+.env
+.git
+.gitignore
+.md
+tests/
+coverage/
+data/
+logs/
+ci-build.js
+.env.test

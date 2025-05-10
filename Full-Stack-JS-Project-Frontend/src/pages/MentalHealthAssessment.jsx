@@ -1,0 +1,451 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
+const MentalHealthAssessment = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    counselingServiceUse: 'never',
+    stressLevel: 3,
+    substanceUse: 'never',
+    age: '',
+    course: '',
+    financialStress: 3,
+    physicalActivity: 'moderate',
+    extracurricularInvolvement: 'moderate',
+    semesterCreditLoad: 15,
+    familyHistory: 'no',
+    chronicIllness: 'no',
+    anxietyScore: 3,
+    depressionScore: 3
+  });
+
+  // Get user data on component mount
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const token = localStorage.getItem('jwt-token'); // Changed from 'token' to 'jwt-token'
+        if (!token) {
+          toast.error('You need to be logged in to access this page');
+          navigate('/login');
+          return;
+        }
+
+        console.log('Fetching user data with token:', token); // Debug log
+
+        // The /users/me endpoint only returns limited info (username, role, user_photo)
+        // We'll use default values for the form instead
+        const response = await axios.get('http://localhost:5000/users/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          withCredentials: true
+        });
+
+        console.log('User data:', response.data); // Debug log
+
+        // Set default values for the form
+        setFormData(prevData => ({
+          ...prevData,
+          age: 20, // Default age
+          course: response.data?.speciality || 'Computer Science' // Default course
+        }));
+
+        // Show a message to the user
+        toast.info('Please verify and complete all fields in the form.');
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+
+        // More detailed error logging
+        if (error.response) {
+          console.error('Response data:', error.response.data);
+          console.error('Response status:', error.response.status);
+
+          if (error.response.status === 401) {
+            toast.error('Authentication failed. Please log in again.');
+            navigate('/login');
+          } else {
+            toast.error('Failed to load user data: ' + (error.response.data?.message || 'Unknown error'));
+          }
+        } else if (error.request) {
+          console.error('No response received:', error.request);
+          toast.error('No response from server. Please try again later.');
+        } else {
+          toast.error('Error setting up request: ' + error.message);
+        }
+      }
+    };
+
+    fetchUserData();
+  }, [navigate]);
+
+  // No longer needed since we're using default values
+
+  // Handle form input changes
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prevData => ({
+      ...prevData,
+      [name]: value
+    }));
+  };
+
+  // Handle range input changes
+  const handleRangeChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prevData => ({
+      ...prevData,
+      [name]: parseInt(value, 10)
+    }));
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      // Get the correct token from localStorage
+      const token = localStorage.getItem('jwt-token'); // Changed from 'token' to 'jwt-token'
+      if (!token) {
+        toast.error('You need to be logged in to submit an assessment');
+        navigate('/login');
+        return;
+      }
+
+      console.log('Using token:', token); // Debug log
+
+      // Submit assessment data
+      const response = await axios.post(
+        'http://localhost:5000/mental-health/assessment',
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          withCredentials: true // Include cookies if any
+        }
+      );
+
+      console.log('Response:', response.data); // Debug log
+
+      // Navigate to results page with assessment ID
+      navigate(`/mental-health-results/${response.data.data.id}`);
+    } catch (error) {
+      console.error('Error submitting assessment:', error);
+
+      // More detailed error logging
+      if (error.response) {
+        console.error('Response data:', error.response.data);
+        console.error('Response status:', error.response.status);
+
+        if (error.response.status === 401) {
+          toast.error('Authentication failed. Please log in again.');
+          navigate('/login');
+        } else {
+          toast.error(error.response.data?.message || 'Failed to submit assessment');
+        }
+      } else if (error.request) {
+        console.error('No response received:', error.request);
+        toast.error('No response from server. Please try again later.');
+      } else {
+        toast.error('Error setting up request: ' + error.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="container py-5">
+      <ToastContainer />
+      <div className="row justify-content-center">
+        <div className="col-lg-8">
+          <div className="card shadow">
+            <div className="card-header bg-primary text-white">
+              <h2 className="mb-0">Mental Health Assessment</h2>
+            </div>
+            <div className="card-body">
+              <p className="lead mb-4">
+                This assessment will help us understand your mental health status and provide personalized recommendations.
+                All information is kept confidential.
+              </p>
+
+              <form onSubmit={handleSubmit}>
+                {/* Personal Information */}
+                <h4 className="mb-3">Personal Information</h4>
+                <div className="row mb-4">
+                  <div className="col-md-6 mb-3">
+                    <label htmlFor="age" className="form-label">Age</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      id="age"
+                      name="age"
+                      value={formData.age}
+                      onChange={handleChange}
+                      required
+                      min="18"
+                      max="100"
+                    />
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label htmlFor="course" className="form-label">Course/Speciality</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      id="course"
+                      name="course"
+                      value={formData.course}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Academic Information */}
+                <h4 className="mb-3">Academic Information</h4>
+                <div className="row mb-4">
+                  <div className="col-md-6 mb-3">
+                    <label htmlFor="semesterCreditLoad" className="form-label">Semester Credit Load</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      id="semesterCreditLoad"
+                      name="semesterCreditLoad"
+                      value={formData.semesterCreditLoad}
+                      onChange={handleChange}
+                      required
+                      min="1"
+                      max="30"
+                    />
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label htmlFor="extracurricularInvolvement" className="form-label">Extracurricular Involvement</label>
+                    <select
+                      className="form-select"
+                      id="extracurricularInvolvement"
+                      name="extracurricularInvolvement"
+                      value={formData.extracurricularInvolvement}
+                      onChange={handleChange}
+                      required
+                    >
+                      <option value="low">Low</option>
+                      <option value="moderate">Moderate</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Health Information */}
+                <h4 className="mb-3">Health Information</h4>
+                <div className="row mb-4">
+                  <div className="col-md-6 mb-3">
+                    <label htmlFor="physicalActivity" className="form-label">Physical Activity Level</label>
+                    <select
+                      className="form-select"
+                      id="physicalActivity"
+                      name="physicalActivity"
+                      value={formData.physicalActivity}
+                      onChange={handleChange}
+                      required
+                    >
+                      <option value="low">Low</option>
+                      <option value="moderate">Moderate</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label htmlFor="substanceUse" className="form-label">Substance Use</label>
+                    <select
+                      className="form-select"
+                      id="substanceUse"
+                      name="substanceUse"
+                      value={formData.substanceUse}
+                      onChange={handleChange}
+                      required
+                    >
+                      <option value="never">Never</option>
+                      <option value="occasionally">Occasionally</option>
+                      <option value="regularly">Regularly</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="row mb-4">
+                  <div className="col-md-6 mb-3">
+                    <label htmlFor="familyHistory" className="form-label">Family History of Mental Health Issues</label>
+                    <select
+                      className="form-select"
+                      id="familyHistory"
+                      name="familyHistory"
+                      value={formData.familyHistory}
+                      onChange={handleChange}
+                      required
+                    >
+                      <option value="no">No</option>
+                      <option value="yes">Yes</option>
+                    </select>
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label htmlFor="chronicIllness" className="form-label">Chronic Illness</label>
+                    <select
+                      className="form-select"
+                      id="chronicIllness"
+                      name="chronicIllness"
+                      value={formData.chronicIllness}
+                      onChange={handleChange}
+                      required
+                    >
+                      <option value="no">No</option>
+                      <option value="yes">Yes</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <label htmlFor="counselingServiceUse" className="form-label">Counseling Service Use</label>
+                  <select
+                    className="form-select"
+                    id="counselingServiceUse"
+                    name="counselingServiceUse"
+                    value={formData.counselingServiceUse}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="never">Never</option>
+                    <option value="occasionally">Occasionally</option>
+                    <option value="regularly">Regularly</option>
+                  </select>
+                </div>
+
+                {/* Mental Health Scales */}
+                <h4 className="mb-3">Mental Health Scales</h4>
+                <div className="mb-4">
+                  <label htmlFor="stressLevel" className="form-label">
+                    Stress Level (0-5): {formData.stressLevel}
+                  </label>
+                  <input
+                    type="range"
+                    className="form-range"
+                    id="stressLevel"
+                    name="stressLevel"
+                    min="0"
+                    max="5"
+                    step="1"
+                    value={formData.stressLevel}
+                    onChange={handleRangeChange}
+                    required
+                  />
+                  <div className="d-flex justify-content-between">
+                    <span>None</span>
+                    <span>Mild</span>
+                    <span>Moderate</span>
+                    <span>Severe</span>
+                    <span>Extreme</span>
+                    <span>Overwhelming</span>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <label htmlFor="anxietyScore" className="form-label">
+                    Anxiety Level (0-5): {formData.anxietyScore}
+                  </label>
+                  <input
+                    type="range"
+                    className="form-range"
+                    id="anxietyScore"
+                    name="anxietyScore"
+                    min="0"
+                    max="5"
+                    step="1"
+                    value={formData.anxietyScore}
+                    onChange={handleRangeChange}
+                    required
+                  />
+                  <div className="d-flex justify-content-between">
+                    <span>None</span>
+                    <span>Mild</span>
+                    <span>Moderate</span>
+                    <span>Severe</span>
+                    <span>Extreme</span>
+                    <span>Overwhelming</span>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <label htmlFor="depressionScore" className="form-label">
+                    Depression Level (0-5): {formData.depressionScore}
+                  </label>
+                  <input
+                    type="range"
+                    className="form-range"
+                    id="depressionScore"
+                    name="depressionScore"
+                    min="0"
+                    max="5"
+                    step="1"
+                    value={formData.depressionScore}
+                    onChange={handleRangeChange}
+                    required
+                  />
+                  <div className="d-flex justify-content-between">
+                    <span>None</span>
+                    <span>Mild</span>
+                    <span>Moderate</span>
+                    <span>Severe</span>
+                    <span>Extreme</span>
+                    <span>Overwhelming</span>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <label htmlFor="financialStress" className="form-label">
+                    Financial Stress Level (0-5): {formData.financialStress}
+                  </label>
+                  <input
+                    type="range"
+                    className="form-range"
+                    id="financialStress"
+                    name="financialStress"
+                    min="0"
+                    max="5"
+                    step="1"
+                    value={formData.financialStress}
+                    onChange={handleRangeChange}
+                    required
+                  />
+                  <div className="d-flex justify-content-between">
+                    <span>None</span>
+                    <span>Mild</span>
+                    <span>Moderate</span>
+                    <span>Severe</span>
+                    <span>Extreme</span>
+                    <span>Overwhelming</span>
+                  </div>
+                </div>
+
+                <div className="d-grid gap-2">
+                  <button
+                    type="submit"
+                    className="btn btn-primary btn-lg"
+                    disabled={loading}
+                  >
+                    {loading ? 'Processing...' : 'Submit Assessment'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default MentalHealthAssessment;

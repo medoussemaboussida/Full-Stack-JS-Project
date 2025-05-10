@@ -636,58 +636,78 @@ function DetailsStudents() {
             <h3 style={{ marginBottom: "20px", textAlign: "center" }}>Confirm Deletion</h3>
             <p style={{ marginBottom: "20px", textAlign: "center" }}>Are you sure you want to delete your account? This action cannot be undone.</p>
             <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-              <button onClick={() => setShowDeleteModal(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "5px" }}>Cancel</button>
-              <button onClick={handleDeleteAccount} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "5px" }}>Confirm</button>
+              <button onClick={() => setShowDeleteModal(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Cancel</button>
+              <button onClick={handleDeleteAccount} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Confirm</button>
             </div>
           </div>
         </div>
       )}
 
-      {showAvailabilityModal && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 2000 }}>
-          <div style={{ backgroundColor: "white", padding: "20px", borderRadius: "5px", width: "350px", boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}>
-            <h3 style={{ textAlign: "center", marginBottom: "15px" }}>Add Availability</h3>
-            <div style={{ marginBottom: "15px" }}>
-              <label style={{ display: "block", marginBottom: "5px" }}>Date</label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                min={formatDateForInput(new Date())}
-                style={{ width: "100%", padding: "8px", borderRadius: "3px", border: "1px solid #ccc" }}
-              />
-            </div>
-            <div style={{ marginBottom: "15px" }}>
-              <label style={{ display: "block", marginBottom: "5px" }}>Start Time</label>
-              <input
-                type="time"
-                value={selectedStartTime}
-                onChange={(e) => setSelectedStartTime(e.target.value)}
-                min="08:00"
-                max="20:00"
-                style={{ width: "100%", padding: "8px", borderRadius: "3px", border: "1px solid #ccc" }}
-              />
-            </div>
-            <div style={{ marginBottom: "15px" }}>
-              <label style={{ display: "block", marginBottom: "5px" }}>End Time</label>
-              <input
-                type="time"
-                value={selectedEndTime}
-                onChange={(e) => setSelectedEndTime(e.target.value)}
-                min={selectedStartTime}
-                max="20:00"
-                style={{ width: "100%", padding: "8px", borderRadius: "3px", border: "1px solid #ccc" }}
-              />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-around" }}>
-              <button onClick={handleAvailabilityConfirm} style={{ backgroundColor: "#4CAF50", color: "white", padding: "8px 16px", border: "none", borderRadius: "3px", cursor: "pointer" }}>Confirm</button>
-              <button onClick={() => setShowAvailabilityModal(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "8px 16px", border: "none", borderRadius: "3px", cursor: "pointer" }}>Cancel</button>
-            </div>
-          </div>
+{showAvailabilityModal && (
+  <div className="auth-area" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 2000 }}>
+    <div className="auth-form" style={{ backgroundColor: "white", padding: "30px", borderRadius: "10px", width: "350px", maxWidth: "90%", boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}>
+      <div className="auth-header" style={{ textAlign: "center", marginBottom: "20px" }}>
+        <h3 style={{ fontSize: "1.5rem", fontWeight: "600", color: "#2d3748" }}>Add Availability</h3>
+      </div>
+      <div className="form-group" style={{ marginBottom: "20px" }}>
+        <div className="form-icon" style={{ position: "relative" }}>
+          <i className="far fa-calendar" style={{ position: "absolute", left: "15px", top: "50%", transform: "translateY(-50%)", color: "#718096" }}></i>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            min={formatDateForInput(new Date())}
+            style={{ width: "100%", padding: "10px 15px 10px 40px", borderRadius: "50px", border: "1px solid #e2e8f0", fontSize: "14px", outline: "none" }}
+          />
         </div>
-      )}
-
-      <main style={{ padding: "20px", backgroundColor: "#f9f9f9" }}>
+      </div>
+      <div className="form-group" style={{ marginBottom: "20px" }}>
+        <div className="form-icon" style={{ position: "relative" }}>
+          <i className="far fa-clock" style={{ position: "absolute", left: "15px", top: "50%", transform: "translateY(-50%)", color: "#718096" }}></i>
+          <input
+            type="time"
+            value={selectedStartTime}
+            onChange={(e) => setSelectedStartTime(e.target.value)}
+            min="08:00"
+            max="20:00"
+            style={{ width: "100%", padding: "10px 15px 10px 40px", borderRadius: "50px", border: "1px solid #e2e8f0", fontSize: "14px", outline: "none" }}
+          />
+        </div>
+      </div>
+      <div className="form-group" style={{ marginBottom: "20px" }}>
+        <div className="form-icon" style={{ position: "relative" }}>
+          <i className="far fa-clock" style={{ position: "absolute", left: "15px", top: "50%", transform: "translateY(-50%)", color: "#718096" }}></i>
+          <input
+            type="time"
+            value={selectedEndTime}
+            onChange={(e) => setSelectedEndTime(e.target.value)}
+            min={selectedStartTime}
+            max="20:00"
+            style={{ width: "100%", padding: "10px 15px 10px 40px", borderRadius: "50px", border: "1px solid #e2e8f0", fontSize: "14px", outline: "none" }}
+          />
+        </div>
+      </div>
+    
+      <div className="auth-btn" style={{ display: "flex", justifyContent: "center", gap: "20px" }}>
+  <button
+    onClick={handleAvailabilityConfirm}
+    className="theme-btn w-full py-3 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    style={{ borderRadius: "50px", fontSize: "16px" }}
+  >
+    <span className="far fa-check"></span> Confirm
+  </button>
+  <button
+    onClick={() => setShowAvailabilityModal(false)}
+    className="theme-btn w-full py-3 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+    style={{ borderRadius: "50px", fontSize: "16px" }}
+  >
+    <span className="far fa-times"></span> Cancel
+  </button>
+</div>
+    </div>
+  </div>
+)}
+      <main className="main">
         <div className="site-breadcrumb" style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}>
           <div className="container">
             <h2 className="breadcrumb-title">Profile Details</h2>
@@ -715,7 +735,7 @@ function DetailsStudents() {
                           name="username"
                           value={formData.username}
                           onChange={handleChange}
-                          style={{ width: "100%", padding: "12px 15px", borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "1.5rem", fontWeight: "600", outline: "none" }}
+                          style={{ width: "100%", padding: "12px 15px", borderRadius: "50px", border: "1px solid #e2e8f0", fontSize: "1.5rem", fontWeight: "600", outline: "none" }}
                         />
                         {formData.username === "" && <span style={{ color: "red", fontSize: "0.9rem" }}>Username is required</span>}
                       </>
@@ -748,7 +768,7 @@ function DetailsStudents() {
                               cursor: "pointer", 
                               padding: "10px", 
                               border: "1px solid #e2e8f0", 
-                              borderRadius: "8px", 
+                              borderRadius: "50px", 
                               backgroundColor: "#f9fafb",
                               minHeight: "100px",
                               display: "flex",
@@ -761,7 +781,7 @@ function DetailsStudents() {
                           </div>
                         ) : isEditing ? (
                           field.name === "speciality" ? (
-                            <select name="speciality" value={formData.speciality} onChange={handleChange} style={{ width: "100%", padding: "10px 15px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                            <select name="speciality" value={formData.speciality} onChange={handleChange} style={{ width: "100%", padding: "10px 15px", borderRadius: "50px", border: "1px solid #e2e8f0" }}>
                               <option value="A">A</option>
                               <option value="B">B</option>
                               <option value="P">P</option>
@@ -777,7 +797,7 @@ function DetailsStudents() {
                               <option value="INFINI">INFINI</option>
                             </select>
                           ) : field.name === "level" ? (
-                            <select name="level" value={formData.level} onChange={handleChange} style={{ width: "100%", padding: "10px 15px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                            <select name="level" value={formData.level} onChange={handleChange} style={{ width: "100%", padding: "10px 15px", borderRadius: "50px", border: "1px solid #e2e8f0" }}>
                               <option value="1">1</option>
                               <option value="2">2</option>
                               <option value="3">3</option>
@@ -790,7 +810,7 @@ function DetailsStudents() {
                               value={formData.description}
                               onChange={handleChange}
                               placeholder="Enter your professional description"
-                              style={{ width: "100%", padding: "10px 15px", borderRadius: "8px", border: "1px solid #e2e8f0", minHeight: "100px", resize: "vertical" }}
+                              style={{ width: "100%", padding: "10px 15px", borderRadius: "30px", border: "1px solid #e2e8f0", minHeight: "100px", resize: "vertical" }}
                               maxLength={500}
                             />
                           ) : (
@@ -800,7 +820,7 @@ function DetailsStudents() {
                               value={field.value}
                               onChange={handleChange}
                               disabled={field.disabled}
-                              style={{ width: "100%", padding: "10px 15px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: field.disabled ? "#e9ecef" : "#ffffff" }}
+                              style={{ width: "100%", padding: "10px 15px", borderRadius: "50px", border: "1px solid #e2e8f0", backgroundColor: field.disabled ? "#e9ecef" : "#ffffff" }}
                             />
                           )
                         ) : (
@@ -830,41 +850,41 @@ function DetailsStudents() {
                     {user.role === "student" && (
                       isEditing ? (
                         <>
-                          <button onClick={handleSave} style={{ backgroundColor: "#4CAF50", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "8px" }}>
+                          <button onClick={handleSave} style={{ backgroundColor: "#4CAF50", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
                             <i className="far fa-save" style={{ marginRight: "8px" }}></i> Save
                           </button>
-                          <button onClick={handleCancel} style={{ backgroundColor: "#f44336", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "8px" }}>
+                          <button onClick={handleCancel} style={{ backgroundColor: "#f44336", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
                             <i className="far fa-times" style={{ marginRight: "8px" }}></i> Cancel
                           </button>
                         </>
                       ) : (
-                        <button onClick={handleEdit} style={{ backgroundColor: "#4CAF50", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "8px" }}>
+                        <button onClick={handleEdit} style={{ backgroundColor: "#4CAF50", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
                           <i className="far fa-edit" style={{ marginRight: "8px" }}></i> Edit
                         </button>
                       )
                     )}
-                    <button onClick={() => setIsChangingPassword(true)} style={{ backgroundColor: "#2196F3", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "8px" }}>
+                    <button onClick={() => setIsChangingPassword(true)} style={{ backgroundColor: "#2196F3", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
                       <i className="fas fa-key" style={{ marginRight: "8px" }}></i> Change Password
                     </button>
-                    <button onClick={() => setIsChangingPhoto(true)} style={{ backgroundColor: "#FF9800", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "8px" }}>
+                    <button onClick={() => setIsChangingPhoto(true)} style={{ backgroundColor: "#FF9800", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
                       <i className="fas fa-camera" style={{ marginRight: "8px" }}></i> Change Photo
                     </button>
-                    <button onClick={() => setShowDeleteModal(true)} style={{ backgroundColor: "#ff0000", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "8px" }}>
+                    <button onClick={() => setShowDeleteModal(true)} style={{ backgroundColor: "#ff0000", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
                       <i className="fas fa-trash" style={{ marginRight: "8px" }}></i> Delete Account
                     </button>
                     {user.role === "psychiatrist" && (
-                      <button onClick={() => setShowCalendar(true)} style={{ backgroundColor: "#9C27B0", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "8px" }}>
+                      <button onClick={() => setShowCalendar(true)} style={{ backgroundColor: "#9C27B0", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
                         <i className="fas fa-clock" style={{ marginRight: "8px" }}></i> Manage Availability
                       </button>
                     )}
                     {user.role === "association_member" && (
                       <>
                         {!hasAssociation && (
-                          <button onClick={handleAddAssociation} style={{ backgroundColor: "#00BCD4", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "8px" }}>
+                          <button onClick={handleAddAssociation} style={{ backgroundColor: "#00BCD4", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
                             <i className="fas fa-users" style={{ marginRight: "8px" }}></i> Add Association
                           </button>
                         )}
-                        <button onClick={handleAddEvent} style={{ backgroundColor: "#8BC34A", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "8px" }}>
+                        <button onClick={handleAddEvent} style={{ backgroundColor: "#8BC34A", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
                           <i className="fas fa-calendar-plus" style={{ marginRight: "8px" }}></i> Add Event
                         </button>
                       </>
@@ -887,7 +907,7 @@ function DetailsStudents() {
                   placeholder="Current Password"
                   value={passwordData.currentPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                  style={{ padding: "10px", width: "100%", borderRadius: "4px", border: "1px solid #ccc" }}
+                  style={{ padding: "10px", width: "100%", borderRadius: "50px", border: "1px solid #ccc" }}
                 />
                 <i className={`fas ${showCurrentPassword ? "fa-eye-slash" : "fa-eye"}`} onClick={() => setShowCurrentPassword(!showCurrentPassword)} style={{ marginLeft: "10px", cursor: "pointer" }} />
               </div>
@@ -898,7 +918,7 @@ function DetailsStudents() {
                   placeholder="New Password"
                   value={passwordData.newPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                  style={{ padding: "10px", width: "100%", borderRadius: "4px", border: "1px solid #ccc" }}
+                  style={{ padding: "10px", width: "100%", borderRadius: "50px", border: "1px solid #ccc" }}
                 />
                 <i className={`fas ${showNewPassword ? "fa-eye-slash" : "fa-eye"}`} onClick={() => setShowNewPassword(!showNewPassword)} style={{ marginLeft: "10px", cursor: "pointer" }} />
               </div>
@@ -909,12 +929,12 @@ function DetailsStudents() {
                   placeholder="Confirm New Password"
                   value={passwordData.confirmNewPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, confirmNewPassword: e.target.value })}
-                  style={{ padding: "10px", width: "100%", borderRadius: "4px", border: "1px solid #ccc" }}
+                  style={{ padding: "10px", width: "100%", borderRadius: "50px", border: "1px solid #ccc" }}
                 />
                 <i className={`fas ${showConfirmNewPassword ? "fa-eye-slash" : "fa-eye"}`} onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)} style={{ marginLeft: "10px", cursor: "pointer" }} />
               </div>
               <div style={{ marginBottom: "20px" }}>
-                <div style={{ height: "10px", backgroundColor: "#e0e0e0", borderRadius: "5px", overflow: "hidden" }}>
+                <div style={{ height: "10px", backgroundColor: "#e0e0e0", borderRadius: "50px", overflow: "hidden" }}>
                   <div
                     style={{
                       width: `${passwordStrength.strength}%`,
@@ -924,13 +944,13 @@ function DetailsStudents() {
                     }}
                   />
                 </div>
-                <p style={{ textAlign: "center", marginTop: "5px", color: passwordStrength.color, fontWeight: "bold" }}>
+                <p style={{ textAlign: "center", marginTop: "5px", color: passwordStrength.color, fontWeight: "bold", fontSize:"14px" }}>
                   Password Strength: {passwordStrength.label}
                 </p>
               </div>
               <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-                <button onClick={handleChangePassword} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "5px" }}>Save New Password</button>
-                <button onClick={() => setIsChangingPassword(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "5px" }}>Cancel</button>
+                <button onClick={handleChangePassword} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Save New Password</button>
+                <button onClick={() => setIsChangingPassword(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Cancel</button>
               </div>
             </div>
           </div>
@@ -999,7 +1019,7 @@ function DetailsStudents() {
                     fontSize: "16px", 
                     border: "none", 
                     cursor: "pointer", 
-                    borderRadius: "5px" 
+                    borderRadius: "50px" 
                   }}
                 >
                   Cancel
@@ -1018,8 +1038,8 @@ function DetailsStudents() {
                 <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: "block", margin: "0 auto" }} />
               </div>
               <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-                <button onClick={handleChangePhoto} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "5px" }}>Save Photo</button>
-                <button onClick={() => { setIsChangingPhoto(false); setPhotoFile(null); setPreviewPhoto(user.user_photo ? `${BASE_URL}${user.user_photo}` : "assets/img/user.png"); }} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "5px" }}>Cancel</button>
+                <button onClick={handleChangePhoto} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Save Photo</button>
+                <button onClick={() => { setIsChangingPhoto(false); setPhotoFile(null); setPreviewPhoto(user.user_photo ? `${BASE_URL}${user.user_photo}` : "assets/img/user.png"); }} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Cancel</button>
               </div>
             </div>
           </div>
@@ -1062,8 +1082,8 @@ function DetailsStudents() {
                     <h3 style={{ marginBottom: "20px", textAlign: "center" }}>Confirm Deletion</h3>
                     <p style={{ marginBottom: "20px", textAlign: "center" }}>Do you want to delete this availability?</p>
                     <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-                      <button onClick={() => setShowDeleteAvailabilityModal(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "5px" }}>Cancel</button>
-                      <button onClick={handleDeleteAvailability} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "5px" }}>Confirm</button>
+                      <button onClick={() => setShowDeleteAvailabilityModal(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Cancel</button>
+                      <button onClick={handleDeleteAvailability} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Confirm</button>
                     </div>
                   </div>
                 </div>

@@ -99,7 +99,7 @@ function Reset_Password() {
                             <div className="auth-form">
                                 <div className="auth-header">
                                     <img src="assets/img/logo/logo.png" alt="" />
-                                    <p>Reset your account password</p>
+                                    <p>Reset your password</p>
                                 </div>
                                 {error && <div className="alert alert-danger">{error}</div>}
                                 {success && <div className="alert alert-success">{success}</div>}
@@ -111,8 +111,9 @@ function Reset_Password() {
                                             placeholder="New Password"
                                             value={passwordData.newPassword}
                                             onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                                            style={{ paddingRight: "40px" }}
+                                            style={{ paddingRight: "40px",borderRadius: "50px" }}
                                             required
+                                            
                                         />
                                         <button
                                             type="button"
@@ -130,6 +131,7 @@ function Reset_Password() {
                                                 cursor: "pointer",
                                                 fontSize: "18px",
                                                 color: "#333",
+                                                borderRadius: "50px"
                                             }}
                                         >
                                             <i className={`fas ${showPassword ? "fa-eye-slash" : "fa-eye"}`}></i>
@@ -143,7 +145,7 @@ function Reset_Password() {
                                             placeholder="Confirm Password"
                                             value={passwordData.confirmPassword}
                                             onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                                            style={{ paddingRight: "40px" }}
+                                            style={{ paddingRight: "40px",borderRadius: "50px" }}
                                             required
                                         />
                                         <button
@@ -162,6 +164,7 @@ function Reset_Password() {
                                                 cursor: "pointer",
                                                 fontSize: "18px",
                                                 color: "#333",
+                                                borderRadius: "50px"
                                             }}
                                         >
                                             <i className={`fas ${showConfirmPassword ? "fa-eye-slash" : "fa-eye"}`}></i>
@@ -169,7 +172,7 @@ function Reset_Password() {
                                     </div>
 
                                     <div className="auth-btn">
-                                        <button type="submit" className="theme-btn">
+                                        <button type="submit" className="theme-btn" style={{ borderRadius: "50px", height:"50px", fontSize:"16px" }}>
                                             <span className="far fa-key"></span> Reset Password
                                         </button>
                                     </div>
