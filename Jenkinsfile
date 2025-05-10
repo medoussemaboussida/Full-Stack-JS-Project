@@ -83,7 +83,7 @@ stage('Unit Test') {
         }
       }
     }
-
+// WARNING : LA CREATION DES IMAGES DOCKER SE FAIT SUR LOCAL 
 
   }
 }
