@@ -12,5 +12,5 @@ COPY --from=build /app/package*.json ./
 COPY --from=build /app/app.js ./
 COPY --from=build /app/src ./src
 RUN npm install --production
-EXPOSE 8500
+EXPOSE 5000
 CMD ["node", "app.js"]
