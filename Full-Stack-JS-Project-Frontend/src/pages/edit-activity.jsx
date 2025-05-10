@@ -406,9 +406,10 @@ function EditActivity() {
                           onChange={handleChange}
                           placeholder="Activity Title"
                           required
+                          style={{ borderRadius: "50px" }}
                         />
                         <button
-                          type="button"
+                          type="button" style={{ borderRadius: "50px" }}
                           className="theme-btn mt-2"
                           onClick={generateDescription}
                           disabled={isGenerating || isSubmitting}
@@ -430,7 +431,7 @@ function EditActivity() {
                           rows="3"
                         ></textarea>
                         <button
-                          type="button"
+                          type="button" style={{ borderRadius: "50px" }}
                           className="theme-btn mt-2"
                           onClick={generateTitle}
                           disabled={isGenerating || isSubmitting}
@@ -468,6 +469,7 @@ function EditActivity() {
                             onChange={handleChange}
                             placeholder="Nom de la nouvelle catégorie"
                             required
+                            style={{ borderRadius: "50px" }}
                           />
                         </div>
                       )}
@@ -481,6 +483,7 @@ function EditActivity() {
                           accept="image/*"
                           onChange={handleChange}
                           className="form-control"
+                          style={{ borderRadius: "50px" }}
                         />
                       </div>
                     </div>
@@ -488,7 +491,7 @@ function EditActivity() {
                     <div className="col-md-12">
                       <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
                         <button
-                          type="submit"
+                          type="submit" style={{ borderRadius: "50px" }}
                           className="theme-btn mt-2"
                           disabled={isSubmitting || isGenerating}
                         >
@@ -500,7 +503,7 @@ function EditActivity() {
                           className="theme-btn mt-2"
                           onClick={handleCancel}
                           disabled={isSubmitting || isGenerating}
-                          style={{ backgroundColor: "#f44336" }}
+                          style={{ backgroundColor: "#f44336" ,borderRadius: "50px" }}
                         >
                           Cancel Edit <i className="fas fa-times"></i>
                         </button>

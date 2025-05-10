@@ -183,7 +183,7 @@ function Exercises() {
   };
 
   return (
-    <div style={{ padding: "40px", backgroundColor: "#f9f9f9" }}>
+    <div className="main">
       <ToastContainer position="top-right" autoClose={3000} />
 
       {/* Breadcrumb */}
@@ -211,11 +211,11 @@ function Exercises() {
             }}
           >
             <li style={{ marginRight: "10px" }}>
-              <a href="/Home" style={{ color: "#fff", textDecoration: "none", fontWeight: "bold" }}>
+              <a href="/Home" style={{ color: "#fff", textDecoration: "none"}}>
                 Home
               </a>
             </li>
-            <li style={{ color: "#ff5a5f", textDecoration: "none", fontWeight: "bold" }}>
+            <li style={{ color: "#ff5a5f", textDecoration: "none"}}>
               Wellness Exercises
             </li>
           </ul>
@@ -250,7 +250,7 @@ function Exercises() {
                     backgroundColor: exerciseType === type ? "#ff5a5f" : "#0ea5e6",
                     color: "white",
                     padding: "8px 16px",
-                    borderRadius: "5px",
+                    borderRadius: "50px",
                     border: "none",
                     cursor: "pointer",
                     transition: "background-color 0.3s ease",
@@ -333,7 +333,7 @@ function Exercises() {
                 backgroundColor: isBreathing ? "#ff5a5f" : "#0ea5e6",
                 color: "white",
                 padding: "10px 20px",
-                borderRadius: "5px",
+                borderRadius: "50px",
                 border: "none",
                 cursor: "pointer",
                 transition: "background-color 0.3s ease",

@@ -133,7 +133,7 @@ const Navbar = () => {
       });
   };
 
-  return (
+ return (
     <header className="header">
       <div className="main-navigation">
         <nav className="navbar navbar-expand-lg">
@@ -269,6 +269,9 @@ const Navbar = () => {
                             Problem Management
                           </a>
                         </li>
+                        <li><hr className="dropdown-divider" /></li>
+                                                <li><a className="dropdown-item" href="/mental-health-assessment">Mental Health Assessment</a></li>
+                                                <li><a className="dropdown-item" href="/mental-health-dashboard">Mental Health Dashboard</a></li>
                       </ul>
                     </li>
                   ) : (
@@ -489,3 +492,4 @@ const Navbar = () => {
 };
 
 export default Navbar;
+

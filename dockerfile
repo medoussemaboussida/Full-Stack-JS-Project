@@ -1,7 +1,7 @@
 FROM node:18 
-WORKDIR /app 
-COPY . /app 
-RUN npm install 
-RUN npm run build-dev 
-EXPOSE 5000 
-CMD  ["npm", "start"]
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 5000
+CMD ["node", "app.js"]

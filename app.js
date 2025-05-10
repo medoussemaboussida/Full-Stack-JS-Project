@@ -27,6 +27,7 @@ var complaintRouter = require('./routes/complaint');
 var complaintResponseRouter = require('./routes/complaintResponse');
 const associationRoutes = require('./routes/association');
 const eventRoutes = require('./routes/event');
+const mentalHealthRoutes = require('./routes/mentalHealth');
 const Appointment = require("./model/appointment");
 const Notification = require('./model/Notification'); // Adjust path to your Notification model
 const nodemailer = require('nodemailer'); // Add this line
@@ -104,6 +105,7 @@ app.use('/complaint',complaintRouter);
 app.use('/complaintResponse',complaintResponseRouter);
 app.use('/association', associationRoutes);
 app.use('/events', eventRoutes);
+app.use('/mental-health', mentalHealthRoutes);
 
 
 //mailing
@@ -231,8 +233,10 @@ async function generateHashedPassword() {
 const axios = require("axios");
 const Association = require('./model/association');
 
-passport.use(
-  new GithubStrategy(
+// Only configure GitHub strategy if credentials are available
+if (process.env.GIT_CLIENT_ID && process.env.GIT_CLIENT_SECRET) {
+  passport.use(
+    new GithubStrategy(
       {
           clientID: process.env.GIT_CLIENT_ID,
           clientSecret: process.env.GIT_CLIENT_SECRET,
@@ -287,8 +291,9 @@ passport.use(
               return done(error, null);
           }
       }
-  )
-);
+    )
+  );
+}
 
 
 

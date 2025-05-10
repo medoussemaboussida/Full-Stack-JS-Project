@@ -84,11 +84,12 @@ function Forum() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [targetLanguage, setTargetLanguage] = useState(""); // Initialiser à une valeur vide
   const [forumToTranslate, setForumToTranslate] = useState(null);
+
   const navigate = useNavigate();
-   // Fonction pour nettoyer le texte en supprimant les * *
-const cleanText = (text) => {
-  return text ? text.replace(/\*\*/g, "") : text;
-};
+  // Fonction pour nettoyer le texte en supprimant les * *
+  const cleanText = (text) => {
+    return text ? text.replace(/\*\*/g, "") : text;
+  };
   // Fonction pour interagir avec l'API Gemini
   const interactWithGemini = async (message) => {
     // Clé API Gemini
@@ -1223,6 +1224,35 @@ const cleanText = (text) => {
                   <span style={{ fontSize: "24px", color: "white" }}>❔</span>
                 </div>
               </div>
+              {/* Scroll Top */}
+              <div>
+                <a
+                  href="#"
+                  style={{
+                    zIndex: 1000,
+                    cursor: "pointer",
+                    position: "fixed",
+                    bottom: "18px",
+                    right: "20px",
+                    background: "#0ea5e6",
+                    color: "#fff",
+                    width: "50px",
+                    height: "50px",
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textDecoration: "none",
+                    marginRight: "1350px",
+                    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+                    transition: "background 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => (e.target.style.background = "#45a049")}
+                  onMouseLeave={(e) => (e.target.style.background = "#0ea5e6")}
+                >
+                  <i className="far fa-arrow-up"></i>
+                </a>
+              </div>
               {/* Conteneur pour la liste déroulante et les boutons */}
               <div className="d-flex align-items-center">
                 {/* Liste déroulante à gauche */}
@@ -1281,6 +1311,7 @@ const cleanText = (text) => {
                     className="theme-btn"
                     style={{
                       borderRadius: "50px",
+                      height: "40px",
                       backgroundColor: "#ff4d4f",
                       opacity: isBanned ? 0.5 : 1,
                       cursor: isBanned ? "not-allowed" : "pointer",
@@ -2968,284 +2999,279 @@ const cleanText = (text) => {
         </div>
       </div>
 
-
-{showChatbotModal && (
-  <div
-    style={{
-      position: "fixed",
-      top: 80,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: "rgba(0, 0, 0, 0.5)",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      zIndex: 1000,
-    }}
-  >
-    <div
-      style={{
-        backgroundColor: "white",
-        padding: "20px",
-        borderRadius: "12px",
-        width: "600px",
-        maxWidth: "100%",
-        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
-        display: "flex",
-        flexDirection: "column",
-        maxHeight: "80vh",
-      }}
-    >
-      <h3
-        style={{
-          marginBottom: "20px",
-          textAlign: "center",
-          color: "#333",
-          fontSize: "24px",
-          fontWeight: "bold",
-        }}
-      >
-        Chatbot Powered by Gemini 🤖
-      </h3>
-      <div
-        style={{
-          flex: 1,
-          maxHeight: "60vh",
-          overflowY: "auto",
-          marginBottom: "20px",
-          padding: "15px",
-          border: "1px solid #e0e0e0",
-          borderRadius: "8px",
-          backgroundColor: "#f9f9f9",
-          display: "flex",
-          flexDirection: "column",
-          gap: "10px",
-        }}
-      >
-        {chatMessages.length > 0 ? (
-          chatMessages.map((msg, index) => (
-            <div
-              key={index}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems:
-                  msg.sender === "user" ? "flex-end" : "flex-start",
-                animation: "fadeIn 0.3s ease-in-out",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  maxWidth: "70%",
-                }}
-              >
-                {msg.sender === "bot" && (
-                  <span
-                    style={{
-                      fontSize: "20px",
-                      color: "#28a745",
-                    }}
-                  >
-                  
-                  </span>
-                )}
-                <div
-                  style={{
-                    padding: "10px 15px",
-                    borderRadius: "15px",
-                    backgroundColor:
-                      msg.sender === "user" ? "#007bff" : "#ffffff",
-                    color: msg.sender === "user" ? "white" : "#333",
-                    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
-                    wordBreak: "break-word",
-                    border:
-                      msg.sender === "bot"
-                        ? "1px solid #e0e0e0"
-                        : "none",
-                  }}
-                >
-                  <strong>
-                    {msg.sender === "user" ? "You" : "Bot"}:
-                  </strong>{" "}
-                  {cleanText(msg.text)}
-                </div>
-                {msg.sender === "user" && (
-                  <span
-                    style={{
-                      fontSize: "20px",
-                      color: "#007bff",
-                    }}
-                  >
-                    🧑
-                  </span>
-                )}
-              </div>
-              <div
-                style={{
-                  fontSize: "12px",
-                  color: "#999",
-                  marginTop: "5px",
-                }}
-              >
-                {new Date().toLocaleTimeString("fr-FR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}
-              </div>
-            </div>
-          ))
-        ) : (
-          <p
+      {showChatbotModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 80,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
             style={{
-              textAlign: "center",
-              color: "#666",
-              fontStyle: "italic",
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "12px",
+              width: "600px",
+              maxWidth: "100%",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
+              display: "flex",
+              flexDirection: "column",
+              maxHeight: "80vh",
             }}
           >
-            Start a conversation with the chatbot! 💬
-          </p>
-        )}
-      </div>
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          alignItems: "center",
-        }}
-      >
-        <input
-          type="text"
-          value={userMessage}
-          onChange={(e) => setUserMessage(e.target.value)}
-          placeholder="Type your message..."
-          style={{
-            flex: 1,
-            padding: "12px",
-            borderRadius: "50px",
-            border: "1px solid #ddd",
-            outline: "none",
-            fontSize: "14px",
-            transition: "border-color 0.3s ease",
-          }}
-          onFocus={(e) => (e.target.style.borderColor = "#007bff")}
-          onBlur={(e) => (e.target.style.borderColor = "#ddd")}
-          onKeyPress={(e) => {
-            if (e.key === "Enter" && userMessage.trim()) {
-              setChatMessages((prev) => [
-                ...prev,
-                { sender: "user", text: userMessage },
-              ]);
-              interactWithGemini(userMessage).then((reply) => {
-                setChatMessages((prev) => [
-                  ...prev,
-                  { sender: "bot", text: cleanText(reply) },
-                ]);
-              });
-              setUserMessage("");
-            }
-          }}
-        />
-        <button
-          onClick={() => {
-            if (userMessage.trim()) {
-              setChatMessages((prev) => [
-                ...prev,
-                { sender: "user", text: userMessage },
-              ]);
-              interactWithGemini(userMessage).then((reply) => {
-                setChatMessages((prev) => [
-                  ...prev,
-                  { sender: "bot", text: cleanText(reply) },
-                ]);
-              });
-              setUserMessage("");
-            }
-          }}
-          style={{
-            backgroundColor: "#007bff",
-            color: "white",
-            padding: "12px 20px",
-            borderRadius: "50px",
-            border: "none",
-            cursor: "pointer",
-            fontSize: "14px",
-            transition: "background-color 0.3s ease, transform 0.2s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "#0056b3";
-            e.currentTarget.style.transform = "scale(1.05)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "#007bff";
-            e.currentTarget.style.transform = "scale(1)";
-          }}
-        >
-          Send
-        </button>
-      </div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          marginTop: "20px",
-          gap: "10px",
-        }}
-      >
-        <button
-          onClick={() => {
-            setShowChatbotModal(false);
-            setUserMessage("");
-          }}
-          style={{
-            backgroundColor: "#f44336",
-            color: "white",
-            padding: "10px 20px",
-            borderRadius: "50px",
-            border: "none",
-            cursor: "pointer",
-            transition: "background-color 0.3s ease",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "#d32f2f")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = "#f44336")
-          }
-        >
-          Close
-        </button>
-        <button
-          onClick={() => {
-            setChatMessages([]);
-            localStorage.removeItem("chatMessages");
-          }}
-          style={{
-            backgroundColor: "#ff9800",
-            color: "white",
-            padding: "10px 20px",
-            borderRadius: "50px",
-            border: "none",
-            cursor: "pointer",
-            transition: "background-color 0.3s ease",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "#f57c00")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = "#ff9800")
-          }
-        >
-          Clear Chat
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+            <h3
+              style={{
+                marginBottom: "20px",
+                textAlign: "center",
+                color: "#333",
+                fontSize: "24px",
+                fontWeight: "bold",
+              }}
+            >
+              Chatbot Powered by Gemini 🤖
+            </h3>
+            <div
+              style={{
+                flex: 1,
+                maxHeight: "60vh",
+                overflowY: "auto",
+                marginBottom: "20px",
+                padding: "15px",
+                border: "1px solid #e0e0e0",
+                borderRadius: "8px",
+                backgroundColor: "#f9f9f9",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+              }}
+            >
+              {chatMessages.length > 0 ? (
+                chatMessages.map((msg, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems:
+                        msg.sender === "user" ? "flex-end" : "flex-start",
+                      animation: "fadeIn 0.3s ease-in-out",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        maxWidth: "70%",
+                      }}
+                    >
+                      {msg.sender === "bot" && (
+                        <span
+                          style={{
+                            fontSize: "20px",
+                            color: "#28a745",
+                          }}
+                        ></span>
+                      )}
+                      <div
+                        style={{
+                          padding: "10px 15px",
+                          borderRadius: "15px",
+                          backgroundColor:
+                            msg.sender === "user" ? "#007bff" : "#ffffff",
+                          color: msg.sender === "user" ? "white" : "#333",
+                          boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+                          wordBreak: "break-word",
+                          border:
+                            msg.sender === "bot" ? "1px solid #e0e0e0" : "none",
+                        }}
+                      >
+                        <strong>
+                          {msg.sender === "user" ? "You" : "Bot"}:
+                        </strong>{" "}
+                        {cleanText(msg.text)}
+                      </div>
+                      {msg.sender === "user" && (
+                        <span
+                          style={{
+                            fontSize: "20px",
+                            color: "#007bff",
+                          }}
+                        >
+                          🧑
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "12px",
+                        color: "#999",
+                        marginTop: "5px",
+                      }}
+                    >
+                      {new Date().toLocaleTimeString("fr-FR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p
+                  style={{
+                    textAlign: "center",
+                    color: "#666",
+                    fontStyle: "italic",
+                  }}
+                >
+                  Start a conversation with the chatbot! 💬
+                </p>
+              )}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                gap: "10px",
+                alignItems: "center",
+              }}
+            >
+              <input
+                type="text"
+                value={userMessage}
+                onChange={(e) => setUserMessage(e.target.value)}
+                placeholder="Type your message..."
+                style={{
+                  flex: 1,
+                  padding: "12px",
+                  borderRadius: "50px",
+                  border: "1px solid #ddd",
+                  outline: "none",
+                  fontSize: "14px",
+                  transition: "border-color 0.3s ease",
+                }}
+                onFocus={(e) => (e.target.style.borderColor = "#007bff")}
+                onBlur={(e) => (e.target.style.borderColor = "#ddd")}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter" && userMessage.trim()) {
+                    setChatMessages((prev) => [
+                      ...prev,
+                      { sender: "user", text: userMessage },
+                    ]);
+                    interactWithGemini(userMessage).then((reply) => {
+                      setChatMessages((prev) => [
+                        ...prev,
+                        { sender: "bot", text: cleanText(reply) },
+                      ]);
+                    });
+                    setUserMessage("");
+                  }
+                }}
+              />
+              <button
+                onClick={() => {
+                  if (userMessage.trim()) {
+                    setChatMessages((prev) => [
+                      ...prev,
+                      { sender: "user", text: userMessage },
+                    ]);
+                    interactWithGemini(userMessage).then((reply) => {
+                      setChatMessages((prev) => [
+                        ...prev,
+                        { sender: "bot", text: cleanText(reply) },
+                      ]);
+                    });
+                    setUserMessage("");
+                  }
+                }}
+                style={{
+                  backgroundColor: "#007bff",
+                  color: "white",
+                  padding: "12px 20px",
+                  borderRadius: "50px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  transition: "background-color 0.3s ease, transform 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#0056b3";
+                  e.currentTarget.style.transform = "scale(1.05)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "#007bff";
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
+              >
+                Send
+              </button>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                marginTop: "20px",
+                gap: "10px",
+              }}
+            >
+              <button
+                onClick={() => {
+                  setShowChatbotModal(false);
+                  setUserMessage("");
+                }}
+                style={{
+                  backgroundColor: "#f44336",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "50px",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s ease",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#d32f2f")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#f44336")
+                }
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  setChatMessages([]);
+                  localStorage.removeItem("chatMessages");
+                }}
+                style={{
+                  backgroundColor: "#ff9800",
+                  color: "white",
+                  padding: "10px 20px",
+                  borderRadius: "50px",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s ease",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#f57c00")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#ff9800")
+                }
+              >
+                Clear Chat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showForumRulesModal && (
         <div
           style={{

@@ -943,6 +943,35 @@ function Complaint() {
                 <span style={{ fontSize: "24px", color: "white" }}>❔</span>
               </div>
             </div>
+              {/* Scroll Top */}
+              <div>
+                <a
+                  href="#"
+                  style={{
+                    zIndex: 1000,
+                    cursor: "pointer",
+                    position: "fixed",
+                    bottom: "18px",
+                    right: "20px",
+                    background: "#0ea5e6",
+                    color: "#fff",
+                    width: "50px",
+                    height: "50px",
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textDecoration: "none",
+                    marginRight: "1350px",
+                    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+                    transition: "background 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => (e.target.style.background = "#45a049")}
+                  onMouseLeave={(e) => (e.target.style.background = "#0ea5e6")}
+                >
+                  <i className="far fa-arrow-up"></i>
+                </a>
+              </div>
             <div
               className="complaint-list"
               style={{

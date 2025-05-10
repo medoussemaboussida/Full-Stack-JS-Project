@@ -251,19 +251,19 @@ const ProblemList = () => {
                 placeholder="Search problems..."
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                style={{ width: '100%', padding: '8px', marginBottom: '10px', borderRadius: '5px', border: '1px solid #ddd' }}
+                style={{ width: '100%', padding: '8px', marginBottom: '10px', borderRadius: '50px', border: '1px solid #ddd' }}
               />
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'space-between' }}>
-                <select value={sortField} onChange={(e) => handleSort(e.target.value)} style={{ padding: '5px', borderRadius: '5px' }}>
+                <select value={sortField} onChange={(e) => handleSort(e.target.value)} style={{ padding: '5px', borderRadius: '50px' }}>
                   <option value="createdAt">Date Created</option>
                   <option value="resolved">Resolved</option>
                   <option value="startDate">Start Date</option>
                   <option value="endDate">End Date</option>
                 </select>
-                <button onClick={() => handleSort(sortField)} style={{ padding: '5px 10px', borderRadius: '5px', backgroundColor: '#0ea5e6', color: 'white', border: 'none' }}>
+                <button onClick={() => handleSort(sortField)} style={{ padding: '5px 10px', borderRadius: '50px', backgroundColor: '#0ea5e6', color: 'white', border: 'none' }}>
                   {sortOrder === 'asc' ? '▲ Asc' : '▼ Desc'}
                 </button>
-                <button onClick={() => navigate('/add-problem')} style={{ padding: '5px 10px', borderRadius: '5px', backgroundColor: '#28a745', color: 'white', border: 'none' }}>
+                <button  className="theme-btn" onClick={() => navigate('/add-problem')} style={{ padding: '5px 10px', borderRadius: '50px', backgroundColor: '#28a745', color: 'white', border: 'none' }}>
                   Add Problem
                 </button>
               </div>
@@ -328,11 +328,11 @@ const ProblemList = () => {
                     </li>
                   ))}
                 </ul>
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '20px' }}>
                   <button
                     onClick={() => paginate(currentPage - 1)}
                     disabled={currentPage === 1}
-                    style={{ padding: '5px 10px', borderRadius: '5px', backgroundColor: currentPage === 1 ? '#ccc' : '#0ea5e6', color: 'white', border: 'none', cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+                    style={{ padding: '5px 10px', borderRadius: '50px', backgroundColor: currentPage === 1 ? '#ccc' : '#0ea5e6', color: 'white', border: 'none', cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
                   >
                     Previous
                   </button>
@@ -340,7 +340,7 @@ const ProblemList = () => {
                   <button
                     onClick={() => paginate(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    style={{ padding: '5px 10px', borderRadius: '5px', backgroundColor: currentPage === totalPages ? '#ccc' : '#0ea5e6', color: 'white', border: 'none', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
+                    style={{ padding: '5px 10px', borderRadius: '50px', backgroundColor: currentPage === totalPages ? '#ccc' : '#0ea5e6', color: 'white', border: 'none', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
                   >
                     Next
                   </button>
@@ -358,23 +358,23 @@ const ProblemList = () => {
             <form>
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px' }}>What is the problem?</label>
-                <input type="text" name="what" value={formData.what} onChange={handleChange} style={{ width: '100%', padding: '8px', borderRadius: '5px', border: '1px solid #ddd' }} />
+                <input type="text" name="what" value={formData.what} onChange={handleChange} style={{ width: '100%', padding: '8px', borderRadius: '50px', border: '1px solid #ddd' }} />
               </div>
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px' }}>Where does the problem come from?</label>
-                <input type="text" name="source" value={formData.source} onChange={handleChange} style={{ width: '100%', padding: '8px', borderRadius: '5px', border: '1px solid #ddd' }} />
+                <input type="text" name="source" value={formData.source} onChange={handleChange} style={{ width: '100%', padding: '8px', borderRadius: '50px', border: '1px solid #ddd' }} />
               </div>
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px' }}>How did you react?</label>
-                <input type="text" name="reaction" value={formData.reaction} onChange={handleChange} style={{ width: '100%', padding: '8px', borderRadius: '5px', border: '1px solid #ddd' }} />
+                <input type="text" name="reaction" value={formData.reaction} onChange={handleChange} style={{ width: '100%', padding: '8px', borderRadius: '50px', border: '1px solid #ddd' }} />
               </div>
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px' }}>Start Date:</label>
-                <input type="date" name="startDate" value={formData.startDate} onChange={handleChange} style={{ width: '100%', padding: '8px', borderRadius: '5px', border: '1px solid #ddd' }} />
+                <input type="date" name="startDate" value={formData.startDate} onChange={handleChange} style={{ width: '100%', padding: '8px', borderRadius: '50px', border: '1px solid #ddd' }} />
               </div>
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px' }}>End Date:</label>
-                <input type="date" name="endDate" value={formData.endDate} onChange={handleChange} style={{ width: '100%', padding: '8px', borderRadius: '5px', border: '1px solid #ddd' }} />
+                <input type="date" name="endDate" value={formData.endDate} onChange={handleChange} style={{ width: '100%', padding: '8px', borderRadius: '50px', border: '1px solid #ddd' }} />
               </div>
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ marginRight: '10px' }}>Resolved? <input type="checkbox" name="resolved" checked={formData.resolved} onChange={handleChange} style={{ marginLeft: '5px' }} /></label>
@@ -388,12 +388,12 @@ const ProblemList = () => {
                   name="notes"
                   value={formData.notes}
                   onChange={handleChange}
-                  style={{ width: '100%', padding: '8px', borderRadius: '5px', border: '1px solid #ddd', minHeight: '60px' }}
+                  style={{ width: '100%', padding: '8px', borderRadius: '30px', border: '1px solid #ddd', minHeight: '60px' }}
                 />
               </div>
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                <button type="button" onClick={handleUpdateProblem} style={{ backgroundColor: '#0ea5e6', color: 'white', padding: '10px 20px', borderRadius: '5px', border: 'none', cursor: 'pointer' }}>Update</button>
-                <button type="button" onClick={closeEditModal} style={{ backgroundColor: '#f44336', color: 'white', padding: '10px 20px', borderRadius: '5px', border: 'none', cursor: 'pointer' }}>Cancel</button>
+                <button type="button" onClick={handleUpdateProblem} style={{ backgroundColor: '#0ea5e6', color: 'white', padding: '10px 20px', borderRadius: '50px', border: 'none', cursor: 'pointer' }}>Update</button>
+                <button type="button" onClick={closeEditModal} style={{ backgroundColor: '#f44336', color: 'white', padding: '10px 20px', borderRadius: '50px', border: 'none', cursor: 'pointer' }}>Cancel</button>
               </div>
             </form>
           </div>
@@ -406,8 +406,8 @@ const ProblemList = () => {
             <h3 style={{ marginBottom: '20px' }}>Confirm Deletion</h3>
             <p style={{ marginBottom: '20px', color: '#666' }}>Are you sure you want to delete this problem?</p>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-              <button onClick={handleDeleteProblem} style={{ backgroundColor: '#f44336', color: 'white', padding: '10px 20px', borderRadius: '5px', border: 'none', cursor: 'pointer' }}>Delete</button>
-              <button onClick={closeDeleteModal} style={{ backgroundColor: '#0ea5e6', color: 'white', padding: '10px 20px', borderRadius: '5px', border: 'none', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={handleDeleteProblem} style={{ backgroundColor: '#f44336', color: 'white', padding: '10px 20px', borderRadius: '50px', border: 'none', cursor: 'pointer' }}>Delete</button>
+              <button onClick={closeDeleteModal} style={{ backgroundColor: '#0ea5e6', color: 'white', padding: '10px 20px', borderRadius: '50px', border: 'none', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
         </div>
@@ -419,7 +419,7 @@ const ProblemList = () => {
             <h3 style={{ marginBottom: '20px' }}>Solution</h3>
             <p style={{ marginBottom: '20px', color: '#333', textAlign: 'left', whiteSpace: 'pre-wrap' }}>{generatedSolution}</p>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-              <button onClick={closeSolutionModal} style={{ backgroundColor: '#0ea5e6', color: 'white', padding: '10px 20px', borderRadius: '5px', border: 'none', cursor: 'pointer' }}>Close</button>
+              <button onClick={closeSolutionModal} style={{ backgroundColor: '#0ea5e6', color: 'white', padding: '10px 20px', borderRadius: '50px', border: 'none', cursor: 'pointer' }}>Close</button>
             </div>
           </div>
         </div>

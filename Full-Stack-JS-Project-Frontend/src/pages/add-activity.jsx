@@ -297,9 +297,11 @@ function AddActivity() {
                           value={formData.title}
                           onChange={handleChange}
                           placeholder="Activity Title"
+                          style={{ borderRadius: "50px" }}
+
                         />
                         <button
-                          type="button"
+                          type="button" style={{ borderRadius: "50px" }}
                           className="theme-btn mt-2"
                           onClick={generateDescription}
                           disabled={isGenerating || isSubmitting}
@@ -320,7 +322,7 @@ function AddActivity() {
                           rows="3"
                         ></textarea>
                         <button
-                          type="button"
+                          type="button" style={{ borderRadius: "50px" }}
                           className="theme-btn mt-2"
                           onClick={generateTitle}
                           disabled={isGenerating || isSubmitting}
@@ -337,6 +339,7 @@ function AddActivity() {
                           name="category"
                           value={formData.category}
                           onChange={handleChange}
+                          style={{ borderRadius: "50px" }}
                         >
                           <option value="">Select a Category</option>
                           {categories.map((cat) => (
@@ -369,6 +372,7 @@ function AddActivity() {
                           accept="image/*"
                           onChange={handleChange}
                           className="form-control"
+                          style={{ borderRadius: "50px" }}
                         />
                       </div>
                     </div>
@@ -376,7 +380,7 @@ function AddActivity() {
                     <div className="col-md-12">
                       <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
                         <button
-                          type="submit"
+                          type="submit" style={{ borderRadius: "50px" }}
                           className="theme-btn mt-2"
                           disabled={isSubmitting || isGenerating}
                         >
@@ -384,13 +388,13 @@ function AddActivity() {
                           <i className="fas fa-circle-arrow-right"></i>
                         </button>
                         <button
-                          type="button"
+                          type="button" 
                           className="theme-btn mt-2"
                           onClick={handleCancelAdd}
                           disabled={isSubmitting || isGenerating}
-                          style={{ backgroundColor: "#f44336" }}
+                          style={{ backgroundColor: "#f44336", borderRadius:"50px" }}
                         >
-                          Cancel Add <i className="fas fa-times"></i>
+                          Cancel Add <i className="fas fa-times" ></i>
                         </button>
                       </div>
                     </div>

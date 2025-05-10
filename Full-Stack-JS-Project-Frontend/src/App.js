@@ -1,4 +1,4 @@
-import React from 'react'; 
+import React from 'react';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import Home from './pages/Home';
@@ -39,11 +39,14 @@ import Problem from './pages/Problem';
 import ProblemList from './pages/ProblemList';
 import AddReclamation from './pages/AddComplaint';
 import Complaint from './pages/Complaint';
+import MentalHealthAssessment from './pages/MentalHealthAssessment';
+import MentalHealthResults from './pages/MentalHealthResults';
+import MentalHealthDashboard from './pages/MentalHealthDashboard';
 //import Statistics from './pages/Statistics';
 
 const Layout = ({ children }) => {
   const location = useLocation();
-  const hideNavFooter = ['/login', '/register', '/forgot-password', '/reset-password/:token', '/verify-account/:token', '/AccountDisabled'].some(path => 
+  const hideNavFooter = ['/login', '/register', '/forgot-password', '/reset-password/:token', '/verify-account/:token', '/AccountDisabled'].some(path =>
       location.pathname === path || location.pathname.startsWith('/reset-password') || location.pathname.startsWith('/verify-account')
   );
 
@@ -66,7 +69,7 @@ function App(){
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/Home" element={<Home />} />
         <Route path="/about" element={<About />} />
-        <Route path="/contact" element={<Contact />} /> 
+        <Route path="/contact" element={<Contact />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<Forgot_Password />} />
@@ -116,23 +119,22 @@ function App(){
         <Route path="/AssociationDetails/:id" element={<AssociationDetails />} />
                 <Route path="/add-event" element={<AddEvent />} />
         <Route path="/Events" element={<Events />} />
-        <Route path="/event/:id" element={<EventDetails />} /> 
+        <Route path="/event/:id" element={<EventDetails />} />
 
       {/* //  <Route path="/Statistics" element={<Statistics />} /> */}
 
         <Route path="/complaint" element={<Complaint/>} />
         <Route path="/addcomplaint" element={<AddReclamation/>} />
 
-
-
-
-
-
+        {/* Mental Health Routes */}
+        <Route path="/mental-health-assessment" element={<MentalHealthAssessment />} />
+        <Route path="/mental-health-results/:id" element={<MentalHealthResults />} />
+        <Route path="/mental-health-dashboard" element={<MentalHealthDashboard />} />
 
         </Routes>
             </Layout>
         </BrowserRouter>
-       
+
     )
 }
 
