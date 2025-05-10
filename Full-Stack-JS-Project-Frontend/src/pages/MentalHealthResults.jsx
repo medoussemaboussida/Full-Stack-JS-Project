@@ -4,12 +4,63 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+// Translation mappings for professional help recommendations
+const professionalHelpTranslations = {
+  "Consulter un psychiatre dès que possible.": "Consult a psychiatrist as soon as possible.",
+  "Consulter un psychologue pour une évaluation.": "Consult a psychologist for an evaluation.",
+  "Envisager de consulter un conseiller en bien-être.": "Consider consulting a wellness counselor."
+};
+
+// Translation mappings for daily practices
+const dailyPracticesTranslations = {
+  "Pratiquer des exercices de respiration profonde plusieurs fois par jour": "Practice deep breathing exercises several times a day",
+  "Maintenir une routine de sommeil régulière": "Maintain a regular sleep routine",
+  "Limiter la consommation de caféine et d'alcool": "Limit caffeine and alcohol consumption",
+  "Prendre des pauses régulières pendant les périodes de travail intense": "Take regular breaks during intense work periods",
+  "Pratiquer la pleine conscience pendant 10 minutes chaque jour": "Practice mindfulness for 10 minutes each day",
+  "Faire de l'exercice physique modéré 3 fois par semaine": "Do moderate physical exercise 3 times a week",
+  "Maintenir des contacts sociaux réguliers": "Maintain regular social contacts",
+  "Pratiquer une activité relaxante chaque jour": "Practice a relaxing activity every day",
+  "Maintenir un équilibre entre travail et loisirs": "Maintain a balance between work and leisure",
+  "Continuer à maintenir un mode de vie équilibré": "Continue to maintain a balanced lifestyle",
+  "Pratiquer des activités qui vous apportent de la joie régulièrement": "Regularly practice activities that bring you joy"
+};
+
 const MentalHealthResults = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [assessment, setAssessment] = useState(null);
   const [error, setError] = useState(null);
+  const [activityDetails, setActivityDetails] = useState([]);
+
+  // Function to fetch activity details by ID
+  const fetchActivityDetails = async (activityIds) => {
+    try {
+      const token = localStorage.getItem('jwt-token');
+      if (!token || !activityIds || activityIds.length === 0) return;
+
+      // Create an array of promises for each activity ID
+      const activityPromises = activityIds.map(activityId =>
+        axios.get(`http://localhost:5000/users/activity/${activityId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+      );
+
+      // Wait for all promises to resolve
+      const responses = await Promise.all(activityPromises);
+
+      // Extract the activity data from each response
+      const activities = responses.map(response => response.data);
+      setActivityDetails(activities);
+    } catch (error) {
+      console.error('Error fetching activity details:', error);
+      toast.error('Failed to load activity details');
+    }
+  };
 
   useEffect(() => {
     const fetchAssessment = async () => {
@@ -46,6 +97,12 @@ const MentalHealthResults = () => {
 
         if (response.data && response.data.data) {
           setAssessment(response.data.data);
+
+          // Fetch activity details if there are recommended activities
+          if (response.data.data.recommendedActivities &&
+              response.data.data.recommendedActivities.length > 0) {
+            await fetchActivityDetails(response.data.data.recommendedActivities);
+          }
         } else {
           setError('Assessment data has unexpected format. Please try again.');
           toast.error('Assessment data has unexpected format. Please try again.');
@@ -101,13 +158,24 @@ const MentalHealthResults = () => {
   const getProfessionalHelpIcon = (help) => {
     if (!help) return null;
 
-    if (help.includes('psychiatre')) {
+    if (help.includes('psychiatre') || help.includes('psychiatrist')) {
       return <i className="fas fa-user-md me-2"></i>;
-    } else if (help.includes('psychologue')) {
+    } else if (help.includes('psychologue') || help.includes('psychologist')) {
       return <i className="fas fa-brain me-2"></i>;
     } else {
       return <i className="fas fa-hands-helping me-2"></i>;
     }
+  };
+
+  // Translate professional help recommendation
+  const translateProfessionalHelp = (help) => {
+    if (!help) return null;
+    return professionalHelpTranslations[help] || help;
+  };
+
+  // Translate daily practice
+  const translateDailyPractice = (practice) => {
+    return dailyPracticesTranslations[practice] || practice;
   };
 
   if (loading) {
@@ -194,7 +262,7 @@ const MentalHealthResults = () => {
                     <div className="card-body">
                       <p className="lead">
                         {getProfessionalHelpIcon(assessment.professionalHelp)}
-                        {assessment.professionalHelp}
+                        {translateProfessionalHelp(assessment.professionalHelp)}
                       </p>
                       <p>
                         Professional guidance can provide you with personalized strategies and support
@@ -217,12 +285,21 @@ const MentalHealthResults = () => {
                     <div className="card-body">
                       {assessment.recommendedActivities && assessment.recommendedActivities.length > 0 ? (
                         <ul className="list-group list-group-flush">
-                          {assessment.recommendedActivities.map((activity, index) => (
-                            <li key={index} className="list-group-item">
-                              <i className="fas fa-check-circle text-success me-2"></i>
-                              {activity}
-                            </li>
-                          ))}
+                          {activityDetails.length > 0 ? (
+                            activityDetails.map((activity, index) => (
+                              <li key={index} className="list-group-item">
+                                <i className="fas fa-check-circle text-success me-2"></i>
+                                {activity.title}
+                              </li>
+                            ))
+                          ) : (
+                            assessment.recommendedActivities.map((_, index) => (
+                              <li key={index} className="list-group-item">
+                                <i className="fas fa-check-circle text-success me-2"></i>
+                                <span className="text-muted">Loading activity details...</span>
+                              </li>
+                            ))
+                          )}
                         </ul>
                       ) : (
                         <p>No specific activities recommended.</p>
@@ -244,7 +321,7 @@ const MentalHealthResults = () => {
                           {assessment.dailyPractices.map((practice, index) => (
                             <li key={index} className="list-group-item">
                               <i className="fas fa-star text-warning me-2"></i>
-                              {practice}
+                              {translateDailyPractice(practice)}
                             </li>
                           ))}
                         </ul>

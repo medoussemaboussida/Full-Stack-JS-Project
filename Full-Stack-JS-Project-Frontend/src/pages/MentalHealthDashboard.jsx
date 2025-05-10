@@ -4,11 +4,33 @@ import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+// Translation mappings for professional help recommendations
+const professionalHelpTranslations = {
+  "Consulter un psychiatre dès que possible.": "Consult a psychiatrist as soon as possible.",
+  "Consulter un psychologue pour une évaluation.": "Consult a psychologist for an evaluation.",
+  "Envisager de consulter un conseiller en bien-être.": "Consider consulting a wellness counselor."
+};
+
+// Translation mappings for activities
+const activityTranslations = {
+  "Méditation et pleine conscience": "Meditation and mindfulness",
+  "Exercice physique régulier": "Regular physical exercise",
+  "Yoga ou étirements": "Yoga or stretching",
+  "Lecture": "Reading",
+  "Écouter de la musique": "Listening to music",
+  "Passer du temps dans la nature": "Spending time in nature",
+  "Tenir un journal": "Journaling",
+  "Peinture ou dessin": "Painting or drawing",
+  "Rejoindre un club social": "Joining a social club",
+  "Faire du bénévolat": "Volunteering"
+};
+
 const MentalHealthDashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [assessments, setAssessments] = useState([]);
   const [error, setError] = useState(null);
+  const [activityDetails, setActivityDetails] = useState({});
 
   useEffect(() => {
     const fetchAssessments = async () => {
@@ -37,6 +59,17 @@ const MentalHealthDashboard = () => {
 
         if (response.data && response.data.data) {
           setAssessments(response.data.data);
+
+          // Fetch top activity details for the latest assessment
+          if (response.data.data.length > 0 &&
+              response.data.data[0].recommendedActivities &&
+              response.data.data[0].recommendedActivities.length > 0) {
+            const topActivityId = response.data.data[0].recommendedActivities[0];
+            // Check if it's an ID (not a string activity name)
+            if (topActivityId && topActivityId.match(/^[0-9a-fA-F]{24}$/)) {
+              await fetchActivityDetails(topActivityId);
+            }
+          }
         } else {
           // If no assessments or unexpected format, set empty array
           setAssessments([]);
@@ -93,6 +126,50 @@ const MentalHealthDashboard = () => {
     if (score >= 10) return 'danger';
     if (score >= 6) return 'warning';
     return 'success';
+  };
+
+  // Translate professional help recommendation
+  const translateProfessionalHelp = (help) => {
+    if (!help) return null;
+    return professionalHelpTranslations[help] || help;
+  };
+
+  // Translate activity
+  const translateActivity = (activity) => {
+    return activityTranslations[activity] || activity;
+  };
+
+  // Fetch activity details by ID
+  const fetchActivityDetails = async (activityId) => {
+    try {
+      if (!activityId) return null;
+
+      // Check if we already have this activity's details
+      if (activityDetails[activityId]) {
+        return activityDetails[activityId];
+      }
+
+      const token = localStorage.getItem('jwt-token');
+      if (!token) return null;
+
+      const response = await axios.get(`http://localhost:5000/users/activity/${activityId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      // Store the activity details in state
+      setActivityDetails(prev => ({
+        ...prev,
+        [activityId]: response.data
+      }));
+
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching activity details:', error);
+      return null;
+    }
   };
 
   if (loading) {
@@ -197,13 +274,19 @@ const MentalHealthDashboard = () => {
                   {assessments[0].professionalHelp && (
                     <p>
                       <i className="fas fa-user-md me-2 text-primary"></i>
-                      <strong>Professional Help:</strong> {assessments[0].professionalHelp}
+                      <strong>Professional Help:</strong> {translateProfessionalHelp(assessments[0].professionalHelp)}
                     </p>
                   )}
                   {assessments[0].recommendedActivities && assessments[0].recommendedActivities.length > 0 && (
                     <p>
                       <i className="fas fa-running me-2 text-success"></i>
-                      <strong>Top Activity:</strong> {assessments[0].recommendedActivities[0]}
+                      <strong>Top Activity:</strong> {
+                        // Check if it's an ID and we have fetched the details
+                        assessments[0].recommendedActivities[0].match(/^[0-9a-fA-F]{24}$/) &&
+                        activityDetails[assessments[0].recommendedActivities[0]]
+                          ? activityDetails[assessments[0].recommendedActivities[0]].title
+                          : translateActivity(assessments[0].recommendedActivities[0])
+                      }
                     </p>
                   )}
                   <div className="mt-3">
@@ -253,7 +336,7 @@ const MentalHealthDashboard = () => {
                         <td>
                           {assessment.professionalHelp ? (
                             <span className="text-truncate d-inline-block" style={{ maxWidth: '200px' }}>
-                              {assessment.professionalHelp}
+                              {translateProfessionalHelp(assessment.professionalHelp)}
                             </span>
                           ) : (
                             <span className="text-muted">None recommended</span>
