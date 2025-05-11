@@ -216,12 +216,12 @@ const MentalHealthDashboard = () => {
         </div>
         <div className="col-md-4 d-flex align-items-center justify-content-md-end">
           <button
-            className="btn btn-primary btn-lg"
-            style={{ borderRadius: '50px' }}
+            className="theme-btn"
+            style={{ borderRadius: '50px',padding:"12px 14px" }}
             onClick={() => navigate('/mental-health-assessment')}
           >
             <i className="fas fa-plus-circle me-2"></i>
-            New Assessment
+            New Assessment 
           </button>
         </div>
       </div>
@@ -234,13 +234,20 @@ const MentalHealthDashboard = () => {
             <p className="lead">
               Take your first mental health assessment to get personalized recommendations.
             </p>
-            <button
-              className="btn btn-primary btn-lg mt-3"
-              style={{ borderRadius: '50px' }}
-              onClick={() => navigate('/mental-health-assessment')}
-            >
-              Take Assessment
-            </button>
+<div style={{ display: 'flex', justifyContent: 'center' }}>
+        <button
+          className="theme-btn"
+          style={{
+            borderRadius: '50px',
+            padding: '10px 20px', // Ajuste la taille pour un bouton plus compact
+            width: 'auto', // Laisse le bouton s'adapter au contenu
+            fontSize: '16px', // Taille de police standard
+          }}
+          onClick={() => navigate('/mental-health-assessment')}
+        >
+          Take Assessment
+        </button>
+      </div>
           </div>
         </div>
       ) : (

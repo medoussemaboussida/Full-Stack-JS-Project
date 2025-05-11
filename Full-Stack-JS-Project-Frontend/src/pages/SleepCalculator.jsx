@@ -182,14 +182,14 @@ function SleepCalculator() {
                 setBedTime(""); // Réinitialiser l'autre champ
               }}
               style={{
-                padding: "10px",
+                padding: "8px",
                 fontSize: "16px",
                 borderRadius: "50px",
                 border: "1px solid #ccc",
                 width: "200px",
               }}
             />
-            <button
+            <button className="theme-btn"
               onClick={() => handleCalculate("wakeUp")}
               disabled={isLoading}
               style={{
@@ -222,14 +222,14 @@ function SleepCalculator() {
                 setWakeUpTime(""); // Réinitialiser l'autre champ
               }}
               style={{
-                padding: "10px",
+                padding: "8px",
                 fontSize: "16px",
                 borderRadius: "50px",
                 border: "1px solid #ccc",
                 width: "200px",
               }}
             />
-            <button
+            <button className="theme-btn"
               onClick={() => handleCalculate("bedTime")}
               disabled={isLoading}
               style={{

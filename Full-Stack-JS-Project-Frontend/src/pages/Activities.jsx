@@ -903,11 +903,11 @@ function Activities() {
             }}
           >
             <li style={{ marginRight: "10px" }}>
-              <a href="/Home" style={{ color: "#fff", textDecoration: "none", fontWeight: "bold" }}>
+              <a href="/Home" style={{ color: "#fff", textDecoration: "none"}}>
                 Home
               </a>
             </li>
-            <li style={{ color: "#ff5a5f", textDecoration: "none", fontWeight: "bold" }}>Activities</li>
+            <li style={{ color: "#ff5a5f", textDecoration: "none" }}>Activities</li>
           </ul>
         </div>
       </div>
@@ -938,7 +938,7 @@ function Activities() {
           }}
         >
           {categories.map((category) => (
-            <li
+            <li className="theme-btn"
               key={category.value}
               onClick={() => setSelectedCategory(category.value)}
               style={{
@@ -948,7 +948,6 @@ function Activities() {
                 color: selectedCategory === category.value ? "#fff" : "#333",
                 borderRadius: "20px",
                 transition: "all 0.3s ease",
-                fontWeight: "bold",
                 border: "2px solid transparent",
                 boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.1)",
               }}
@@ -1006,14 +1005,13 @@ function Activities() {
 
           <div style={{ display: "flex", gap: "15px", flexWrap: "wrap", justifyContent: "center" }}>
             {userRole === "student" && (
-              <button
+              <button className="theme-btn"
                 onClick={handleOpenStatsModal}
                 style={{
                   backgroundColor: "#0ea5e6",
                   color: "white",
                   padding: "10px 20px",
                   borderRadius: "50px",
-                  fontWeight: "bold",
                   border: "none",
                   cursor: "pointer",
                   transition: "background-color 0.3s ease",
@@ -1025,14 +1023,13 @@ function Activities() {
               </button>
             )}
             {userRole === "student" && (
-              <button
+              <button className="theme-btn"
                 onClick={navigateToActivitySchedule}
                 style={{
                   backgroundColor: "#0ea5e6",
                   color: "white",
                   padding: "10px 20px",
                   borderRadius: "50px",
-                  fontWeight: "bold",
                   border: "none",
                   cursor: "pointer",
                   transition: "background-color 0.3s ease",
@@ -1044,14 +1041,13 @@ function Activities() {
               </button>
             )}
             {userRole === "student" && (
-              <button
+              <button className="theme-btn"
                 onClick={handleProposeActivities}
                 style={{
                   backgroundColor: "#ff9500",
                   color: "white",
                   padding: "10px 20px",
                   borderRadius: "50px",
-                  fontWeight: "bold",
                   border: "none",
                   cursor: "pointer",
                   transition: "background-color 0.3s ease",
@@ -1067,14 +1063,13 @@ function Activities() {
               </button>
             )}
             {userRole === "student" && (
-              <button
+              <button className="theme-btn"
                 onClick={handleOpenForumRulesModal}
                 style={{
                   backgroundColor: "#6b7280",
                   color: "white",
                   padding: "10px 20px",
                   borderRadius: "50px",
-                  fontWeight: "bold",
                   border: "none",
                   cursor: "pointer",
                   transition: "background-color 0.3s ease",
@@ -1089,14 +1084,13 @@ function Activities() {
               </button>
             )}
             {userRole === "psychiatrist" && (
-              <button
+              <button className="theme-btn"
                 onClick={handleAddActivity}
                 style={{
                   backgroundColor: "#0ea5e6",
                   color: "white",
                   padding: "10px 20px",
                   borderRadius: "50px",
-                  fontWeight: "bold",
                   border: "none",
                   cursor: "pointer",
                   transition: "background-color 0.3s ease",
@@ -1150,30 +1144,28 @@ function Activities() {
                 </div>
                 {userRole === "psychiatrist" ? (
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "10px" }}>
-                    <button
+                    <button className="theme-btn"
                       onClick={() => handleDelete(activity._id)}
                       style={{
                         backgroundColor: "#f44336",
                         color: "white",
-                        padding: "10px 20px",
+                        padding: "10px 16px",
                         borderRadius: "50px",
                         marginTop: "20px",
-                        fontWeight: "bold",
                       }}
                       onMouseEnter={(e) => (e.target.style.backgroundColor = "#d32f2f")}
                       onMouseLeave={(e) => (e.target.style.backgroundColor = "#f44336")}
                     >
                       Delete
                     </button>
-                    <button
+                    <button className="theme-btn"
                       onClick={() => handleEdit(activity)}
                       style={{
                         backgroundColor: "#0ea5e6",
                         color: "white",
-                        padding: "10px 20px",
+                        padding: "10px 16px",
                         borderRadius: "50px",
                         marginTop: "20px",
-                        fontWeight: "bold",
                         border: "none",
                         cursor: "pointer",
                         transition: "background-color 0.3s ease",
@@ -1193,14 +1185,13 @@ function Activities() {
                       alignItems: "center",
                     }}
                   >
-                    <button
+                    <button className="theme-btn"
                       onClick={() => togglePinActivity(activity._id)}
                       style={{
                         backgroundColor: pinnedActivities.includes(activity._id) ? "#f4b400" : "#ff9500",
                         color: "white",
                         padding: "8px 16px",
                         borderRadius: "50px",
-                        fontWeight: "bold",
                         border: "none",
                         cursor: "pointer",
                         display: "flex",
@@ -1218,7 +1209,7 @@ function Activities() {
                       <FontAwesomeIcon icon={faThumbtack} />
                       {pinnedActivities.includes(activity._id) ? "Unpin" : "Pin"}
                     </button>
-                    <button
+                    <button 
                       onClick={() => toggleFavoriteActivity(activity._id)}
                       style={{
                         background: "none",
@@ -1260,7 +1251,7 @@ function Activities() {
                 backgroundColor: currentPage === 1 ? "#ccc" : "#0ea5e6",
                 color: "white",
                 padding: "8px 16px",
-                borderRadius: "5px",
+                borderRadius: "50px",
                 border: "none",
                 cursor: currentPage === 1 ? "not-allowed" : "pointer",
                 transition: "background-color 0.3s ease",
@@ -1280,11 +1271,10 @@ function Activities() {
                     backgroundColor: currentPage === pageNumber ? "#0ea5e6" : "#f1f1f1",
                     color: currentPage === pageNumber ? "white" : "#333",
                     padding: "8px 16px",
-                    borderRadius: "5px",
+                    borderRadius: "50px",
                     border: "none",
                     cursor: "pointer",
                     transition: "background-color 0.3s ease",
-                    fontWeight: "bold",
                   }}
                   onMouseEnter={(e) => currentPage !== pageNumber && (e.target.style.backgroundColor = "#ddd")}
                   onMouseLeave={(e) => currentPage !== pageNumber && (e.target.style.backgroundColor = "#f1f1f1")}
@@ -1300,7 +1290,7 @@ function Activities() {
                 backgroundColor: currentPage === totalPages ? "#ccc" : "#0ea5e6",
                 color: "white",
                 padding: "8px 16px",
-                borderRadius: "5px",
+                borderRadius: "50px",
                 border: "none",
                 cursor: currentPage === totalPages ? "not-allowed" : "pointer",
                 transition: "background-color 0.3s ease",
@@ -1341,7 +1331,7 @@ function Activities() {
               <h3 style={{ marginBottom: "20px", textAlign: "center" }}>Confirm Deletion</h3>
               <p style={{ textAlign: "center" }}>Are you sure you want to delete this activity?</p>
               <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-                <button
+                <button className="theme-btn"
                   onClick={() => handleConfirmDelete(activityToDelete)}
                   style={{
                     backgroundColor: "#f44336",
@@ -1349,12 +1339,11 @@ function Activities() {
                     padding: "10px 20px",
                     borderRadius: "50px",
                     marginTop: "20px",
-                    fontWeight: "bold",
                   }}
                 >
                   Yes, Delete
                 </button>
-                <button
+                <button className="theme-btn"
                   onClick={closeDeleteModal}
                   style={{
                     backgroundColor: "#0ea5e6",
@@ -1362,7 +1351,6 @@ function Activities() {
                     padding: "10px 20px",
                     borderRadius: "50px",
                     marginTop: "20px",
-                    fontWeight: "bold",
                   }}
                 >
                   Cancel
@@ -1422,14 +1410,13 @@ function Activities() {
               >
                 {stripHtmlTags(selectedActivity.description)}
               </p>
-              <button
+              <button className="theme-btn"
                 onClick={closeViewActivityModal}
                 style={{
                   backgroundColor: "#0ea5e6",
                   color: "white",
                   padding: "8px 16px",
-                  borderRadius: "5px",
-                  fontWeight: "bold",
+                  borderRadius: "50px",
                 }}
               >
                 Close
@@ -1442,7 +1429,7 @@ function Activities() {
           <div
             style={{
               position: "fixed",
-              top: 0,
+              top: 20,
               left: 0,
               width: "100%",
               height: "100%",
@@ -1482,13 +1469,13 @@ function Activities() {
                     marginBottom: "20px",
                   }}
                 >
-                  <button
+                  <button className="theme-btn"
                     onClick={handlePreviousMonth}
                     style={{
                       backgroundColor: "#0ea5e6",
                       color: "white",
                       padding: "8px 16px",
-                      borderRadius: "5px",
+                      borderRadius: "50px",
                       border: "none",
                       cursor: "pointer",
                     }}
@@ -1496,13 +1483,13 @@ function Activities() {
                     Previous
                   </button>
                   <span>{currentMonth.toLocaleString("en-US", { month: "long", year: "numeric" })}</span>
-                  <button
+                  <button className="theme-btn"
                     onClick={handleNextMonth}
                     style={{
                       backgroundColor: "#0ea5e6",
                       color: "white",
                       padding: "8px 16px",
-                      borderRadius: "5px",
+                      borderRadius: "50px",
                       border: "none",
                       cursor: "pointer",
                     }}
@@ -1583,15 +1570,14 @@ function Activities() {
                 )}
               </div>
 
-              <button
+              <button className="theme-btn"
                 onClick={closeStatsModal}
                 style={{
                   backgroundColor: "#0ea5e6",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   marginTop: "20px",
-                  fontWeight: "bold",
                   display: "block",
                   margin: "20px auto 0",
                 }}
@@ -1658,15 +1644,14 @@ function Activities() {
                 })}
               </div>
               <div style={{ marginTop: "20px" }}>
-                <button
+                <button className="theme-btn"
                   onClick={handleProposeActivities}
                   disabled={isSpinning}
                   style={{
                     backgroundColor: isSpinning ? "#ccc" : "#ff9500",
                     color: "white",
                     padding: "10px 20px",
-                    borderRadius: "5px",
-                    fontWeight: "bold",
+                    borderRadius: "50px",
                     border: "none",
                     cursor: isSpinning ? "not-allowed" : "pointer",
                     marginRight: "10px",
@@ -1674,14 +1659,13 @@ function Activities() {
                 >
                   Spin Again
                 </button>
-                <button
+                <button className="theme-btn"
                   onClick={closeSlotMachineModal}
                   style={{
                     backgroundColor: "#0ea5e6",
                     color: "white",
                     padding: "10px 20px",
-                    borderRadius: "5px",
-                    fontWeight: "bold",
+                    borderRadius: "50px",
                     border: "none",
                     cursor: "pointer",
                   }}
@@ -1719,7 +1703,7 @@ function Activities() {
                 textAlign: "center",
               }}
             >
-              <h3 style={{ fontSize: "24px", marginBottom: "20px" }}>Forum Rules</h3>
+              <h3 style={{ fontSize: "24px", marginBottom: "20px" }}>Rules</h3>
               <p style={{ fontSize: "16px", marginBottom: "20px", textAlign: "left" }}>
                 1. <strong>Be Respectful</strong>: Treat all users with kindness and respect. No harassment, discrimination, or
                 offensive language.<br />
@@ -1728,14 +1712,13 @@ function Activities() {
                 4. <strong>Protect Privacy</strong>: Do not share personal information about yourself or others.<br />
                 5. <strong>Follow Guidelines</strong>: Adhere to all platform-specific rules and report any violations to moderators.
               </p>
-              <button
+              <button className="theme-btn"
                 onClick={closeForumRulesModal}
                 style={{
                   backgroundColor: "#0ea5e6",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
-                  fontWeight: "bold",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}

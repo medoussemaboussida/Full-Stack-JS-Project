@@ -235,8 +235,8 @@ const ProblemList = () => {
         <div className="container">
           <h2 className="breadcrumb-title">Manage Your Problems</h2>
           <ul className="breadcrumb-menu" style={{ display: 'flex', justifyContent: 'center', listStyle: 'none', padding: '0', marginTop: '10px' }}>
-            <li style={{ marginRight: '10px' }}><a href="/Home" style={{ color: '#fff', textDecoration: 'none', fontWeight: 'bold' }}>Home</a></li>
-            <li style={{ color: '#ff5a5f', textDecoration: 'none', fontWeight: 'bold' }}>problems List</li>
+            <li style={{ marginRight: '10px' }}><a href="/Home" style={{ color: '#fff', textDecoration: 'none' }}>Home</a></li>
+            <li style={{ color: '#ff5a5f', textDecoration: 'none'}}>problems List</li>
           </ul>
         </div>
       </div>
@@ -245,29 +245,62 @@ const ProblemList = () => {
         <div className="container">
           <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px', backgroundColor: '#fff', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
             <h2 style={{ fontSize: '28px', color: '#2A5B84', marginBottom: '20px', textAlign: 'center' }}>Manage Your Problems</h2>
-            <div style={{ marginBottom: '20px' }}>
-              <input
-                type="text"
-                placeholder="Search problems..."
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                style={{ width: '100%', padding: '8px', marginBottom: '10px', borderRadius: '50px', border: '1px solid #ddd' }}
-              />
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'space-between' }}>
-                <select value={sortField} onChange={(e) => handleSort(e.target.value)} style={{ padding: '5px', borderRadius: '50px' }}>
-                  <option value="createdAt">Date Created</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="startDate">Start Date</option>
-                  <option value="endDate">End Date</option>
-                </select>
-                <button onClick={() => handleSort(sortField)} style={{ padding: '5px 10px', borderRadius: '50px', backgroundColor: '#0ea5e6', color: 'white', border: 'none' }}>
-                  {sortOrder === 'asc' ? '▲ Asc' : '▼ Desc'}
-                </button>
-                <button  className="theme-btn" onClick={() => navigate('/add-problem')} style={{ padding: '5px 10px', borderRadius: '50px', backgroundColor: '#28a745', color: 'white', border: 'none' }}>
-                  Add Problem
-                </button>
-              </div>
-            </div>
+<div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'nowrap' }}>
+  <input
+    type="text"
+    placeholder="Search problems..."
+    value={searchQuery}
+    onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+    style={{ 
+      padding: '12px 14px', 
+      borderRadius: '50px', 
+      border: '1px solid #ddd', 
+      flex: '1 0 300px', // Permet une largeur minimale tout en restant flexible
+      maxWidth: '750px' // Limite la largeur maximale
+    }}
+  />
+  <select 
+    value={sortField} 
+    onChange={(e) => handleSort(e.target.value)} 
+    style={{ 
+      padding: '12px 14px', 
+      borderRadius: '50px', 
+      minWidth: '150px' // Largeur minimale pour le sélecteur
+    }}
+  >
+    <option value="createdAt">Date Created</option>
+    <option value="resolved">Resolved</option>
+    <option value="startDate">Start Date</option>
+    <option value="endDate">End Date</option>
+  </select>
+  <button 
+    className="theme-btn" 
+    onClick={() => handleSort(sortField)} 
+    style={{ 
+      padding: '12px 14px', 
+      borderRadius: '50px', 
+      backgroundColor: '#0ea5e6', 
+      color: 'white', 
+      border: 'none', 
+      minWidth: '80px' // Largeur minimale pour le bouton
+    }}
+  >
+    {sortOrder === 'asc' ? '▲ Asc' : '▼ Desc'}
+  </button>
+  <button 
+    className="theme-btn" 
+    onClick={() => navigate('/add-problem')} 
+    style={{ 
+      padding: '12px 14px', 
+      borderRadius: '50px', 
+      backgroundColor: '#28a745', 
+      color: 'white', 
+      minWidth: '100px' // Largeur minimale pour le bouton
+    }}
+  >
+    Add Problem
+  </button>
+</div>
 
             {problems.length === 0 ? (
               <p style={{ textAlign: 'center', color: '#666' }}>No problems found.</p>
@@ -329,7 +362,7 @@ const ProblemList = () => {
                   ))}
                 </ul>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '20px' }}>
-                  <button
+                  <button className='theme-btn'
                     onClick={() => paginate(currentPage - 1)}
                     disabled={currentPage === 1}
                     style={{ padding: '5px 10px', borderRadius: '50px', backgroundColor: currentPage === 1 ? '#ccc' : '#0ea5e6', color: 'white', border: 'none', cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
@@ -337,7 +370,7 @@ const ProblemList = () => {
                     Previous
                   </button>
                   <span>Page {currentPage} of {totalPages}</span>
-                  <button
+                  <button className='theme-btn'
                     onClick={() => paginate(currentPage + 1)}
                     disabled={currentPage === totalPages}
                     style={{ padding: '5px 10px', borderRadius: '50px', backgroundColor: currentPage === totalPages ? '#ccc' : '#0ea5e6', color: 'white', border: 'none', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
@@ -353,7 +386,7 @@ const ProblemList = () => {
 
       {editModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', width: '400px', maxWidth: '90%', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+          <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', width: '400px', maxWidth: '90%', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',maxHeight:"80%",overflowY:"auto" }}>
             <h3 style={{ marginBottom: '20px', textAlign: 'center' }}>Edit Problem</h3>
             <form>
               <div style={{ marginBottom: '15px' }}>
@@ -392,8 +425,8 @@ const ProblemList = () => {
                 />
               </div>
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                <button type="button" onClick={handleUpdateProblem} style={{ backgroundColor: '#0ea5e6', color: 'white', padding: '10px 20px', borderRadius: '50px', border: 'none', cursor: 'pointer' }}>Update</button>
-                <button type="button" onClick={closeEditModal} style={{ backgroundColor: '#f44336', color: 'white', padding: '10px 20px', borderRadius: '50px', border: 'none', cursor: 'pointer' }}>Cancel</button>
+                <button className='theme-btn' type="button" onClick={handleUpdateProblem} style={{ backgroundColor: '#0ea5e6', color: 'white', padding: '10px 20px', borderRadius: '50px', border: 'none', cursor: 'pointer' }}>Update</button>
+                <button className='theme-btn' type="button" onClick={closeEditModal} style={{ backgroundColor: '#f44336', color: 'white', padding: '10px 20px', borderRadius: '50px', border: 'none', cursor: 'pointer' }}>Cancel</button>
               </div>
             </form>
           </div>
@@ -406,8 +439,8 @@ const ProblemList = () => {
             <h3 style={{ marginBottom: '20px' }}>Confirm Deletion</h3>
             <p style={{ marginBottom: '20px', color: '#666' }}>Are you sure you want to delete this problem?</p>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-              <button onClick={handleDeleteProblem} style={{ backgroundColor: '#f44336', color: 'white', padding: '10px 20px', borderRadius: '50px', border: 'none', cursor: 'pointer' }}>Delete</button>
-              <button onClick={closeDeleteModal} style={{ backgroundColor: '#0ea5e6', color: 'white', padding: '10px 20px', borderRadius: '50px', border: 'none', cursor: 'pointer' }}>Cancel</button>
+              <button className='theme-btn' onClick={handleDeleteProblem} style={{ backgroundColor: '#f44336', color: 'white', padding: '10px 20px', borderRadius: '50px', border: 'none', cursor: 'pointer' }}>Delete</button>
+              <button className='theme-btn' onClick={closeDeleteModal} style={{ backgroundColor: '#0ea5e6', color: 'white', padding: '10px 20px', borderRadius: '50px', border: 'none', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
         </div>

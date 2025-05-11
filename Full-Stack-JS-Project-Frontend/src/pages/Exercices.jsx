@@ -242,7 +242,7 @@ function Exercises() {
             </h4>
             <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
               {["relaxation", "focus", "sleep"].map((type) => (
-                <button
+                <button className="theme-btn"
                   key={type}
                   onClick={() => handleStartExercise(type)}
                   disabled={isLoading || isBreathing}
@@ -326,7 +326,7 @@ function Exercises() {
 
           {/* Bouton Start/Stop */}
           {exerciseData && (
-            <button
+            <button className="theme-btn"
               onClick={toggleBreathing}
               disabled={isLoading}
               style={{

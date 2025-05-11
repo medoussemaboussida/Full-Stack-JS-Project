@@ -745,16 +745,16 @@ function ActivitySchedule() {
             }}
           >
             <li style={{ marginRight: "10px" }}>
-              <a href="/Home" style={{ color: "#fff", textDecoration: "none", fontWeight: "bold" }}>
+              <a href="/Home" style={{ color: "#fff", textDecoration: "none" }}>
                 Home
               </a>
             </li>
             <li style={{ marginRight: "10px" }}>
-              <a href="/Activities" style={{ color: "#fff", textDecoration: "none", fontWeight: "bold" }}>
+              <a href="/Activities" style={{ color: "#fff", textDecoration: "none" }}>
                 Activities
               </a>
             </li>
-            <li style={{ color: "#ff5a5f", textDecoration: "none", fontWeight: "bold" }}>
+            <li style={{ color: "#ff5a5f", textDecoration: "none"}}>
               Activity Schedule
             </li>
           </ul>
@@ -763,7 +763,7 @@ function ActivitySchedule() {
 
       {/* My Favorite Activities and Mood History Buttons */}
       <div style={{ textAlign: "center", margin: "20px 0", display: "flex", justifyContent: "center", gap: "20px" }}>
-        <button
+        <button className='theme-btn'
           onClick={() => {
             setShowFavoriteList(!showFavoriteList);
             if (!showFavoriteList) fetchFavoriteActivities(userId);
@@ -773,7 +773,6 @@ function ActivitySchedule() {
             color: "white",
             padding: "10px 20px",
             borderRadius: "50px",
-            fontWeight: "bold",
             border: "none",
             cursor: "pointer",
             transition: "background-color 0.3s ease",
@@ -783,14 +782,13 @@ function ActivitySchedule() {
         >
           Open My Favorite Activities
         </button>
-        <button
+        <button className='theme-btn'
           onClick={handleOpenMoodHistoryModal}
           style={{
             backgroundColor: "#ff9500",
             color: "white",
             padding: "10px 20px",
             borderRadius: "50px",
-            fontWeight: "bold",
             border: "none",
             cursor: "pointer",
             transition: "background-color 0.3s ease",
@@ -824,14 +822,13 @@ function ActivitySchedule() {
               My Favorite Activities
             </h3>
             {favoriteActivities.length > 0 && (
-              <button
+              <button className='theme-btn'
                 onClick={() => setShowClearAllFavoriteModal(true)}
                 style={{
                   backgroundColor: "#f44336",
                   color: "white",
                   padding: "8px 16px",
                   borderRadius: "50px",
-                  fontWeight: "bold",
                   border: "none",
                   cursor: "pointer",
                   transition: "background-color 0.3s ease",
@@ -944,7 +941,7 @@ function ActivitySchedule() {
               Are you sure you want to remove this activity from favorites?
             </p>
             <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-              <button
+              <button className='theme-btn'
                 onClick={handleConfirmRemoveFavorite}
                 style={{
                   backgroundColor: "#f44336",
@@ -952,12 +949,11 @@ function ActivitySchedule() {
                   padding: "10px 20px",
                   borderRadius: "50px",
                   marginTop: "20px",
-                  fontWeight: "bold",
                 }}
               >
                 Yes, Remove
               </button>
-              <button
+              <button className='theme-btn'
                 onClick={closeRemoveFavoriteModal}
                 style={{
                   backgroundColor: "#0ea5e6",
@@ -965,7 +961,6 @@ function ActivitySchedule() {
                   padding: "10px 20px",
                   borderRadius: "50px",
                   marginTop: "20px",
-                  fontWeight: "bold",
                 }}
               >
                 Cancel
@@ -1006,7 +1001,7 @@ function ActivitySchedule() {
               Are you sure you want to clear all favorite activities?
             </p>
             <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-              <button
+              <button className='theme-btn'
                 onClick={handleConfirmClearAllFavorites}
                 style={{
                   backgroundColor: "#f44336",
@@ -1014,12 +1009,11 @@ function ActivitySchedule() {
                   padding: "10px 20px",
                   borderRadius: "50px",
                   marginTop: "20px",
-                  fontWeight: "bold",
                 }}
               >
                 Yes, Clear All
               </button>
-              <button
+              <button className='theme-btn'
                 onClick={closeClearAllFavoriteModal}
                 style={{
                   backgroundColor: "#0ea5e6",
@@ -1027,7 +1021,6 @@ function ActivitySchedule() {
                   padding: "10px 20px",
                   borderRadius: "50px",
                   marginTop: "20px",
-                  fontWeight: "bold",
                 }}
               >
                 Cancel
@@ -1094,14 +1087,13 @@ function ActivitySchedule() {
             >
               {selectedActivity.description}
             </p>
-            <button
+            <button className='theme-btn'
               onClick={closeViewActivityModal}
               style={{
                 backgroundColor: "#0ea5e6",
                 color: "white",
                 padding: "8px 16px",
                 borderRadius: "5px",
-                fontWeight: "bold",
               }}
             >
               Close
@@ -1168,7 +1160,7 @@ function ActivitySchedule() {
               ))}
             </div>
             <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-              <button
+              <button className='theme-btn'
                 onClick={handleMoodConfirm}
                 disabled={selectedMood === null}
                 style={{
@@ -1176,7 +1168,6 @@ function ActivitySchedule() {
                   color: "white",
                   padding: "10px 20px",
                   borderRadius: "50px",
-                  fontWeight: "bold",
                   border: "none",
                   cursor: selectedMood === null ? "not-allowed" : "pointer",
                   transition: "background-color 0.3s ease",
@@ -1186,14 +1177,13 @@ function ActivitySchedule() {
               >
                 Confirm
               </button>
-              <button
+              <button className='theme-btn'
                 onClick={closeMoodModal}
                 style={{
                   backgroundColor: "#f44336",
                   color: "white",
                   padding: "10px 20px",
                   borderRadius: "50px",
-                  fontWeight: "bold",
                   border: "none",
                   cursor: "pointer",
                   transition: "background-color 0.3s ease",
@@ -1258,14 +1248,13 @@ function ActivitySchedule() {
               }}
             />
             <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginTop: "20px" }}>
-              <button
+              <button className='theme-btn'
                 onClick={handleSaveNote}
                 style={{
                   backgroundColor: "#0ea5e6",
                   color: "white",
-                  padding: "10px 20px",
+                  padding: "10px 18px",
                   borderRadius: "50px",
-                  fontWeight: "bold",
                   border: "none",
                   cursor: "pointer",
                   transition: "background-color 0.3s ease",
@@ -1275,14 +1264,13 @@ function ActivitySchedule() {
               >
                 Save Note
               </button>
-              <button
+              <button className='theme-btn'
                 onClick={closeNoteModal}
                 style={{
                   backgroundColor: "#f44336",
                   color: "white",
-                  padding: "10px 20px",
+                  padding: "10px 18px",
                   borderRadius: "50px",
-                  fontWeight: "bold",
                   border: "none",
                   cursor: "pointer",
                   transition: "background-color 0.3s ease",
@@ -1394,7 +1382,7 @@ function ActivitySchedule() {
                 })}
               </ul>
             )}
-            <button
+            <button className='theme-btn'
               onClick={closeMoodHistoryModal}
               style={{
                 backgroundColor: "#0ea5e6",
@@ -1402,7 +1390,6 @@ function ActivitySchedule() {
                 padding: "10px 20px",
                 borderRadius: "50px",
                 marginTop: "20px",
-                fontWeight: "bold",
                 border: "none",
                 cursor: "pointer",
                 transition: "background-color 0.3s ease",
@@ -1452,14 +1439,13 @@ function ActivitySchedule() {
               4. <strong>Protect Privacy</strong>: Do not share personal information about yourself or others.<br />
               5. <strong>Follow Guidelines</strong>: Adhere to all platform-specific rules and report any violations to moderators.
             </p>
-            <button
+            <button className='theme-btn'
               onClick={closeForumRulesModal}
               style={{
                 backgroundColor: "#0ea5e6",
                 color: "white",
                 padding: "10px 20px",
                 borderRadius: "50px",
-                fontWeight: "bold",
                 border: "none",
                 cursor: "pointer",
                 transition: "background-color 0.3s ease",
@@ -1498,7 +1484,7 @@ function ActivitySchedule() {
                 alignItems: "center",
               }}
             >
-              <button
+              <button className='theme-btn'
                 onClick={handlePreviousMonth}
                 style={{
                   backgroundColor: "#0ea5e6",
@@ -1517,7 +1503,7 @@ function ActivitySchedule() {
               <h3 style={{ fontSize: "24px", color: "#333" }}>
                 {monthName} {year}
               </h3>
-              <button
+              <button className='theme-btn'
                 onClick={handleNextMonth}
                 style={{
                   backgroundColor: "#0ea5e6",
@@ -1818,7 +1804,7 @@ function ScheduleModalContent({ activities, favoriteActivities, scheduledActivit
         </ul>
       )}
       <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginTop: "20px" }}>
-        <button
+        <button className='theme-btn'
           onClick={() => onConfirm(selectedActivities)}
           disabled={favoriteActivitiesList.length === 0}
           style={{
@@ -1826,7 +1812,6 @@ function ScheduleModalContent({ activities, favoriteActivities, scheduledActivit
             color: "white",
             padding: "10px 20px",
             borderRadius: "50px",
-            fontWeight: "bold",
             border: "none",
             cursor: favoriteActivitiesList.length === 0 ? "not-allowed" : "pointer",
             transition: "background-color 0.3s ease",
@@ -1840,14 +1825,13 @@ function ScheduleModalContent({ activities, favoriteActivities, scheduledActivit
         >
           Schedule
         </button>
-        <button
+        <button className='theme-btn'
           onClick={onCancel}
           style={{
             backgroundColor: "#f44336",
             color: "white",
             padding: "10px 20px",
             borderRadius: "50px",
-            fontWeight: "bold",
             border: "none",
             cursor: "pointer",
             transition: "background-color 0.3s ease",
@@ -1855,7 +1839,7 @@ function ScheduleModalContent({ activities, favoriteActivities, scheduledActivit
           onMouseEnter={(e) => (e.target.style.backgroundColor = "#d32f2f")}
           onMouseLeave={(e) => (e.target.style.backgroundColor = "#f44336")}
         >
-          Cancel <FontAwesomeIcon icon={faTimes} />
+          Cancel 
         </button>
       </div>
     </div>

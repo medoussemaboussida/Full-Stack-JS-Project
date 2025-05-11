@@ -303,7 +303,7 @@ const Problem = () => {
                     />
                   </div>
                   <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                    <button
+                    <button 
                       type="submit"
                       className="theme-btn"
                       disabled={isSubmitting}
@@ -311,7 +311,7 @@ const Problem = () => {
                         backgroundColor: '#2A5B84',
                         color: 'white',
                         padding: '12px 30px',
-                        borderRadius: '25px',
+                        borderRadius: '50px',
                         border: 'none',
                         cursor: isSubmitting ? 'not-allowed' : 'pointer',
                       }}
@@ -327,7 +327,7 @@ const Problem = () => {
                         backgroundColor: '#f44336',
                         color: 'white',
                         padding: '12px 30px',
-                        borderRadius: '25px',
+                        borderRadius: '50px',
                         border: 'none',
                         cursor: isSubmitting ? 'not-allowed' : 'pointer',
                       }}

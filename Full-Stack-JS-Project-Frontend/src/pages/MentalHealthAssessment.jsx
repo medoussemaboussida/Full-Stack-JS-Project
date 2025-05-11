@@ -216,6 +216,7 @@ const MentalHealthAssessment = () => {
                       readOnly
                       disabled
                       title="Age is automatically calculated from your date of birth"
+                      style={{borderRadius:"50px"}}
                     />
                     <small className="text-muted">Calculated from your date of birth</small>
                   </div>
@@ -229,6 +230,7 @@ const MentalHealthAssessment = () => {
                       value={formData.course}
                       onChange={handleChange}
                       required
+                      style={{borderRadius:"50px"}}
                     />
                   </div>
                 </div>
@@ -248,6 +250,7 @@ const MentalHealthAssessment = () => {
                       required
                       min="1"
                       max="30"
+                      style={{borderRadius:"50px"}}
                     />
                   </div>
                   <div className="col-md-6 mb-3">
@@ -259,6 +262,7 @@ const MentalHealthAssessment = () => {
                       value={formData.extracurricularInvolvement}
                       onChange={handleChange}
                       required
+                      style={{borderRadius:"50px"}}
                     >
                       <option value="low">Low</option>
                       <option value="moderate">Moderate</option>
@@ -279,6 +283,7 @@ const MentalHealthAssessment = () => {
                       value={formData.physicalActivity}
                       onChange={handleChange}
                       required
+                      style={{borderRadius:"50px"}}
                     >
                       <option value="low">Low</option>
                       <option value="moderate">Moderate</option>
@@ -294,6 +299,7 @@ const MentalHealthAssessment = () => {
                       value={formData.substanceUse}
                       onChange={handleChange}
                       required
+                      style={{borderRadius:"50px"}}
                     >
                       <option value="never">Never</option>
                       <option value="occasionally">Occasionally</option>
@@ -312,6 +318,7 @@ const MentalHealthAssessment = () => {
                       value={formData.familyHistory}
                       onChange={handleChange}
                       required
+                      style={{borderRadius:"50px"}}
                     >
                       <option value="no">No</option>
                       <option value="yes">Yes</option>
@@ -326,6 +333,7 @@ const MentalHealthAssessment = () => {
                       value={formData.chronicIllness}
                       onChange={handleChange}
                       required
+                      style={{borderRadius:"50px"}}
                     >
                       <option value="no">No</option>
                       <option value="yes">Yes</option>
@@ -342,6 +350,7 @@ const MentalHealthAssessment = () => {
                     value={formData.counselingServiceUse}
                     onChange={handleChange}
                     required
+                    style={{borderRadius:"50px"}}
                   >
                     <option value="never">Never</option>
                     <option value="occasionally">Occasionally</option>
@@ -454,12 +463,12 @@ const MentalHealthAssessment = () => {
                     <span>Overwhelming</span>
                   </div>
                 </div>
-
+<br></br>
                 <div className="d-grid gap-2">
                   <button
                     type="submit"
-                    className="btn btn-primary btn-lg"
-                    style={{ borderRadius: '50px' }}
+                    className="theme-btn"
+                    style={{ borderRadius: '50px' ,height:"50px",fontSize:"16px"}}
                     disabled={loading}
                   >
                     {loading ? 'Processing...' : 'Submit Assessment'}
