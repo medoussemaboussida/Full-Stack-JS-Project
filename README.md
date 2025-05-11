@@ -1,12 +1,15 @@
 <p align="center">
   <a href="https://github.com/DenverCoder1/readme-typing-svg"><img src="https://readme-typing-svg.herokuapp.com?font=Time+New+Roman&color=cyan&size=25&center=true&vCenter=true&width=600&height=100&lines=EspritCare..&hearts;++;"></a>
-</p>
-The goal of this project is to provide a structured, secure and efficient platform for Esprit university to manage psychological support for students facing difficulties.  
+</p>  
 
-##  <img src="https://media.giphy.com/media/iY8CRBdQXODJSCERIr/giphy.gif" width="50px">&nbsp; The Starks Team
+## <img src="https://media.giphy.com/media/iY8CRBdQXODJSCERIr/giphy.gif" width="50px">&nbsp;About
+The goal of this project is to provide a structured, secure and efficient platform for Esprit university to manage psychological support for students facing difficulties.
+
+
+##  <img src="https://media.giphy.com/media/hvRJCLFzcasrR4ia7z/giphy.gif" width="25"> The Starks Team
 ![Capture d'écran 2025-05-11 205942](https://github.com/user-attachments/assets/b1109f11-728e-4d2b-a96d-6a40252696b9)
 
-## <img src="https://media.giphy.com/media/iY8CRBdQXODJSCERIr/giphy.gif" width="50px">&nbsp; Frameworks and technologies  
+## <img src="https://media2.giphy.com/media/QssGEmpkyEOhBCb7e1/giphy.gif?cid=ecf05e47a0n3gi1bfqntqmob8g9aid1oyj2wr3ds3mg700bl&rid=giphy.gif" width ="25"> Frameworks and technologies  
 <p align="left">
 <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nodejs/nodejs-original.svg" height="40" alt="nodejs logo"  />
 <img width="12" />
@@ -35,7 +38,6 @@ The goal of this project is to provide a structured, secure and efficient platfo
 ✔️ Student: Can self-register via the sign-up form or using Google/Facebook authentication.  
 ✔️ Psychologist, Teacher, Associative Member: Accounts created and managed only by the Admin.  
 ✔️ Admin: Has full access to manage all users and platform settings.  
-🔒 All users authenticate via JWT (JSON Web Token) for secure session management.  
 
 ## AI-Powered Depression Detection & Personalized Recommendations 🤖🧠
 <img align="right" width=200px height=200px alt="side_sticker" src="https://media.giphy.com/media/TEnXkcsHrP4YedChhA/giphy.gif" />  
