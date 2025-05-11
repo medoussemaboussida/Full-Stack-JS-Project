@@ -3,7 +3,6 @@ pipeline {
 
    environment {
             DOCKER_CREDENTIALS_ID = credentials('docker-hub-credentials')
-            DOCKER_IMAGE = 'mohamedoussemaboussida/nodemongoapp:6.0' // Remplacez 'yourusername' par votre nom d'utilisateur Docker Hub
     }
 
   stages {
@@ -83,7 +82,21 @@ stage('Unit Test') {
         }
       }
     }
-// WARNING : LA CREATION DES IMAGES DOCKER SE FAIT SUR LOCAL 
+// WARNING : LA CREATION DES IMAGES DOCKER ET RUN CONTAINER SE FAIT SUR DOCKERDESKTOP 
+    stage('Run Prometheus') {
+      steps {
+        script {
+          sh 'docker start prometheus || true'
+        }
+      }
+    }
 
+    stage('Run Grafana') {
+      steps {
+        script {
+          sh 'docker start grafana || true'
+        }
+      }
+    }
   }
 }

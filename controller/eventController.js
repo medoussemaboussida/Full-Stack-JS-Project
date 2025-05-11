@@ -4,7 +4,7 @@ const Event = require("../model/event");
 const User = require("../model/user");
 const Association = require("../model/association");
 const Ticket = require("../model/Ticket");
-const Notification = require("../model/Notification"); // Importation du modèle Notification
+const Notification = require("../model/Notification");
 const multer = require("multer");
 const path = require("path");
 const crypto = require('crypto');
@@ -18,13 +18,11 @@ console.log("JWT_SECRET dans eventController:", JWT_SECRET);
 
 // Clé API Google Maps depuis .env
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
-if (!GOOGLE_MAPS_API_KEY) {
-  console.warn("⚠️ GOOGLE_MAPS_API_KEY is not set in .env");
-}
+
 
 // Configuration de Multer
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/"),
+  destination: (req, file, cb) => cb(null, "Uploads/"),
   filename: (req, file, cb) => cb(null, `story-${Date.now()}-${file.originalname}`),
 });
 
@@ -47,7 +45,7 @@ const upload = multer({
 const storySchema = new mongoose.Schema({
   imageUrl: { type: String, required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  createdAt: { type: Date, default: Date.now, expires: '24h' }, // Stories expire after 24 hours
+  createdAt: { type: Date, default: Date.now, expires: '24h' },
   likes: { type: Number, default: 0 },
   likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
 });
@@ -64,6 +62,13 @@ const replySchema = new mongoose.Schema({
 });
 
 const Reply = mongoose.model('Reply', replySchema);
+
+// Location Cache Schema (déjà présent dans votre code)
+const LocationCache = mongoose.model('LocationCache', new mongoose.Schema({
+  location: String,
+  description: String,
+  createdAt: { type: Date, default: Date.now, expires: '7d' },
+}));
 
 // Fonction pour géocoder une adresse avec Google Maps
 const geocodeAddress = async (address) => {
@@ -106,7 +111,7 @@ exports.addEvent = (req, res) => {
         contact_email, event_type, online_link, max_participants, hasPartners
       } = req.body;
 
-      console.log("Request body:", req.body); // Log pour débogage
+      console.log("Request body:", req.body);
 
       const requiredFields = { title, description, start_date, end_date, heure, contact_email, event_type };
       const missingFields = Object.entries(requiredFields)
@@ -124,7 +129,7 @@ exports.addEvent = (req, res) => {
       }
 
       const wantsPartners = hasPartners === true || hasPartners === "true";
-      console.log("wantsPartners:", wantsPartners); // Log pour vérifier
+      console.log("wantsPartners:", wantsPartners);
 
       const eventStartDate = new Date(`${start_date}T${heure}:00Z`);
       const eventEndDate = new Date(`${end_date}T${heure}:00Z`);
@@ -146,7 +151,7 @@ exports.addEvent = (req, res) => {
         return res.status(403).json({ message: "Only association members can create events" });
       }
 
-      const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+      const imageUrl = req.file ? `/Uploads/${req.file.filename}` : null;
 
       let coordinates = { lat: null, lng: null };
       if (event_type === "in-person" && localisation) {
@@ -176,16 +181,15 @@ exports.addEvent = (req, res) => {
       const savedEvent = await newEvent.save();
       console.log(`✅ Event "${title}" created successfully. ID: ${savedEvent._id}`);
 
-      // Si l'événement recherche des partenaires, envoyer les emails
       if (wantsPartners) {
         const associationMembers = await User.find({ 
           role: "association_member", 
-          _id: { $ne: req.userId } // Exclure le créateur
+          _id: { $ne: req.userId }
         });
         console.log("Association members found:", associationMembers.length);
 
         if (associationMembers.length > 0) {
-          const eventLink = `http://localhost:3000/event/${savedEvent._id}`; // Ajustez selon votre frontend
+          const eventLink = `http://localhost:3000/event/${savedEvent._id}`;
           const subject = "New Event Added - Partnership Opportunity";
           const htmlContent = `
             <h2>New Event Created!</h2>
@@ -390,9 +394,8 @@ exports.updateEvent = (req, res) => {
         event.hasPartners = hasPartners === true || hasPartners === "true";
       }
 
-      // Handle image update
       if (req.file) {
-        event.imageUrl = `/uploads/${req.file.filename}`;
+        event.imageUrl = `/Uploads/${req.file.filename}`;
         console.log(`Image updated for event ${id}: ${event.imageUrl}`);
       }
 
@@ -496,11 +499,9 @@ exports.participate = async (req, res) => {
       return res.status(400).json({ message: "Invalid user ID" });
     }
 
-    // Récupérer l'événement avec validation minimale
     const event = await Event.findById(eventId);
     if (!event) return res.status(404).json({ message: "Event not found" });
 
-    // Corriger les champs participants et partners si nécessaire
     if (!Array.isArray(event.participants)) {
       console.warn(`Fixing participants field for event ${eventId}: was ${typeof event.participants}`);
       event.participants = [];
@@ -510,7 +511,6 @@ exports.participate = async (req, res) => {
       event.partners = [];
     }
 
-    // Enregistrer les corrections avant de continuer
     await event.save();
 
     const userObjectId = new mongoose.Types.ObjectId(userId);
@@ -636,7 +636,6 @@ exports.participateAsPartner = async (req, res) => {
 
     console.log(`Participate as Partner - Event ID: ${eventId}, User ID: ${userId}, Association ID: ${association_id || "none"}`);
 
-    // Validate ObjectIds
     if (!mongoose.Types.ObjectId.isValid(eventId)) {
       console.log("Invalid event ID provided");
       return res.status(400).json({ message: "Invalid event ID" });
@@ -650,7 +649,6 @@ exports.participateAsPartner = async (req, res) => {
       return res.status(400).json({ message: "Invalid association ID" });
     }
 
-    // Check user
     const user = await User.findById(userId);
     if (!user) {
       console.log("User not found");
@@ -662,7 +660,6 @@ exports.participateAsPartner = async (req, res) => {
       return res.status(403).json({ message: "Only association members can join as partners" });
     }
 
-    // Retrieve association_id
     if (!association_id) {
       if (user.association_id) {
         association_id = user.association_id;
@@ -682,7 +679,6 @@ exports.participateAsPartner = async (req, res) => {
       }
     }
 
-    // Verify association exists and is linked to user
     const association = await Association.findById(association_id);
     if (!association) {
       console.log("Association not found for ID:", association_id);
@@ -693,7 +689,6 @@ exports.participateAsPartner = async (req, res) => {
       return res.status(403).json({ message: "You are not authorized to use this association" });
     }
 
-    // Check event
     const event = await Event.findById(eventId);
     if (!event) {
       console.log(`Event ${eventId} not found`);
@@ -704,7 +699,6 @@ exports.participateAsPartner = async (req, res) => {
       return res.status(400).json({ message: "This event does not accept partners" });
     }
 
-    // Ensure partners is an array
     if (!Array.isArray(event.partners)) {
       console.warn(`Fixing partners field for event ${eventId}: was ${typeof event.partners}`);
       event.partners = [];
@@ -716,15 +710,12 @@ exports.participateAsPartner = async (req, res) => {
       return res.status(400).json({ message: "You are already a partner for this event" });
     }
 
-    // Add user to partners
     event.partners.push(userObjectId);
     await event.save();
 
-    // Update user
-    const eventObjectId = new mongoose.Types.ObjectId(eventId);
     user.partneredEvents = user.partneredEvents || [];
-    if (!user.partneredEvents.some((id) => id.equals(eventObjectId))) {
-      user.partneredEvents.push(eventObjectId);
+    if (!user.partneredEvents.some((id) => id.equals(eventId))) {
+      user.partneredEvents.push(eventId);
     }
     user.association_id = new mongoose.Types.ObjectId(association_id);
     await user.save();
@@ -754,7 +745,7 @@ exports.cancelParticipation = async (req, res) => {
     for (const secret of possibleSecrets) {
       try {
         decoded = jwt.verify(token, secret);
-        break;
+        break; // Exit the loop once token is verified
       } catch (err) {
         continue;
       }
@@ -805,7 +796,6 @@ exports.cancelPartnerParticipation = async (req, res) => {
 
     console.log(`Cancel Partner Participation - Event ID: ${eventId}, User ID: ${userId}`);
 
-    // Validate inputs
     if (!userId) {
       console.log("No userId provided in request");
       return res.status(401).json({ message: "Authentication required" });
@@ -819,13 +809,11 @@ exports.cancelPartnerParticipation = async (req, res) => {
       return res.status(400).json({ message: "Invalid user ID" });
     }
 
-    // Check database connection
     if (mongoose.connection.readyState !== 1) {
       console.log(`Database not connected: readyState=${mongoose.connection.readyState}`);
       return res.status(500).json({ message: "Database connection error" });
     }
 
-    // Fetch user
     const user = await User.findById(userId).exec();
     if (!user) {
       console.log(`User not found: ${userId}`);
@@ -836,7 +824,6 @@ exports.cancelPartnerParticipation = async (req, res) => {
       return res.status(403).json({ message: "Only association members can cancel partner participation" });
     }
 
-    // Fetch event
     const event = await Event.findById(eventId).exec();
     if (!event) {
       console.log(`Event not found: ${eventId}`);
@@ -847,33 +834,26 @@ exports.cancelPartnerParticipation = async (req, res) => {
       return res.status(400).json({ message: "This event does not accept partners" });
     }
 
-    // Ensure partners is an array
     if (!Array.isArray(event.partners)) {
       console.warn(`Fixing partners field for event ${eventId}: was ${typeof event.partners}`);
       event.partners = [];
     }
 
-    // Ensure partneredEvents is an array
     if (!Array.isArray(user.partneredEvents)) {
       console.warn(`Fixing partneredEvents field for user ${userId}: was ${typeof user.partneredEvents}`);
       user.partneredEvents = [];
     }
 
-    // Check if user is a partner
     const userObjectId = new mongoose.Types.ObjectId(userId);
     if (!event.partners.some((id) => id.equals(userObjectId))) {
       console.log(`User ${userId} is not a partner for event ${eventId}`);
       return res.status(400).json({ message: "You are not a partner for this event" });
     }
 
-    // Remove user from event partners
     event.partners = event.partners.filter((id) => !id.equals(userObjectId));
-
-    // Remove event from user partneredEvents
     const eventObjectId = new mongoose.Types.ObjectId(eventId);
     user.partneredEvents = user.partneredEvents.filter((id) => !id.equals(eventObjectId));
 
-    // Save both documents in a transaction to ensure consistency
     const session = await mongoose.startSession();
     try {
       await session.withTransaction(async () => {
@@ -967,7 +947,7 @@ exports.likeEvent = async (req, res) => {
       event.likes = event.likes.filter((uid) => uid !== userId);
     } else {
       event.likes.push(userId);
-      event.dislikes = event.dislikes.filter((uid) => uid !== userId); // Supprimer dislike si existant
+      event.dislikes = event.dislikes.filter((uid) => uid !== userId);
     }
     await event.save();
 
@@ -991,7 +971,7 @@ exports.dislikeEvent = async (req, res) => {
       event.dislikes = event.dislikes.filter((uid) => uid !== userId);
     } else {
       event.dislikes.push(userId);
-      event.likes = event.likes.filter((uid) => uid !== userId); // Supprimer like si existant
+      event.likes = event.likes.filter((uid) => uid !== userId);
     }
     await event.save();
 
@@ -1060,7 +1040,7 @@ exports.checkDislike = async (req, res) => {
 exports.checkFavorite = async (req, res) => {
   try {
     const { eventId } = req.params;
-    const userId = req.userId; // Extrait du middleware d'authentification
+    const userId = req.userId;
 
     if (!mongoose.Types.ObjectId.isValid(eventId)) {
       return res.status(400).json({ message: "Invalid event ID" });
@@ -1099,7 +1079,7 @@ const saveTicketWithRetry = async (ticketData, retries = 3) => {
       return await ticket.save();
     } catch (error) {
       if (error.code === 11000 && i < retries - 1) {
-        ticketData.ticketId = generateTicketId(); // Générer un nouveau ticketId
+        ticketData.ticketId = generateTicketId();
         continue;
       }
       throw error;
@@ -1112,7 +1092,6 @@ exports.verifyParticipation = async (req, res) => {
   try {
     const { eventId, userId } = req.params;
 
-    // Valider les ObjectIds
     if (!mongoose.Types.ObjectId.isValid(eventId)) {
       console.log(`Invalid event ID: ${eventId}`);
       return res.status(422).json({ message: "Invalid event ID format" });
@@ -1122,27 +1101,23 @@ exports.verifyParticipation = async (req, res) => {
       return res.status(422).json({ message: "Invalid user ID format" });
     }
 
-    // Récupérer l'événement
     const event = await Event.findById(eventId).select("title participants start_date").exec();
     if (!event) {
       console.log(`Event not found: ${eventId}`);
       return res.status(404).json({ message: "Event not found" });
     }
 
-    // Vérifier que start_date existe
     if (!event.start_date) {
       console.log(`Event ${eventId} missing start_date`);
       return res.status(400).json({ message: "Event missing start_date" });
     }
 
-    // Récupérer l'utilisateur
     const user = await User.findById(userId).select("username email").exec();
     if (!user) {
       console.log(`User not found: ${userId}`);
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Vérifier si l'utilisateur est un participant
     const userObjectId = new mongoose.Types.ObjectId(userId);
     const isParticipating = event.participants && Array.isArray(event.participants)
       ? event.participants.some((id) => id.equals(userObjectId))
@@ -1155,7 +1130,6 @@ exports.verifyParticipation = async (req, res) => {
       });
     }
 
-    // Générer et enregistrer le ticket
     const ticketData = {
       ticketId: generateTicketId(),
       eventId,
@@ -1192,7 +1166,6 @@ exports.verifyPartner = async (req, res) => {
   try {
     const { eventId, userId } = req.params;
 
-    // Valider les ObjectIds
     if (!mongoose.Types.ObjectId.isValid(eventId)) {
       console.log(`Invalid event ID: ${eventId}`);
       return res.status(422).json({ message: "Invalid event ID format" });
@@ -1202,27 +1175,23 @@ exports.verifyPartner = async (req, res) => {
       return res.status(422).json({ message: "Invalid user ID format" });
     }
 
-    // Récupérer l'événement
     const event = await Event.findById(eventId).select("title partners start_date").exec();
     if (!event) {
       console.log(`Event not found: ${eventId}`);
       return res.status(404).json({ message: "Event not found" });
     }
 
-    // Vérifier que start_date existe
     if (!event.start_date) {
       console.log(`Event ${eventId} missing start_date`);
       return res.status(400).json({ message: "Event missing start_date" });
     }
 
-    // Récupérer l'utilisateur
     const user = await User.findById(userId).select("username email").exec();
     if (!user) {
       console.log(`User not found: ${userId}`);
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Vérifier si l'utilisateur est un partenaire
     const userObjectId = new mongoose.Types.ObjectId(userId);
     const isPartner = event.partners && Array.isArray(event.partners)
       ? event.partners.some((id) => id.equals(userObjectId))
@@ -1235,7 +1204,6 @@ exports.verifyPartner = async (req, res) => {
       });
     }
 
-    // Générer et enregistrer le ticket
     const ticketData = {
       ticketId: generateTicketId(),
       eventId,
@@ -1287,7 +1255,7 @@ exports.uploadStory = (req, res) => {
       }
 
       const story = new Story({
-        imageUrl: `/uploads/${req.file.filename}`,
+        imageUrl: `/Uploads/${req.file.filename}`,
         userId: req.userId,
       });
 
@@ -1309,7 +1277,7 @@ exports.getStories = async (req, res) => {
   console.time("getStories");
   try {
     const stories = await Story.find()
-      .sort({ createdAt: -1 }) // Sort by newest first
+      .sort({ createdAt: -1 })
       .populate("userId", "username")
       .lean();
 
@@ -1390,7 +1358,6 @@ exports.likeStory = async (req, res) => {
 
     await story.save({ validateBeforeSave: true });
 
-    // Envoyer une notification au propriétaire de la story (si ce n'est pas l'utilisateur qui like)
     if (story.userId._id.toString() !== userId) {
       const notification = new Notification({
         userId: story.userId._id,
@@ -1461,7 +1428,6 @@ exports.replyToStory = async (req, res) => {
 
     const savedReply = await reply.save({ validateBeforeSave: true });
 
-    // Envoyer une notification au propriétaire de la story (si ce n'est pas l'utilisateur qui répond)
     if (story.userId._id.toString() !== userId) {
       let notificationMessage;
       if (text && emoji) {
@@ -1492,7 +1458,7 @@ exports.replyToStory = async (req, res) => {
     };
 
     console.log(`User ${userId} replied to story ${storyId} with reply ${savedReply._id}`);
-    res.status(201).json(replyData); // 201 for resource creation
+    res.status(201).json(replyData);
   } catch (error) {
     console.error("Error in replyToStory:", {
       message: error.message,
@@ -1507,7 +1473,6 @@ exports.replyToStory = async (req, res) => {
   }
 };
 
-
 // Récupérer les événements créés par un utilisateur spécifique
 exports.getEventsByUser = async (req, res) => {
   console.time("getEventsByUser");
@@ -1515,26 +1480,22 @@ exports.getEventsByUser = async (req, res) => {
     const { userId } = req.params;
     console.log(`Fetching events for userId: ${userId}`);
 
-    // Valider l'ObjectId
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       console.log(`Invalid user ID: ${userId}`);
       return res.status(400).json({ message: "Invalid user ID" });
     }
 
-    // Vérifier la connexion MongoDB
     console.log(`MongoDB connection state: ${mongoose.connection.readyState}`);
     if (mongoose.connection.readyState !== 1) {
       throw new Error("Database not connected");
     }
 
-    // Vérifier si l'utilisateur existe
     const user = await User.findById(userId).select('username email').lean();
     if (!user) {
       console.log(`User not found: ${userId}`);
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Récupérer les événements
     console.log(`Executing query: Event.find({ created_by: ${userId} })`);
     const events = await Event.find({ created_by: userId })
       .populate({
@@ -1561,5 +1522,160 @@ exports.getEventsByUser = async (req, res) => {
     res.status(500).json({ message: "Internal server error", error: error.message });
   } finally {
     console.timeEnd("getEventsByUser");
+  }
+};
+
+// Récupérer les détails de localisation avec OpenStreetMap (Nominatim)
+exports.getLocationDetails = async (req, res) => {
+  console.time("getLocationDetails");
+  try {
+    const { location, title, date, bypassCache } = req.body;
+
+    if (!location || !title || !date) {
+      console.log("Missing required fields:", { location, title, date });
+      return res.status(400).json({ message: "Location, title, and date are required" });
+    }
+
+    // Normaliser la localisation pour le cache (insensible à la casse)
+    const normalizedLocation = location.toLowerCase();
+
+    // Vérifier le cache, sauf si bypassCache est true
+    if (!bypassCache) {
+      const cached = await LocationCache.findOne({ location: normalizedLocation });
+      if (cached) {
+        console.log(`Cache hit for location: ${normalizedLocation}`);
+        return res.status(200).json({
+          choices: [
+            {
+              message: {
+                content: cached.description.replace("{{title}}", title).replace("{{date}}", date),
+              },
+            },
+          ],
+        });
+      }
+    }
+
+    // Appel à l'API Nominatim avec préférence pour l'anglais
+    const response = await axios.get(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(location)}&format=json&addressdetails=1&namedetails=1&limit=1`,
+      {
+        headers: {
+          'User-Agent': 'EventApp/1.0 (your.email@example.com)', // Remplacez par votre email
+          'Accept-Language': 'en', // Prioriser l'anglais
+        },
+        timeout: 5000,
+      }
+    );
+
+    console.log("Nominatim API Response:", JSON.stringify(response.data[0], null, 2));
+
+    if (!response.data || response.data.length === 0) {
+      console.log(`No results found for location: ${location}`);
+      return res.status(404).json({ message: `No details found for ${location}` });
+    }
+
+    const place = response.data[0];
+    // Construire un nom de lieu en anglais
+    let displayName = '';
+    if (place.namedetails?.name_en) {
+      displayName = place.namedetails.name_en;
+      console.log(`Using English name from namedetails: ${displayName}`);
+    } else if (place.address) {
+      const addressParts = [];
+      if (place.address.city) addressParts.push(place.address.city);
+      else if (place.address.town) addressParts.push(place.address.town);
+      else if (place.address.village) addressParts.push(place.address.village);
+      else if (place.address.suburb) addressParts.push(place.address.suburb);
+      else if (place.address.neighbourhood) addressParts.push(place.address.neighbourhood);
+      if (place.address.state) addressParts.push(place.address.state);
+      else if (place.address.county) addressParts.push(place.address.county);
+      if (place.address.country) addressParts.push(place.address.country);
+      displayName = addressParts.join(", ");
+      console.log(`Constructed displayName from address: ${displayName}`);
+    }
+
+    // Nettoyer les caractères non-ASCII
+    if (displayName && /[^\x20-\x7E,]/.test(displayName)) {
+      console.warn(`Non-English characters detected in displayName: ${displayName}`);
+      displayName = place.address?.country || displayName.replace(/[^\x20-\x7E,]/g, '').trim();
+      console.log(`Cleaned displayName: ${displayName}`);
+    }
+
+    // Dernier recours si displayName est vide
+    if (!displayName) {
+      displayName = place.address?.country || "Unknown Location";
+      console.warn(`No valid displayName, using fallback: ${displayName}`);
+    }
+
+    // Créer une description enrichie
+    let extraInfo = "";
+    if (place.type === "city") {
+      extraInfo = "As a major city, it likely offers extensive public transport, dining options, and cultural landmarks.";
+    } else if (place.type === "village") {
+      extraInfo = "This smaller location may have limited amenities but offers a charming, community-focused setting.";
+    } else if (place.type === "administrative") {
+      extraInfo = "This is an administrative area, which may include various amenities depending on the specific location.";
+    }
+
+    const description = `The event "{{title}}" on {{date}} will take place in ${displayName}. This is a ${place.type} located at latitude ${place.lat}, longitude ${place.lon}. ${extraInfo} For in-person events, check local guides for accessibility and venue details.`;
+
+    // Mettre à jour ou insérer dans le cache
+    await LocationCache.updateOne(
+      { location: normalizedLocation },
+      { $set: { location: normalizedLocation, description } },
+      { upsert: true }
+    );
+    console.log(`Cached/Updated description for ${normalizedLocation}: ${description}`);
+
+    // Format compatible avec le frontend
+    res.status(200).json({
+      choices: [
+        {
+          message: {
+            content: description.replace("{{title}}", title).replace("{{date}}", date),
+          },
+        },
+      ],
+    });
+  } catch (error) {
+    console.error("Error in getLocationDetails:", {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+    });
+
+    if (error.code === 'E11000') {
+      // Gérer l'erreur de clé dupliquée en mettant à jour l'entrée existante
+      try {
+        const normalizedLocation = location.toLowerCase();
+        await LocationCache.updateOne(
+          { location: normalizedLocation },
+          { $set: { location: normalizedLocation, description } },
+          { upsert: true }
+        );
+        console.log(`Recovered from duplicate key error by updating cache for ${normalizedLocation}`);
+        res.status(200).json({
+          choices: [
+            {
+              message: {
+                content: description.replace("{{title}}", title).replace("{{date}}", date),
+              },
+            },
+          ],
+        });
+      } catch (updateError) {
+        console.error("Error updating cache after duplicate key:", updateError);
+        res.status(500).json({ message: "Internal server error after duplicate key recovery", error: updateError.message });
+      }
+    } else if (error.response?.status === 429) {
+      res.status(429).json({ message: "Rate limit exceeded for Nominatim API. Please try again later." });
+    } else if (error.response?.status >= 400 && error.response?.status < 500) {
+      res.status(400).json({ message: `Invalid request to Nominatim API: ${error.message}` });
+    } else {
+      res.status(500).json({ message: "Internal server error", error: error.message });
+    }
+  } finally {
+    console.timeEnd("getLocationDetails");
   }
 };

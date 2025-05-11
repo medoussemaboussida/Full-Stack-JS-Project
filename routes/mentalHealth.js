@@ -15,4 +15,57 @@ router.get('/assessment/history', mentalHealthController.getAssessmentHistory);
 // Get a specific mental health assessment
 router.get('/assessment/:id', mentalHealthController.getAssessment);
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 module.exports = router;

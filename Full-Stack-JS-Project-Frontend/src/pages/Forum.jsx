@@ -1860,7 +1860,7 @@ function Forum() {
                             <option value="" disabled>
                               {isTranslating
                                 ? "Translating..."
-                                : "Select Language"}
+                                : "Translate"}
                             </option>
                             <option value="en">English</option>
                             <option value="es">Spanish</option>
