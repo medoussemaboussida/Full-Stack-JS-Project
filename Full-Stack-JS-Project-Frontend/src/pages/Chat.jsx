@@ -72,14 +72,7 @@ const Chat = () => {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [summary, setSummary] = useState('');
   const [isSummarizing, setIsSummarizing] = useState(false);
-  const [showQuestionnaireModal, setShowQuestionnaireModal] = useState(false);
-  const [questionnaireResponses, setQuestionnaireResponses] = useState({
-    q1: 0,
-    q2: 0,
-    q3: 0,
-    q4: 0,
-    q5: 0,
-  });
+
   const [messageEmotions, setMessageEmotions] = useState({});
   const [showEmotionForMessage, setShowEmotionForMessage] = useState(null);
   const mediaRecorderRef = useRef(null);
@@ -96,13 +89,7 @@ const Chat = () => {
   const tts_new = 'sk_9a528300cb9d0fde2f09a122f90b3895d0f5adca31387585';
   const HUGGING_FACE_API_KEY = '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';
 
-  const questions = [
-    { id: 'q1', text: 'Feeling down, depressed, or hopeless?' },
-    { id: 'q2', text: 'Little interest or pleasure in doing things?' },
-    { id: 'q3', text: 'Trouble falling or staying asleep, or sleeping too much?' },
-    { id: 'q4', text: 'Feeling tired or having little energy?' },
-    { id: 'q5', text: 'Poor appetite or overeating?' },
-  ];
+
 
   useEffect(() => {
     const storedToken = localStorage.getItem('jwt-token');
@@ -325,38 +312,11 @@ const Chat = () => {
     }
   };
 
-  const handleYesClick = () => {
-    setShowQuestionnaireModal(true);
-  };
 
   const handleNoClick = () => {
     // Do nothing
   };
 
-  const handleQuestionnaireSubmit = async () => {
-    if (!token || !userId || !joinedRoom) {
-      setError('Please log in and join a room to submit the questionnaire.');
-      return;
-    }
-    try {
-      const responses = questions.map((q) => ({
-        question: q.text,
-        answer: questionnaireResponses[q.id],
-      }));
-      const response = await axios.post(
-        'http://localhost:5000/users/questionnaire/submit',
-        { userId, roomCode: joinedRoom, responses },
-        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
-      );
-      console.log('Questionnaire submitted:', response.data);
-      setShowQuestionnaireModal(false);
-      setQuestionnaireResponses({ q1: 0, q2: 0, q3: 0, q4: 0, q5: 0 });
-      setError(null);
-    } catch (err) {
-      console.error('Error submitting questionnaire:', err);
-      setError('Failed to submit questionnaire: ' + (err.response?.data?.message || err.message));
-    }
-  };
 
   const speakMessage = async (text) => {
     if (!text || text === '[Decryption failed]' || text === '[Voice Message]' || text.includes('questionnaire')) {
@@ -1695,31 +1655,7 @@ const Chat = () => {
                                 >
                                   Play Voice Message
                                 </button>
-                              ) : msg.isQuestionnaireLink ? (
-                                <button
-                                  onClick={() => setShowQuestionnaireModal(true)}
-                                  className="questionnaire-link"
-                                >
-                                  Take Questionnaire
-                                </button>
-                              ) : msg.isDepressionQuestion ? (
-                                <>
-                                  {msg.message}
-                                  <div className="response-buttons">
-                                    <button
-                                      onClick={handleYesClick}
-                                      className="yes-button"
-                                    >
-                                      Yes
-                                    </button>
-                                    <button
-                                      onClick={handleNoClick}
-                                      className="no-button"
-                                    >
-                                      No
-                                    </button>
-                                  </div>
-                                </>
+                              
                               ) : (
                                 <>
                                   {msg.message}
@@ -1852,46 +1788,7 @@ const Chat = () => {
         </div>
       </section>
 
-      {showQuestionnaireModal && (
-        <div className="questionnaire-modal">
-          <div className="questionnaire-content">
-            <button
-              onClick={() => setShowQuestionnaireModal(false)}
-              className="close-questionnaire"
-            >
-              Close
-            </button>
-            <h5>Depression Score Questionnaire</h5>
-            <div className="questionnaire-form">
-              {questions.map((q) => (
-                <div key={q.id}>
-                  <label>{q.text}</label>
-                  <select
-                    value={questionnaireResponses[q.id]}
-                    onChange={(e) =>
-                      setQuestionnaireResponses({
-                        ...questionnaireResponses,
-                        [q.id]: parseInt(e.target.value),
-                      })
-                    }
-                  >
-                    <option value={0}>Not at all</option>
-                    <option value={1}>Several days</option>
-                    <option value={2}>More than half the days</option>
-                    <option value={3}>Nearly every day</option>
-                  </select>
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={handleQuestionnaireSubmit}
-              className="btn btn-primary"
-            >
-              Submit
-            </button>
-          </div>
-        </div>
-      )}
+   
 
       {showSummaryModal && (
         <div className="summary-modal">
