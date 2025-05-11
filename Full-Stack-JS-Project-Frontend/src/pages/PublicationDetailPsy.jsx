@@ -226,7 +226,7 @@ function PublicationDetailPsy() {
 
         const toastId = toast.info(
             <div>
-                <p>Voulez-vous vraiment supprimer ce commentaire ?</p>
+                <p>You wanna delete your comment?</p>
                 <button
                     onClick={async () => {
                         toast.dismiss(toastId);
@@ -247,15 +247,15 @@ function PublicationDetailPsy() {
                             toast.error(`Erreur: ${error.message}`);
                         }
                     }}
-                    style={{ marginRight: '10px', padding: '5px 10px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '3px' }}
+                    style={{ marginRight: '10px', padding: '5px 10px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '50px' }}
                 >
-                    Oui
+                    Yes
                 </button>
                 <button
                     onClick={() => toast.dismiss(toastId)}
-                    style={{ padding: '5px 10px', backgroundColor: '#f44336', color: 'white', border: 'none', borderRadius: '3px' }}
+                    style={{ padding: '5px 10px', backgroundColor: '#f44336', color: 'white', border: 'none', borderRadius: '50px' }}
                 >
-                    Non
+                    No
                 </button>
             </div>,
             { autoClose: false, closeOnClick: false, draggable: false }
@@ -278,7 +278,7 @@ function PublicationDetailPsy() {
             const result = await response.json();
             if (response.ok) {
                 setPublication(result.publication);
-                toast.success('Publication aimée avec succès');
+                toast.success('Publication Liked successfully !');
             } else {
                 toast.error(`Erreur: ${result.message}`);
             }
@@ -303,7 +303,7 @@ function PublicationDetailPsy() {
             const result = await response.json();
             if (response.ok) {
                 setPublication(result.publication);
-                toast.success('Publication désapprouvée avec succès');
+                toast.success('Publication disaproved successfully');
             } else {
                 toast.error(`Erreur: ${result.message}`);
             }
@@ -353,12 +353,12 @@ function PublicationDetailPsy() {
         }
 
         if (!reportReason) {
-            toast.error('Veuillez sélectionner une raison de signalement');
+            toast.error('Select the reason please !');
             return;
         }
 
         if (reportReason === 'other' && !reportCustomReason.trim()) {
-            toast.error('Veuillez préciser la raison dans le champ texte');
+            toast.error('Leave your reason here !');
             return;
         }
 
@@ -377,7 +377,7 @@ function PublicationDetailPsy() {
 
             const result = await response.json();
             if (response.ok) {
-                toast.success('Publication signalée avec succès');
+                toast.success('Publication reported successfully !');
                 setShowReportModal(false);
                 setReportReason('');
                 setReportCustomReason('');
@@ -424,7 +424,7 @@ function PublicationDetailPsy() {
 
             const result = await response.json();
             if (response.ok) {
-                toast.success('Commentaire signalé avec succès');
+                toast.success('Comment reported successfully');
                 setShowCommentReportModal(false);
                 setCommentReportReason('');
                 setCommentReportCustomReason('');
@@ -464,7 +464,7 @@ function PublicationDetailPsy() {
                     <div className="container">
                         <h2 className="breadcrumb-title">Publication Details</h2>
                         <ul className="breadcrumb-menu">
-                            <li><a href="index.html">Home</a></li>
+                            <li><a href="/Home">Home</a></li>
                             <li className="active">Publication Details</li>
                         </ul>
                     </div>
@@ -525,7 +525,7 @@ function PublicationDetailPsy() {
                                                     <button 
                                                         onClick={handleLike}
                                                         className="theme-btn"
-                                                        style={{ marginRight: '10px', backgroundColor: publication.likes && publication.likes.includes(userId) ? '#28a745' : '#0ea5e6' }}
+                                                        style={{ borderRadius:"50px",marginRight: '10px', backgroundColor: publication.likes && publication.likes.includes(userId) ? '#28a745' : '#0ea5e6' }}
                                                         disabled={publication.likes && publication.likes.includes(userId)}
                                                     >
                                                         <i className="far fa-thumbs-up"></i> Like ({publication.likeCount || 0})
@@ -533,7 +533,7 @@ function PublicationDetailPsy() {
                                                     <button 
                                                         onClick={handleDislike}
                                                         className="theme-btn"
-                                                        style={{ backgroundColor: publication.dislikes && publication.dislikes.includes(userId) ? '#dc3545' : '#6c757d' }}
+                                                        style={{borderRadius:"50px", backgroundColor: publication.dislikes && publication.dislikes.includes(userId) ? '#dc3545' : '#6c757d' }}
                                                         disabled={publication.dislikes && publication.dislikes.includes(userId)}
                                                     >
                                                         <i className="far fa-thumbs-down"></i> Dislike ({publication.dislikeCount || 0})
@@ -648,14 +648,14 @@ function PublicationDetailPsy() {
                                                                             <button
                                                                                 onClick={() => handleUpdateComment(comment._id)}
                                                                                 className="theme-btn"
-                                                                                style={{ marginTop: '10px' }}
+                                                                                style={{borderRadius:"50px", marginTop: '10px' }}
                                                                             >
                                                                                 Save <i className="far fa-save"></i>
                                                                             </button>
-                                                                            <button
+                                                                            <button 
                                                                                 onClick={() => setEditCommentId(null)}
                                                                                 className="theme-btn"
-                                                                                style={{ marginTop: '10px', marginLeft: '10px', backgroundColor: '#f44336' }}
+                                                                                style={{borderRadius:"50px", marginTop: '10px', marginLeft: '10px', backgroundColor: '#f44336' }}
                                                                             >
                                                                                 Cancel <i className="far fa-times"></i>
                                                                             </button>
@@ -747,7 +747,7 @@ function PublicationDetailPsy() {
                                                                         </label>
                                                                     </div>
                                                                 )}
-                                                                <button type="submit" className="theme-btn">
+                                                                <button type="submit" className="theme-btn" style={{borderRadius:"50px"}}>
                                                                     Post Comment <i className="far fa-paper-plane"></i>
                                                                 </button>
                                                             </div>
@@ -758,7 +758,7 @@ function PublicationDetailPsy() {
                                                     <div className="psychiatrist-actions">
                                                         <h3>Psychiatrist Actions</h3>
                                                         <p>You can manage this publication or perform specific actions here.</p>
-                                                        <button className="theme-btn" onClick={() => toast.info('Feature coming soon!')}>
+                                                        <button className="theme-btn" style={{borderRadius:"50px"}} onClick={() => toast.info('Feature coming soon!')}>
                                                             Manage Publication <i className="fas fa-tools"></i>
                                                         </button>
                                                     </div>
@@ -778,7 +778,7 @@ function PublicationDetailPsy() {
                                         <div className="search-form">
                                             <form action="#">
                                                 <div className="form-group">
-                                                    <input type="text" className="form-control" placeholder="Search Here..." />
+                                                    <input type="text" className="form-control" placeholder="Search Here..." style={{borderRadius:"50px"}}/>
                                                     <button type="submit"><i className="far fa-search"></i></button>
                                                 </div>
                                             </form>
@@ -878,7 +878,7 @@ function PublicationDetailPsy() {
                                         value={reportReason}
                                         onChange={(e) => setReportReason(e.target.value)}
                                         className="form-control"
-                                        style={{ width: '100%', padding: '8px', marginBottom: '15px' }}
+                                        style={{ width: '100%', padding: '8px', marginBottom: '15px',borderRadius:"50px" }}
                                         required
                                     >
                                         <option value="">Select a reason</option>
@@ -911,7 +911,7 @@ function PublicationDetailPsy() {
                                     <button
                                         type="submit"
                                         className="theme-btn"
-                                        style={{ backgroundColor: '#dc3545', padding: '10px 20px' }}
+                                        style={{borderRadius:"50px", backgroundColor: '#dc3545', padding: '10px 20px' }}
                                     >
                                         Report <i className="far fa-flag"></i>
                                     </button>
@@ -923,7 +923,7 @@ function PublicationDetailPsy() {
                                             setReportCustomReason('');
                                         }}
                                         className="theme-btn"
-                                        style={{ backgroundColor: '#6c757d', padding: '10px 20px' }}
+                                        style={{borderRadius:"50px", backgroundColor: '#6c757d', padding: '10px 20px' }}
                                     >
                                         Cancel <i className="far fa-times"></i>
                                     </button>
@@ -966,7 +966,7 @@ function PublicationDetailPsy() {
                                         value={commentReportReason}
                                         onChange={(e) => setCommentReportReason(e.target.value)}
                                         className="form-control"
-                                        style={{ width: '100%', padding: '8px', marginBottom: '15px' }}
+                                        style={{borderRadius:"50px", width: '100%', padding: '8px', marginBottom: '15px' }}
                                         required
                                     >
                                         <option value="">Select a reason</option>
@@ -990,7 +990,7 @@ function PublicationDetailPsy() {
                                             className="form-control"
                                             rows="3"
                                             placeholder="Describe the reason here..."
-                                            style={{ width: '100%', padding: '8px', marginBottom: '15px' }}
+                                            style={{ borderRadius:"50px",width: '100%', padding: '8px', marginBottom: '15px' }}
                                             required
                                         />
                                     </div>
@@ -999,7 +999,7 @@ function PublicationDetailPsy() {
                                     <button
                                         type="submit"
                                         className="theme-btn"
-                                        style={{ backgroundColor: '#dc3545', padding: '10px 20px' }}
+                                        style={{borderRadius:"50px", backgroundColor: '#dc3545', padding: '10px 20px' }}
                                     >
                                         Report <i className="far fa-flag"></i>
                                     </button>
@@ -1012,7 +1012,7 @@ function PublicationDetailPsy() {
                                             setSelectedCommentId(null);
                                         }}
                                         className="theme-btn"
-                                        style={{ backgroundColor: '#6c757d', padding: '10px 20px' }}
+                                        style={{borderRadius:"50px", backgroundColor: '#6c757d', padding: '10px 20px' }}
                                     >
                                         Cancel <i className="far fa-times"></i>
                                     </button>
