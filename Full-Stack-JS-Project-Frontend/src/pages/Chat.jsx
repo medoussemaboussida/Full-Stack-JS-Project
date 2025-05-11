@@ -72,7 +72,6 @@ const Chat = () => {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [summary, setSummary] = useState('');
   const [isSummarizing, setIsSummarizing] = useState(false);
-
   const [messageEmotions, setMessageEmotions] = useState({});
   const [showEmotionForMessage, setShowEmotionForMessage] = useState(null);
   const mediaRecorderRef = useRef(null);
@@ -88,8 +87,6 @@ const Chat = () => {
   const GROQ_API_KEY = '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';
   const tts_new = 'sk_9a528300cb9d0fde2f09a122f90b3895d0f5adca31387585';
   const HUGGING_FACE_API_KEY = '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';
-
-
 
   useEffect(() => {
     const storedToken = localStorage.getItem('jwt-token');
@@ -151,7 +148,7 @@ const Chat = () => {
   }, [joinedRoom, token]);
 
   const detectEmotion = async (text) => {
-    if (!text || text === '[Decryption failed]' || text === '[Voice Message]' || text.includes('questionnaire') || text.toLowerCase().includes('depression score')) {
+    if (!text || text === '[Decryption failed]' || text === '[Voice Message]') {
       return { dominant: 'unknown', scores: {} };
     }
     try {
@@ -196,9 +193,6 @@ const Chat = () => {
           if (msg.isVoice) {
             return { ...msg, message: '[Voice Message]' };
           }
-          if (msg.isQuestionnaireLink) {
-            return { ...msg, message: 'Click to take the depression score questionnaire' };
-          }
           try {
             const ivBuffer = base64ToArrayBuffer(msg.iv);
             if (ivBuffer.byteLength !== 12) throw new Error('Invalid IV length');
@@ -206,16 +200,14 @@ const Chat = () => {
               encryptedMessage: msg.encryptedMessage,
               iv: msg.iv,
             });
-            const isDepressionQuestion = decrypted.trim().toLowerCase() === 'do you want to test your depression score? (yes/no)';
-            const emotionData = isDepressionQuestion ? { dominant: 'unknown', scores: {} } : await detectEmotion(decrypted);
+            const emotionData = await detectEmotion(decrypted);
             setMessageEmotions((prev) => ({
               ...prev,
               [msg._id]: emotionData,
             }));
             return { 
               ...msg, 
-              message: decrypted, 
-              isDepressionQuestion 
+              message: decrypted
             };
           } catch (decryptErr) {
             console.error('Decryption error for message:', msg._id, decryptErr);
@@ -252,7 +244,7 @@ const Chat = () => {
       const key = await importKeyFromRoomCode(joinedRoom);
       const emotionData = await detectEmotion(newMessage);
       const { encryptedMessage, iv } = await encryptMessage(key, newMessage);
-      const payload = { roomCode: joinedRoom, encryptedMessage, iv, isVoice: false, isQuestionnaireLink: false };
+      const payload = { roomCode: joinedRoom, encryptedMessage, iv, isVoice: false };
       console.log('Sending message with payload:', payload);
       const response = await axios.post(
         'http://localhost:5000/users/chat',
@@ -285,41 +277,8 @@ const Chat = () => {
     }
   };
 
-  const sendDepressionQuestion = async () => {
-    if (!joinedRoom || !token || !userId) return;
-    try {
-      const key = await importKeyFromRoomCode(joinedRoom);
-      const message = 'Do you want to test your depression score? (Yes/No)';
-      const { encryptedMessage, iv } = await encryptMessage(key, message);
-      const payload = { roomCode: joinedRoom, encryptedMessage, iv, isVoice: false, isQuestionnaireLink: false };
-      const response = await axios.post(
-        'http://localhost:5000/users/chat',
-        payload,
-        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
-      );
-      const messageId = response.data.data._id;
-      setSentMessages((prev) => ({
-        ...prev,
-        [joinedRoom]: {
-          ...(prev[joinedRoom] || {}),
-          [messageId]: message,
-        },
-      }));
-      fetchMessages(key);
-    } catch (err) {
-      console.error('Error sending depression question:', err);
-      setError('Failed to send depression question: ' + (err.response?.data?.message || err.message));
-    }
-  };
-
-
-  const handleNoClick = () => {
-    // Do nothing
-  };
-
-
   const speakMessage = async (text) => {
-    if (!text || text === '[Decryption failed]' || text === '[Voice Message]' || text.includes('questionnaire')) {
+    if (!text || text === '[Decryption failed]' || text === '[Voice Message]') {
       console.log('Skipping TTS for invalid text:', text);
       setError('Cannot convert this message to speech.');
       return;
@@ -361,7 +320,7 @@ const Chat = () => {
   };
 
   const translateMessage = async (text, targetLang) => {
-    if (!text || text === '[Decryption failed]' || text === '[Voice Message]' || text.includes('questionnaire')) {
+    if (!text || text === '[Decryption failed]' || text === '[Voice Message]') {
       console.log('Skipping translation for invalid text:', text);
       return text;
     }
@@ -422,7 +381,7 @@ const Chat = () => {
     setError(null);
     const conversationText = messages
       .map((msg) => {
-        if (!msg.isVoice && !msg.isQuestionnaireLink) {
+        if (!msg.isVoice) {
           return `${msg.sender.username || 'Unknown'}: ${msg.message}`;
         }
         return '';
@@ -561,7 +520,6 @@ const Chat = () => {
           roomCode: joinedRoom,
           voiceMessage: base64Audio,
           isVoice: true,
-          isQuestionnaireLink: false,
         };
         console.log('Sending voice message payload:', {
           roomCode: payload.roomCode,
@@ -678,8 +636,6 @@ const Chat = () => {
       const emotionText = emotion && emotion !== 'unknown' ? ` [${emotion}]` : '';
       const messageText = msg.isVoice
         ? `[${time}] ${sender}: [Voice Message]${emotionText}`
-        : msg.isQuestionnaireLink
-        ? `[${time}] ${sender}: [Questionnaire Link]${emotionText}`
         : `[${time}] ${sender}: ${msg.message}${emotionText}`;
       if (index % 2 === 0) {
         doc.setFillColor(240, 248, 255);
@@ -775,7 +731,6 @@ const Chat = () => {
   };
 
   const startEditing = (messageId, currentMessage) => {
-    if (currentMessage.includes('questionnaire')) return;
     setEditMessageId(messageId);
     setEditMessageContent(currentMessage);
     setActiveDropdown(null);
@@ -1058,7 +1013,7 @@ const Chat = () => {
             line-height: 1.4;
             border-radius: 15px;
             position: relative;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 3px 10px rgba(0, 0, 0 0.1);
             transition: background 0.3s ease;
           }
 
@@ -1175,7 +1130,7 @@ const Chat = () => {
             box-shadow: 0 0 10px rgba(0, 183, 235, 0.3);
           }
 
-          .emoji-button, .video-button, .voice-button, .refresh-button, .send-button, .translate-button, .questionnaire-button {
+          .emoji-button, .video-button, .voice-button, .refresh-button, .send-button, .translate-button {
             background: none;
             border: none;
             font-size: 1.3rem;
@@ -1185,7 +1140,7 @@ const Chat = () => {
             transition: all 0.3s ease;
           }
 
-          .emoji-button:hover, .video-button:hover, .refresh-button:hover, .send-button:hover, .translate-button:hover, .questionnaire-button:hover {
+          .emoji-button:hover, .video-button:hover, .refresh-button:hover, .send-button:hover, .translate-button:hover {
             color: var(--accent-blue);
             transform: scale(1.1);
           }
@@ -1198,18 +1153,18 @@ const Chat = () => {
             color: ${isRecording ? '#e63946' : 'var(--accent-blue)'};
           }
 
-          .play-voice-button, .questionnaire-link {
+          .play-voice-button {
             background: none;
             border: none;
             font-size: 1rem;
             cursor: pointer;
-            color: var(--accent-white);
+            color: var(--accent-blue);
             margin-left: 0.5rem;
             transition: color 0.3s ease;
           }
 
-          .play-voice-button:hover, .questionnaire-link:hover {
-            color:rgb(156, 221, 240);
+          .play-voice-button:hover {
+            color: #0099c7;
           }
 
           .emoji-picker-container {
@@ -1245,47 +1200,6 @@ const Chat = () => {
           .summary-button:hover {
             color: var(--accent-blue);
             transform: scale(1.1);
-          }
-
-          .questionnaire-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-          }
-
-          .questionnaire-content {
-            background: #ffffff;
-            width: 90%;
-            max-width: 600px;
-            padding: 1.5rem;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            position: relative;
-          }
-
-          .close-questionnaire {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: var(--error-color);
-            color: var(--text-light);
-            border: none;
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-          }
-
-          .close-questionnaire:hover {
-            background: #e63946;
-            transform: scale(1.05);
           }
 
           .summary-modal {
@@ -1381,27 +1295,6 @@ const Chat = () => {
             background: var(--light-blue);
           }
 
-          .questionnaire-form {
-            max-height: 400px;
-            overflow-y: auto;
-            padding: 1rem;
-            margin-bottom: 1rem;
-          }
-
-          .questionnaire-form label {
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            display: block;
-          }
-
-          .questionnaire-form select {
-            width: 100%;
-            padding: 0.5rem;
-            border-radius: 10px;
-            border: 1px solid #e0e0e0;
-            margin-bottom: 1rem;
-          }
-
           .divider {
             display: none;
           }
@@ -1474,41 +1367,6 @@ const Chat = () => {
           .link-button:hover {
             color: #0056b3;
           }
-
-          .response-buttons {
-            margin-top: 0.5rem;
-            display: flex;
-            gap: 0.5rem;
-          }
-
-          .yes-button, .no-button {
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-          }
-
-          .yes-button {
-            background: var(--accent-blue);
-            color: var(--text-dark);
-          }
-
-          .yes-button:hover {
-            background: #0099c7;
-            transform: scale(1.05);
-          }
-
-          .no-button {
-            background: #6c757d;
-            color: var(--text-light);
-          }
-
-          .no-button:hover {
-            background: #5a6268;
-            transform: scale(1.05);
-          }
         `}
       </style>
       <section className="chat-section">
@@ -1557,13 +1415,6 @@ const Chat = () => {
                         {userRole === 'psychiatrist' && (
                           <>
                             <button
-                              onClick={sendDepressionQuestion}
-                              className="questionnaire-button me-2"
-                              title="Send Depression Score Question"
-                            >
-                              <i className="fas fa-question-circle"></i>
-                            </button>
-                            <button
                               onClick={summarizeConversation}
                               className="summary-button me-2"
                               title="Summarize Conversation"
@@ -1602,22 +1453,22 @@ const Chat = () => {
                             msg.sender._id === userId ? 'ms-auto text-end' : 'me-auto text-start'
                           }`}
                         >
-<div className="username-container">
-  <img
-    id="user-avatar"
-    src={
-      msg.sender.user_photo
-        ? `http://localhost:5000${msg.sender.user_photo}`
-        : '/assets/img/user_icon.png'
-    }
-    alt={`${msg.sender.username ? msg.sender.username : 'Anonymous User'}'s avatar`}
-  />
-  <div className="username">
-    {msg.sender.username
-      ? msg.sender.username.charAt(0).toUpperCase() + msg.sender.username.slice(1)
-      : 'Anonymous User'}
-  </div>
-</div>
+                          <div className="username-container">
+                            <img
+                              id="user-avatar"
+                              src={
+                                msg.sender.user_photo
+                                  ? `http://localhost:5000${msg.sender.user_photo}`
+                                  : '/assets/img/user_icon.png'
+                              }
+                              alt={`${msg.sender.username ? msg.sender.username : 'Anonymous User'}'s avatar`}
+                            />
+                            <div className="username">
+                              {msg.sender.username
+                                ? msg.sender.username.charAt(0).toUpperCase() + msg.sender.username.slice(1)
+                                : 'Anonymous User'}
+                            </div>
+                          </div>
                           {editMessageId === msg._id ? (
                             <div className="edit-input-container">
                               <input
@@ -1655,11 +1506,10 @@ const Chat = () => {
                                 >
                                   Play Voice Message
                                 </button>
-                              
                               ) : (
                                 <>
                                   {msg.message}
-                                  {!msg.isVoice && !msg.isQuestionnaireLink && (
+                                  {!msg.isVoice && (
                                     <button
                                       onClick={() => toggleEmotionDisplay(msg._id)}
                                       className="emotion-button"
@@ -1681,7 +1531,7 @@ const Chat = () => {
                                     )}
                                 </>
                               )}
-                              {msg.sender._id === userId && !msg.isVoice && !msg.isQuestionnaireLink && (
+                              {msg.sender._id === userId && !msg.isVoice && (
                                 <div className="dropdown d-inline-block ms-2">
                                   <button
                                     className="btn btn-link dropdown-toggle"
@@ -1787,8 +1637,6 @@ const Chat = () => {
           </div>
         </div>
       </section>
-
-   
 
       {showSummaryModal && (
         <div className="summary-modal">
