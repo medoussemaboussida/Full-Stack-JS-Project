@@ -193,6 +193,7 @@ const MentalHealthDashboard = () => {
           <p className="mb-0">
             <button
               className="btn btn-outline-danger"
+              style={{ borderRadius: '50px' }}
               onClick={() => window.location.reload()}
             >
               Try Again
@@ -216,6 +217,7 @@ const MentalHealthDashboard = () => {
         <div className="col-md-4 d-flex align-items-center justify-content-md-end">
           <button
             className="btn btn-primary btn-lg"
+            style={{ borderRadius: '50px' }}
             onClick={() => navigate('/mental-health-assessment')}
           >
             <i className="fas fa-plus-circle me-2"></i>
@@ -234,6 +236,7 @@ const MentalHealthDashboard = () => {
             </p>
             <button
               className="btn btn-primary btn-lg mt-3"
+              style={{ borderRadius: '50px' }}
               onClick={() => navigate('/mental-health-assessment')}
             >
               Take Assessment
@@ -292,6 +295,7 @@ const MentalHealthDashboard = () => {
                   <div className="mt-3">
                     <button
                       className="btn btn-outline-primary"
+                      style={{ borderRadius: '50px' }}
                       onClick={() => navigate(`/mental-health-results/${assessments[0]._id}`)}
                     >
                       View Full Results
@@ -345,6 +349,7 @@ const MentalHealthDashboard = () => {
                         <td>
                           <button
                             className="btn btn-sm btn-primary"
+                            style={{ borderRadius: '50px' }}
                             onClick={() => navigate(`/mental-health-results/${assessment._id}`)}
                           >
                             View
@@ -377,7 +382,7 @@ const MentalHealthDashboard = () => {
                   <p className="card-text">
                     Learn more about mental health, stress management, and self-care techniques.
                   </p>
-                  <a href="#" className="btn btn-outline-primary">Explore Resources</a>
+                  <a href="#" className="btn btn-outline-primary" style={{ borderRadius: '50px' }}>Explore Resources</a>
                 </div>
               </div>
             </div>
@@ -391,7 +396,7 @@ const MentalHealthDashboard = () => {
                   <p className="card-text">
                     Connect with others who are going through similar experiences.
                   </p>
-                  <a href="#" className="btn btn-outline-success">Find Groups</a>
+                  <a href="#" className="btn btn-outline-success" style={{ borderRadius: '50px' }}>Find Groups</a>
                 </div>
               </div>
             </div>
@@ -405,7 +410,7 @@ const MentalHealthDashboard = () => {
                   <p className="card-text">
                     Immediate support for those experiencing mental health crises.
                   </p>
-                  <a href="#" className="btn btn-outline-danger">View Hotlines</a>
+                  <a href="#" className="btn btn-outline-danger" style={{ borderRadius: '50px' }}>View Hotlines</a>
                 </div>
               </div>
             </div>

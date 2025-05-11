@@ -199,6 +199,7 @@ const MentalHealthResults = () => {
           <p className="mb-0">
             <button
               className="btn btn-outline-danger"
+              style={{ borderRadius: '50px' }}
               onClick={() => navigate('/mental-health-assessment')}
             >
               Try Again
@@ -336,6 +337,7 @@ const MentalHealthResults = () => {
               <div className="d-flex justify-content-between">
                 <button
                   className="btn btn-outline-primary"
+                  style={{ borderRadius: '50px' }}
                   onClick={() => navigate('/mental-health-dashboard')}
                 >
                   <i className="fas fa-chart-bar me-2"></i>
@@ -343,6 +345,7 @@ const MentalHealthResults = () => {
                 </button>
                 <button
                   className="btn btn-primary"
+                  style={{ borderRadius: '50px' }}
                   onClick={() => navigate('/mental-health-assessment')}
                 >
                   <i className="fas fa-redo me-2"></i>

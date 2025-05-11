@@ -459,6 +459,7 @@ const MentalHealthAssessment = () => {
                   <button
                     type="submit"
                     className="btn btn-primary btn-lg"
+                    style={{ borderRadius: '50px' }}
                     disabled={loading}
                   >
                     {loading ? 'Processing...' : 'Submit Assessment'}
