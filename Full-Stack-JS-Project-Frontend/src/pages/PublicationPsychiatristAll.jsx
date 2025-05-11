@@ -298,13 +298,13 @@ function PublicationPsychiatristAll() {
                             toast.dismiss(toastId);
                         }
                     }}
-                    style={{ marginRight: '10px', backgroundColor: '#4CAF50', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '3px' }}
+                    style={{ marginRight: '10px', backgroundColor: '#4CAF50', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '50px' }}
                 >
                     Yes
                 </button>
                 <button
                     onClick={() => toast.dismiss(toastId)}
-                    style={{ backgroundColor: '#f44336', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '3px' }}
+                    style={{ backgroundColor: '#f44336', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '50px' }}
                 >
                     No
                 </button>
@@ -345,13 +345,13 @@ function PublicationPsychiatristAll() {
                             toast.dismiss(toastId);
                         }
                     }}
-                    style={{ marginRight: '10px', backgroundColor: '#4CAF50', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '3px' }}
+                    style={{ marginRight: '10px', backgroundColor: '#4CAF50', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '50px' }}
                 >
                     Yes
                 </button>
                 <button
                     onClick={() => toast.dismiss(toastId)}
-                    style={{ backgroundColor: '#f44336', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '3px' }}
+                    style={{ backgroundColor: '#f44336', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '50px' }}
                 >
                     No
                 </button>
@@ -392,13 +392,13 @@ function PublicationPsychiatristAll() {
                             toast.dismiss(toastId);
                         }
                     }}
-                    style={{ marginRight: '10px', backgroundColor: '#4CAF50', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '3px' }}
+                    style={{ marginRight: '10px', backgroundColor: '#4CAF50', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '50px' }}
                 >
                     Yes
                 </button>
                 <button
                     onClick={() => toast.dismiss(toastId)}
-                    style={{ backgroundColor: '#f44336', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '3px' }}
+                    style={{ backgroundColor: '#f44336', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '50px' }}
                 >
                     No
                 </button>
@@ -537,14 +537,14 @@ function PublicationPsychiatristAll() {
                                 onChange={handleSearchChange}
                                 placeholder="Search ..."
                                 style={{
-                                    width: '60%',
-                                    maxWidth: '600px',
-                                    padding: '15px 20px',
-                                    borderRadius: '25px',
+                                    width: '40%',
+                                    maxWidth: '400px',
+                                    padding: '12px 16px',
+                                    borderRadius: '50px',
                                     border: 'none',
                                     backgroundColor: '#fff',
                                     boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
-                                    fontSize: '16px',
+                                    fontSize: '14px',
                                     color: '#333',
                                     outline: 'none',
                                     transition: 'all 0.3s ease',
@@ -563,12 +563,12 @@ function PublicationPsychiatristAll() {
                                 value={selectedDate}
                                 onChange={handleDateChange}
                                 style={{
-                                    padding: '15px 20px',
-                                    borderRadius: '25px',
+                                    padding: '12px 16px',
+                                    borderRadius: '50px',
                                     border: 'none',
                                     backgroundColor: '#fff',
                                     boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
-                                    fontSize: '16px',
+                                    fontSize: '14px',
                                     color: '#333',
                                     outline: 'none',
                                     transition: 'all 0.3s ease',
@@ -588,12 +588,12 @@ function PublicationPsychiatristAll() {
                                 value={sortOrder}
                                 onChange={handleSortChange}
                                 style={{
-                                    padding: '15px 20px',
-                                    borderRadius: '25px',
+                                    padding: '12px 16px',
+                                    borderRadius: '50px',
                                     border: 'none',
                                     backgroundColor: '#fff',
                                     boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
-                                    fontSize: '16px',
+                                    fontSize: '14px',
                                     color: '#333',
                                     outline: 'none',
                                     transition: 'all 0.3s ease',
@@ -616,12 +616,12 @@ function PublicationPsychiatristAll() {
                                 value={filterStatus}
                                 onChange={handleFilterStatusChange}
                                 style={{
-                                    padding: '15px 20px',
-                                    borderRadius: '25px',
+                                    padding: '12px 16px',
+                                    borderRadius: '50px',
                                     border: 'none',
                                     backgroundColor: '#fff',
                                     boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
-                                    fontSize: '16px',
+                                    fontSize: '14px',
                                     color: '#333',
                                     outline: 'none',
                                     transition: 'all 0.3s ease',
@@ -642,10 +642,10 @@ function PublicationPsychiatristAll() {
                                 <option value="archived">Archived</option>
                                 <option value="later">Scheduled (Later)</option>
                             </select>
-                            <button
+                            <button 
                                 onClick={handleShowStats}
                                 className="theme-btn"
-                                style={{ backgroundColor: '#ffc107', color: '#fff', padding: '15px 25px', borderRadius: '25px' }}
+                                style={{ backgroundColor: '#0ea5e6', color: '#fff', padding: '12px 16px', borderRadius: '50px' }}
                             >
                                 Statistical <i className="fas fa-chart-bar"></i>
                             </button>
@@ -684,20 +684,20 @@ function PublicationPsychiatristAll() {
                                                         : stripHtmlTags(post.description)}
                                                 </p>
                                                 <div className="donation-footer">
-                                                    <Link to={`/PublicationDetailPsy/${post._id}`} className="theme-btn">
+                                                    <Link to={`/PublicationDetailPsy/${post._id}`} className="theme-btn" style={{borderRadius:"50px" }}>
                                                         View <i className="fas fa-circle-arrow-right"></i>
                                                     </Link>
                                                     <button
                                                         onClick={() => handleEdit(post)}
                                                         className="theme-btn"
-                                                        style={{ marginLeft: '10px', backgroundColor: '#28a745' }}
+                                                        style={{ marginLeft: '10px', backgroundColor: '#28a745' ,borderRadius:"50px" }}
                                                     >
                                                         Edit <i className="fas fa-edit"></i>
                                                     </button>
                                                     <button
                                                         onClick={() => handleDelete(post._id)}
                                                         className="theme-btn"
-                                                        style={{ marginLeft: '10px', backgroundColor: '#dc3545' }}
+                                                        style={{ marginLeft: '10px', backgroundColor: '#dc3545',borderRadius:"50px"  }}
                                                     >
                                                         Delete <i className="fas fa-trash"></i>
                                                     </button>
@@ -713,7 +713,7 @@ function PublicationPsychiatristAll() {
                                                         <button
                                                             onClick={() => handleArchive(post._id)}
                                                             className="theme-btn"
-                                                            style={{ marginLeft: '10px', backgroundColor: '#6c757d' }}
+                                                            style={{ marginLeft: '10px', backgroundColor: '#6c757d',borderRadius:"50px"  }}
                                                         >
                                                             Archive <i className="fas fa-archive"></i>
                                                         </button>
@@ -737,7 +737,7 @@ function PublicationPsychiatristAll() {
                 <div
                     style={{
                         position: 'fixed',
-                        top: 0,
+                        top: 100,
                         left: 0,
                         right: 0,
                         bottom: 0,
@@ -759,6 +759,8 @@ function PublicationPsychiatristAll() {
                             display: 'grid',
                             gridTemplateColumns: '2fr 1fr',
                             gap: '30px',
+                            maxHeight:'100%',
+                            overflowY:'auto'
                         }}
                     >
                         <div>
@@ -842,7 +844,7 @@ function PublicationPsychiatristAll() {
                                                 style={{
                                                     width: '100%',
                                                     padding: '12px',
-                                                    borderRadius: '5px',
+                                                    borderRadius: '50px',
                                                     border: '1px solid #ccc',
                                                     fontSize: '16px',
                                                     outline: 'none',
@@ -857,8 +859,8 @@ function PublicationPsychiatristAll() {
                                                         background: '#ff4d4d',
                                                         color: '#fff',
                                                         border: 'none',
-                                                        borderRadius: '5px',
-                                                        padding: '5px 10px',
+                                                        borderRadius: '100px',
+                                                        padding: '2px 10px',
                                                         cursor: 'pointer',
                                                     }}
                                                 >
@@ -873,8 +875,8 @@ function PublicationPsychiatristAll() {
                                                         background: '#0ea5e6',
                                                         color: '#fff',
                                                         border: 'none',
-                                                        borderRadius: '5px',
-                                                        padding: '5px 10px',
+                                                        borderRadius: '100px',
+                                                        padding: '2px 10px',
                                                         cursor: 'pointer',
                                                         marginLeft: '10px',
                                                     }}
@@ -1027,8 +1029,8 @@ function PublicationPsychiatristAll() {
                                                 background: '#0ea5e6',
                                                 color: '#fff',
                                                 padding: '10px 20px',
-                                                borderRadius: '5px',
-                                                fontSize: '16px',
+                                                borderRadius: '50px',
+                                                fontSize: '14px',
                                                 fontWeight: '600',
                                                 cursor: 'pointer',
                                             }}
@@ -1045,9 +1047,9 @@ function PublicationPsychiatristAll() {
                                             background: isSubmitting ? '#ccc' : '#0ea5e6',
                                             color: '#fff',
                                             padding: '12px 24px',
-                                            borderRadius: '5px',
+                                            borderRadius: '50px',
                                             border: 'none',
-                                            fontSize: '16px',
+                                            fontSize: '14px',
                                             fontWeight: '600',
                                             cursor: isSubmitting ? 'not-allowed' : 'pointer',
                                         }}
@@ -1061,9 +1063,9 @@ function PublicationPsychiatristAll() {
                                             background: '#f44336',
                                             color: '#fff',
                                             padding: '12px 24px',
-                                            borderRadius: '5px',
+                                            borderRadius: '50px',
                                             border: 'none',
-                                            fontSize: '16px',
+                                            fontSize: '14px',
                                             fontWeight: '600',
                                             cursor: 'pointer',
                                         }}
@@ -1139,7 +1141,7 @@ function PublicationPsychiatristAll() {
                 <div
                     style={{
                         position: 'fixed',
-                        top: 0,
+                        top:100,
                         left: 0,
                         right: 0,
                         bottom: 0,
@@ -1237,9 +1239,9 @@ function PublicationPsychiatristAll() {
                                 background: '#f44336',
                                 color: '#fff',
                                 padding: '12px 24px',
-                                borderRadius: '5px',
+                                borderRadius: '50px',
                                 border: 'none',
-                                fontSize: '16px',
+                                fontSize: '14px',
                                 fontWeight: '600',
                                 cursor: 'pointer',
                                 marginTop: '20px',
