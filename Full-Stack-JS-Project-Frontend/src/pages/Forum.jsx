@@ -2082,7 +2082,7 @@ function Forum() {
                 marginTop: "20px",
               }}
             >
-              <button
+              <button className="theme-btn"
                 onClick={() => setShowNotificationsModal(false)}
                 style={{
                   backgroundColor: "#f44336",
@@ -2136,7 +2136,7 @@ function Forum() {
             <div
               style={{ display: "flex", justifyContent: "center", gap: "10px" }}
             >
-              <button
+              <button className="theme-btn"
                 onClick={() => setShowDeleteModal(false)}
                 style={{
                   backgroundColor: "#f44336",
@@ -2149,7 +2149,7 @@ function Forum() {
               >
                 Cancel
               </button>
-              <button
+              <button className="theme-btn"
                 onClick={() => handleDelete(forumToDelete)}
                 style={{
                   backgroundColor: "#4CAF50",
@@ -2308,7 +2308,7 @@ function Forum() {
                 marginTop: "20px", // Ajoute un espace entre le contenu scrollable et les boutons
               }}
             >
-              <button
+              <button className="theme-btn"
                 onClick={() => setShowUpdateModal(false)}
                 style={{
                   backgroundColor: "#f44336",
@@ -2321,7 +2321,7 @@ function Forum() {
               >
                 Cancel
               </button>
-              <button
+              <button className="theme-btn"
                 onClick={() => handleUpdate(forumToUpdate._id)}
                 style={{
                   backgroundColor: "#4CAF50",
@@ -2633,7 +2633,7 @@ function Forum() {
                 marginTop: "20px",
               }}
             >
-              <button
+              <button className="theme-btn"
                 onClick={() => setShowCommentModal(false)}
                 style={{
                   backgroundColor: "#f44336",
@@ -2686,7 +2686,7 @@ function Forum() {
             <div
               style={{ display: "flex", justifyContent: "center", gap: "10px" }}
             >
-              <button
+              <button className="theme-btn"
                 onClick={() => setShowDeleteCommentModal(false)}
                 style={{
                   backgroundColor: "#f44336",
@@ -2699,7 +2699,7 @@ function Forum() {
               >
                 Cancel
               </button>
-              <button
+              <button className="theme-btn"
                 onClick={() => handleDeleteComment(commentToDelete)}
                 style={{
                   backgroundColor: "#4CAF50",
@@ -2762,26 +2762,26 @@ function Forum() {
             <div
               style={{ display: "flex", justifyContent: "center", gap: "10px" }}
             >
-              <button
+              <button className="theme-btn"
                 onClick={() => setShowUpdateCommentModal(false)}
                 style={{
                   backgroundColor: "#f44336",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}
               >
                 Cancel
               </button>
-              <button
+              <button className="theme-btn"
                 onClick={() => handleUpdateComment(commentToUpdate._id)}
                 style={{
                   backgroundColor: "#4CAF50",
                   color: "white",
                   padding: "10px 20px",
-                  borderRadius: "5px",
+                  borderRadius: "50px",
                   border: "none",
                   cursor: "pointer",
                 }}
@@ -2847,7 +2847,7 @@ function Forum() {
             <div
               style={{ display: "flex", justifyContent: "center", gap: "10px" }}
             >
-              <button
+              <button className="theme-btn"
                 onClick={() => {
                   setShowReportForumModal(false);
                   setReportReason("");
@@ -2863,7 +2863,7 @@ function Forum() {
               >
                 Cancel
               </button>
-              <button
+              <button className="theme-btn"
                 onClick={handleReportForum}
                 style={{
                   backgroundColor: "#4CAF50",
@@ -2935,7 +2935,7 @@ function Forum() {
             <div
               style={{ display: "flex", justifyContent: "center", gap: "10px" }}
             >
-              <button
+              <button className="theme-btn"
                 onClick={() => {
                   setShowReportCommentModal(false);
                   setCommentReportReason("");
@@ -2951,7 +2951,7 @@ function Forum() {
               >
                 Cancel
               </button>
-              <button
+              <button className="theme-btn"
                 onClick={handleReportComment}
                 style={{
                   backgroundColor: "#4CAF50",
@@ -3176,7 +3176,7 @@ function Forum() {
                   }
                 }}
               />
-              <button
+              <button className="theme-btn"
                 onClick={() => {
                   if (userMessage.trim()) {
                     setChatMessages((prev) => [
@@ -3222,7 +3222,7 @@ function Forum() {
                 gap: "10px",
               }}
             >
-              <button
+              <button className="theme-btn"
                 onClick={() => {
                   setShowChatbotModal(false);
                   setUserMessage("");
@@ -3245,14 +3245,14 @@ function Forum() {
               >
                 Close
               </button>
-              <button
+              <button className="theme-btn"
                 onClick={() => {
                   setChatMessages([]);
                   localStorage.removeItem("chatMessages");
                 }}
                 style={{
-                  backgroundColor: "#ff9800",
                   color: "white",
+                  backgroundColor: '#0ea5e6',
                   padding: "10px 20px",
                   borderRadius: "50px",
                   border: "none",
@@ -3263,7 +3263,7 @@ function Forum() {
                   (e.currentTarget.style.backgroundColor = "#f57c00")
                 }
                 onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = "#ff9800")
+                  (e.currentTarget.style.backgroundColor = "#0ea5e6")
                 }
               >
                 Clear Chat
@@ -3342,7 +3342,7 @@ function Forum() {
               </li>
             </ul>
             <div style={{ display: "flex", justifyContent: "center" }}>
-              <button
+              <button className="theme-btn"
                 onClick={() => setShowForumRulesModal(false)}
                 style={{
                   backgroundColor: "#f44336",
@@ -3404,7 +3404,7 @@ function Forum() {
               <strong>Ban Expires:</strong> {banDetails.expiresAt}
             </p>
             <div style={{ display: "flex", justifyContent: "center" }}>
-              <button
+              <button className="theme-btn"
                 onClick={() => setShowBanModal(false)}
                 style={{
                   backgroundColor: "#f44336",

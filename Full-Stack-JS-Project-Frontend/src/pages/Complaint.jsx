@@ -1219,7 +1219,7 @@ function Complaint() {
             <div
               style={{ display: "flex", justifyContent: "center", gap: "10px" }}
             >
-              <button
+              <button className="theme-btn"
                 onClick={() => setShowDeleteModal(false)}
                 style={{
                   backgroundColor: "#f44336",
@@ -1232,7 +1232,7 @@ function Complaint() {
               >
                 Cancel
               </button>
-              <button
+              <button className="theme-btn"
                 onClick={() => handleDelete(complaintToDelete)}
                 style={{
                   backgroundColor: "#4CAF50",
@@ -1359,7 +1359,7 @@ function Complaint() {
                 marginTop: "20px",
               }}
             >
-              <button
+              <button className="theme-btn"
                 onClick={() => setShowUpdateModal(false)}
                 style={{
                   backgroundColor: "#f44336",
@@ -1372,7 +1372,7 @@ function Complaint() {
               >
                 Cancel
               </button>
-              <button
+              <button className="theme-btn"
                 onClick={() => handleUpdate(complaintToUpdate._id)}
                 style={{
                   backgroundColor: "#4CAF50",
@@ -1475,7 +1475,7 @@ function Complaint() {
                   outline: "none",
                 }}
               />
-              <button
+              <button className="theme-btn"
                 onClick={handleAddResponse}
                 style={{
                   backgroundColor: "#007bff",
@@ -1489,7 +1489,7 @@ function Complaint() {
                 Send
               </button>
             </div>
-            <button
+            <button className="theme-btn"
               onClick={handleCloseResponsesModal}
               style={{
                 backgroundColor: "#f44336",
@@ -1633,7 +1633,7 @@ function Complaint() {
                 marginTop: "20px",
               }}
             >
-              <button
+              <button className="theme-btn"
                 onClick={() => setShowNotificationsModal(false)}
                 style={{
                   backgroundColor: "#f44336",
@@ -1717,7 +1717,7 @@ function Complaint() {
               </li>
             </ul>
             <div style={{ display: "flex", justifyContent: "center" }}>
-              <button
+              <button className="theme-btn"
                 onClick={() => setShowComplaintRulesModal(false)}
                 style={{
                   backgroundColor: "#f44336",
