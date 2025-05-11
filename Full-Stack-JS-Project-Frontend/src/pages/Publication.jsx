@@ -591,7 +591,7 @@ function Publication() {
     return (
         <div>
             {/* Main Content */}
-            <main style={{ padding: '20px', backgroundColor: '#f9f9f9' }}>
+            <main className='main'>
                 {/* Breadcrumb */}
                 <div className="site-breadcrumb" style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}>
                     <div className="container">
