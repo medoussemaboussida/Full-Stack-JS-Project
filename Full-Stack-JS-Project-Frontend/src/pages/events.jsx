@@ -1519,7 +1519,7 @@ const Events = () => {
 
           <div style={{ marginBottom: "30px" }}>
             <h3 style={{ textAlign: "center", marginBottom: "20px" }}>
-              Stories
+              Story
             </h3>
             {userId && (
               <div

@@ -80,6 +80,8 @@ const Chat = () => {
     q4: 0,
     q5: 0,
   });
+  const [messageEmotions, setMessageEmotions] = useState({});
+  const [showEmotionForMessage, setShowEmotionForMessage] = useState(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const streamRef = useRef(null);
@@ -92,6 +94,7 @@ const Chat = () => {
 
   const GROQ_API_KEY = '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';
   const tts_new = 'sk_9a528300cb9d0fde2f09a122f90b3895d0f5adca31387585';
+  const HUGGING_FACE_API_KEY = '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';
 
   const questions = [
     { id: 'q1', text: 'Feeling down, depressed, or hopeless?' },
@@ -160,6 +163,37 @@ const Chat = () => {
     }
   }, [joinedRoom, token]);
 
+  const detectEmotion = async (text) => {
+    if (!text || text === '[Decryption failed]' || text === '[Voice Message]' || text.includes('questionnaire') || text.toLowerCase().includes('depression score')) {
+      return { dominant: 'unknown', scores: {} };
+    }
+    try {
+      const response = await axios.post(
+        'https://api-inference.huggingface.co/models/j-hartmann/emotion-english-distilroberta-base',
+        { inputs: text },
+        {
+          headers: {
+            Authorization: `Bearer ${HUGGING_FACE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      const results = response.data[0];
+      const dominantEmotion = results.reduce((max, curr) =>
+        curr.score > max.score ? curr : max
+      );
+      const scores = results.reduce((acc, curr) => {
+        acc[curr.label] = curr.score;
+        return acc;
+      }, {});
+      return { dominant: dominantEmotion.label, scores };
+    } catch (err) {
+      console.error('Emotion detection error:', err);
+      setError('Failed to detect emotion: ' + (err.response?.data?.error || err.message));
+      return { dominant: 'unknown', scores: {} };
+    }
+  };
+
   const fetchMessages = async (key) => {
     if (!joinedRoom || !token || !key) {
       console.log('Cannot fetch messages: Missing required fields', { joinedRoom, token, key: !!key });
@@ -185,7 +219,17 @@ const Chat = () => {
               encryptedMessage: msg.encryptedMessage,
               iv: msg.iv,
             });
-            return { ...msg, message: decrypted, isDepressionQuestion: decrypted.trim().toLowerCase() === 'do you want to test your depression score? (yes/no)' };
+            const isDepressionQuestion = decrypted.trim().toLowerCase() === 'do you want to test your depression score? (yes/no)';
+            const emotionData = isDepressionQuestion ? { dominant: 'unknown', scores: {} } : await detectEmotion(decrypted);
+            setMessageEmotions((prev) => ({
+              ...prev,
+              [msg._id]: emotionData,
+            }));
+            return { 
+              ...msg, 
+              message: decrypted, 
+              isDepressionQuestion 
+            };
           } catch (decryptErr) {
             console.error('Decryption error for message:', msg._id, decryptErr);
             if (msg.sender._id === userId) {
@@ -219,6 +263,7 @@ const Chat = () => {
     }
     try {
       const key = await importKeyFromRoomCode(joinedRoom);
+      const emotionData = await detectEmotion(newMessage);
       const { encryptedMessage, iv } = await encryptMessage(key, newMessage);
       const payload = { roomCode: joinedRoom, encryptedMessage, iv, isVoice: false, isQuestionnaireLink: false };
       console.log('Sending message with payload:', payload);
@@ -240,6 +285,10 @@ const Chat = () => {
         console.log('Updated sentMessages:', updated);
         return updated;
       });
+      setMessageEmotions((prev) => ({
+        ...prev,
+        [messageId]: emotionData,
+      }));
       setNewMessage('');
       setShowEmojiPicker(false);
       fetchMessages(key);
@@ -286,7 +335,7 @@ const Chat = () => {
 
   const handleQuestionnaireSubmit = async () => {
     if (!token || !userId || !joinedRoom) {
-      setError('Please log in and join a room to submit the questionnaire .');
+      setError('Please log in and join a room to submit the questionnaire.');
       return;
     }
     try {
@@ -636,6 +685,10 @@ const Chat = () => {
     setNewMessage((prev) => prev + emojiObject.emoji);
   };
 
+  const toggleEmotionDisplay = (messageId) => {
+    setShowEmotionForMessage((prev) => (prev === messageId ? null : messageId));
+  };
+
   const exportToPDF = async () => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const logoImg = new Image();
@@ -661,11 +714,13 @@ const Chat = () => {
     messages.forEach((msg, index) => {
       const sender = msg.sender?.username || 'Unknown';
       const time = new Date(msg.createdAt).toLocaleTimeString();
+      const emotion = messageEmotions[msg._id]?.dominant;
+      const emotionText = emotion && emotion !== 'unknown' ? ` [${emotion}]` : '';
       const messageText = msg.isVoice
-        ? `[${time}] ${sender}: [Voice Message]`
+        ? `[${time}] ${sender}: [Voice Message]${emotionText}`
         : msg.isQuestionnaireLink
-        ? `[${time}] ${sender}: [Questionnaire Link]`
-        : `[${time}] ${sender}: ${msg.message}`;
+        ? `[${time}] ${sender}: [Questionnaire Link]${emotionText}`
+        : `[${time}] ${sender}: ${msg.message}${emotionText}`;
       if (index % 2 === 0) {
         doc.setFillColor(240, 248, 255);
         doc.rect(10, yOffset - 4, pageWidth - 20, 10, 'F');
@@ -747,6 +802,11 @@ const Chat = () => {
         }
         return updated;
       });
+      setMessageEmotions((prev) => {
+        const updated = { ...prev };
+        delete updated[messageId];
+        return updated;
+      });
       setActiveDropdown(null);
     } catch (err) {
       console.error('Error deleting message:', err);
@@ -765,6 +825,7 @@ const Chat = () => {
     if (!editMessageContent.trim() || !editMessageId || !joinedRoom || !token) return;
     try {
       const key = await importKeyFromRoomCode(joinedRoom);
+      const emotionData = await detectEmotion(editMessageContent);
       const { encryptedMessage, iv } = await encryptMessage(key, editMessageContent);
       await axios.put(
         `http://localhost:5000/users/chat/${editMessageId}`,
@@ -782,6 +843,10 @@ const Chat = () => {
           ...(prev[joinedRoom] || {}),
           [editMessageId]: editMessageContent,
         },
+      }));
+      setMessageEmotions((prev) => ({
+        ...prev,
+        [editMessageId]: emotionData,
       }));
       setEditMessageId(null);
       setEditMessageContent('');
@@ -1026,7 +1091,6 @@ const Chat = () => {
             margin-bottom: 0.3rem;
             color: var(--text-dark);
           }
-
           .message-content {
             max-width: 70%;
             padding: 0.75rem 1rem;
@@ -1065,6 +1129,36 @@ const Chat = () => {
             background: #f0f8ff;
             padding: 0.5rem;
             border-radius: 10px;
+          }
+
+          .emotion-badge {
+            font-size: 0.8rem;
+            padding: 0.3rem 0.6rem;
+            margin-left: 0.5rem;
+            border-radius: 12px;
+            cursor: pointer;
+            background-color: #e0f7fa;
+            color: #006064;
+            transition: all 0.3s ease;
+          }
+
+          .emotion-badge:hover {
+            background-color: #b2ebf2;
+            transform: scale(1.05);
+          }
+
+          .emotion-button {
+            background: none;
+            border: none;
+            font-size: 1rem;
+            cursor: pointer;
+            color: var(--accent-blue);
+            margin-left: 0.5rem;
+            transition: color 0.3s ease;
+          }
+
+          .emotion-button:hover {
+            color: #0099c7;
           }
 
           .dropdown-toggle::after {
@@ -1149,13 +1243,13 @@ const Chat = () => {
             border: none;
             font-size: 1rem;
             cursor: pointer;
-            color: var(--accent-blue);
+            color: var(--accent-white);
             margin-left: 0.5rem;
             transition: color 0.3s ease;
           }
 
           .play-voice-button:hover, .questionnaire-link:hover {
-            color: #0099c7;
+            color:rgb(156, 221, 240);
           }
 
           .emoji-picker-container {
@@ -1193,7 +1287,7 @@ const Chat = () => {
             transform: scale(1.1);
           }
 
-         .questionnaire-modal {
+          .questionnaire-modal {
             position: fixed;
             top: 0;
             left: 0;
@@ -1216,7 +1310,7 @@ const Chat = () => {
             position: relative;
           }
 
-         .close-questionnaire {
+          .close-questionnaire {
             position: absolute;
             top: 15px;
             right: 15px;
@@ -1246,7 +1340,8 @@ const Chat = () => {
             align-items: center;
             z-index: 1000;
           }
-            .video-call-modal {
+
+          .video-call-modal {
             position: fixed;
             top: 0;
             left: 0;
@@ -1393,6 +1488,11 @@ const Chat = () => {
           }
 
           #user-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-right: 0.5rem;
             transition: all 0.3s ease;
           }
 
@@ -1521,7 +1621,12 @@ const Chat = () => {
                           </>
                         )}
                         <button
-                          onClick={() => setJoinedRoom(null)}
+                          onClick={() => {
+                            setJoinedRoom(null);
+                            setMessages([]);
+                            setRoomCode('');
+                            setShowVideoCall(false);
+                          }}
                           className="leave-room-icon"
                           title="Leave Room"
                         >
@@ -1529,189 +1634,172 @@ const Chat = () => {
                         </button>
                       </div>
                     </div>
-                    <div className="card-body" data-mdb-perfect-scrollbar-init>
-                      {error && <p className="text-danger">{error}</p>}
-                      {messages.length === 0 ? (
-                        <p className="text-center">No messages yet</p>
-                      ) : (
-                        <>
-                          {messages.map((msg) => (
+                    <div className="card-body">
+                      {messages.map((msg) => (
+                        <div
+                          key={msg._id}
+                          className={`message-wrapper ${
+                            msg.sender._id === userId ? 'ms-auto text-end' : 'me-auto text-start'
+                          }`}
+                        >
+<div className="username-container">
+  <img
+    id="user-avatar"
+    src={
+      msg.sender.user_photo
+        ? `http://localhost:5000${msg.sender.user_photo}`
+        : '/assets/img/user_icon.png'
+    }
+    alt={`${msg.sender.username ? msg.sender.username : 'Anonymous User'}'s avatar`}
+  />
+  <div className="username">
+    {msg.sender.username
+      ? msg.sender.username.charAt(0).toUpperCase() + msg.sender.username.slice(1)
+      : 'Anonymous User'}
+  </div>
+</div>
+                          {editMessageId === msg._id ? (
+                            <div className="edit-input-container">
+                              <input
+                                type="text"
+                                value={editMessageContent}
+                                onChange={(e) => setEditMessageContent(e.target.value)}
+                                className="form-control edit-input"
+                              />
+                              <button
+                                onClick={updateMessage}
+                                className="btn btn-primary ms-2"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditMessageId(null);
+                                  setEditMessageContent('');
+                                }}
+                                className="btn btn-secondary ms-2"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
                             <div
-                              key={msg._id}
-                              className={`d-flex flex-row ${
-                                msg.sender._id === userId ? 'justify-content-end' : 'justify-content-start'
+                              className={`message-content ${
+                                msg.sender._id === userId ? 'bg-primary' : 'bg-body-tertiary'
                               }`}
                             >
-                              {msg.sender._id !== userId && (
-                                <div style={{ display: 'flex', alignItems: 'center', marginRight: '15px' }}>
-                                  <img
-                                    id="user-avatar"
-                                    src={
-                                      msg.sender?.user_photo
-                                        ? `http://localhost:5000${msg.sender.user_photo}`
-                                        : '/assets/img/user_icon.png'
-                                    }
-                                    alt={msg.sender.username || 'User'}
-                                    style={{
-                                      width: '45px',
-                                      height: '45px',
-                                      borderRadius: '50%',
-                                      cursor: 'pointer',
-                                      objectFit: 'cover',
-                                    }}
-                                    onClick={() => (window.location.href = '/student')}
-                                  />
-                                </div>
-                              )}
-                              <div className="message-wrapper">
-                                <div className="username">{msg.sender.username || 'Unknown'}</div>
-                                {editMessageId === msg._id ? (
-                                  <div className="edit-input-container">
-                                    <input
-                                      type="text"
-                                      value={editMessageContent}
-                                      onChange={(e) => setEditMessageContent(e.target.value)}
-                                      className="form-control edit-input"
-                                      placeholder="Edit message..."
-                                    />
-                                    <button onClick={updateMessage} className="btn btn-primary ms-2">
-                                      Save
+                              {msg.isVoice ? (
+                                <button
+                                  onClick={() => playVoiceMessage(msg.voiceMessage)}
+                                  className="play-voice-button"
+                                >
+                                  Play Voice Message
+                                </button>
+                              ) : msg.isQuestionnaireLink ? (
+                                <button
+                                  onClick={() => setShowQuestionnaireModal(true)}
+                                  className="questionnaire-link"
+                                >
+                                  Take Questionnaire
+                                </button>
+                              ) : msg.isDepressionQuestion ? (
+                                <>
+                                  {msg.message}
+                                  <div className="response-buttons">
+                                    <button
+                                      onClick={handleYesClick}
+                                      className="yes-button"
+                                    >
+                                      Yes
                                     </button>
                                     <button
-                                      onClick={() => setEditMessageId(null)}
-                                      className="btn btn-secondary ms-2"
+                                      onClick={handleNoClick}
+                                      className="no-button"
                                     >
-                                      Cancel
+                                      No
                                     </button>
                                   </div>
-                                ) : (
-                                  <div
-                                    className={`message-content p-3 mb-2 ${
-                                      msg.sender._id === userId ? 'bg-primary' : 'bg-body-tertiary'
-                                    }`}
-                                  >
-                                    {msg.isVoice ? (
-                                      <>
-                                        <span>Voice Message</span>
-                                        <button
-                                          onClick={() => playVoiceMessage(msg.voiceMessage)}
-                                          className="play-voice-button"
-                                        >
-                                          <i className="fas fa-play"></i>
-                                        </button>
-                                      </>
-                                    ) : msg.isQuestionnaireLink ? (
-                                      <>
-                                        <span>Click to take the depression score questionnaire</span>
-                                        {userRole === 'student' && (
-                                          <button
-                                            onClick={() => setShowQuestionnaireModal(true)}
-                                            className="questionnaire-link"
-                                            title="Take Questionnaire"
-                                          >
-                                            <i className="fas fa-clipboard-list"></i>
-                                          </button>
-                                        )}
-                                      </>
-                                    ) : msg.isDepressionQuestion && userRole === 'student' ? (
-                                      <>
-                                        <span>{msg.message}</span>
-                                        <div className="response-buttons">
-                                          <button onClick={handleYesClick} className="yes-button">
-                                            Yes
-                                          </button>
-                                          <button onClick={handleNoClick} className="no-button">
-                                            No
-                                          </button>
-                                        </div>
-                                      </>
-                                    ) : (
-                                      <>
-                                        {msg.message}
-                                        <button
-                                          onClick={() => speakMessage(msg.message)}
-                                          className="play-voice-button"
-                                          title="Speak Message"
-                                        >
-                                          <i className="fas fa-volume-up"></i>
-                                        </button>
-                                      </>
-                                    )}
-                                    {msg.sender._id === userId && !msg.isVoice && !msg.isQuestionnaireLink && !msg.isDepressionQuestion && (
-                                      <div className="dropdown">
-                                        <button
-                                          className="btn btn-link dropdown-toggle"
-                                          type="button"
-                                          onClick={() => toggleDropdown(msg._id)}
-                                        >
-                                          <i className="fas fa-ellipsis-v"></i>
-                                        </button>
-                                        {activeDropdown === msg._id && (
-                                          <div
-                                            className="dropdown-menu dropdown-menu-end show"
-                                            style={{ position: 'absolute' }}
-                                          >
-                                            <button
-                                              className="dropdown-item"
-                                              onClick={() => startEditing(msg._id, msg.message)}
-                                            >
-                                              Edit
-                                            </button>
-                                            <button
-                                              className="dropdown-item"
-                                              onClick={() => deleteMessage(msg._id)}
-                                            >
-                                              Delete
-                                            </button>
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-                                    {!msg.isVoice && !msg.isQuestionnaireLink && !msg.isDepressionQuestion && (
-                                      <button
-                                        onClick={() => handleTranslate(msg._id, msg.message)}
-                                        className="translate-button"
-                                        title="Translate Message"
+                                </>
+                              ) : (
+                                <>
+                                  {msg.message}
+                                  {!msg.isVoice && !msg.isQuestionnaireLink && (
+                                    <button
+                                      onClick={() => toggleEmotionDisplay(msg._id)}
+                                      className="emotion-button"
+                                    >
+                                      <i className="fas fa-smile"></i>
+                                    </button>
+                                  )}
+                                  {showEmotionForMessage === msg._id &&
+                                    messageEmotions[msg._id]?.dominant &&
+                                    messageEmotions[msg._id].dominant !== 'unknown' && (
+                                      <span
+                                        className="emotion-badge"
+                                        title={Object.entries(messageEmotions[msg._id].scores)
+                                          .map(([emotion, score]) => `${emotion}: ${(score * 100).toFixed(2)}%`)
+                                          .join('\n')}
                                       >
-                                        <i className="fas fa-language"></i>
-                                      </button>
+                                        {messageEmotions[msg._id].dominant}
+                                      </span>
                                     )}
-                                  </div>
-                                )}
-                                <div className="timestamp">
-                                  {new Date(msg.createdAt).toLocaleTimeString()}
-                                </div>
-                                {translatedMessages[msg._id] && (
-                                  <div className="translated-text">
-                                    {translatedMessages[msg._id].text}
-                                  </div>
-                                )}
-                              </div>
-                              {msg.sender._id === userId && (
-                                <div style={{ display: 'flex', alignItems: 'center', marginLeft: '15px' }}>
-                                  <img
-                                    id="user-avatar"
-                                    src={
-                                      msg.sender?.user_photo
-                                        ? `http://localhost:5000${msg.sender.user_photo}`
-                                        : '/assets/img/user_icon.png'
-                                    }
-                                    alt={msg.sender.username || 'User'}
-                                    style={{
-                                      width: '45px',
-                                      height: '45px',
-                                      borderRadius: '50%',
-                                      cursor: 'pointer',
-                                      objectFit: 'cover',
-                                    }}
-                                    onClick={() => (window.location.href = '/student')}
-                                  />
+                                </>
+                              )}
+                              {msg.sender._id === userId && !msg.isVoice && !msg.isQuestionnaireLink && (
+                                <div className="dropdown d-inline-block ms-2">
+                                  <button
+                                    className="btn btn-link dropdown-toggle"
+                                    type="button"
+                                    onClick={() => toggleDropdown(msg._id)}
+                                  >
+                                    <i className="fas fa-ellipsis-v"></i>
+                                  </button>
+                                  {activeDropdown === msg._id && (
+                                    <ul className="dropdown-menu show">
+                                      <li>
+                                        <button
+                                          className="dropdown-item"
+                                          onClick={() => startEditing(msg._id, msg.message)}
+                                        >
+                                          Edit
+                                        </button>
+                                      </li>
+                                      <li>
+                                        <button
+                                          className="dropdown-item"
+                                          onClick={() => deleteMessage(msg._id)}
+                                        >
+                                          Delete
+                                        </button>
+                                      </li>
+                                    </ul>
+                                  )}
                                 </div>
                               )}
+                              <button
+                                onClick={() => speakMessage(msg.message)}
+                                className="btn btn-link ms-2"
+                              >
+                                <i className="fas fa-volume-up"></i>
+                              </button>
+                              <button
+                                onClick={() => handleTranslate(msg._id, msg.message)}
+                                className="btn btn-link ms-2"
+                              >
+                                <i className="fas fa-language"></i>
+                              </button>
                             </div>
-                          ))}
-                        </>
-                      )}
+                          )}
+                          {translatedMessages[msg._id] && (
+                            <div className="translated-text">
+                              Translated: {translatedMessages[msg._id].text}
+                            </div>
+                          )}
+                          <div className="timestamp">
+                            {new Date(msg.createdAt).toLocaleTimeString()}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                     <div className="card-footer">
                       <select
@@ -1720,8 +1808,8 @@ const Chat = () => {
                         className="language-select"
                       >
                         <option value="en">English</option>
-                        <option value="es">Spanish</option>
                         <option value="fr">French</option>
+                        <option value="es">Spanish</option>
                         <option value="de">German</option>
                       </select>
                       <input
@@ -1735,19 +1823,19 @@ const Chat = () => {
                       <button
                         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                         className="emoji-button ms-2"
-                        title="Toggle Emoji Picker"
                       >
                         <i className="fas fa-smile"></i>
                       </button>
                       <button
                         onClick={isRecording ? stopRecording : startRecording}
                         className="voice-button ms-2"
-                        title={isRecording ? 'Stop Recording' : 'Record Voice'}
-                        disabled={isRecording && mediaRecorderRef.current?.state !== 'recording'}
                       >
                         <i className={isRecording ? 'fas fa-stop' : 'fas fa-microphone'}></i>
                       </button>
-                      <button onClick={sendMessage} className="send-button ms-2" title="Send Message">
+                      <button
+                        onClick={sendMessage}
+                        className="send-button ms-2"
+                      >
                         <i className="fas fa-paper-plane"></i>
                       </button>
                       {showEmojiPicker && (
@@ -1763,30 +1851,7 @@ const Chat = () => {
           </div>
         </div>
       </section>
-      {showVideoCall && (
-        <div className="video-call-modal">
-          <div className="video-call-content">
-            <button onClick={closeVideoChat} className="close-video-call">
-              Close
-            </button>
-            <VideoChat roomCode={joinedRoom} userId={userId} />
-          </div>
-        </div>
-      )}
-      {showSummaryModal && (
-        <div className="summary-modal">
-          <div className="summary-content">
-            <button
-              onClick={() => setShowSummaryModal(false)}
-              className="close-summary"
-            >
-              Close
-            </button>
-            <h5>Conversation Summary</h5>
-            <div className="summary-text">{summary}</div>
-          </div>
-        </div>
-      )}
+
       {showQuestionnaireModal && (
         <div className="questionnaire-modal">
           <div className="questionnaire-content">
@@ -1798,15 +1863,15 @@ const Chat = () => {
             </button>
             <h5>Depression Score Questionnaire</h5>
             <div className="questionnaire-form">
-              {questions.map((question) => (
-                <div key={question.id}>
-                  <label>{question.text}</label>
+              {questions.map((q) => (
+                <div key={q.id}>
+                  <label>{q.text}</label>
                   <select
-                    value={questionnaireResponses[question.id]}
+                    value={questionnaireResponses[q.id]}
                     onChange={(e) =>
                       setQuestionnaireResponses({
                         ...questionnaireResponses,
-                        [question.id]: parseInt(e.target.value),
+                        [q.id]: parseInt(e.target.value),
                       })
                     }
                   >
@@ -1827,7 +1892,37 @@ const Chat = () => {
           </div>
         </div>
       )}
+
+      {showSummaryModal && (
+        <div className="summary-modal">
+          <div className="summary-content">
+            <button
+              onClick={() => setShowSummaryModal(false)}
+              className="close-summary"
+            >
+              Close
+            </button>
+            <h5>Conversation Summary</h5>
+            <div className="summary-text">{summary}</div>
+          </div>
+        </div>
+      )}
+
+      {showVideoCall && (
+        <div className="video-call-modal">
+          <div className="video-call-content">
+            <button
+              onClick={closeVideoChat}
+              className="close-video-call"
+            >
+              Close
+            </button>
+            <VideoChat roomCode={joinedRoom} userId={userId} />
+          </div>
+        </div>
+      )}
     </>
   );
 };
+
 export default Chat;
