@@ -54,34 +54,34 @@ The goal of this project is to provide a structured, secure and efficient platfo
 
 ## Forum 🗨️
 ✔️ A discussion space where students can share their experiences, ask questions, and support each other in a safe and moderated environment.  
-###### 🚀 Advanced features :
-✔️ Bad words filter, Gemini AI chatbot for real-time assistance, Hugging Face sentiment analysis for emotional monitoring, detailed PDF report generation, usage statistics tracking and QR code generation for easy access.
 
-## Complaint 📩
+## Complaint system 📩
 ✔️ A secure system that allows users to confidentially submit complaints or concerns, ensuring they are addressed by the appropriate university support services.  
-###### 🚀 Advanced features :
-✔️ Rich text editing with CKEditor for precise complaint formulation, automatic PDF generation of complaint reports, usage statistics monitoring and a direct chat system with administrators to quickly resolve more complex issues.
 
-## Publication System 📰 
+## Publication news 📰 
 ✔️ Moderators can publish articles and posts related to news and developments in the mental health sector.  
 ✔️ Students can interact with posts through comments, reactions, and discussions.  
-###### 🚀 Advanced features :
-✔️ Rich text editing with CKEditor, AI-powered content generation (Images,titles,Descriptions), Sentiment analysis using Hugging Face, Email alerts, detailed PDF report generation, QR code generation for easy access and usage statistics tracking.
 
 ##  Workshops & Events 🎓 
 ✔️ A dedicated space for organizing and announcing mental health workshops, training sessions, and awareness events targeting students and university staff.  
-###### 🚀 Advanced features :  
-✔️ AI-powered content generation: automatic creation of event titles, descriptions, and visuals, PDF generation: exportable event details and summaries in professional format, Usage statistics: track participation, engagement, and event impact over time and QR code generation for easy access.  
 
 ## Consultations 🗓️  
-✔️ Students can book private consultations with psychologists and initiate real-time chat sessions for support and guidance.  
-###### 🚀 Advanced Features :  
-✔️ Real-time chat using WebSocket for smooth and instant communication 💬, Sentiment analysis powered by Hugging Face AI to detect emotional state and adapt responses, PDF export of consultation summaries for follow-up or documentation, Usage statistics to monitor the number of sessions, user engagement, and satisfaction trends and of course all interactions are secure and confidential, respecting users' privacy 🔒.  
+✔️ Students can book private consultations with psychologists and initiate real-time chat sessions for support and guidance.    
 
 ## Activities & Wellbeing Tracking 🧠  
-✔️ A space where students can share their own problems and access helpful solutions tailored to similar issues, fostering self-reflection and support through practical guidance. 
-###### 🚀 Advanced Features :
-✔️ AI-powered stress detection: intelligent analysis of tracked data to detect signs of stress or burnout, with personalized recommendations for improvement , PDF export of wellbeing logs and activity reports and Statistics & insights: track progress over time, visualize trends in mental health indicators, and support preventive actions.
+✔️ A space where students can share their own problems and access helpful solutions tailored to similar issues, fostering self-reflection and support through practical guidance.   
+
+## Advanced Features 🚀  
+✔️ AI-Chatbot powered by Gemini   
+✔️ AI-powered content generation (Images,titles,Descriptions)   
+✔️ Sentiment analysis using Hugging Face  
+✔️ Real-time chat using WebSocket for smooth and instant communication    
+✔️ Email alerts    
+✔️ detailed PDF report generation  
+✔️ usage statistics tracking    
+✔️ QR code generation   
+✔️ Bad words filter    
+✔️ Rich text editing with CKEditor  
 
 ## Final solution
 <img align="right" width=200px height=200px alt="side_sticker" src="https://media.giphy.com/media/dRiZq6h7814nhldyza/giphy.gif?cid=ecf05e47e8hcz6ym1zshf9asfpo25pbad0uxg2v4sca9q6if&ep=v1_gifs_search&rid=giphy.gif&ct=g" />    
