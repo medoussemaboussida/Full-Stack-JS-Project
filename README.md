@@ -55,7 +55,7 @@ The goal of this project is to provide a structured, secure and efficient platfo
 ###### Goal:
 ✔️ Empower students with early detection, actionable insights, and empathetic support, reducing the stigma and barriers to seeking help.
 
-## Forum 🗨️
+## Forum Space 🗨️
 ✔️ A discussion space where students can share their experiences, ask questions, and support each other in a safe and moderated environment.  
 
 ## Complaint system 📩
@@ -65,11 +65,11 @@ The goal of this project is to provide a structured, secure and efficient platfo
 ✔️ Moderators can publish articles and posts related to news and developments in the mental health sector.  
 ✔️ Students can interact with posts through comments, reactions, and discussions.  
 
-##  Workshops & Events 🎓 
+## Workshops & Events 🎓 
 ✔️ A dedicated space for organizing and announcing mental health workshops, training sessions, and awareness events targeting students and university staff.  
 
-## Consultations 🗓️  
-✔️ Students can book private consultations with psychologists and initiate real-time chat sessions for support and guidance.    
+## Consultations with Psychiatrists 🗓️  
+✔️ Students can book private consultations with psychiatrists and initiate real-time chat sessions for support and guidance.    
 
 ## Activities & Wellbeing Tracking 🧠  
 ✔️ A space where students can share their own problems and access helpful solutions tailored to similar issues, fostering self-reflection and support through practical guidance.   
