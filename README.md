@@ -31,6 +31,7 @@ The goal of this project is to provide a structured, secure and efficient platfo
 <img width="12" />
 <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/prometheus/prometheus-original.svg" height="40" alt="prometheus logo"  />
 <img width="12" />
+<img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" height="40" alt="python logo"  />
 </p>  
 
 ## User Roles and Authentication 👥 
