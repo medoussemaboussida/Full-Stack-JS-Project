@@ -62,8 +62,7 @@ The goal of this project is to provide a structured, secure and efficient platfo
 ✔️ A secure system that allows users to confidentially submit complaints or concerns, ensuring they are addressed by the appropriate university support services.  
 
 ## Publication news 📰 
-✔️ Moderators can publish articles and posts related to news and developments in the mental health sector.  
-✔️ Students can interact with posts through comments, reactions, and discussions.  
+✔️ Moderators can publish articles and posts related to news and developments in the mental health sector and students can interact with posts through comments, reactions, and discussions.  
 
 ## Workshops & Events 🎓 
 ✔️ A dedicated space for organizing and announcing mental health workshops, training sessions, and awareness events targeting students and university staff.  
