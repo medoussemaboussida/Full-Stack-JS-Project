@@ -1,1 +1,17 @@
 node_modules
+.git
+.gitignore
+*.md
+tests
+__tests__
+coverage
+*.log
+.env
+.env.test
+Dockerfile
+docker-compose.yml
+Jenkinsfile
+Uploads
+dist
+build
+*.zip
