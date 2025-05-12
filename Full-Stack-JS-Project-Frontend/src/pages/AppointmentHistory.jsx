@@ -490,7 +490,7 @@ const AppointmentHistory = () => {
                     justifyContent: 'center', 
                     marginBottom: '20px' 
                 }}>
-                    <Button 
+                    <Button
                         variant="primary"
                         onClick={() => setShowStatsModal(true)}
                         style={{
@@ -498,6 +498,7 @@ const AppointmentHistory = () => {
                             alignItems: 'center',
                             gap: '8px',
                             padding: '10px 20px',
+                            borderRadius:'50px',
                             transition: 'transform 0.3s ease-in-out',
                         }}
                         onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
@@ -513,7 +514,7 @@ const AppointmentHistory = () => {
                 <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    style={{ padding: '8px', borderRadius: '5px', border: '2px solid #007BFF', outline: 'none' }}
+                    style={{ padding: '8px', borderRadius: '50px', border: '2px solid #007BFF', outline: 'none',fontSize:'14px' }}
                 >
                     <option value="all">All Statuses</option>
                     <option value="pending">Pending</option>
@@ -526,12 +527,12 @@ const AppointmentHistory = () => {
                     value={searchName}
                     onChange={(e) => setSearchName(e.target.value)}
                     placeholder={role === 'psychiatrist' ? 'Search by student name' : role === 'student' ? 'Search by psychiatrist name' : 'Search by name...'}
-                    style={{ padding: '8px', borderRadius: '5px', border: '2px solid #007BFF', outline: 'none', width: '200px' }}
+                    style={{ padding: '8px', borderRadius: '50px', border: '2px solid #007BFF', outline: 'none', width: '200px',fontSize:'14px' }}
                 />
                 <select
                     value={dateSort}
                     onChange={(e) => setDateSort(e.target.value)}
-                    style={{ padding: '8px', borderRadius: '5px', border: '2px solid #007BFF', outline: 'none' }}
+                    style={{ padding: '8px', borderRadius: '50px', border: '2px solid #007BFF', outline: 'none',fontSize:'14px' }}
                 >
                     <option value="recent">Most Recent</option>
                     <option value="oldest">Oldest</option>
@@ -598,13 +599,13 @@ const AppointmentHistory = () => {
                                                         <option value="completed">Completed</option>
                                                         <option value="canceled">Canceled</option>
                                                     </select>
-                                                    <Button variant="primary" onClick={() => handleStatusChange(appointment._id)}>Save</Button>
-                                                    <Button variant="secondary" onClick={() => setEditingAppointmentId(null)}>Cancel</Button>
+                                                    <Button variant="primary" style={{borderRadius:'50px',fontSize:'14px'}} onClick={() => handleStatusChange(appointment._id)}>Save</Button>
+                                                    <Button variant="secondary" style={{borderRadius:'50px',fontSize:'14px'}} onClick={() => setEditingAppointmentId(null)}>Cancel</Button>
                                                 </div>
                                             ) : (
                                                 <>
                                                     <span className={`status ${appointment.status}`}>{appointment.status || 'Not specified'}</span>
-                                                    <Button variant="info" onClick={() => { setEditingAppointmentId(appointment._id); setNewStatus(appointment.status || ''); }}>Edit</Button>
+                                                    <Button variant="info" style={{borderRadius:'50px',fontSize:'14px'}} onClick={() => { setEditingAppointmentId(appointment._id); setNewStatus(appointment.status || ''); }}>Edit</Button>
                                                 </>
                                             )}
                                         </div>
@@ -622,8 +623,8 @@ const AppointmentHistory = () => {
                 </Modal.Header>
                 <Modal.Body>Are you sure you want to delete this appointment?</Modal.Body>
                 <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
-                    <Button variant="danger" onClick={handleDeleteAppointment}>Delete</Button>
+                    <Button variant="secondary" style={{borderRadius:'50px',fontSize:'14px'}} onClick={() => setShowModal(false)}>Cancel</Button>
+                    <Button variant="danger" style={{borderRadius:'50px',fontSize:'14px'}} onClick={handleDeleteAppointment}>Delete</Button>
                 </Modal.Footer>
             </Modal>
 
@@ -643,7 +644,7 @@ const AppointmentHistory = () => {
                     <div style={{
                         backgroundColor: 'white',
                         padding: '20px',
-                        borderRadius: '8px',
+                        borderRadius: '10px',
                         width: '90%',
                         maxWidth: '1000px',
                         maxHeight: '90vh',
@@ -671,16 +672,16 @@ const AppointmentHistory = () => {
                             }}
                             selectable={false}
                         />
-                        <button
+                        <button className='theme-btn'
                             onClick={() => setShowCalendarModal(false)}
                             style={{
                                 backgroundColor: '#f44336',
                                 color: 'white',
                                 padding: '10px 20px',
-                                fontSize: '16px',
+                                fontSize: '14px',
                                 border: 'none',
                                 cursor: 'pointer',
-                                borderRadius: '5px',
+                                borderRadius: '50px',
                                 marginTop: '20px',
                                 display: 'block',
                                 marginLeft: 'auto',

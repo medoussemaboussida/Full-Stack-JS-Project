@@ -814,7 +814,7 @@ const EventDetails = () => {
                           <button 
                             onClick={fetchLocationDetails} 
                             className="theme-btn me-2" 
-                            style={{ backgroundColor: '#28a745' }}
+                            style={{ backgroundColor: '#28a745',borderRadius:"50px",top:'10px' }}
                             disabled={isFetchingLocation}
                           >
                             {isFetchingLocation ? (

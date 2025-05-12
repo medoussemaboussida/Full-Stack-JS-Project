@@ -315,7 +315,7 @@ const PsychiatristList = () => {
                     <div className="search-container text-center mb-4" style={{
                         margin: '30px 0'
                     }}>
-                        <input
+                        <input 
                             type="text"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -378,7 +378,7 @@ const PsychiatristList = () => {
                                             <p style={{ margin: '10px 0', color: '#666', fontSize: '0.9rem', lineHeight: '1.4' }}>
                                                 {psychiatrist.description || 'No description available.'}
                                             </p>
-                                            <button
+                                            <button 
                                                 className="view-availability-btn"
                                                 onClick={() => handleViewAvailability(psychiatrist)}
                                                 style={{
@@ -422,7 +422,7 @@ const PsychiatristList = () => {
             {showCalendarModal && selectedPsychiatrist && (
                 <div style={{
                     position: 'fixed',
-                    top: 0,
+                    top: 70,
                     left: 0,
                     right: 0,
                     bottom: 0,
@@ -435,10 +435,10 @@ const PsychiatristList = () => {
                     <div style={{
                         backgroundColor: 'white',
                         padding: '20px',
-                        borderRadius: '8px',
+                        borderRadius: '10px',
                         width: '90%',
                         maxWidth: '1000px',
-                        maxHeight: '90vh',
+                        maxHeight: '80vh',
                         overflow: 'auto',
                     }}>
                         <h3 style={{ textAlign: 'center', marginBottom: '10px' }}>
@@ -478,13 +478,13 @@ const PsychiatristList = () => {
                                 );
                             }}
                         />
-                        <button
+                        <button className='theme-btn'
                             onClick={() => setShowCalendarModal(false)}
                             style={{
                                 backgroundColor: '#f44336',
                                 color: 'white',
                                 padding: '10px 20px',
-                                fontSize: '16px',
+                                fontSize: '14px',
                                 border: 'none',
                                 cursor: 'pointer',
                                 borderRadius: '50px',

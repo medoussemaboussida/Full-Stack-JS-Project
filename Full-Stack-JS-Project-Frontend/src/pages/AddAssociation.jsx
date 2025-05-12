@@ -277,6 +277,7 @@ const AddAssociation = () => {
                                                     className="form-control"
                                                     placeholder="Association Name"
                                                     {...register("Name_association")}
+                                                    style={{borderRadius:'50px'}}
                                                 />
                                                 <p className="text-danger">{errors.Name_association?.message}</p>
                                             </div>
@@ -288,6 +289,7 @@ const AddAssociation = () => {
                                                     autoComplete="off"
                                                     {...register("contact_email_association")}
                                                     onChange={handleEmailChange}
+                                                    style={{borderRadius:'50px'}}
                                                 />
                                                 {showSuggestions && emailSuggestions.length > 0 && (
                                                     <ul
@@ -337,6 +339,7 @@ const AddAssociation = () => {
                                                 <select
                                                     className="form-control"
                                                     {...register("support_type")}
+                                                    style={{borderRadius:'50px'}}
                                                 >
                                                     <option value="">Select Support Type</option>
                                                     <option value="Financial">Financial</option>
@@ -352,19 +355,20 @@ const AddAssociation = () => {
                                                     id="logo-upload"
                                                     className="form-control"
                                                     accept="image/*"
-                                                    style={{ display: "none" }}
+                                                    style={{ display: "none",borderRadius:'50px' }}
                                                     {...register("logo_association")}
                                                     onChange={(e) => {
                                                         handleImageChange(e);
                                                         register("logo_association").onChange(e);
                                                     }}
+                                                    
                                                 />
                                                 <label
                                                     htmlFor="logo-upload"
                                                     className="btn btn-outline-primary w-100 text-left"
                                                     style={{
                                                         padding: "10px",
-                                                        borderRadius: "4px",
+                                                        borderRadius: "50px",
                                                         cursor: "pointer",
                                                         display: "flex",
                                                         alignItems: "center",
@@ -377,10 +381,11 @@ const AddAssociation = () => {
                                                 <p className="text-danger">{errors.logo_association?.message}</p>
                                             </div>
                                         </div>
-                                        <button
+                                        <button 
                                             type="submit"
                                             className="theme-btn mt-2"
                                             disabled={isSubmitting}
+                                            style={{borderRadius:'50px'}}
                                         >
                                             {isSubmitting ? "Submitting..." : "Submit Now"} <i className="fas fa-circle-arrow-right"></i>
                                         </button>
