@@ -87,6 +87,5 @@ The goal of this project is to provide a structured, secure and efficient platfo
 
 ## Final solution
 <img align="right" width=200px height=200px alt="side_sticker" src="https://media.giphy.com/media/dRiZq6h7814nhldyza/giphy.gif?cid=ecf05e47e8hcz6ym1zshf9asfpo25pbad0uxg2v4sca9q6if&ep=v1_gifs_search&rid=giphy.gif&ct=g" />    
-<img src="https://github.com/user-attachments/assets/a082a64c-a8a1-460b-bee9-9a4811bae21e" width="400"/>
-
-<img src="https://github.com/user-attachments/assets/15f8c44c-239d-43b5-844b-86d81997aba3" width="400"/>
+<img src="https://github.com/user-attachments/assets/a082a64c-a8a1-460b-bee9-9a4811bae21e" width="500"/>
+<img src="https://github.com/user-attachments/assets/15f8c44c-239d-43b5-844b-86d81997aba3" width="500"/>
