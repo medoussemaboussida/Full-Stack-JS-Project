@@ -636,8 +636,8 @@ function DetailsStudents() {
             <h3 style={{ marginBottom: "20px", textAlign: "center" }}>Confirm Deletion</h3>
             <p style={{ marginBottom: "20px", textAlign: "center" }}>Are you sure you want to delete your account? This action cannot be undone.</p>
             <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-              <button onClick={() => setShowDeleteModal(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Cancel</button>
-              <button onClick={handleDeleteAccount} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Confirm</button>
+              <button  className="theme-btn" onClick={() => setShowDeleteModal(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "14px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Cancel</button>
+              <button  className="theme-btn" onClick={handleDeleteAccount} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "14px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Confirm</button>
             </div>
           </div>
         </div>
@@ -692,14 +692,14 @@ function DetailsStudents() {
   <button
     onClick={handleAvailabilityConfirm}
     className="theme-btn w-full py-3 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-    style={{ borderRadius: "50px", fontSize: "16px" }}
+    style={{ borderRadius: "50px", fontSize: "14px" }}
   >
     <span className="far fa-check"></span> Confirm
   </button>
   <button
     onClick={() => setShowAvailabilityModal(false)}
     className="theme-btn w-full py-3 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-    style={{ borderRadius: "50px", fontSize: "16px" }}
+    style={{ borderRadius: "50px", fontSize: "14px",backgroundColor:'red',padding:'12px 14px' }}
   >
     <span className="far fa-times"></span> Cancel
   </button>
@@ -863,28 +863,28 @@ function DetailsStudents() {
                         </button>
                       )
                     )}
-                    <button onClick={() => setIsChangingPassword(true)} style={{ backgroundColor: "#2196F3", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
+                    <button onClick={() => setIsChangingPassword(true)} className="theme-btn" style={{ backgroundColor: "#2196F3", color: "white", padding: "12px 14px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
                       <i className="fas fa-key" style={{ marginRight: "8px" }}></i> Change Password
                     </button>
-                    <button onClick={() => setIsChangingPhoto(true)} style={{ backgroundColor: "#FF9800", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
+                    <button onClick={() => setIsChangingPhoto(true)} className="theme-btn" style={{ backgroundColor: "#FF9800", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
                       <i className="fas fa-camera" style={{ marginRight: "8px" }}></i> Change Photo
                     </button>
-                    <button onClick={() => setShowDeleteModal(true)} style={{ backgroundColor: "#ff0000", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
+                    <button onClick={() => setShowDeleteModal(true)} className="theme-btn" style={{ backgroundColor: "#ff0000", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
                       <i className="fas fa-trash" style={{ marginRight: "8px" }}></i> Delete Account
                     </button>
                     {user.role === "psychiatrist" && (
-                      <button onClick={() => setShowCalendar(true)} style={{ backgroundColor: "#9C27B0", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
-                        <i className="fas fa-clock" style={{ marginRight: "8px" }}></i> Manage Availability
+                      <button onClick={() => setShowCalendar(true)} className="theme-btn" style={{ backgroundColor: "#9C27B0", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
+                        <i className="fas fa-clock" style={{ marginRight: "8px" }}></i> My Availability
                       </button>
                     )}
                     {user.role === "association_member" && (
                       <>
                         {!hasAssociation && (
-                          <button onClick={handleAddAssociation} style={{ backgroundColor: "#00BCD4", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
+                          <button className="theme-btn" onClick={handleAddAssociation} style={{ backgroundColor: "#00BCD4", color: "white", padding: "12px 14px", fontSize: "14px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
                             <i className="fas fa-users" style={{ marginRight: "8px" }}></i> Add Association
                           </button>
                         )}
-                        <button onClick={handleAddEvent} style={{ backgroundColor: "#8BC34A", color: "white", padding: "12px 24px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
+                        <button  className="theme-btn" onClick={handleAddEvent} style={{ backgroundColor: "#8BC34A", color: "white", padding: "12px 14px", fontSize: "14px", border: "none", cursor: "pointer", borderRadius: "50px" }}>
                           <i className="fas fa-calendar-plus" style={{ marginRight: "8px" }}></i> Add Event
                         </button>
                       </>
@@ -949,8 +949,8 @@ function DetailsStudents() {
                 </p>
               </div>
               <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-                <button onClick={handleChangePassword} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Save New Password</button>
-                <button onClick={() => setIsChangingPassword(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Cancel</button>
+                <button className="theme-btn" onClick={handleChangePassword} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "14px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Save New Password</button>
+                <button className="theme-btn" onClick={() => setIsChangingPassword(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "14px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Cancel</button>
               </div>
             </div>
           </div>
@@ -996,7 +996,7 @@ function DetailsStudents() {
                 maxLength={500}
               />
               <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-                <button 
+                <button className="theme-btn"
                   onClick={handleSaveDescription} 
                   style={{ 
                     backgroundColor: "#4CAF50", 
@@ -1005,12 +1005,12 @@ function DetailsStudents() {
                     fontSize: "16px", 
                     border: "none", 
                     cursor: "pointer", 
-                    borderRadius: "5px" 
+                    borderRadius: "50px" 
                   }}
                 >
                   Save
                 </button>
-                <button 
+                <button className="theme-btn"
                   onClick={() => setShowDescriptionModal(false)} 
                   style={{ 
                     backgroundColor: "#f44336", 
@@ -1038,16 +1038,16 @@ function DetailsStudents() {
                 <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: "block", margin: "0 auto" }} />
               </div>
               <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-                <button onClick={handleChangePhoto} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Save Photo</button>
-                <button onClick={() => { setIsChangingPhoto(false); setPhotoFile(null); setPreviewPhoto(user.user_photo ? `${BASE_URL}${user.user_photo}` : "assets/img/user.png"); }} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Cancel</button>
+                <button className="theme-btn" onClick={handleChangePhoto} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "14px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Save Photo</button>
+                <button className="theme-btn" onClick={() => { setIsChangingPhoto(false); setPhotoFile(null); setPreviewPhoto(user.user_photo ? `${BASE_URL}${user.user_photo}` : "assets/img/user.png"); }} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "14px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Cancel</button>
               </div>
             </div>
           </div>
         )}
 
         {showCalendar && (
-          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0, 0, 0, 0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }}>
-            <div style={{ backgroundColor: "white", padding: "20px", borderRadius: "8px", width: "90%", maxWidth: "1000px", maxHeight: "90vh", overflow: "auto", position: "relative" }}>
+          <div style={{ position: "fixed", top: 80, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0, 0, 0, 0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }}>
+            <div style={{ backgroundColor: "white", padding: "20px", borderRadius: "8px", width: "90%", maxWidth: "1000px", maxHeight: "70vh", overflow: "auto", position: "relative" }}>
               <h3 style={{ textAlign: "center", marginBottom: "10px" }}>Manage Your Availability</h3>
               <p style={{ textAlign: "center", color: "#555", marginBottom: "20px" }}>
                 Select a time slot to add availability, drag to move, or click to delete
@@ -1073,7 +1073,7 @@ function DetailsStudents() {
                   right: "dayGridMonth,timeGridWeek,timeGridDay",
                 }}
               />
-              <button onClick={() => setShowCalendar(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "5px", marginTop: "20px", display: "block", marginLeft: "auto" }}>Close</button>
+              <button onClick={() => setShowCalendar(false)} className="theme-btn" style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "14px", border: "none", cursor: "pointer", borderRadius: "50px", marginTop: "20px", display: "block", marginLeft: "auto" }}>Close</button>
 
               {/* Delete Availability Modal Inside Calendar */}
               {showDeleteAvailabilityModal && (
@@ -1082,8 +1082,8 @@ function DetailsStudents() {
                     <h3 style={{ marginBottom: "20px", textAlign: "center" }}>Confirm Deletion</h3>
                     <p style={{ marginBottom: "20px", textAlign: "center" }}>Do you want to delete this availability?</p>
                     <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
-                      <button onClick={() => setShowDeleteAvailabilityModal(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Cancel</button>
-                      <button onClick={handleDeleteAvailability} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "16px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Confirm</button>
+                      <button className="theme-btn" onClick={() => setShowDeleteAvailabilityModal(false)} style={{ backgroundColor: "#f44336", color: "white", padding: "10px 20px", fontSize: "14px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Cancel</button>
+                      <button className="theme-btn" onClick={handleDeleteAvailability} style={{ backgroundColor: "#4CAF50", color: "white", padding: "10px 20px", fontSize: "14px", border: "none", cursor: "pointer", borderRadius: "50px" }}>Confirm</button>
                     </div>
                   </div>
                 </div>
