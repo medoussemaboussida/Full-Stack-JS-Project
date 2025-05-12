@@ -592,7 +592,7 @@ const AppointmentHistory = () => {
                                             <span className="label">Status:</span>{' '}
                                             {editingAppointmentId === appointment._id ? (
                                                 <div className="edit-status">
-                                                    <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
+                                                    <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)}  style={{borderRadius:'50px'}}>
                                                         <option value="">Select a status</option>
                                                         <option value="pending">Pending</option>
                                                         <option value="confirmed">Confirmed</option>

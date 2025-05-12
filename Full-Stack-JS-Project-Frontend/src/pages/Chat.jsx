@@ -1385,12 +1385,12 @@ const Chat = () => {
                       onChange={(e) => setRoomCode(e.target.value)}
                       onKeyPress={handleRoomKeyPress}
                       placeholder="Enter room code..."
-                      className="form-control"
+                      className="form-control" style={{borderRadius:'50px'}}
                     />
                     <button
                       onClick={joinRoom}
                       disabled={!roomCode.trim()}
-                      className="btn btn-primary mt-3"
+                      className="btn btn-primary mt-3" style={{borderRadius:'50px'}}
                     >
                       Join
                     </button>
@@ -1591,7 +1591,7 @@ const Chat = () => {
                       <select
                         value={targetLanguage}
                         onChange={(e) => setTargetLanguage(e.target.value)}
-                        className="language-select"
+                        className="language-select" style={{borderRadius:'50px'}}
                       >
                         <option value="en">English</option>
                         <option value="fr">French</option>
@@ -1605,6 +1605,7 @@ const Chat = () => {
                         onKeyPress={handleMessageKeyPress}
                         placeholder="Type a message..."
                         className="form-control"
+                        style={{borderRadius:'50px'}}
                       />
                       <button
                         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -1643,7 +1644,7 @@ const Chat = () => {
           <div className="summary-content">
             <button
               onClick={() => setShowSummaryModal(false)}
-              className="close-summary"
+              className="close-summary"  style={{borderRadius:'50px'}}
             >
               Close
             </button>
@@ -1658,7 +1659,7 @@ const Chat = () => {
           <div className="video-call-content">
             <button
               onClick={closeVideoChat}
-              className="close-video-call"
+              className="close-video-call" style={{borderRadius:'50px'}}
             >
               Close
             </button>

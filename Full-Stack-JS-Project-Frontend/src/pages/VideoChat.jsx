@@ -49,7 +49,7 @@ const VideoChat = ({ userId, roomCode, onClose }) => {
             color: 'white',
             border: 'none',
             padding: '10px 20px',
-            borderRadius: '5px',
+            borderRadius: '50px',
             cursor: 'pointer',
           }}
         >
