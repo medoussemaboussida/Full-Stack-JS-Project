@@ -3,6 +3,8 @@ pipeline {
 
    environment {
             DOCKER_CREDENTIALS_ID = credentials('docker-hub-credentials')
+            DOCKER_IMAGE_NAME = 'mohamedoussemaboussida/backend'
+            DOCKER_TAG = 'latest'
     }
 
   stages {
@@ -79,6 +81,45 @@ stage('Unit Test') {
           withSonarQubeEnv {
             sh "${scannerHome}/bin/sonar-scanner"
           }
+        }
+      }
+    }
+    stage('Build Docker Image') {
+      steps {
+        script {
+          // Build the Docker image
+          sh "docker build -t ${DOCKER_IMAGE_NAME}:${DOCKER_TAG} ."
+          echo 'Docker image built successfully'
+        }
+      }
+    }
+
+    stage('Push Docker Image') {
+      steps {
+        script {
+          // Log in to Docker Hub using credentials
+          withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+            sh "echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USERNAME --password-stdin"
+            // Push the image to Docker Hub
+            sh "docker push ${DOCKER_IMAGE_NAME}:${DOCKER_TAG}"
+          }
+          echo 'Docker image pushed to Docker Hub successfully'
+        }
+      }
+    }
+
+    stage('Run Docker Image') {
+      steps {
+        script {
+          // Stop and remove existing containers to avoid conflicts
+          sh 'docker-compose down || true'
+
+          // Pull the latest image from Docker Hub (optional, since we just built it)
+          sh "docker pull ${DOCKER_IMAGE_NAME}:${DOCKER_TAG}"
+
+          // Run the services using docker-compose
+          sh 'docker-compose up -d'
+          echo 'Docker containers started successfully'
         }
       }
     }

@@ -1,26 +1,34 @@
-version: '3.8' 
-services: 
-  db: 
-    image: mohamedoussemaboussida/mongo:4.2 
-    container_name: db 
-    restart: always 
- 
-    environment: 
-      MONGO_INITDB_ROOT_USERNAME: root 
-      MONGO_INITDB_ROOT_PASSWORD: example 
-    ports: 
-      - 27017:27017 
-    volumes: 
-      - ./data/dump:/dump 
- 
-  app: 
-    build: . 
+version: '3.8'
+
+services:
+  db:
+    image: mohamedoussemaboussida/mongo:4.2
+    container_name: db
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    ports:
+      - 27017:27017
+    volumes:
+      - ./data/dump:/dump
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: mohamedoussemaboussida/backend:latest
-    restart: always 
-    container_name: back 
-    ports: 
-      - '5000:5000' 
-    depends_on: 
-      - db 
-volumes: 
-  mongo-data: 
+    restart: always
+    container_name: back
+    ports:
+      - '5000:5000'
+    depends_on:
+      - db
+    environment:
+      - NODE_ENV=production
+      - MONGO_URI=mongodb://root:example@db:27017/mydb?authSource=admin
+    volumes:
+      - ./Uploads:/app/Uploads
+
+volumes:
+  mongo-data:
