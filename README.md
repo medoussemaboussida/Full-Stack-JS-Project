@@ -85,8 +85,20 @@ The goal of this project is to provide a structured, secure and efficient platfo
 ✔️ Bad words filter    
 ✔️ Rich text editing with CKEditor  
 
-## Final solution
+## 🎨 UI/UX Design  
+Our platform features a modern, clean, and user-friendly interface designed with students and university staff in mind.  
+💡 The UI/UX was carefully crafted to ensure intuitive navigation, clear layout, and accessibility for all user roles.  
+📱 The interface is fully **responsive**, adapting seamlessly across desktops, tablets, and smartphones for a smooth experience on any device.   
+
+## 💻 Final solution
 <img align="right" width=200px height=200px alt="side_sticker" src="https://media.giphy.com/media/dRiZq6h7814nhldyza/giphy.gif?cid=ecf05e47e8hcz6ym1zshf9asfpo25pbad0uxg2v4sca9q6if&ep=v1_gifs_search&rid=giphy.gif&ct=g" />    
 <img src="https://github.com/user-attachments/assets/a082a64c-a8a1-460b-bee9-9a4811bae21e" width="630"/>
-<img src="https://github.com/user-attachments/assets/15f8c44c-239d-43b5-844b-86d81997aba3" width="800"/>
 <img src="https://github.com/user-attachments/assets/14a63bbf-52a4-4397-8fe6-e490fc5a8479" width="800"/>
+
+## 🙏 Dedication
+We would like to express our sincere gratitude to **ESPRIT University** for giving us the opportunity to work on this meaningful and innovative project.  
+A special thanks to our mentors:  
+👩‍🏫 **Ms. Linda Ouerfelli**  
+👩‍🏫 **Ms. Mariem Mriri**  
+👩‍🏫 **Ms. Oumeima Ibnlefkih**  
+for their guidance, trust, and valuable support throughout this journey.
