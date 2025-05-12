@@ -4,6 +4,7 @@ node_modules
 *.md
 tests
 __tests__
+test-results
 coverage
 *.log
 .env
@@ -15,3 +16,16 @@ Uploads
 dist
 build
 *.zip
+*.tar.gz
+*.tar
+*.bak
+*.tmp
+data
+public
+assets
+*.jpg
+*.png
+*.gif
+*.mp4
+*.pdf
+.DS_Store
