@@ -170,8 +170,11 @@ function Complaint() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [sortOption, setSortOption] = useState("newest");
   const [showComplaintRulesModal, setShowComplaintRulesModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const complaintsPerPage = 2;
   const navigate = useNavigate();
   const chatEndRef = useRef(null);
+
   // Charger le token, l'ID utilisateur et le nom d'utilisateur
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
@@ -624,6 +627,14 @@ function Complaint() {
       return sortOption === "newest" ? dateB - dateA : dateA - dateB;
     });
 
+  const totalPages = Math.ceil(filteredComplaints.length / complaintsPerPage);
+  const indexOfLastComplaint = currentPage * complaintsPerPage;
+  const indexOfFirstComplaint = indexOfLastComplaint - complaintsPerPage;
+  const currentComplaints = filteredComplaints.slice(
+    indexOfFirstComplaint,
+    indexOfLastComplaint
+  );
+
   return (
     <div>
       <style jsx>{`
@@ -980,8 +991,8 @@ function Complaint() {
                 width: "100%",
               }}
             >
-              {filteredComplaints.length > 0 ? (
-                filteredComplaints.map((complaint) => (
+              {currentComplaints.length > 0 ? (
+                currentComplaints.map((complaint) => (
                   <div
                     key={complaint._id}
                     className="complaint-item p-4 border rounded mb-4"
@@ -1168,6 +1179,77 @@ function Complaint() {
                 </p>
               )}
             </div>
+            {/* Pagination */}
+            {filteredComplaints.length > 2 && totalPages > 1 && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  marginTop: "30px",
+                  gap: "10px",
+                }}
+              >
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "50px",
+                    border: "1px solid #007bff",
+                    backgroundColor: currentPage === 1 ? "#e0e0e0" : "white",
+                    color: currentPage === 1 ? "#666" : "#007bff",
+                    cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                    transition: "all 0.3s ease",
+                    fontSize: "14px",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (currentPage > 1) {
+                      e.currentTarget.style.backgroundColor = "#e6f0ff";
+                      e.currentTarget.style.color = "white";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (currentPage > 1) {
+                      e.currentTarget.style.backgroundColor = "white";
+                      e.currentTarget.style.color = "#007bff";
+                    }
+                  }}
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                  }
+                  disabled={currentPage === totalPages}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "50px",
+                    border: "1px solid #007bff",
+                    backgroundColor: currentPage === totalPages ? "#e0e0e0" : "white",
+                    color: currentPage === totalPages ? "#666" : "#007bff",
+                    cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                    transition: "all 0.3s ease",
+                    fontSize: "14px",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (currentPage < totalPages) {
+                      e.currentTarget.style.backgroundColor = "#e6f0ff";
+                      e.currentTarget.style.color = "white";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (currentPage < totalPages) {
+                      e.currentTarget.style.backgroundColor = "white";
+                      e.currentTarget.style.color = "#007bff";
+                    }
+                  }}
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -1494,7 +1576,7 @@ function Complaint() {
               style={{
                 backgroundColor: "#f44336",
                 color: "white",
-                padding: "10px 20px",
+                padding: "10px 14px",
                 borderRadius: "50px",
                 border: "none",
                 cursor: "pointer",
