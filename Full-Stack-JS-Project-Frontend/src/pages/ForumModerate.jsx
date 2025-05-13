@@ -9,15 +9,17 @@ import {
   faFlag,
   faBan,
   faUserSlash,
-} from "@fortawesome/free-solid-svg-icons"; // Ajout de faUserSlash pour l'icône unban
+  faComment,
+  faClock,
+} from "@fortawesome/free-solid-svg-icons";
 import { faSearch } from "@fortawesome/free-solid-svg-icons";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer, toast } from "react-toastify";
 import { addNotification } from "../utils/notificationUtils";
 
-// Fonction pour couper la description à 3 lignes
+// Fonction pour couper la description à 150 caractères
 const truncateDescription = (text, isExpanded) => {
-  if (!isExpanded) {
+  if (!isExpanded && text.length > 150) {
     return `${text.substring(0, 150)}...`;
   }
   return text;
@@ -62,20 +64,19 @@ function ForumModerate() {
   const [banReason, setBanReason] = useState("");
   const [showBannedListModal, setShowBannedListModal] = useState(false);
   const [bannedUsers, setBannedUsers] = useState([]);
-  const [commentSentiments, setCommentSentiments] = useState({}); // Nouvel état pour les sentiments
-  const [isAnalyzing, setIsAnalyzing] = useState(false); // État pour indiquer si l'analyse est en cours
+  const [commentSentiments, setCommentSentiments] = useState({});
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const topicsPerPage = 4; // 4 topics per page (2 rows of 2 topics each)
   const navigate = useNavigate();
 
-  //sentiment ia
   const classifyText = async (text) => {
     const cacheKey = `sentiment_${text}`;
     const cachedResult = localStorage.getItem(cacheKey);
     if (cachedResult) {
       return cachedResult;
     }
-    //don't use it because is my personal key yehdik rabi aman aaychekkkkkkkkkkkkkkkkkkk
-    const REACT_APP_HUGGINGFACE_API_TOKEN =
-      "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";
+    const REACT_APP_HUGGINGFACE_API_TOKEN = "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";
     try {
       const response = await fetch(
         "https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english",
@@ -89,7 +90,6 @@ function ForumModerate() {
         }
       );
 
-      // Vérifier le statut de la réponse
       if (!response.ok) {
         console.error("Erreur HTTP:", response.status, response.statusText);
         const errorData = await response.json();
@@ -98,7 +98,7 @@ function ForumModerate() {
       }
 
       const data = await response.json();
-      console.log("Réponse de l'API Hugging Face:", data); // Ajouter pour déboguer
+      console.log("Réponse de l'API Hugging Face:", data);
 
       if (data && data[0] && data[0][0] && data[0][0].label) {
         const sentiment = data[0][0].label;
@@ -115,7 +115,7 @@ function ForumModerate() {
   };
 
   const handleAnalyzeSentiment = async () => {
-    setIsAnalyzing(true); // Indiquer que l'analyse commence
+    setIsAnalyzing(true);
     const sentiments = {};
     for (let i = 0; i < comments.length; i++) {
       const comment = comments[i];
@@ -123,14 +123,16 @@ function ForumModerate() {
       sentiments[comment._id] = sentiment;
     }
     setCommentSentiments(sentiments);
-    setIsAnalyzing(false); // Indiquer que l'analyse est terminée
+    setIsAnalyzing(false);
   };
+
   const toggleDescription = (forumId) => {
     setExpanded((prev) => ({
       ...prev,
       [forumId]: !prev[forumId],
     }));
   };
+
   const toggleSearch = () => {
     setIsSearchOpen((prev) => !prev);
     if (isSearchOpen) {
@@ -203,7 +205,6 @@ function ForumModerate() {
       if (response.ok) {
         toast.success(data.message || "User unbanned successfully!");
         setBannedUsers(bannedUsers.filter((user) => user._id !== banId));
-        // Ajout de la notification pour l'utilisateur débanni
         const bannedUser = bannedUsers.find((user) => user._id === banId);
         if (bannedUser && bannedUser.user_id) {
           const message = `You have been unbanned by a moderator. You can now participate in the forum again.`;
@@ -317,6 +318,11 @@ function ForumModerate() {
       })
   );
 
+  const indexOfLastTopic = currentPage * topicsPerPage;
+  const indexOfFirstTopic = indexOfLastTopic - topicsPerPage;
+  const currentTopics = filteredForums.slice(indexOfFirstTopic, indexOfLastTopic);
+  const totalPages = Math.ceil(filteredForums.length / topicsPerPage);
+
   const handleChangeStatus = async (forumId, newStatus) => {
     try {
       const response = await fetch(
@@ -343,7 +349,6 @@ function ForumModerate() {
             newStatus === "actif" ? "activated" : "deactivated"
           } successfully!`
         );
-        // Ajout de la notification pour l'utilisateur du forum
         const forum = forums.find((f) => f._id === forumId);
         if (forum && forum.user_id) {
           const message = `Your post "${forum.title}" has been ${
@@ -378,7 +383,6 @@ function ForumModerate() {
         setComments(comments.filter((comment) => comment._id !== commentId));
         setShowDeleteCommentModal(false);
         toast.success("Comment deleted successfully!");
-
         const message = `Your comment "${comment.content}" has been deleted by a moderator.`;
         addNotification(comment.user_id._id, message, "comment_deleted");
       })
@@ -427,7 +431,6 @@ function ForumModerate() {
         setForums(forums.filter((forum) => forum._id !== forumId));
         setShowDeleteModal(false);
         toast.success("Topic deleted successfully!");
-
         const message = `Your post "${forum.title}" has been deleted by a moderator.`;
         addNotification(forum.user_id._id, message, "post_deleted");
       })
@@ -593,7 +596,6 @@ function ForumModerate() {
       if (response.ok) {
         toast.success(data.message || "User banned successfully!");
         setShowBanModal(false);
-
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + parseInt(banDuration));
         const message = `You have been banned for ${banReason}. Ban expires on ${expiresAt.toLocaleString(
@@ -641,7 +643,7 @@ function ForumModerate() {
           <div className="forum-area py-100">
             <div
               className="container"
-              style={{ maxWidth: "800px", margin: "0 auto" }}
+              style={{ maxWidth: "1200px", margin: "0 auto" }}
             >
               <p style={{ textAlign: "center", fontSize: "18px" }}>
                 Loading...
@@ -688,13 +690,13 @@ function ForumModerate() {
         <div className="forum-area py-100">
           <div
             className="container"
-            style={{ maxWidth: "800px", margin: "0 auto" }}
+            style={{ maxWidth: "1200px", margin: "0 auto" }}
           >
             <div className="forum-header d-flex justify-content-between align-items-center mb-4">
               <div
                 style={{
                   position: "relative",
-                  width: isSearchOpen ? "200px" : "20px",
+                  width: isSearchOpen ? "700px" : "40px",
                   transition: "width 0.3s ease",
                 }}
               >
@@ -725,25 +727,24 @@ function ForumModerate() {
                     />
                     <input
                       type="text"
-                      placeholder=" Search any topic..."
+                      placeholder="Search topics..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       style={{
-                        padding: "8px 8px 8px 40px",
-                        borderRadius: "50px",
+                        padding: "10px 10px 10px 40px",
+                        borderRadius: "25px",
                         border: "1px solid #007bff",
                         outline: "none",
-                        width: isSearchOpen ? "100%" : "0%",
+                        width: "100%",
                         boxSizing: "border-box",
-                        opacity: isSearchOpen ? 1 : 0,
-                        transition: "opacity 0.10s ease, width 0.10s ease",
-                        visibility: isSearchOpen ? "visible" : "hidden",
+                        transition: "all 0.3s ease",
+                        boxShadow: "0 2px 5px rgba(0, 0, 0, 0.1)",
                       }}
                     />
                   </>
                 )}
               </div>
-              <div className="d-flex align-items-center">
+              <div className="d-flex align-items-center gap-3">
                 <button
                   onClick={() => setShowPertinentOnly(!showPertinentOnly)}
                   className="theme-btn"
@@ -752,11 +753,12 @@ function ForumModerate() {
                     backgroundColor: showPertinentOnly ? "#0056b3" : "#007bff",
                     color: "white",
                     border: "none",
-                    cursor: "pointer",
+                    borderRadius: "25px",
                     fontSize: "14px",
-                    marginRight: "10px",
-                    borderRadius: "50px",
-                    transition: "background-color 0.3s ease",
+                    fontWeight: "500",
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                    boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
                   }}
                 >
                   {showPertinentOnly
@@ -771,30 +773,20 @@ function ForumModerate() {
                     backgroundColor: "#ff9800",
                     color: "white",
                     border: "none",
-                    borderRadius: "50px",
+                    borderRadius: "25px",
                     fontSize: "14px",
                     fontWeight: "500",
                     cursor: "pointer",
                     transition: "all 0.3s ease",
                     boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
-                    outline: "none",
-                    marginRight: "10px",
                   }}
                   onMouseEnter={(e) => {
                     e.target.style.backgroundColor = "#e68900";
                     e.target.style.transform = "scale(1.05)";
-                    e.target.style.boxShadow = "0 4px 10px rgba(0, 0, 0, 0.3)";
                   }}
                   onMouseLeave={(e) => {
                     e.target.style.backgroundColor = "#ff9800";
                     e.target.style.transform = "scale(1)";
-                    e.target.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.2)";
-                  }}
-                  onMouseDown={(e) => {
-                    e.target.style.transform = "scale(0.95)";
-                  }}
-                  onMouseUp={(e) => {
-                    e.target.style.transform = "scale(1.05)";
                   }}
                 >
                   Banned List
@@ -804,13 +796,13 @@ function ForumModerate() {
                   onChange={(e) => setSortOption(e.target.value)}
                   style={{
                     padding: "10px",
-                    borderRadius: "50px",
+                    borderRadius: "25px",
                     border: "1px solid #007bff",
                     outline: "none",
                     cursor: "pointer",
                     fontSize: "14px",
-                    marginRight: "10px",
-                    width: "200px",
+                    backgroundColor: "white",
+                    boxShadow: "0 2px 5px rgba(0, 0, 0, 0.1)",
                   }}
                 >
                   <option value="newest">Newest Topics</option>
@@ -819,160 +811,133 @@ function ForumModerate() {
               </div>
             </div>
 
-            <div
-              className="forum-list"
-              style={{
-                maxWidth: "800px",
-                margin: "0 auto",
-                width: "100%",
-              }}
-            >
-              {filteredForums.length > 0 ? (
-                filteredForums.map((forum) => (
-                  <div
-                    key={forum._id}
-                    className="forum-item p-4 border rounded mb-4"
-                    style={{
-                      opacity: forum.status === "inactif" ? 0.5 : 1,
-                    }}
-                  >
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                      <div className="d-flex align-items-center">
-                        <img
-                          src={`http://localhost:5000${forum.user_id.user_photo}`}
-                          alt="User"
-                          className="rounded-circle me-2"
-                          style={{
-                            width: "40px",
-                            height: "40px",
-                            objectFit: "cover",
-                          }}
-                        />
-                        <h6 className="mb-0 me-3">
-                          {forum.user_id.username || "Utilisateur inconnu"}
-                        </h6>
-                        {forum.user_id.level && forum.user_id.speciality && (
-                          <span
-                            className="badge"
+            <div className="forum-list">
+              {currentTopics.length > 0 ? (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "30px" }}>
+                  {currentTopics.map((forum) => (
+                    <div
+                      key={forum._id}
+                      className="forum-item"
+                      style={{
+                        backgroundColor: "white",
+                        borderRadius: "15px",
+                        padding: "20px",
+                        boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
+                        opacity: forum.status === "inactif" ? 0.6 : 1,
+                        transition: "all 0.3s ease",
+                      }}
+                    >
+                      <div className="d-flex justify-content-between align-items-center mb-3">
+                        <div className="d-flex align-items-center gap-3">
+                          <img
+                            src={`http://localhost:5000${forum.user_id.user_photo}`}
+                            alt="User"
+                            className="rounded-circle"
                             style={{
-                              backgroundColor: "transparent",
-                              border: "1px solid #00BFFF",
-                              color: "#00BFFF",
-                              padding: "5px 8px",
-                              borderRadius: "20px",
-                              marginRight: "5px",
-                              boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
-                              fontSize: "0.875rem",
+                              width: "50px",
+                              height: "50px",
+                              objectFit: "cover",
+                              border: "2px solid #007bff",
                             }}
-                          >
-                            {forum.user_id.level} {forum.user_id.speciality}
-                          </span>
-                        )}
-                        {forum.tags && forum.tags.length > 0 && (
-                          <span
-                            className="badge"
-                            style={{
-                              backgroundColor: "transparent",
-                              border: "1px solid #FF0000",
-                              color: "#FF0000",
-                              padding: "5px 8px",
-                              borderRadius: "20px",
-                              boxShadow: "0 0 10px rgba(255, 0, 0, 0.5)",
-                              fontSize: "0.875rem",
-                            }}
-                          >
-                            {forum.tags.join(", ")}
-                          </span>
-                        )}
-                      </div>
-                      <div className="d-flex align-items-center">
-                        <span
-                          className="icon"
-                          style={{
-                            cursor: "pointer",
-                            fontSize: "20px",
-                            color:
-                              forum.status === "actif" ? "orange" : "green",
-                            marginRight: "15px",
-                          }}
-                          onClick={() =>
-                            handleChangeStatus(
-                              forum._id,
-                              forum.status === "actif" ? "inactif" : "actif"
-                            )
-                          }
-                          title={
-                            forum.status === "actif" ? "Désactiver" : "Activer"
-                          }
-                        >
-                          <FontAwesomeIcon
-                            icon={
-                              forum.status === "actif"
-                                ? faToggleOff
-                                : faToggleOn
-                            }
                           />
-                        </span>
-                        <span
-                          className="icon"
-                          style={{
-                            cursor: "pointer",
-                            fontSize: "20px",
-                            color: "red",
-                            marginRight: "15px",
-                          }}
-                          onClick={() => {
-                            setForumToDelete(forum._id);
-                            setShowDeleteModal(true);
-                          }}
-                        >
-                          <FontAwesomeIcon icon={faTrashAlt} />
-                        </span>
-                        <button
-                          onClick={() => handleViewReports(forum._id)}
-                          className="view-reports-btn"
-                          style={{
-                            padding: "8px 16px",
-                            backgroundColor: "#ff9800",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "20px",
-                            fontSize: "14px",
-                            fontWeight: "500",
-                            cursor: "pointer",
-                            transition: "all 0.3s ease",
-                            boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
-                            outline: "none",
-                            marginRight: "15px",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.target.style.backgroundColor = "#e68900";
-                            e.target.style.transform = "scale(1.05)";
-                            e.target.style.boxShadow =
-                              "0 4px 10px rgba(0, 0, 0, 0.3)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.target.style.backgroundColor = "#ff9800";
-                            e.target.style.transform = "scale(1)";
-                            e.target.style.boxShadow =
-                              "0 2px 5px rgba(0, 0, 0, 0.2)";
-                          }}
-                          onMouseDown={(e) => {
-                            e.target.style.transform = "scale(0.95)";
-                          }}
-                          onMouseUp={(e) => {
-                            e.target.style.transform = "scale(1.05)";
-                          }}
-                        >
-                          View Reports
-                        </button>
-                        {userId &&
-                          forum.user_id &&
-                          userId !== forum.user_id._id && (
+                          <div>
+                            <h6 className="mb-1" style={{ fontSize: "16px", fontWeight: "600" }}>
+                              {forum.user_id.username || "Utilisateur inconnu"}
+                            </h6>
+                            {forum.user_id.level && forum.user_id.speciality && (
+                              <span
+                                className="badge"
+                                style={{
+                                  backgroundColor: "#e6f7ff",
+                                  color: "#007bff",
+                                  padding: "5px 10px",
+                                  borderRadius: "15px",
+                                  fontSize: "12px",
+                                }}
+                              >
+                                {forum.user_id.level} {forum.user_id.speciality}
+                              </span>
+                            )}
+                            {forum.tags && forum.tags.length > 0 && (
+                              <span
+                                className="badge ms-2"
+                                style={{
+                                  backgroundColor: "#ffe6e6",
+                                  color: "#ff0000",
+                                  padding: "5px 10px",
+                                  borderRadius: "15px",
+                                  fontSize: "12px",
+                                }}
+                              >
+                                {forum.tags.join(", ")}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="d-flex align-items-center gap-2">
+                          <span
+                            className="icon"
+                            style={{
+                              cursor: "pointer",
+                              fontSize: "20px",
+                              color: forum.status === "actif" ? "orange" : "green",
+                            }}
+                            onClick={() =>
+                              handleChangeStatus(
+                                forum._id,
+                                forum.status === "actif" ? "inactif" : "actif"
+                              )
+                            }
+                            title={forum.status === "actif" ? "Désactiver" : "Activer"}
+                          >
+                            <FontAwesomeIcon
+                              icon={forum.status === "actif" ? faToggleOff : faToggleOn}
+                            />
+                          </span>
+                          <span
+                            className="icon"
+                            style={{
+                              cursor: "pointer",
+                              fontSize: "20px",
+                              color: "red",
+                            }}
+                            onClick={() => {
+                              setForumToDelete(forum._id);
+                              setShowDeleteModal(true);
+                            }}
+                            title="Delete Topic"
+                          >
+                            <FontAwesomeIcon icon={faTrashAlt} />
+                          </span>
+                          <button
+                            onClick={() => handleViewReports(forum._id)}
+                            className="view-reports-btn"
+                            style={{
+                              padding: "8px 16px",
+                              backgroundColor: "#ff9800",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "20px",
+                              fontSize: "14px",
+                              fontWeight: "500",
+                              cursor: "pointer",
+                              transition: "all 0.3s ease",
+                              boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.backgroundColor = "#e68900";
+                              e.target.style.transform = "scale(1.05)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.backgroundColor = "#ff9800";
+                              e.target.style.transform = "scale(1)";
+                            }}
+                          >
+                            View Reports
+                          </button>
+                          {userId && forum.user_id && userId !== forum.user_id._id && (
                             <button
-                              onClick={() =>
-                                handleOpenBanModal(forum.user_id._id)
-                              }
+                              onClick={() => handleOpenBanModal(forum.user_id._id)}
                               className="ban-btn"
                               style={{
                                 padding: "8px 16px",
@@ -985,154 +950,237 @@ function ForumModerate() {
                                 cursor: "pointer",
                                 transition: "all 0.3s ease",
                                 boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
-                                outline: "none",
                               }}
                               onMouseEnter={(e) => {
                                 e.target.style.backgroundColor = "#c82333";
                                 e.target.style.transform = "scale(1.05)";
-                                e.target.style.boxShadow =
-                                  "0 4px 10px rgba(0, 0, 0, 0.3)";
                               }}
                               onMouseLeave={(e) => {
                                 e.target.style.backgroundColor = "#dc3545";
                                 e.target.style.transform = "scale(1)";
-                                e.target.style.boxShadow =
-                                  "0 2px 5px rgba(0, 0, 0, 0.2)";
-                              }}
-                              onMouseDown={(e) => {
-                                e.target.style.transform = "scale(0.95)";
-                              }}
-                              onMouseUp={(e) => {
-                                e.target.style.transform = "scale(1.05)";
                               }}
                             >
                               Ban User
                             </button>
                           )}
+                        </div>
                       </div>
-                    </div>
-                    <h3
-                      style={{
-                        wordBreak: "break-word",
-                        overflowWrap: "break-word",
-                        whiteSpace: "normal",
-                        maxWidth: "100%",
-                        margin: 0,
-                      }}
-                    >
-                      {forum.title}
-                    </h3>
-                    <br />
-                    <p
-                      className="forum-description mb-0"
-                      style={{
-                        fontSize: "18px",
-                        color: "black",
-                        lineHeight: "1.5",
-                      }}
-                    >
-                      {truncateDescription(
-                        forum.description,
-                        expanded[forum._id]
-                      )}
-                      {forum.description.length > 150 && (
-                        <button
-                          onClick={() => toggleDescription(forum._id)}
-                          style={{
-                            color: "#007bff",
-                            fontSize: "18px",
-                            border: "none",
-                            background: "none",
-                            cursor: "pointer",
-                          }}
-                        >
-                          {expanded[forum._id] ? "See less" : "See more"}
-                        </button>
-                      )}
-                    </p>
-                    {forum.forum_photo && (
-                      <img
-                        src={forum.forum_photo}
-                        alt="Forum"
-                        className="forum-photo mt-2"
+                      <h3
                         style={{
-                          width: "100%",
-                          height: "auto",
-                          objectFit: "cover",
-                          borderRadius: "20px",
-                        }}
-                      />
-                    )}
-                    <div className="d-flex align-items-center mt-2">
-                      <button
-                        onClick={() => handleViewComments(forum._id)}
-                        className="view-comments-btn"
-                        style={{
-                          padding: "8px 16px",
-                          backgroundColor: "#28a745",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "20px",
-                          fontSize: "14px",
-                          fontWeight: "500",
-                          cursor: "pointer",
-                          transition: "all 0.3s ease",
-                          boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
-                          outline: "none",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.target.style.backgroundColor = "#218838";
-                          e.target.style.transform = "scale(1.05)";
-                          e.target.style.boxShadow =
-                            "0 4px 10px rgba(0, 0, 0, 0.3)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.backgroundColor = "#28a745";
-                          e.target.style.transform = "scale(1)";
-                          e.target.style.boxShadow =
-                            "0 2px 5px rgba(0, 0, 0, 0.2)";
-                        }}
-                        onMouseDown={(e) => {
-                          e.target.style.transform = "scale(0.95)";
-                        }}
-                        onMouseUp={(e) => {
-                          e.target.style.transform = "scale(1.05)";
+                          fontSize: "20px",
+                          fontWeight: "600",
+                          margin: "0 0 10px 0",
+                          wordBreak: "break-word",
                         }}
                       >
-                        View Comments
-                      </button>
-                    </div>
-                    <div
-                      className="mt-3 text-muted"
-                      style={{ fontSize: "14px" }}
-                    >
-                      <p style={{ margin: 0 }}>
-                        Posted at :{" "}
-                        {new Date(forum.createdAt).toLocaleString("fr-FR", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {forum.title}
+                      </h3>
+                      <p
+                        className="forum-description"
+                        style={{
+                          fontSize: "16px",
+                          color: "#555",
+                          lineHeight: "1.6",
+                          marginBottom: "15px",
+                        }}
+                      >
+                        {truncateDescription(forum.description, expanded[forum._id])}
+                        {forum.description.length > 150 && (
+                          <button
+                            onClick={() => toggleDescription(forum._id)}
+                            style={{
+                              color: "#007bff",
+                              fontSize: "14px",
+                              border: "none",
+                              background: "none",
+                              cursor: "pointer",
+                              marginLeft: "5px",
+                            }}
+                          >
+                            {expanded[forum._id] ? "See less" : "See more"}
+                          </button>
+                        )}
                       </p>
-                      <p style={{ margin: 0 }}>
-                        Status:{" "}
-                        <span
+                      {forum.forum_photo && (
+                        <img
+                          src={forum.forum_photo}
+                          alt="Forum"
+                          className="forum-photo mb-3"
                           style={{
-                            color: forum.status === "actif" ? "green" : "red",
+                            width: "100%",
+                            maxHeight: "200px",
+                            objectFit: "cover",
+                            borderRadius: "10px",
+                          }}
+                        />
+                      )}
+                      <div className="d-flex justify-content-between align-items-center">
+                        <button
+                          onClick={() => handleViewComments(forum._id)}
+                          className="view-comments-btn"
+                          style={{
+                            padding: "8px 16px",
+                            backgroundColor: "#28a745",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "20px",
+                            fontSize: "14px",
+                            fontWeight: "500",
+                            cursor: "pointer",
+                            transition: "all 0.3s ease",
+                            boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = "#218838";
+                            e.target.style.transform = "scale(1.05)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = "#28a745";
+                            e.target.style.transform = "scale(1)";
                           }}
                         >
-                          {forum.status}
-                        </span>
-                      </p>
+                          <FontAwesomeIcon icon={faComment} className="me-2" />
+                          View Comments ({commentsCountMap[forum._id] || 0})
+                        </button>
+                        <div className="text-muted" style={{ fontSize: "14px" }}>
+                          <span>
+                            <FontAwesomeIcon icon={faClock} className="me-1" />
+                            {new Date(forum.createdAt).toLocaleString("fr-FR", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                          <span className="ms-3">
+                            Status:{" "}
+                            <span
+                              style={{
+                                color: forum.status === "actif" ? "green" : "red",
+                                fontWeight: "500",
+                              }}
+                            >
+                              {forum.status}
+                            </span>
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+                </div>
               ) : (
-                <p>There is no topic here!</p>
+                <p style={{ textAlign: "center", fontSize: "18px", color: "#666" }}>
+                  There are no topics here!
+                </p>
               )}
             </div>
+
+{totalPages > 1 && (
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      marginTop: "30px",
+      gap: "10px",
+    }}
+  >
+    <button className="theme-btn"
+      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+      disabled={currentPage === 1}
+      style={{
+        padding: "8px 16px",
+        borderRadius: "50px",
+        border: "1px solid #007bff",
+        backgroundColor: currentPage === 1 ? "#e0e0e0" : "white",
+        color: currentPage === 1 ? "#666" : "#007bff",
+        cursor: currentPage === 1 ? "not-allowed" : "pointer",
+        transition: "all 0.3s ease",
+        fontSize: "14px",
+      }}
+      onMouseEnter={(e) => {
+        if (currentPage > 1) {
+          e.currentTarget.style.backgroundColor = "#e6f0ff";
+          e.currentTarget.style.color = "white";
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (currentPage > 1) {
+          e.currentTarget.style.backgroundColor = "white";
+          e.currentTarget.style.color = "#007bff";
+        }
+      }}
+    >
+      Previous
+    </button>
+    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+      <button className="theme-btn"
+        key={page}
+        onClick={() => setCurrentPage(page)}
+        style={{
+          padding: "8px 14px",
+          borderRadius: "50px",
+          border: "1px solid #007bff",
+          backgroundColor: currentPage === page ? "#007bff" : "white",
+          color: currentPage === page ? "white" : "#007bff",
+          cursor: "pointer",
+          transition: "all 0.3s ease",
+          fontSize: "14px",
+          width: "40px",
+          height: "40px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+        onMouseEnter={(e) => {
+          if (currentPage !== page) {
+            e.currentTarget.style.backgroundColor = "#e6f0ff";
+            e.currentTarget.style.color = "white";
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (currentPage !== page) {
+            e.currentTarget.style.backgroundColor = "white";
+            e.currentTarget.style.color = "#007bff";
+          }
+        }}
+      >
+        {page}
+      </button>
+    ))}
+    <button className="theme-btn"
+      onClick={() =>
+        setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+      }
+      disabled={currentPage === totalPages}
+      style={{
+        padding: "8px 16px",
+        borderRadius: "50px",
+        border: "1px solid #007bff",
+        backgroundColor: currentPage === totalPages ? "#e0e0e0" : "white",
+        color: currentPage === totalPages ? "#666" : "#007bff",
+        cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+        transition: "all 0.3s ease",
+        fontSize: "14px",
+      }}
+      onMouseEnter={(e) => {
+        if (currentPage < totalPages) {
+          e.currentTarget.style.backgroundColor = "#e6f0ff";
+          e.currentTarget.style.color = "white";
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (currentPage < totalPages) {
+          e.currentTarget.style.backgroundColor = "white";
+          e.currentTarget.style.color = "#007bff";
+        }
+      }}
+    >
+      Next
+    </button>
+  </div>
+)}
           </div>
         </div>
       </main>
@@ -1156,21 +1204,24 @@ function ForumModerate() {
           <div
             style={{
               backgroundColor: "white",
-              padding: "20px",
-              borderRadius: "8px",
+              padding: "25px",
+              borderRadius: "15px",
               width: "900px",
-              maxWidth: "100%",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              maxWidth: "90%",
+              boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+            <h3 style={{ marginBottom: "20px", textAlign: "center", fontSize: "22px", fontWeight: "600" }}>
               Reports for this Topic
             </h3>
             <div
               style={{
-                maxHeight: reports.length > 3 ? "300px" : "auto",
+                maxHeight: reports.length > 3 ? "400px" : "auto",
                 overflowY: reports.length > 3 ? "auto" : "visible",
                 marginBottom: "20px",
+                padding: "10px",
+                backgroundColor: "#f9f9f9",
+                borderRadius: "10px",
               }}
             >
               {reports.length > 0 ? (
@@ -1178,19 +1229,22 @@ function ForumModerate() {
                   <div
                     key={index}
                     style={{
-                      marginBottom: "10px",
+                      marginBottom: "15px",
                       display: "flex",
-                      alignItems: "flex-start",
+                      alignItems: "center",
                       justifyContent: "space-between",
-                      padding: "10px",
-                      borderBottom: "1px solid #ddd",
+                      padding: "15px",
+                      borderBottom: "1px solid #eee",
+                      backgroundColor: "white",
+                      borderRadius: "10px",
+                      boxShadow: "0 2px 5px rgba(0, 0, 0, 0.05)",
                     }}
                   >
                     <div
                       style={{
                         display: "flex",
-                        alignItems: "flex-start",
-                        gap: "10px",
+                        alignItems: "center",
+                        gap: "15px",
                         flex: 1,
                       }}
                     >
@@ -1203,23 +1257,21 @@ function ForumModerate() {
                             height: "40px",
                             borderRadius: "50%",
                             objectFit: "cover",
+                            border: "2px solid #007bff",
                           }}
                         />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <p style={{ margin: 0, fontWeight: "bold" }}>
+                        <p style={{ margin: 0, fontWeight: "600", fontSize: "16px" }}>
                           {report.user_id.username}
                           <span
-                            className="badge"
+                            className="badge ms-3"
                             style={{
-                              backgroundColor: "transparent",
-                              border: "1px solid #00BFFF",
-                              color: "#00BFFF",
-                              padding: "2px 8px",
-                              borderRadius: "20px",
-                              boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
-                              fontSize: "0.875rem",
-                              marginLeft:"15px"
+                              backgroundColor: "#e6f7ff",
+                              color: "#007bff",
+                              padding: "5px 10px",
+                              borderRadius: "15px",
+                              fontSize: "12px",
                             }}
                           >
                             {report.user_id.level} {report.user_id.speciality}
@@ -1227,20 +1279,18 @@ function ForumModerate() {
                         </p>
                         <p
                           style={{
-                            margin: 0,
+                            margin: "5px 0 0 0",
                             wordBreak: "break-word",
-                            overflowWrap: "break-word",
-                            whiteSpace: "normal",
                             color: "#333",
+                            fontSize: "14px",
                           }}
                         >
                           Reason: {report.reason}
                         </p>
                         <p
-                          style={{ margin: 0, fontSize: "12px", color: "#666" }}
+                          style={{ margin: "5px 0 0 0", fontSize: "12px", color: "#666" }}
                         >
-                          Reported at:{" "}
-                          {new Date(report.createdAt).toLocaleString("fr-FR")}
+                          Reported at: {new Date(report.createdAt).toLocaleString("fr-FR")}
                         </p>
                       </div>
                     </div>
@@ -1267,7 +1317,7 @@ function ForumModerate() {
                   </div>
                 ))
               ) : (
-                <p style={{ textAlign: "center" }}>
+                <p style={{ textAlign: "center", fontSize: "16px", color: "#666" }}>
                   There are no reports for this topic!
                 </p>
               )}
@@ -1276,19 +1326,22 @@ function ForumModerate() {
               style={{
                 display: "flex",
                 justifyContent: "center",
-                gap: "10px",
+                gap: "15px",
                 marginTop: "20px",
               }}
             >
               <button
                 onClick={() => setShowReportsModal(false)}
                 style={{
+                  padding: "10px 25px",
                   backgroundColor: "#f44336",
                   color: "white",
-                  padding: "10px 20px",
-                  borderRadius: "50px",
                   border: "none",
+                  borderRadius: "25px",
                   cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  transition: "all 0.3s ease",
                 }}
               >
                 Close
@@ -1317,14 +1370,14 @@ function ForumModerate() {
           <div
             style={{
               backgroundColor: "white",
-              padding: "20px",
-              borderRadius: "8px",
+              padding: "25px",
+              borderRadius: "15px",
               width: "900px",
-              maxWidth: "100%",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              maxWidth: "90%",
+              boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+            <h3 style={{ marginBottom: "20px", textAlign: "center", fontSize: "22px", fontWeight: "600" }}>
               Comments
             </h3>
             <div
@@ -1338,8 +1391,8 @@ function ForumModerate() {
                 onClick={handleAnalyzeSentiment}
                 disabled={isAnalyzing}
                 style={{
-                  padding: "8px 16px",
-                  backgroundColor: isAnalyzing ? "#ccc" : "#800080", // Mauve pour le bouton, gris si en cours d'analyse
+                  padding: "10px 20px",
+                  backgroundColor: isAnalyzing ? "#ccc" : "#800080",
                   color: "white",
                   border: "none",
                   borderRadius: "20px",
@@ -1348,41 +1401,31 @@ function ForumModerate() {
                   cursor: isAnalyzing ? "not-allowed" : "pointer",
                   transition: "all 0.3s ease",
                   boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
-                  outline: "none",
                 }}
                 onMouseEnter={(e) => {
                   if (!isAnalyzing) {
-                    e.target.style.backgroundColor = "#660066"; // Mauve plus foncé au survol
+                    e.target.style.backgroundColor = "#660066";
                     e.target.style.transform = "scale(1.05)";
-                    e.target.style.boxShadow = "0 4px 10px rgba(0, 0, 0, 0.3)";
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!isAnalyzing) {
                     e.target.style.backgroundColor = "#800080";
                     e.target.style.transform = "scale(1)";
-                    e.target.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.2)";
-                  }
-                }}
-                onMouseDown={(e) => {
-                  if (!isAnalyzing) {
-                    e.target.style.transform = "scale(0.95)";
-                  }
-                }}
-                onMouseUp={(e) => {
-                  if (!isAnalyzing) {
-                    e.target.style.transform = "scale(1.05)";
                   }
                 }}
               >
-                {isAnalyzing ? "Analyzing..." : "Analyze"}
+                {isAnalyzing ? "Analyzing..." : "Analyze Sentiment"}
               </button>
             </div>
             <div
               style={{
-                maxHeight: comments.length > 3 ? "300px" : "auto",
+                maxHeight: comments.length > 3 ? "400px" : "auto",
                 overflowY: comments.length > 3 ? "auto" : "visible",
                 marginBottom: "20px",
+                padding: "10px",
+                backgroundColor: "#f9f9f9",
+                borderRadius: "10px",
               }}
             >
               {comments.length > 0 ? (
@@ -1390,19 +1433,22 @@ function ForumModerate() {
                   <div
                     key={index}
                     style={{
-                      marginBottom: "10px",
+                      marginBottom: "15px",
                       display: "flex",
-                      alignItems: "flex-start",
+                      alignItems: "center",
                       justifyContent: "space-between",
-                      padding: "10px",
-                      borderBottom: "1px solid #ddd",
+                      padding: "15px",
+                      borderBottom: "1px solid #eee",
+                      backgroundColor: "white",
+                      borderRadius: "10px",
+                      boxShadow: "0 2px 5px rgba(0, 0, 0, 0.05)",
                     }}
                   >
                     <div
                       style={{
                         display: "flex",
-                        alignItems: "flex-start",
-                        gap: "10px",
+                        alignItems: "center",
+                        gap: "15px",
                         flex: 1,
                       }}
                     >
@@ -1415,59 +1461,44 @@ function ForumModerate() {
                             height: "40px",
                             borderRadius: "50%",
                             objectFit: "cover",
+                            border: "2px solid #007bff",
                           }}
                         />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <p style={{ margin: 0, fontWeight: "bold" }}>
-                          {comment.user_id.username} &nbsp;
+                        <p style={{ margin: 0, fontWeight: "600", fontSize: "16px" }}>
+                          {comment.user_id.username}
                           <span
-                            className="badge"
+                            className="badge ms-3"
                             style={{
-                              backgroundColor: "transparent",
-                              border: "1px solid #00BFFF",
-                              color: "#00BFFF",
-                              padding: "2px 8px",
-                              borderRadius: "20px",
-                              boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
-                              fontSize: "0.875rem",
+                              backgroundColor: "#e6f7ff",
+                              color: "#007bff",
+                              padding: "5px 10px",
+                              borderRadius: "15px",
+                              fontSize: "12px",
                             }}
                           >
                             {comment.user_id.level} {comment.user_id.speciality}
                           </span>
                           {commentSentiments[comment._id] && (
                             <span
-                              className="badge"
+                              className="badge ms-2"
                               style={{
-                                marginLeft: "10px",
-                                backgroundColor: "transparent",
-                                border: `1px solid ${
+                                backgroundColor:
                                   commentSentiments[comment._id] === "POSITIVE"
-                                    ? "#28a745" // Vert pour POSITIVE
-                                    : commentSentiments[comment._id] ===
-                                      "NEGATIVE"
-                                    ? "#dc3545" // Rouge pour NEGATIVE
-                                    : "#6c757d" // Gris pour NEUTRAL
-                                }`,
-                                color: `${
+                                    ? "#e6ffe6"
+                                    : commentSentiments[comment._id] === "NEGATIVE"
+                                    ? "#ffe6e6"
+                                    : "#f0f0f0",
+                                color:
                                   commentSentiments[comment._id] === "POSITIVE"
                                     ? "#28a745"
-                                    : commentSentiments[comment._id] ===
-                                      "NEGATIVE"
+                                    : commentSentiments[comment._id] === "NEGATIVE"
                                     ? "#dc3545"
-                                    : "#6c757d"
-                                }`,
-                                padding: "2px 8px",
-                                borderRadius: "20px",
-                                boxShadow: `0 0 10px ${
-                                  commentSentiments[comment._id] === "POSITIVE"
-                                    ? "rgba(40, 167, 69, 0.5)" // Lueur verte
-                                    : commentSentiments[comment._id] ===
-                                      "NEGATIVE"
-                                    ? "rgba(220, 53, 69, 0.5)" // Lueur rouge
-                                    : "rgba(108, 117, 125, 0.5)" // Lueur grise
-                                }`,
-                                fontSize: "0.875rem",
+                                    : "#6c757d",
+                                padding: "5px 10px",
+                                borderRadius: "15px",
+                                fontSize: "12px",
                               }}
                             >
                               {commentSentiments[comment._id]}
@@ -1478,9 +1509,8 @@ function ForumModerate() {
                           style={{
                             margin: "5px 0 0 0",
                             wordBreak: "break-word",
-                            overflowWrap: "break-word",
-                            whiteSpace: "normal",
                             color: "#333",
+                            fontSize: "14px",
                           }}
                         >
                           {comment.content}
@@ -1521,48 +1551,49 @@ function ForumModerate() {
                       >
                         <FontAwesomeIcon icon={faTrashAlt} />
                       </span>
-                      {userId &&
-                        comment.user_id &&
-                        userId !== comment.user_id._id && (
-                          <span
-                            className="icon"
-                            style={{
-                              cursor: "pointer",
-                              fontSize: "18px",
-                              color: "purple",
-                            }}
-                            onClick={() =>
-                              handleOpenBanModal(comment.user_id._id)
-                            }
-                            title="Ban User"
-                          >
-                            <FontAwesomeIcon icon={faBan} />
-                          </span>
-                        )}
+                      {userId && comment.user_id && userId !== comment.user_id._id && (
+                        <span
+                          className="icon"
+                          style={{
+                            cursor: "pointer",
+                            fontSize: "18px",
+                            color: "purple",
+                          }}
+                          onClick={() => handleOpenBanModal(comment.user_id._id)}
+                          title="Ban User"
+                        >
+                          <FontAwesomeIcon icon={faBan} />
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))
               ) : (
-                <p style={{ textAlign: "center" }}>There is no comment here!</p>
+                <p style={{ textAlign: "center", fontSize: "16px", color: "#666" }}>
+                  There is no comment here!
+                </p>
               )}
             </div>
             <div
               style={{
                 display: "flex",
                 justifyContent: "center",
-                gap: "10px",
+                gap: "15px",
                 marginTop: "20px",
               }}
             >
               <button
                 onClick={() => setShowCommentModal(false)}
                 style={{
+                  padding: "10px 25px",
                   backgroundColor: "#f44336",
                   color: "white",
-                  padding: "10px 20px",
-                  borderRadius: "50px",
                   border: "none",
+                  borderRadius: "25px",
                   cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  transition: "all 0.3s ease",
                 }}
               >
                 Close
@@ -1591,21 +1622,24 @@ function ForumModerate() {
           <div
             style={{
               backgroundColor: "white",
-              padding: "20px",
-              borderRadius: "8px",
+              padding: "25px",
+              borderRadius: "15px",
               width: "900px",
-              maxWidth: "100%",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              maxWidth: "90%",
+              boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+            <h3 style={{ marginBottom: "20px", textAlign: "center", fontSize: "22px", fontWeight: "600" }}>
               Reports for this Comment
             </h3>
             <div
               style={{
-                maxHeight: commentReports.length > 3 ? "300px" : "auto",
+                maxHeight: commentReports.length > 3 ? "400px" : "auto",
                 overflowY: commentReports.length > 3 ? "auto" : "visible",
                 marginBottom: "20px",
+                padding: "10px",
+                backgroundColor: "#f9f9f9",
+                borderRadius: "10px",
               }}
             >
               {commentReports.length > 0 ? (
@@ -1613,19 +1647,22 @@ function ForumModerate() {
                   <div
                     key={index}
                     style={{
-                      marginBottom: "10px",
+                      marginBottom: "15px",
                       display: "flex",
-                      alignItems: "flex-start",
+                      alignItems: "center",
                       justifyContent: "space-between",
-                      padding: "10px",
-                      borderBottom: "1px solid #ddd",
+                      padding: "15px",
+                      borderBottom: "1px solid #eee",
+                      backgroundColor: "white",
+                      borderRadius: "10px",
+                      boxShadow: "0 2px 5px rgba(0, 0, 0, 0.05)",
                     }}
                   >
                     <div
                       style={{
                         display: "flex",
-                        alignItems: "flex-start",
-                        gap: "10px",
+                        alignItems: "center",
+                        gap: "15px",
                         flex: 1,
                       }}
                     >
@@ -1638,23 +1675,21 @@ function ForumModerate() {
                             height: "40px",
                             borderRadius: "50%",
                             objectFit: "cover",
+                            border: "2px solid #007bff",
                           }}
                         />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <p style={{ margin: 0, fontWeight: "bold" }}>
+                        <p style={{ margin: 0, fontWeight: "600", fontSize: "16px" }}>
                           {report.user_id.username}
                           <span
-                            className="badge"
+                            className="badge ms-3"
                             style={{
-                              backgroundColor: "transparent",
-                              border: "1px solid #00BFFF",
-                              color: "#00BFFF",
-                              padding: "2px 8px",
-                              borderRadius: "20px",
-                              boxShadow: "0 0 10px rgba(0, 191, 255, 0.5)",
-                              fontSize: "0.875rem",
-                              marginLeft:"15px"
+                              backgroundColor: "#e6f7ff",
+                              color: "#007bff",
+                              padding: "5px 10px",
+                              borderRadius: "15px",
+                              fontSize: "12px",
                             }}
                           >
                             {report.user_id.level} {report.user_id.speciality}
@@ -1662,20 +1697,18 @@ function ForumModerate() {
                         </p>
                         <p
                           style={{
-                            margin: 0,
+                            margin: "5px 0 0 0",
                             wordBreak: "break-word",
-                            overflowWrap: "break-word",
-                            whiteSpace: "normal",
                             color: "#333",
+                            fontSize: "14px",
                           }}
                         >
                           Reason: {report.reason}
                         </p>
                         <p
-                          style={{ margin: 0, fontSize: "12px", color: "#666" }}
+                          style={{ margin: "5px 0 0 0", fontSize: "12px", color: "#666" }}
                         >
-                          Reported at:{" "}
-                          {new Date(report.createdAt).toLocaleString("fr-FR")}
+                          Reported at: {new Date(report.createdAt).toLocaleString("fr-FR")}
                         </p>
                       </div>
                     </div>
@@ -1702,7 +1735,7 @@ function ForumModerate() {
                   </div>
                 ))
               ) : (
-                <p style={{ textAlign: "center" }}>
+                <p style={{ textAlign: "center", fontSize: "16px", color: "#666" }}>
                   There are no reports for this comment!
                 </p>
               )}
@@ -1711,19 +1744,22 @@ function ForumModerate() {
               style={{
                 display: "flex",
                 justifyContent: "center",
-                gap: "10px",
+                gap: "15px",
                 marginTop: "20px",
               }}
             >
               <button
                 onClick={() => setShowCommentReportsModal(false)}
                 style={{
+                  padding: "10px 25px",
                   backgroundColor: "#f44336",
                   color: "white",
-                  padding: "10px 20px",
-                  borderRadius: "50px",
                   border: "none",
+                  borderRadius: "25px",
                   cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  transition: "all 0.3s ease",
                 }}
               >
                 Close
@@ -1752,20 +1788,20 @@ function ForumModerate() {
           <div
             style={{
               backgroundColor: "white",
-              padding: "20px",
-              borderRadius: "8px",
+              padding: "25px",
+              borderRadius: "15px",
               width: "400px",
-              maxWidth: "100%",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              maxWidth: "90%",
+              boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+            <h3 style={{ marginBottom: "20px", textAlign: "center", fontSize: "22px", fontWeight: "600" }}>
               Ban User
             </h3>
             <div style={{ marginBottom: "20px" }}>
               <label
                 htmlFor="banDuration"
-                style={{ display: "block", marginBottom: "5px" }}
+                style={{ display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: "500" }}
               >
                 Duration (in days):
               </label>
@@ -1776,10 +1812,12 @@ function ForumModerate() {
                 onChange={(e) => setBanDuration(e.target.value)}
                 style={{
                   width: "100%",
-                  padding: "8px",
-                  borderRadius: "50px",
+                  padding: "10px",
+                  borderRadius: "25px",
                   border: "1px solid #ddd",
                   outline: "none",
+                  fontSize: "14px",
+                  boxShadow: "0 2px 5px rgba(0, 0, 0, 0.1)",
                 }}
                 placeholder="Enter duration in days"
               />
@@ -1787,7 +1825,7 @@ function ForumModerate() {
             <div style={{ marginBottom: "20px" }}>
               <label
                 htmlFor="banReason"
-                style={{ display: "block", marginBottom: "5px" }}
+                style={{ display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: "500" }}
               >
                 Reason:
               </label>
@@ -1797,16 +1835,16 @@ function ForumModerate() {
                 onChange={(e) => setBanReason(e.target.value)}
                 style={{
                   width: "100%",
-                  padding: "8px",
-                  borderRadius: "50px",
+                  padding: "10px",
+                  borderRadius: "25px",
                   border: "1px solid #ddd",
                   outline: "none",
+                  fontSize: "14px",
+                  boxShadow: "0 2px 5px rgba(0, 0, 0, 0.1)",
                 }}
               >
                 <option value="">Select a reason</option>
-                <option value="inappropriate_content">
-                  Inappropriate Content
-                </option>
+                <option value="inappropriate_content">Inappropriate Content</option>
                 <option value="spam">Spam</option>
                 <option value="harassment">Harassment</option>
                 <option value="offensive_language">Offensive Language</option>
@@ -1815,17 +1853,20 @@ function ForumModerate() {
               </select>
             </div>
             <div
-              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+              style={{ display: "flex", justifyContent: "center", gap: "15px" }}
             >
               <button
                 onClick={() => setShowBanModal(false)}
                 style={{
+                  padding: "10px 25px",
                   backgroundColor: "#f44336",
                   color: "white",
-                  padding: "10px 20px",
-                  borderRadius: "50px",
                   border: "none",
+                  borderRadius: "25px",
                   cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  transition: "all 0.3s ease",
                 }}
               >
                 Cancel
@@ -1833,12 +1874,15 @@ function ForumModerate() {
               <button
                 onClick={handleBanUser}
                 style={{
+                  padding: "10px 25px",
                   backgroundColor: "#4CAF50",
                   color: "white",
-                  padding: "10px 20px",
-                  borderRadius: "50px",
                   border: "none",
+                  borderRadius: "25px",
                   cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  transition: "all 0.3s ease",
                 }}
               >
                 Ban
@@ -1867,21 +1911,24 @@ function ForumModerate() {
           <div
             style={{
               backgroundColor: "white",
-              padding: "20px",
-              borderRadius: "8px",
+              padding: "25px",
+              borderRadius: "15px",
               width: "600px",
-              maxWidth: "100%",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              maxWidth: "90%",
+              boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+            <h3 style={{ marginBottom: "20px", textAlign: "center", fontSize: "22px", fontWeight: "600" }}>
               Banned Users List
             </h3>
             <div
               style={{
-                maxHeight: bannedUsers.length > 3 ? "300px" : "auto",
+                maxHeight: bannedUsers.length > 3 ? "400px" : "auto",
                 overflowY: bannedUsers.length > 3 ? "auto" : "visible",
                 marginBottom: "20px",
+                padding: "10px",
+                backgroundColor: "#f9f9f9",
+                borderRadius: "10px",
               }}
             >
               {bannedUsers.length > 0 ? (
@@ -1889,18 +1936,21 @@ function ForumModerate() {
                   <div
                     key={index}
                     style={{
-                      marginBottom: "10px",
+                      marginBottom: "15px",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      padding: "10px",
-                      borderBottom: "1px solid #ddd",
+                      padding: "15px",
+                      borderBottom: "1px solid #eee",
+                      backgroundColor: "white",
+                      borderRadius: "10px",
+                      boxShadow: "0 2px 5px rgba(0, 0, 0, 0.05)",
                     }}
                   >
                     <div
-                      style={{ display: "flex", alignItems: "center", flex: 1 }}
+                      style={{ display: "flex", alignItems: "center", flex: 1, gap: "15px" }}
                     >
-                      <div style={{ flexShrink: 0, marginRight: "15px" }}>
+                      <div style={{ flexShrink: 0 }}>
                         <img
                           src={`http://localhost:5000${user.user_id.user_photo}`}
                           alt="User Avatar"
@@ -1909,15 +1959,16 @@ function ForumModerate() {
                             height: "40px",
                             borderRadius: "50%",
                             objectFit: "cover",
+                            border: "2px solid #007bff",
                           }}
                         />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <p style={{ margin: 0, fontWeight: "bold" }}>
+                        <p style={{ margin: 0, fontWeight: "600", fontSize: "16px" }}>
                           {user.user_id.username}
                         </p>
                         <p
-                          style={{ margin: 0, fontSize: "12px", color: "#666" }}
+                          style={{ margin: "5px 0 0 0", fontSize: "12px", color: "#666" }}
                         >
                           Reason: {user.reason} | Expires:{" "}
                           {new Date(user.expiresAt).toLocaleString("fr-FR")}
@@ -1928,7 +1979,7 @@ function ForumModerate() {
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: "10px",
+                        gap: "15px",
                       }}
                     >
                       <span
@@ -1947,34 +1998,40 @@ function ForumModerate() {
                         src={generateQRCodeUrl(user)}
                         alt="QR Code for ban info"
                         style={{
-                          width: "90px",
-                          height: "90px",
+                          width: "80px",
+                          height: "80px",
+                          borderRadius: "5px",
                         }}
                       />
                     </div>
                   </div>
                 ))
               ) : (
-                <p style={{ textAlign: "center" }}>No banned users found!</p>
+                <p style={{ textAlign: "center", fontSize: "16px", color: "#666" }}>
+                  No banned users found!
+                </p>
               )}
             </div>
             <div
               style={{
                 display: "flex",
                 justifyContent: "center",
-                gap: "10px",
+                gap: "15px",
                 marginTop: "20px",
               }}
             >
               <button
                 onClick={() => setShowBannedListModal(false)}
                 style={{
+                  padding: "10px 25px",
                   backgroundColor: "#f44336",
                   color: "white",
-                  padding: "10px 20px",
-                  borderRadius: "50px",
                   border: "none",
+                  borderRadius: "25px",
                   cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  transition: "all 0.3s ease",
                 }}
               >
                 Close
@@ -1984,6 +2041,7 @@ function ForumModerate() {
         </div>
       )}
 
+      {/* Modal pour confirmer la suppression d'un topic */}
       {showDeleteModal && (
         <div
           style={{
@@ -2002,32 +2060,34 @@ function ForumModerate() {
           <div
             style={{
               backgroundColor: "white",
-              padding: "20px",
-              borderRadius: "8px",
+              padding: "25px",
+              borderRadius: "15px",
               width: "400px",
-              maxWidth: "100%",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              maxWidth: "90%",
+              boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+            <h3 style={{ marginBottom: "20px", textAlign: "center", fontSize: "22px", fontWeight: "600" }}>
               Confirm Deletion
             </h3>
-            <p style={{ marginBottom: "20px", textAlign: "center" }}>
-              Are you sure you want to delete this topic? This action cannot be
-              undone.
+            <p style={{ marginBottom: "20px", textAlign: "center", fontSize: "16px", color: "#333" }}>
+              Are you sure you want to delete this topic? This action cannot be undone.
             </p>
             <div
-              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+              style={{ display: "flex", justifyContent: "center", gap: "15px" }}
             >
               <button
                 onClick={() => setShowDeleteModal(false)}
                 style={{
+                  padding: "10px 25px",
                   backgroundColor: "#f44336",
                   color: "white",
-                  padding: "10px 20px",
-                  borderRadius: "50px",
                   border: "none",
+                  borderRadius: "25px",
                   cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  transition: "all 0.3s ease",
                 }}
               >
                 Cancel
@@ -2035,12 +2095,15 @@ function ForumModerate() {
               <button
                 onClick={() => handleDelete(forumToDelete)}
                 style={{
+                  padding: "10px 25px",
                   backgroundColor: "#4CAF50",
                   color: "white",
-                  padding: "10px 20px",
-                  borderRadius: "50px",
                   border: "none",
+                  borderRadius: "25px",
                   cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  transition: "all 0.3s ease",
                 }}
               >
                 Delete
@@ -2050,6 +2113,7 @@ function ForumModerate() {
         </div>
       )}
 
+      {/* Modal pour confirmer la suppression d'un commentaire */}
       {showDeleteCommentModal && (
         <div
           style={{
@@ -2068,32 +2132,34 @@ function ForumModerate() {
           <div
             style={{
               backgroundColor: "white",
-              padding: "20px",
-              borderRadius: "8px",
+              padding: "25px",
+              borderRadius: "15px",
               width: "400px",
-              maxWidth: "100%",
-              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              maxWidth: "90%",
+              boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center" }}>
+            <h3 style={{ marginBottom: "20px", textAlign: "center", fontSize: "22px", fontWeight: "600" }}>
               Confirm Deletion
             </h3>
-            <p style={{ marginBottom: "20px", textAlign: "center" }}>
-              Are you sure you want to delete this comment? This action cannot
-              be undone.
+            <p style={{ marginBottom: "20px", textAlign: "center", fontSize: "16px", color: "#333" }}>
+              Are you sure you want to delete this comment? This action cannot be undone.
             </p>
             <div
-              style={{ display: "flex", justifyContent: "center", gap: "10px" }}
+              style={{ display: "flex", justifyContent: "center", gap: "15px" }}
             >
               <button
                 onClick={() => setShowDeleteCommentModal(false)}
                 style={{
+                  padding: "10px 25px",
                   backgroundColor: "#f44336",
                   color: "white",
-                  padding: "10px 20px",
-                  borderRadius: "50px",
                   border: "none",
+                  borderRadius: "25px",
                   cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  transition: "all 0.3s ease",
                 }}
               >
                 Cancel
@@ -2101,12 +2167,15 @@ function ForumModerate() {
               <button
                 onClick={() => handleDeleteComment(commentToDelete)}
                 style={{
+                  padding: "10px 25px",
                   backgroundColor: "#4CAF50",
                   color: "white",
-                  padding: "10px 20px",
-                  borderRadius: "50px",
                   border: "none",
+                  borderRadius: "25px",
                   cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  transition: "all 0.3s ease",
                 }}
               >
                 Delete
