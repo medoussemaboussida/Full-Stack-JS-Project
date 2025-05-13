@@ -205,8 +205,41 @@ const MentalHealthDashboard = () => {
   }
 
   return (
-    <div className="container py-5">
-      <ToastContainer />
+    <>
+      <div
+        className="site-breadcrumb"
+        style={{
+          background: "url(/assets/img/breadcrumb/01.jpg)",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          padding: "60px 0",
+          textAlign: "center",
+          color: "#fff",
+        }}
+      >
+        <div className="container">
+          <h2 className="breadcrumb-title">Mental Health Dashboard</h2>
+          <ul
+            className="breadcrumb-menu"
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              listStyle: "none",
+              padding: "0",
+              marginTop: "10px",
+            }}
+          >
+            <li style={{ marginRight: "10px" }}>
+              <a href="/Home" style={{ color: "#fff", textDecoration: "none"}}>
+                Home
+              </a>
+            </li>
+            <li style={{ color: "#ff5a5f", textDecoration: "none" }}>Mental Health Dashboard</li>
+          </ul>
+        </div>
+      </div>
+      <div className="container py-5">
+        <ToastContainer />
       <div className="row mb-4">
         <div className="col-md-8">
           <h1 className="display-5 fw-bold">Mental Health Dashboard</h1>
@@ -221,7 +254,7 @@ const MentalHealthDashboard = () => {
             onClick={() => navigate('/mental-health-assessment')}
           >
             <i className="fas fa-plus-circle me-2"></i>
-            New Assessment 
+            New Assessment
           </button>
         </div>
       </div>
@@ -425,6 +458,7 @@ const MentalHealthDashboard = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
