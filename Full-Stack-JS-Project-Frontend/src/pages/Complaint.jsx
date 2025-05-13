@@ -1476,7 +1476,7 @@ function Complaint() {
         <div
           style={{
             position: "fixed",
-            top: 0,
+            top: 60,
             left: 0,
             right: 0,
             bottom: 0,
@@ -1494,7 +1494,7 @@ function Complaint() {
               borderRadius: "8px",
               width: "500px",
               maxWidth: "90%",
-              maxHeight: "70vh",
+              maxHeight: "80vh",
               display: "flex",
               flexDirection: "column",
               gap: "15px",
