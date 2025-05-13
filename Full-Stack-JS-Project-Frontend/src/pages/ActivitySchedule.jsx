@@ -12,6 +12,8 @@ import {
   faCalendarPlus,
   faStickyNote,
   faHistory,
+  faClock,
+  faMosque,
 } from "@fortawesome/free-solid-svg-icons";
 
 // Function to generate a list of dates for the specified month
@@ -69,7 +71,10 @@ function ActivitySchedule() {
   const [weatherData, setWeatherData] = useState({});
   const [currentMoodDate, setCurrentMoodDate] = useState(null);
   const [showForumRulesModal, setShowForumRulesModal] = useState(false);
+  const [showPrayerTimesModal, setShowPrayerTimesModal] = useState(false);
   const [prayerTimes, setPrayerTimes] = useState({}); // State to store dynamic prayer times
+  const [selectedPrayerDate, setSelectedPrayerDate] = useState(null);
+  const [remainingTime, setRemainingTime] = useState("");
   const dates = generateDatesForMonth(currentDate);
   const navigate = useNavigate();
 
@@ -507,6 +512,100 @@ function ActivitySchedule() {
     setShowForumRulesModal(false);
   };
 
+  // Open prayer times modal
+  const handleOpenPrayerTimesModal = (date) => {
+    setSelectedPrayerDate(date);
+    setShowPrayerTimesModal(true);
+    // Initialize remaining time immediately
+    setRemainingTime(calculateRemainingTime());
+  };
+
+  // Close prayer times modal
+  const closePrayerTimesModal = () => {
+    setShowPrayerTimesModal(false);
+    setSelectedPrayerDate(null);
+  };
+
+  // Update the countdown timer when the prayer times modal is open
+  useEffect(() => {
+    let timerInterval;
+
+    if (showPrayerTimesModal) {
+      // Update immediately
+      setRemainingTime(calculateRemainingTime());
+
+      // Then update every second
+      timerInterval = setInterval(() => {
+        setRemainingTime(calculateRemainingTime());
+      }, 1000);
+    }
+
+    // Clean up the interval when the modal is closed or component unmounts
+    return () => {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
+    };
+  }, [showPrayerTimesModal, prayerTimes]);
+
+  // Get the next prayer time
+  const getNextPrayer = () => {
+    if (Object.keys(prayerTimes).length === 0) return null;
+
+    const now = new Date();
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM
+
+    const prayers = [
+      { name: "Fajr", time: prayerTimes.Fajr },
+      { name: "Dhuhr", time: prayerTimes.Dhuhr },
+      { name: "Asr", time: prayerTimes.Asr },
+      { name: "Maghrib", time: prayerTimes.Maghrib },
+      { name: "Isha", time: prayerTimes.Isha }
+    ];
+
+    // Sort prayers by time
+    prayers.sort((a, b) => a.time.localeCompare(b.time));
+
+    // Find the next prayer
+    for (const prayer of prayers) {
+      if (prayer.time > currentTime) {
+        return prayer;
+      }
+    }
+
+    // If all prayers have passed, return the first prayer of the next day
+    return prayers[0];
+  };
+
+  // Calculate remaining time until next prayer
+  const calculateRemainingTime = () => {
+    const nextPrayer = getNextPrayer();
+    if (!nextPrayer) return "";
+
+    const now = new Date();
+    const prayerTime = new Date();
+
+    // Parse prayer time (HH:MM)
+    const [hours, minutes] = nextPrayer.time.split(':').map(Number);
+    prayerTime.setHours(hours, minutes, 0, 0);
+
+    // If prayer time is earlier than current time, it's for tomorrow
+    if (prayerTime < now) {
+      prayerTime.setDate(prayerTime.getDate() + 1);
+    }
+
+    // Calculate difference in milliseconds
+    const diff = prayerTime - now;
+
+    // Convert to hours, minutes, seconds
+    const hours_remaining = Math.floor(diff / (1000 * 60 * 60));
+    const minutes_remaining = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds_remaining = Math.floor((diff % (1000 * 60)) / 1000);
+
+    // Format as HH:MM:SS
+    return `${hours_remaining.toString().padStart(2, '0')}:${minutes_remaining.toString().padStart(2, '0')}:${seconds_remaining.toString().padStart(2, '0')}`;
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("jwt-token");
     if (!token) {
@@ -559,17 +658,16 @@ function ActivitySchedule() {
     };
   }, [scheduledActivities]);
 
-  // Logic to play Azan on the 25th if "prayer" is scheduled
+  // Logic to play Azan if "prayer" is scheduled
   useEffect(() => {
+    // Keep track of which prayers have already played the adhan today
+    const playedAdhans = new Set();
+
     const checkPrayerTimes = () => {
       const today = new Date();
-      const day = today.getDate();
       const dateStr = today.toISOString().split("T")[0]; // YYYY-MM-DD
 
-      // Check if today is the 25th
-      if (day !== 25) return;
-
-      // Check if "prayer" is scheduled for the 25th
+      // Check if "prayer" is scheduled for today
       const scheduledForDay = scheduledActivities[dateStr] || [];
       const prayerActivity = activities.find((act) => act.title.toLowerCase() === "prayer");
       const isPrayerScheduled = scheduledForDay.some(
@@ -578,24 +676,43 @@ function ActivitySchedule() {
 
       if (!isPrayerScheduled) return;
 
-      // Get current time in HH:MM format
-      const currentTime = today.toTimeString().slice(0, 5); // HH:MM
+      // Get current time in minutes for easier comparison
+      const currentMinutes = today.getHours() * 60 + today.getMinutes();
 
-      // Check if current time matches any prayer time
-      Object.values(prayerTimes).forEach((prayerTime) => {
-        if (currentTime === prayerTime) {
+      // Check if current time is close to any prayer time (within 1 minute)
+      Object.entries(prayerTimes).forEach(([prayerName, prayerTime]) => {
+        const [prayerHours, prayerMinutes] = prayerTime.split(':').map(Number);
+        const prayerTotalMinutes = prayerHours * 60 + prayerMinutes;
+
+        // Check if we're within 1 minute of prayer time and haven't played adhan for this prayer today
+        const timeDifference = Math.abs(currentMinutes - prayerTotalMinutes);
+        const uniqueKey = `${dateStr}-${prayerName}`;
+
+        if (timeDifference <= 1 && !playedAdhans.has(uniqueKey)) {
+          // Mark this prayer as played for today
+          playedAdhans.add(uniqueKey);
+
+          // Play the adhan
           const azanAudio = new Audio("/assets/sounds/azan.mp3");
           azanAudio.play().catch((error) => {
             console.error("Error playing Azan:", error);
             toast.error("Failed to play Azan sound.");
           });
-          toast.info("Time for prayer! Azan is playing.");
+
+          toast.info(`Time for ${prayerName} prayer! Azan is playing.`);
+
+          // Clean up old entries from playedAdhans (keep only today's entries)
+          for (const key of playedAdhans) {
+            if (!key.startsWith(dateStr)) {
+              playedAdhans.delete(key);
+            }
+          }
         }
       });
     };
 
-    // Check every minute
-    const interval = setInterval(checkPrayerTimes, 60000);
+    // Check every 15 seconds
+    const interval = setInterval(checkPrayerTimes, 15000);
     checkPrayerTimes(); // Check immediately on mount
 
     return () => clearInterval(interval);
@@ -666,7 +783,6 @@ function ActivitySchedule() {
 
   const firstDay = getFirstDayOfMonth(currentDate);
   const daysInMonth = getDaysInMonth(currentDate);
-  const today = new Date().getDate();
   const monthName = currentDate.toLocaleString("en-US", { month: "long" });
   const year = currentDate.getFullYear();
 
@@ -1673,6 +1789,27 @@ function ActivitySchedule() {
                                   >
                                     {activity ? activity.title : "Unknown"}
                                   </span>
+                                  {activity && activity.title.toLowerCase() === "prayer" && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenPrayerTimesModal(dateStr);
+                                      }}
+                                      style={{
+                                        backgroundColor: "#4CAF50",
+                                        color: "white",
+                                        padding: "2px 5px",
+                                        borderRadius: "50px",
+                                        fontSize: "10px",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        marginLeft: "5px",
+                                      }}
+                                      title="View Prayer Times"
+                                    >
+                                      <FontAwesomeIcon icon={faMosque} />
+                                    </button>
+                                  )}
                                   {moodEntry && scheduledActivity.completed && (
                                     <span style={{ fontSize: "12px", color: "#0ea5e6", fontStyle: "italic" }}>
                                       ({moodIcons[moodEntry.mood]} {moodEntry.mood})
@@ -1745,6 +1882,150 @@ function ActivitySchedule() {
               onConfirm={handleConfirmSchedule}
               onCancel={closeScheduleModal}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Prayer Times Modal */}
+      {showPrayerTimesModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "8px",
+              width: "400px",
+              maxWidth: "90%",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              textAlign: "center",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", color: "#333" }}>
+              Prayer Times for{" "}
+              {selectedPrayerDate ? new Date(selectedPrayerDate).toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              }) : "Today"}
+            </h3>
+
+            {Object.keys(prayerTimes).length > 0 ? (
+              <div>
+                <div style={{ marginBottom: "20px" }}>
+                  <p style={{ fontSize: "16px", color: "#666", marginBottom: "5px" }}>
+                    These prayer times are for <strong>Ariana, Tunisia</strong>
+                  </p>
+                  {getNextPrayer() && (
+                    <div>
+                      <p style={{ fontSize: "18px", color: "#4CAF50", fontWeight: "bold", marginBottom: "5px" }}>
+                        Next Prayer: {getNextPrayer().name} at {getNextPrayer().time}
+                      </p>
+                      <div style={{
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        backgroundColor: "#f5f5f5",
+                        borderRadius: "8px",
+                        padding: "10px",
+                        marginTop: "10px",
+                        marginBottom: "10px",
+                        border: "1px solid #4CAF50"
+                      }}>
+                        <FontAwesomeIcon icon={faClock} style={{ color: "#4CAF50", marginRight: "10px" }} />
+                        <span style={{
+                          fontSize: "24px",
+                          fontWeight: "bold",
+                          fontFamily: "monospace",
+                          color: "#4CAF50"
+                        }}>
+                          {remainingTime}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <ul style={{
+                  listStyle: "none",
+                  padding: "0",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  marginBottom: "20px"
+                }}>
+                  {[
+                    { name: "Fajr", time: prayerTimes.Fajr, icon: "🌅" },
+                    { name: "Dhuhr", time: prayerTimes.Dhuhr, icon: "☀️" },
+                    { name: "Asr", time: prayerTimes.Asr, icon: "🌤️" },
+                    { name: "Maghrib", time: prayerTimes.Maghrib, icon: "🌇" },
+                    { name: "Isha", time: prayerTimes.Isha, icon: "🌙" }
+                  ].map((prayer, index) => {
+                    const isNext = getNextPrayer() && getNextPrayer().name === prayer.name;
+                    return (
+                      <li
+                        key={index}
+                        style={{
+                          padding: "10px 15px",
+                          borderRadius: "8px",
+                          backgroundColor: isNext ? "rgba(76, 175, 80, 0.1)" : "#f9f9f9",
+                          border: isNext ? "1px solid #4CAF50" : "1px solid #eee",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
+                        <span style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <span style={{ fontSize: "20px" }}>{prayer.icon}</span>
+                          <span style={{ fontWeight: isNext ? "bold" : "normal" }}>{prayer.name}</span>
+                        </span>
+                        <span style={{
+                          fontWeight: isNext ? "bold" : "normal",
+                          color: isNext ? "#4CAF50" : "#333"
+                        }}>
+                          {prayer.time}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                <p style={{ fontSize: "12px", color: "#666", fontStyle: "italic", marginBottom: "20px" }}>
+                  Prayer times are calculated using the University of Islamic Sciences, Karachi method.
+                </p>
+              </div>
+            ) : (
+              <p style={{ color: "#666" }}>Loading prayer times...</p>
+            )}
+
+            <button className='theme-btn'
+              onClick={closePrayerTimesModal}
+              style={{
+                backgroundColor: "#4CAF50",
+                color: "white",
+                padding: "10px 20px",
+                borderRadius: "50px",
+                border: "none",
+                cursor: "pointer",
+                transition: "background-color 0.3s ease",
+              }}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = "#3e8e41")}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = "#4CAF50")}
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
@@ -1839,7 +2120,7 @@ function ScheduleModalContent({ activities, favoriteActivities, scheduledActivit
           onMouseEnter={(e) => (e.target.style.backgroundColor = "#d32f2f")}
           onMouseLeave={(e) => (e.target.style.backgroundColor = "#f44336")}
         >
-          Cancel 
+          Cancel
         </button>
       </div>
     </div>
