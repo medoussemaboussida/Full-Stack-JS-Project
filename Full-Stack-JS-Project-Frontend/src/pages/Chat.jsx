@@ -84,9 +84,9 @@ const Chat = () => {
   const [targetLanguage, setTargetLanguage] = useState('en');
   const [translatedMessages, setTranslatedMessages] = useState({});
 
-  const GROQ_API_KEY = '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';
+  const GROQ_API___KEY = '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';
   const tts_new = 'sk_9a528300cb9d0fde2f09a122f90b3895d0f5adca31387585';
-  const HUGGING_FACE_API_KEY = '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';
+  const HUGGING_FACE_API_KEY = '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';
 
   useEffect(() => {
     const storedToken = localStorage.getItem('jwt-token');
@@ -324,7 +324,7 @@ const Chat = () => {
       console.log('Skipping translation for invalid text:', text);
       return text;
     }
-    if (!GROQ_API_KEY) {
+    if (!GROQ_API___KEY) {
       console.error('Groq API key is missing');
       setError('Translation failed: API key is missing');
       return text;
@@ -343,7 +343,7 @@ const Chat = () => {
         },
         {
           headers: {
-            Authorization: `Bearer ${GROQ_API_KEY}`,
+            Authorization: `Bearer ${GROQ_API___KEY}`,
             'Content-Type': 'application/json',
           },
           timeout: 15000,
@@ -394,7 +394,7 @@ const Chat = () => {
       setIsSummarizing(false);
       return;
     }
-    if (!GROQ_API_KEY) {
+    if (!GROQ_API___KEY) {
       console.error('Groq API key is missing');
       setError('Summarization failed: API key is missing');
       setSummary('An error occurred while summarizing.');
@@ -414,7 +414,7 @@ const Chat = () => {
         },
         {
           headers: {
-            Authorization: `Bearer ${GROQ_API_KEY}`,
+            Authorization: `Bearer ${GROQ_API___KEY}`,
             'Content-Type': 'application/json',
           },
           timeout: 15000,
@@ -784,19 +784,7 @@ const Chat = () => {
                 </div>
                 <div className="card-body" style={{ position: 'relative', height: '400px' }}>
                   <p>
-                    You need to log in to use the chat.{' '}
-                    <button
-                      onClick={() => (window.location.href = '/login')}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#007bff',
-                        textDecoration: 'underline',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Go to Login
-                    </button>
+                    You need to log in to use the chat. <button onClick={() => (window.location.href = '/login')} style={{ background: 'none', border: 'none', color: '#007bff', textDecoration: 'underline', cursor: 'pointer' }}>Go to Login</button>
                   </p>
                   {error && <p className="text-danger">{error}</p>}
                 </div>
@@ -809,7 +797,7 @@ const Chat = () => {
   }
 
   return (
-    <main className="main">
+    <>
       <style>
         {`
           :root {
@@ -830,11 +818,6 @@ const Chat = () => {
             background: var(--bg-light);
             font-family: 'Inter', sans-serif;
             color: var(--text-dark);
-          }
-
-          .main {
-            background: var(--bg-light);
-            min-height: 100vh;
           }
 
           .auth-section, .chat-section {
@@ -1023,7 +1006,6 @@ const Chat = () => {
             margin-bottom: 0.3rem;
             color: var(--text-dark);
           }
-
           .message-content {
             max-width: 70%;
             padding: 0.75rem 1rem;
@@ -1031,7 +1013,7 @@ const Chat = () => {
             line-height: 1.4;
             border-radius: 15px;
             position: relative;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 3px 10px rgba(0, 0, 0 0.1);
             transition: background 0.3s ease;
           }
 
@@ -1176,7 +1158,7 @@ const Chat = () => {
             border: none;
             font-size: 1rem;
             cursor: pointer;
-            color: var(--accent-blue);
+            color: var(--accent-white);
             margin-left: 0.5rem;
             transition: color 0.3s ease;
           }
@@ -1385,15 +1367,10 @@ const Chat = () => {
           .link-button:hover {
             color: #0056b3;
           }
-
-
-
-       
         `}
       </style>
-
-      {/* Breadcrumb */}
-      <div
+           {/* Breadcrumb */}
+           <div
         className="site-breadcrumb"
         style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}
       >
@@ -1408,7 +1385,6 @@ const Chat = () => {
         </div>
       </div>
       {/* Breadcrumb end */}
-
       <section className="chat-section">
         <div className="container py-5">
           <div className="row d-flex justify-content-center">
@@ -1426,13 +1402,11 @@ const Chat = () => {
                       onKeyPress={handleRoomKeyPress}
                       placeholder="Enter room code..."
                       className="form-control"
-                      style={{ borderRadius: '50px' }}
                     />
                     <button
                       onClick={joinRoom}
                       disabled={!roomCode.trim()}
                       className="btn btn-primary mt-3"
-                      style={{ borderRadius: '50px' }}
                     >
                       Join
                     </button>
@@ -1458,7 +1432,7 @@ const Chat = () => {
                           <>
                             <button
                               onClick={summarizeConversation}
-                              className="summarize-button me-2"
+                              className="summary-button me-2"
                               title="Summarize Conversation"
                               disabled={isSummarizing}
                             >
@@ -1634,7 +1608,6 @@ const Chat = () => {
                         value={targetLanguage}
                         onChange={(e) => setTargetLanguage(e.target.value)}
                         className="language-select"
-                        style={{ borderRadius: '50px' }}
                       >
                         <option value="en">English</option>
                         <option value="fr">French</option>
@@ -1648,7 +1621,6 @@ const Chat = () => {
                         onKeyPress={handleMessageKeyPress}
                         placeholder="Type a message..."
                         className="form-control"
-                        style={{ borderRadius: '50px' }}
                       />
                       <button
                         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -1692,13 +1664,7 @@ const Chat = () => {
               Close
             </button>
             <h5>Conversation Summary</h5>
-            <div className="summary-text">
-              {isSummarizing ? (
-                <p>Summarizing...</p>
-              ) : (
-                <p>{summary}</p>
-              )}
-            </div>
+            <div className="summary-text">{summary}</div>
           </div>
         </div>
       )}
@@ -1712,15 +1678,11 @@ const Chat = () => {
             >
               Close
             </button>
-            <VideoChat
-              roomId={joinedRoom}
-              userId={userId}
-              onClose={closeVideoChat}
-            />
+            <VideoChat roomCode={joinedRoom} userId={userId} />
           </div>
         </div>
       )}
-    </main>
+    </>
   );
 };
 

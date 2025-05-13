@@ -136,8 +136,8 @@ const AppointmentHistory = () => {
             const psychiatrist = response.data;
             setSelectedPsychiatrist(psychiatrist);
             setSelectedAppointmentId(appointment._id);
-            const formattedEvents = formatAvailabilitiesToEvents(psychiatrist._students);
-            setCalendarEvents(formattedEvents);
+            const formattedEvents = formatAvailabilitiesToEvents(psychiatrist.availability);
+                        setCalendarEvents(formattedEvents);
             setShowCalendarModal(true);
         } catch (err) {
             console.error('Error fetching psychiatrist availability:', err);
