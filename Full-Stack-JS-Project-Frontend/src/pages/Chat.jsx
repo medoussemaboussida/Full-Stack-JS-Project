@@ -784,7 +784,19 @@ const Chat = () => {
                 </div>
                 <div className="card-body" style={{ position: 'relative', height: '400px' }}>
                   <p>
-                    You need to log in to use the chat. <button onClick={() => (window.location.href = '/login')} style={{ background: 'none', border: 'none', color: '#007bff', textDecoration: 'underline', cursor: 'pointer' }}>Go to Login</button>
+                    You need to log in to use the chat.{' '}
+                    <button
+                      onClick={() => (window.location.href = '/login')}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#007bff',
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Go to Login
+                    </button>
                   </p>
                   {error && <p className="text-danger">{error}</p>}
                 </div>
@@ -797,7 +809,7 @@ const Chat = () => {
   }
 
   return (
-    <>
+    <main className="main">
       <style>
         {`
           :root {
@@ -818,6 +830,11 @@ const Chat = () => {
             background: var(--bg-light);
             font-family: 'Inter', sans-serif;
             color: var(--text-dark);
+          }
+
+          .main {
+            background: var(--bg-light);
+            min-height: 100vh;
           }
 
           .auth-section, .chat-section {
@@ -1006,6 +1023,7 @@ const Chat = () => {
             margin-bottom: 0.3rem;
             color: var(--text-dark);
           }
+
           .message-content {
             max-width: 70%;
             padding: 0.75rem 1rem;
@@ -1013,7 +1031,7 @@ const Chat = () => {
             line-height: 1.4;
             border-radius: 15px;
             position: relative;
-            box-shadow: 0 3px 10px rgba(0, 0, 0 0.1);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
             transition: background 0.3s ease;
           }
 
@@ -1367,8 +1385,30 @@ const Chat = () => {
           .link-button:hover {
             color: #0056b3;
           }
+
+
+
+       
         `}
       </style>
+
+      {/* Breadcrumb */}
+      <div
+        className="site-breadcrumb"
+        style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}
+      >
+        <div className="container">
+          <h2 className="breadcrumb-title">Chat Room</h2>
+          <ul className="breadcrumb-menu">
+            <li>
+              <a href="/Home">Home</a>
+            </li>
+            <li className="active">Chat</li>
+          </ul>
+        </div>
+      </div>
+      {/* Breadcrumb end */}
+
       <section className="chat-section">
         <div className="container py-5">
           <div className="row d-flex justify-content-center">
@@ -1385,12 +1425,14 @@ const Chat = () => {
                       onChange={(e) => setRoomCode(e.target.value)}
                       onKeyPress={handleRoomKeyPress}
                       placeholder="Enter room code..."
-                      className="form-control" style={{borderRadius:'50px'}}
+                      className="form-control"
+                      style={{ borderRadius: '50px' }}
                     />
                     <button
                       onClick={joinRoom}
                       disabled={!roomCode.trim()}
-                      className="btn btn-primary mt-3" style={{borderRadius:'50px'}}
+                      className="btn btn-primary mt-3"
+                      style={{ borderRadius: '50px' }}
                     >
                       Join
                     </button>
@@ -1416,7 +1458,7 @@ const Chat = () => {
                           <>
                             <button
                               onClick={summarizeConversation}
-                              className="summary-button me-2"
+                              className="summarize-button me-2"
                               title="Summarize Conversation"
                               disabled={isSummarizing}
                             >
@@ -1591,7 +1633,8 @@ const Chat = () => {
                       <select
                         value={targetLanguage}
                         onChange={(e) => setTargetLanguage(e.target.value)}
-                        className="language-select" style={{borderRadius:'50px'}}
+                        className="language-select"
+                        style={{ borderRadius: '50px' }}
                       >
                         <option value="en">English</option>
                         <option value="fr">French</option>
@@ -1605,7 +1648,7 @@ const Chat = () => {
                         onKeyPress={handleMessageKeyPress}
                         placeholder="Type a message..."
                         className="form-control"
-                        style={{borderRadius:'50px'}}
+                        style={{ borderRadius: '50px' }}
                       />
                       <button
                         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -1644,12 +1687,18 @@ const Chat = () => {
           <div className="summary-content">
             <button
               onClick={() => setShowSummaryModal(false)}
-              className="close-summary"  style={{borderRadius:'50px'}}
+              className="close-summary"
             >
               Close
             </button>
             <h5>Conversation Summary</h5>
-            <div className="summary-text">{summary}</div>
+            <div className="summary-text">
+              {isSummarizing ? (
+                <p>Summarizing...</p>
+              ) : (
+                <p>{summary}</p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1659,15 +1708,19 @@ const Chat = () => {
           <div className="video-call-content">
             <button
               onClick={closeVideoChat}
-              className="close-video-call" style={{borderRadius:'50px'}}
+              className="close-video-call"
             >
               Close
             </button>
-            <VideoChat roomCode={joinedRoom} userId={userId} />
+            <VideoChat
+              roomId={joinedRoom}
+              userId={userId}
+              onClose={closeVideoChat}
+            />
           </div>
         </div>
       )}
-    </>
+    </main>
   );
 };
 
