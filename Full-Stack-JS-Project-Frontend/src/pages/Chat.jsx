@@ -84,9 +84,9 @@ const Chat = () => {
   const [targetLanguage, setTargetLanguage] = useState('en');
   const [translatedMessages, setTranslatedMessages] = useState({});
 
-  const GROQ_API_KEY = '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';
-  const tts_new = 'sk_9a528300cb9d0fde2f09a122f90b3895d0f5adca31387585';
-  const HUGGING_FACE_API_KEY = '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';
+  const GROQ_API___KEY = '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';
+  const tts_tts = 'sk_f7fbb0e46b8d1a9d5107ef782723f2c1b4341ddf39934fb8';
+  const HUGGING_FACE_API_KEY = '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';
 
   useEffect(() => {
     const storedToken = localStorage.getItem('jwt-token');
@@ -295,7 +295,7 @@ const Chat = () => {
         },
         {
           headers: {
-            'xi-api-key': tts_new,
+            'xi-api-key': tts_tts,
             'Content-Type': 'application/json',
           },
           responseType: 'arraybuffer',
@@ -324,7 +324,7 @@ const Chat = () => {
       console.log('Skipping translation for invalid text:', text);
       return text;
     }
-    if (!GROQ_API_KEY) {
+    if (!GROQ_API___KEY) {
       console.error('Groq API key is missing');
       setError('Translation failed: API key is missing');
       return text;
@@ -343,7 +343,7 @@ const Chat = () => {
         },
         {
           headers: {
-            Authorization: `Bearer ${GROQ_API_KEY}`,
+            Authorization: `Bearer ${GROQ_API___KEY}`,
             'Content-Type': 'application/json',
           },
           timeout: 15000,
@@ -394,7 +394,7 @@ const Chat = () => {
       setIsSummarizing(false);
       return;
     }
-    if (!GROQ_API_KEY) {
+    if (!GROQ_API___KEY) {
       console.error('Groq API key is missing');
       setError('Summarization failed: API key is missing');
       setSummary('An error occurred while summarizing.');
@@ -414,7 +414,7 @@ const Chat = () => {
         },
         {
           headers: {
-            Authorization: `Bearer ${GROQ_API_KEY}`,
+            Authorization: `Bearer ${GROQ_API___KEY}`,
             'Content-Type': 'application/json',
           },
           timeout: 15000,
@@ -1158,7 +1158,7 @@ const Chat = () => {
             border: none;
             font-size: 1rem;
             cursor: pointer;
-            color: var(--accent-blue);
+            color: var(--accent-white);
             margin-left: 0.5rem;
             transition: color 0.3s ease;
           }
@@ -1369,6 +1369,22 @@ const Chat = () => {
           }
         `}
       </style>
+           {/* Breadcrumb */}
+           <div
+        className="site-breadcrumb"
+        style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}
+      >
+        <div className="container">
+          <h2 className="breadcrumb-title">Chat Room</h2>
+          <ul className="breadcrumb-menu">
+            <li>
+              <a href="/Home">Home</a>
+            </li>
+            <li className="active">Chat</li>
+          </ul>
+        </div>
+      </div>
+      {/* Breadcrumb end */}
       <section className="chat-section">
         <div className="container py-5">
           <div className="row d-flex justify-content-center">
@@ -1385,12 +1401,12 @@ const Chat = () => {
                       onChange={(e) => setRoomCode(e.target.value)}
                       onKeyPress={handleRoomKeyPress}
                       placeholder="Enter room code..."
-                      className="form-control" style={{borderRadius:'50px'}}
+                      className="form-control"
                     />
                     <button
                       onClick={joinRoom}
                       disabled={!roomCode.trim()}
-                      className="btn btn-primary mt-3" style={{borderRadius:'50px'}}
+                      className="btn btn-primary mt-3"
                     >
                       Join
                     </button>
@@ -1591,7 +1607,7 @@ const Chat = () => {
                       <select
                         value={targetLanguage}
                         onChange={(e) => setTargetLanguage(e.target.value)}
-                        className="language-select" style={{borderRadius:'50px'}}
+                        className="language-select"
                       >
                         <option value="en">English</option>
                         <option value="fr">French</option>
@@ -1605,7 +1621,6 @@ const Chat = () => {
                         onKeyPress={handleMessageKeyPress}
                         placeholder="Type a message..."
                         className="form-control"
-                        style={{borderRadius:'50px'}}
                       />
                       <button
                         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -1644,7 +1659,7 @@ const Chat = () => {
           <div className="summary-content">
             <button
               onClick={() => setShowSummaryModal(false)}
-              className="close-summary"  style={{borderRadius:'50px'}}
+              className="close-summary"
             >
               Close
             </button>
@@ -1659,7 +1674,7 @@ const Chat = () => {
           <div className="video-call-content">
             <button
               onClick={closeVideoChat}
-              className="close-video-call" style={{borderRadius:'50px'}}
+              className="close-video-call"
             >
               Close
             </button>

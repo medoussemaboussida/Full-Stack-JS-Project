@@ -76,7 +76,7 @@ function ForumModerate() {
     if (cachedResult) {
       return cachedResult;
     }
-    const REACT_APP_HUGGINGFACE_API_TOKEN = "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";
+    const REACT_APP_HUGGINGFACE_API_TOKEN = "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";
     try {
       const response = await fetch(
         "https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english",

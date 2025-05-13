@@ -32,8 +32,11 @@ const AppointmentHistory = () => {
     const [userId, setUserId] = useState(null);
     const [dateSort, setDateSort] = useState('recent');
     const [showStatsModal, setShowStatsModal] = useState(false);
+    // Pagination states
+    const [currentPage, setCurrentPage] = useState(1);
+    const [appointmentsPerPage] = useState(5);
 
-    // Références pour les graphiques
+    // References for charts
     const pieChartRef = useRef(null);
     const lineChartRef = useRef(null);
 
@@ -47,7 +50,7 @@ const AppointmentHistory = () => {
                     return;
                 }
 
-                const appointmentResponse = await axios.get('http://localhost:5000/users/appointments/history', { 
+                const appointmentResponse = await axios.get('http://localhost:5000/users/appointments/history', {
                     headers: { 'Authorization': `Bearer ${token}` },
                     params: { statusFilter, searchName },
                 });
@@ -85,6 +88,10 @@ const AppointmentHistory = () => {
             );
             setShowModal(false);
             toast.success('Appointment successfully deleted!', { position: 'top-right', autoClose: 3000 });
+            // Reset to first page if current page becomes empty
+            if (appointments.length % appointmentsPerPage === 1 && currentPage > 1) {
+                setCurrentPage(currentPage - 1);
+            }
         } catch (err) {
             console.error('Error deleting appointment:', err);
             toast.error(err.response?.data?.message || 'Failed to delete appointment', { position: 'top-right', autoClose: 5000 });
@@ -106,7 +113,9 @@ const AppointmentHistory = () => {
                 )
             );
             setEditingAppointmentId(null);
-            toast.success('Appointment status updated successfully!', { position: 'top-right', autoClose: 3000 });
+            toast.success('Appointment status updated successfully!', { position: 'top-right', autoClose: 3000
+
+        });
         } catch (err) {
             console.error('Error updating status:', err);
             toast.error(err.response?.data?.message || 'Failed to update status', { position: 'top-right', autoClose: 5000 });
@@ -128,7 +137,7 @@ const AppointmentHistory = () => {
             setSelectedPsychiatrist(psychiatrist);
             setSelectedAppointmentId(appointment._id);
             const formattedEvents = formatAvailabilitiesToEvents(psychiatrist.availability);
-            setCalendarEvents(formattedEvents);
+                        setCalendarEvents(formattedEvents);
             setShowCalendarModal(true);
         } catch (err) {
             console.error('Error fetching psychiatrist availability:', err);
@@ -305,7 +314,7 @@ const AppointmentHistory = () => {
         const { dailyStats } = getStatsData();
         const labels = Object.keys(dailyStats);
         const data = Object.values(dailyStats);
-        
+
         return {
             labels,
             datasets: [{
@@ -353,23 +362,23 @@ const AppointmentHistory = () => {
         const margin = 20;
         let yPos = margin;
 
-        // Fonction pour ajouter le contenu du PDF
+        // Function to add PDF content
         const addPDFContent = () => {
-            // En-tête
+            // Header
             doc.setFontSize(22);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(0, 123, 255);
             doc.text('Appointment Statistics Report', pageWidth / 2, yPos, { align: 'center' });
             yPos += 15;
 
-            // Date de génération
+            // Generated date
             doc.setFontSize(12);
             doc.setFont('helvetica', 'normal');
             doc.setTextColor(100);
             doc.text(`Generated on: ${today}`, pageWidth / 2, yPos, { align: 'center' });
             yPos += 20;
 
-            // Ajouter le Pie Chart (centré)
+            // Add Pie Chart (centered)
             if (pieChartRef.current) {
                 try {
                     const pieCanvas = pieChartRef.current.canvas;
@@ -380,7 +389,7 @@ const AppointmentHistory = () => {
                     doc.text('Status Distribution (Pie Chart)', pageWidth / 2, yPos, { align: 'center' });
                     yPos += 10;
                     const pieWidth = 100;
-                    const pieX = (pageWidth - pieWidth) / 2; // Centrer horizontalement
+                    const pieX = (pageWidth - pieWidth) / 2; // Center horizontally
                     doc.addImage(pieImgData, 'PNG', pieX, yPos, pieWidth, 100);
                     yPos += 110;
                 } catch (error) {
@@ -392,7 +401,7 @@ const AppointmentHistory = () => {
                 }
             }
 
-            // Distribution des statuts (texte)
+            // Status distribution (text)
             doc.setFontSize(16);
             doc.setTextColor(33, 37, 41);
             doc.setFont('helvetica', 'bold');
@@ -416,13 +425,13 @@ const AppointmentHistory = () => {
                 yPos += 10;
             });
 
-            // Vérifier si une nouvelle page est nécessaire
+            // Check if a new page is needed
             if (yPos > pageHeight - margin - 100) {
                 doc.addPage();
                 yPos = margin;
             }
 
-            // Ajouter le Line Chart
+            // Add Line Chart
             if (lineChartRef.current) {
                 try {
                     const lineCanvas = lineChartRef.current.canvas;
@@ -443,7 +452,7 @@ const AppointmentHistory = () => {
                 }
             }
 
-            // Numérotation des pages
+            // Page numbering
             const pageCount = doc.internal.getNumberOfPages();
             for (let i = 1; i <= pageCount; i++) {
                 doc.setPage(i);
@@ -452,11 +461,11 @@ const AppointmentHistory = () => {
                 doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 20, pageHeight - 10);
             }
 
-            // Sauvegarder le PDF
+            // Save PDF
             doc.save(`appointment_statistics_${today}.pdf`);
         };
 
-        // Charger et ajouter le logo
+        // Load and add logo
         const logoImg = new Image();
         logoImg.src = '/assets/img/logo/logo.png';
 
@@ -476,272 +485,385 @@ const AppointmentHistory = () => {
         };
     };
 
+    // Pagination logic
+    const indexOfLastAppointment = currentPage * appointmentsPerPage;
+    const indexOfFirstAppointment = indexOfLastAppointment - appointmentsPerPage;
+    const currentAppointments = appointments.slice(indexOfFirstAppointment, indexOfLastAppointment);
+    const totalPages = Math.ceil(appointments.length / appointmentsPerPage);
+
+    const paginate = (pageNumber) => {
+        if (pageNumber >= 1 && pageNumber <= totalPages) {
+            setCurrentPage(pageNumber);
+        }
+    };
+
     if (loading) return <div className="loading">Loading...</div>;
     if (error) return <div className="error">{error}</div>;
 
     return (
-        <div className="appointment-history-container">
-            <ToastContainer />
-            <h2>Appointment History</h2>
+        <main className="main">
+            <style>
+                {`
+                    :root {
+                        --primary-blue: #87CEEB;
+                        --dark-blue: #4682B4;
+                        --light-blue: #B0E0E6;
+                        --accent-blue: #00B7EB;
+                        --primary-gradient: linear-gradient(135deg, #87CEEB 0%, #4682B4 100%);
+                        --secondary-gradient: linear-gradient(135deg, #B0E0E6 0%, #87CEEB 100%);
+                        --bg-dark: #1a2a44;
+                        --bg-light: #f5faff;
+                        --text-dark: #16213e;
+                        --text-light: #ffffff;
+                        --error-color: #ff4757;
+                    }
 
-            {role === 'psychiatrist' && (
-                <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'center', 
-                    marginBottom: '20px' 
-                }}>
-                    <Button
-                        variant="primary"
-                        onClick={() => setShowStatsModal(true)}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '10px 20px',
-                            borderRadius:'50px',
-                            transition: 'transform 0.3s ease-in-out',
-                        }}
-                        onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
-                        onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
-                    >
-                        <span role="img" aria-label="chart">📊</span>
-                        Statistics
-                    </Button>
-                </div>
-            )}
+                    .main {
+                        background: var(--bg-light);
+                        min-height: 100vh;
+                    }
 
-            <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    style={{ padding: '8px', borderRadius: '50px', border: '2px solid #007BFF', outline: 'none',fontSize:'14px' }}
-                >
-                    <option value="all">All Statuses</option>
-                    <option value="pending">Pending</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="completed">Completed</option>
-                    <option value="canceled">Canceled</option>
-                </select>
-                <input
-                    type="text"
-                    value={searchName}
-                    onChange={(e) => setSearchName(e.target.value)}
-                    placeholder={role === 'psychiatrist' ? 'Search by student name' : role === 'student' ? 'Search by psychiatrist name' : 'Search by name...'}
-                    style={{ padding: '8px', borderRadius: '50px', border: '2px solid #007BFF', outline: 'none', width: '200px',fontSize:'14px' }}
-                />
-                <select
-                    value={dateSort}
-                    onChange={(e) => setDateSort(e.target.value)}
-                    style={{ padding: '8px', borderRadius: '50px', border: '2px solid #007BFF', outline: 'none',fontSize:'14px' }}
-                >
-                    <option value="recent">Most Recent</option>
-                    <option value="oldest">Oldest</option>
-                </select>
-            </div>
+                    .appointment-history-container {
+                        padding: 2rem;
+                        max-width: 1200px;
+                        margin: 0 auto;
+                    }
 
-            {appointments.length === 0 ? (
-                <p className="no-appointments">No appointments found.</p>
-            ) : (
-                <div className="appointments-list">
-                    {appointments.map((appointment) => (
-                        <div key={appointment._id} className="appointment-card" style={{ position: 'relative' }}>
-                            {role === 'student' && (appointment.status === 'pending' || appointment.status === 'canceled') && (
-                                <>
-                                    <button className="delete-icon" onClick={() => openDeleteModal(appointment._id)}>
-                                        <i className="fas fa-trash"></i>
-                                    </button>
-                                    {appointment.status === 'pending' && (
-                                        <button
-                                            className="update-icon"
-                                            onClick={() => handleUpdateTime(appointment)}
-                                            style={{ position: 'absolute', top: '10px', right: '40px', background: 'none', border: 'none', cursor: 'pointer' }}
-                                        >
-                                            <i className="fas fa-pencil-alt" style={{ color: '#007BFF' }}></i>
-                                        </button>
-                                    )}
-                                </>
-                            )}
-                            {role === 'psychiatrist' && isNewAppointment(appointment) && (
-                                <span
-                                    style={{
-                                        position: 'absolute',
-                                        top: '10px',
-                                        right: '10px',
-                                        backgroundColor: '#28a745',
-                                        color: 'white',
-                                        padding: '2px 6px',
-                                        borderRadius: '3px',
-                                        fontSize: '12px',
-                                    }}
-                                >
-                                    New
-                                </span>
-                            )}
-                            <div className="appointment-details">
-                                <p><span className="label">Date:</span> {new Date(appointment.date).toLocaleDateString()}</p>
-                                <p><span className="label">Time:</span> {appointment.startTime} - {appointment.endTime}</p>
-                                {role === 'student' ? (
-                                    <>
-                                        <p><span className="label">Psychiatrist:</span> {appointment.psychiatrist?.username || 'Not specified'} ({appointment.psychiatrist?.email || 'Not specified'})</p>
-                                        <p><span className="label">Status:</span> {appointment.status || 'Not specified'}</p>
-                                    </>
-                                ) : role === 'psychiatrist' ? (
-                                    <>
-                                        <p><span className="label">Student:</span> {appointment.student?.username || 'Not specified'} ({appointment.student?.email || 'Not specified'})</p>
-                                        <div className="status-section">
-                                            <span className="label">Status:</span>{' '}
-                                            {editingAppointmentId === appointment._id ? (
-                                                <div className="edit-status">
-                                                    <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)}  style={{borderRadius:'50px'}}>
-                                                        <option value="">Select a status</option>
-                                                        <option value="pending">Pending</option>
-                                                        <option value="confirmed">Confirmed</option>
-                                                        <option value="completed">Completed</option>
-                                                        <option value="canceled">Canceled</option>
-                                                    </select>
-                                                    <Button variant="primary" style={{borderRadius:'50px',fontSize:'14px'}} onClick={() => handleStatusChange(appointment._id)}>Save</Button>
-                                                    <Button variant="secondary" style={{borderRadius:'50px',fontSize:'14px'}} onClick={() => setEditingAppointmentId(null)}>Cancel</Button>
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <span className={`status ${appointment.status}`}>{appointment.status || 'Not specified'}</span>
-                                                    <Button variant="info" style={{borderRadius:'50px',fontSize:'14px'}} onClick={() => { setEditingAppointmentId(appointment._id); setNewStatus(appointment.status || ''); }}>Edit</Button>
-                                                </>
-                                            )}
-                                        </div>
-                                    </>
-                                ) : null}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+                    .pagination {
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        gap: 10px;
+                        margin-top: 20px;
+                    }
 
-            <Modal show={showModal} onHide={() => setShowModal(false)}>
-                <Modal.Header closeButton>
-                    <Modal.Title>Confirm Deletion</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>Are you sure you want to delete this appointment?</Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" style={{borderRadius:'50px',fontSize:'14px'}} onClick={() => setShowModal(false)}>Cancel</Button>
-                    <Button variant="danger" style={{borderRadius:'50px',fontSize:'14px'}} onClick={handleDeleteAppointment}>Delete</Button>
-                </Modal.Footer>
-            </Modal>
+                    .pagination button {
+                        padding: 8px 12px;
+                        border: 2px solid #007BFF;
+                        background-color: #fff;
+                        color: #007BFF;
+                        border-radius: 50px;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                        font-size: 14px;
+                    }
 
-            {showCalendarModal && selectedPsychiatrist && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    zIndex: 1000,
-                }}>
-                    <div style={{
-                        backgroundColor: 'white',
-                        padding: '20px',
-                        borderRadius: '10px',
-                        width: '90%',
-                        maxWidth: '1000px',
-                        maxHeight: '90vh',
-                        overflow: 'auto',
-                    }}>
-                        <h3 style={{ textAlign: 'center', marginBottom: '10px' }}>
-                            Update Time - {selectedPsychiatrist.username}'s Availability
-                        </h3>
-                        <p style={{ textAlign: 'center', color: '#555', marginBottom: '20px' }}>
-                            Click a time slot to update your appointment
-                        </p>
-                        <FullCalendar
-                            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                            initialView="timeGridWeek"
-                            events={calendarEvents}
-                            eventClick={(info) => handleTimeChange(info.event)}
-                            slotMinTime="08:00:00"
-                            slotMaxTime="20:00:00"
-                            slotDuration="00:30:00"
-                            slotLabelInterval="00:30"
-                            headerToolbar={{
-                                left: 'prev,next today',
-                                center: 'title',
-                                right: 'dayGridMonth,timeGridWeek,timeGridDay',
-                            }}
-                            selectable={false}
-                        />
-                        <button className='theme-btn'
-                            onClick={() => setShowCalendarModal(false)}
-                            style={{
-                                backgroundColor: '#f44336',
-                                color: 'white',
-                                padding: '10px 20px',
-                                fontSize: '14px',
-                                border: 'none',
-                                cursor: 'pointer',
-                                borderRadius: '50px',
-                                marginTop: '20px',
-                                display: 'block',
-                                marginLeft: 'auto',
-                            }}
-                        >
-                            Close
-                        </button>
-                    </div>
-                </div>
-            )}
+                    .pagination button:hover {
+                        background-color: #007BFF;
+                        color: #fff;
+                    }
 
-            <Modal 
-                show={showStatsModal} 
-                onHide={() => setShowStatsModal(false)}
-                size="lg"
+                    .pagination button:disabled {
+                        border-color: #ccc;
+                        color: #ccc;
+                        cursor: not-allowed;
+                    }
+
+                    .pagination span {
+                        font-size: 14px;
+                        color: #333;
+                    }
+                `}
+            </style>
+
+            {/* Breadcrumb */}
+            <div
+                className="site-breadcrumb"
+                style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}
             >
-                <Modal.Header closeButton>
-                    <Modal.Title>Appointment Statistics</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <div style={{ marginBottom: '30px' }}>
-                        <h4>Status Distribution (Pie Chart)</h4>
-                        <Pie 
-                            data={pieChartData()}
-                            options={pieChartOptions}
-                            style={{ maxHeight: '400px' }}
-                            ref={pieChartRef}
-                        />
+                <div className="container">
+                    <h2 className="breadcrumb-title">Appointment History</h2>
+                    <ul className="breadcrumb-menu">
+                        <li>
+                            <a href="/Home">Home</a>
+                        </li>
+                        <li className="active">Appointment History</li>
+                    </ul>
+                </div>
+            </div>
+            {/* Breadcrumb end */}
+
+            <div className="appointment-history-container">
+                <ToastContainer />
+
+                {role === 'psychiatrist' && (
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        marginBottom: '20px'
+                    }}>
+                        <Button
+                            variant="primary"
+                            onClick={() => setShowStatsModal(true)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '10px 20px',
+                                borderRadius: '50px',
+                                transition: 'transform 0.3s ease-in-out',
+                            }}
+                            onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                            onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                        >
+                            <span role="img" aria-label="chart">📊</span>
+                            Statistics
+                        </Button>
                     </div>
-                    <div>
-                        <h4>Total Appointments Over Time (Line Chart)</h4>
-                        <Line 
-                            data={lineChartData()}
-                            options={lineChartOptions}
-                            ref={lineChartRef}
-                        />
-                    </div>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button 
-                        variant="success"
-                        onClick={exportToPDF}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            transition: 'transform 0.3s ease-in-out',
-                        }}
-                        onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
-                        onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                )}
+
+                <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        style={{ padding: '8px', borderRadius: '50px', border: '2px solid #007BFF', outline: 'none', fontSize: '14px' }}
                     >
-                        <span role="img" aria-label="download">📥</span>
-                        Export to PDF
-                    </Button>
-                    <Button variant="secondary" onClick={() => setShowStatsModal(false)}>
-                        Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-        </div>
+                        <option value="all">All Statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="completed">Completed</option>
+                        <option value="canceled">Canceled</option>
+                    </select>
+                    <input
+                        type="text"
+                        value={searchName}
+                        onChange={(e) => setSearchName(e.target.value)}
+                        placeholder={role === 'psychiatrist' ? 'Search by student name' : role === 'student' ? 'Search by psychiatrist name' : 'Search by name...'}
+                        style={{ padding: '8px', borderRadius: '50px', border: '2px solid #007BFF', outline: 'none', width: '200px', fontSize: '14px' }}
+                    />
+                    <select
+                        value={dateSort}
+                        onChange={(e) => setDateSort(e.target.value)}
+                        style={{ padding: '8px', borderRadius: '50px', border: '2px solid #007BFF', outline: 'none', fontSize: '14px' }}
+                    >
+                        <option value="recent">Most Recent</option>
+                        <option value="oldest">Oldest</option>
+                    </select>
+                </div>
+
+                {appointments.length === 0 ? (
+                    <p className="no-appointments">No appointments found.</p>
+                ) : (
+                    <>
+                        <div className="appointments-list">
+                            {currentAppointments.map((appointment) => (
+                                <div key={appointment._id} className="appointment-card" style={{ position: 'relative' }}>
+                                    {role === 'student' && (appointment.status === 'pending' || appointment.status === 'canceled') && (
+                                        <>
+                                            <button className="delete-icon" onClick={() => openDeleteModal(appointment._id)}>
+                                                <i className="fas fa-trash"></i>
+                                            </button>
+                                            {appointment.status === 'pending' && (
+                                                <button
+                                                    className="update-icon"
+                                                    onClick={() => handleUpdateTime(appointment)}
+                                                    style={{ position: 'absolute', top: '10px', right: '40px', background: 'none', border: 'none', cursor: 'pointer' }}
+                                                >
+                                                    <i className="fas fa-pencil-alt" style={{ color: '#007BFF' }}></i>
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
+                                    {role === 'psychiatrist' && isNewAppointment(appointment) && (
+                                        <span
+                                            style={{
+                                                position: 'absolute',
+                                                top: '10px',
+                                                right: '10px',
+                                                backgroundColor: '#28a745',
+                                                color: 'white',
+                                                padding: '2px 6px',
+                                                borderRadius: '3px',
+                                                fontSize: '12px',
+                                            }}
+                                        >
+                                            New
+                                        </span>
+                                    )}
+                                    <div className="appointment-details">
+                                        <p><span className="label">Date:</span> {new Date(appointment.date).toLocaleDateString()}</p>
+                                        <p><span className="label">Time:</span> {appointment.startTime} - {appointment.endTime}</p>
+                                        {role === 'student' ? (
+                                            <>
+                                                <p><span className="label">Psychiatrist:</span> {appointment.psychiatrist?.username || 'Not specified'} ({appointment.psychiatrist?.email || 'Not specified'})</p>
+                                                <p><span className="label">Status:</span> {appointment.status || 'Not specified'}</p>
+                                            </>
+                                        ) : role === 'psychiatrist' ? (
+                                            <>
+                                                <p><span className="label">Student:</span> {appointment.student?.username || 'Not specified'} ({appointment.student?.email || 'Not specified'})</p>
+                                                <div className="status-section">
+                                                    <span className="label">Status:</span>{' '}
+                                                    {editingAppointmentId === appointment._id ? (
+                                                        <div className="edit-status">
+                                                            <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} style={{ borderRadius: '50px' }}>
+                                                                <option value="">Select a status</option>
+                                                                <option value="pending">Pending</option>
+                                                                <option value="confirmed">Confirmed</option>
+                                                                <option value="completed">Completed</option>
+                                                                <option value="canceled">Canceled</option>
+                                                            </select>
+                                                            <Button variant="primary" style={{ borderRadius: '50px', fontSize: '14px' }} onClick={() => handleStatusChange(appointment._id)}>Save</Button>
+                                                            <Button variant="secondary" style={{ borderRadius: '50px', fontSize: '14px' }} onClick={() => setEditingAppointmentId(null)}>Cancel</Button>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <span className={`status ${appointment.status}`}>{appointment.status || 'Not specified'}</span>
+                                                            <Button variant="info" style={{ borderRadius: '50px', fontSize: '14px' }} onClick={() => { setEditingAppointmentId(appointment._id); setNewStatus(appointment.status || ''); }}>Edit</Button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </>
+                                        ) : null}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Pagination Controls */}
+                        <div className="pagination">
+                            <button
+                                onClick={() => paginate(currentPage - 1)}
+                                disabled={currentPage === 1}
+                            >
+                                Previous
+                            </button>
+                            <span>Page {currentPage} of {totalPages}</span>
+                            <button
+                                onClick={() => paginate(currentPage + 1)}
+                                disabled={currentPage === totalPages}
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </>
+                )}
+
+                <Modal show={showModal} onHide={() => setShowModal(false)}>
+                    <Modal.Header closeButton>
+                        <Modal.Title>Confirm Deletion</Modal.Title>
+                    </Modal.Header>
+                    <Modal.Body>Are you sure you want to delete this appointment?</Modal.Body>
+                    <Modal.Footer>
+                        <Button variant="secondary" style={{ borderRadius: '50px', fontSize: '14px' }} onClick={() => setShowModal(false)}>Cancel</Button>
+                        <Button variant="danger" style={{ borderRadius: '50px', fontSize: '14px' }} onClick={handleDeleteAppointment}>Delete</Button>
+                    </Modal.Footer>
+                </Modal>
+
+                {showCalendarModal && selectedPsychiatrist && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 1000,
+                    }}>
+                        <div style={{
+                            backgroundColor: 'white',
+                            padding: '20px',
+                            borderRadius: '10px',
+                            width: '90%',
+                            maxWidth: '1000px',
+                            maxHeight: '90vh',
+                            overflow: 'auto',
+                        }}>
+                            <h3 style={{ textAlign: 'center', marginBottom: '10px' }}>
+                                Update Time - {selectedPsychiatrist.username}'s Availability
+                            </h3>
+                            <p style={{ textAlign: 'center', color: '#555', marginBottom: '20px' }}>
+                                Click a time slot to update your appointment
+                            </p>
+                            <FullCalendar
+                                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                                initialView="timeGridWeek"
+                                events={calendarEvents}
+                                eventClick={(info) => handleTimeChange(info.event)}
+                                slotMinTime="08:00:00"
+                                slotMaxTime="20:00:00"
+                                slotDuration="00:30:00"
+                                slotLabelInterval="00:30"
+                                headerToolbar={{
+                                    left: 'prev,next today',
+                                    center: 'title',
+                                    right: 'dayGridMonth,timeGridWeek,timeGridDay',
+                                }}
+                                selectable={false}
+                            />
+                            <button className='theme-btn'
+                                onClick={() => setShowCalendarModal(false)}
+                                style={{
+                                    backgroundColor: '#f44336',
+                                    color: 'white',
+                                    padding: '10px 20px',
+                                    fontSize: '14px',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    borderRadius: '50px',
+                                    marginTop: '20px',
+                                    display: 'block',
+                                    marginLeft: 'auto',
+                                }}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                <Modal
+                    show={showStatsModal}
+                    onHide={() => setShowStatsModal(false)}
+                    size="lg"
+                >
+                    <Modal.Header closeButton>
+                        <Modal.Title>Appointment Statistics</Modal.Title>
+                    </Modal.Header>
+                    <Modal.Body>
+                        <div style={{ marginBottom: '30px' }}>
+                            <h4>Status Distribution (Pie Chart)</h4>
+                            <Pie
+                                data={pieChartData()}
+                                options={pieChartOptions}
+                                style={{ maxHeight: '400px' }}
+                                ref={pieChartRef}
+                            />
+                        </div>
+                        <div>
+                            <h4>Total Appointments Over Time (Line Chart)</h4>
+                            <Line
+                                data={lineChartData()}
+                                options={lineChartOptions}
+                                ref={lineChartRef}
+                            />
+                        </div>
+                    </Modal.Body>
+                    <Modal.Footer>
+                        <Button
+                            variant="success"
+                            onClick={exportToPDF}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                transition: 'transform 0.3s ease-in-out',
+                            }}
+                            onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                            onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                        >
+                            <span role="img" aria-label="download">📥</span>
+                            Export to PDF
+                        </Button>
+                        <Button variant="secondary" onClick={() => setShowStatsModal(false)}>
+                            Close
+                        </Button>
+                    </Modal.Footer>
+                </Modal>
+            </div>
+        </main>
     );
 };
 
