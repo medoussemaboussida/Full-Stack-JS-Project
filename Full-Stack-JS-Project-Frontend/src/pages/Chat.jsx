@@ -85,7 +85,7 @@ const Chat = () => {
   const [translatedMessages, setTranslatedMessages] = useState({});
 
   const GROQ_API___KEY = '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';
-  const tts_new = 'sk_9a528300cb9d0fde2f09a122f90b3895d0f5adca31387585';
+  const tts_tts = 'sk_f7fbb0e46b8d1a9d5107ef782723f2c1b4341ddf39934fb8';
   const HUGGING_FACE_API_KEY = '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';
 
   useEffect(() => {
@@ -295,7 +295,7 @@ const Chat = () => {
         },
         {
           headers: {
-            'xi-api-key': tts_new,
+            'xi-api-key': tts_tts,
             'Content-Type': 'application/json',
           },
           responseType: 'arraybuffer',
