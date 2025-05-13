@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { jwtDecode } from "jwt-decode";
+import EmojiPicker from 'emoji-picker-react';
 
 function EditActivity() {
   const [formData, setFormData] = useState({
@@ -17,6 +18,12 @@ function EditActivity() {
   const [categories, setCategories] = useState([]);
   const [previewImage, setPreviewImage] = useState(null);
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
+  const [showTitleEmojiPicker, setShowTitleEmojiPicker] = useState(false);
+  const [showDescEmojiPicker, setShowDescEmojiPicker] = useState(false);
+  const [showCategoryEmojiPicker, setShowCategoryEmojiPicker] = useState(false);
+  const titleInputRef = useRef(null);
+  const descriptionInputRef = useRef(null);
+  const categoryInputRef = useRef(null);
   const navigate = useNavigate();
   const { id } = useParams();
 
@@ -206,11 +213,11 @@ function EditActivity() {
       // Charger l'image par défaut depuis les assets
       const response = await fetch("/assets/img/activity/03.jpg");
       if (!response.ok) throw new Error("Erreur lors du chargement de l'image par défaut");
-  
+
       const blob = await response.blob();
       // Créer un objet File à partir du Blob
       const defaultImageFile = new File([blob], "default-activity-image.jpg", { type: "image/jpeg" });
-  
+
       // Mettre à jour formData avec le fichier par défaut
       setFormData((prev) => ({ ...prev, imageUrl: defaultImageFile }));
       // Mettre à jour l'aperçu
@@ -250,19 +257,19 @@ function EditActivity() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-  
+
     const token = getToken();
     if (!token) {
       toast.error("Vous devez être connecté pour modifier une activité.");
       setIsSubmitting(false);
       return;
     }
-  
+
     const decoded = jwtDecode(token);
     const userId = decoded.id;
-  
+
     let categoryId = formData.category;
-  
+
     if (formData.category === "new") {
       if (!formData.newCategory.trim()) {
         toast.error("Veuillez entrer un nom pour la nouvelle catégorie.");
@@ -278,12 +285,12 @@ function EditActivity() {
         return;
       }
     }
-  
+
     const data = new FormData();
     data.append("title", formData.title);
     data.append("description", formData.description);
     data.append("category", categoryId);
-  
+
     // Si imageUrl est un fichier (soit une nouvelle image, soit l'image par défaut)
     if (formData.imageUrl instanceof File) {
       data.append("image", formData.imageUrl);
@@ -291,7 +298,7 @@ function EditActivity() {
       // Si aucune image n'est définie, indiquer au backend de supprimer l'image
       data.append("removeImage", true);
     }
-  
+
     try {
       const response = await fetch(
         `http://localhost:5000/users/psychiatrist/${userId}/update-activity/${id}`,
@@ -303,7 +310,7 @@ function EditActivity() {
           body: data,
         }
       );
-  
+
       const result = await response.json();
       if (response.ok) {
         toast.success("Activité mise à jour avec succès !");
@@ -321,6 +328,30 @@ function EditActivity() {
 
   const handleCancel = () => {
     navigate("/Activities");
+  };
+
+  const handleTitleEmojiClick = (emojiObject) => {
+    setFormData((prev) => ({
+      ...prev,
+      title: prev.title + emojiObject.emoji,
+    }));
+    setShowTitleEmojiPicker(false);
+  };
+
+  const handleDescEmojiClick = (emojiObject) => {
+    setFormData((prev) => ({
+      ...prev,
+      description: prev.description + emojiObject.emoji,
+    }));
+    setShowDescEmojiPicker(false);
+  };
+
+  const handleCategoryEmojiClick = (emojiObject) => {
+    setFormData((prev) => ({
+      ...prev,
+      newCategory: prev.newCategory + emojiObject.emoji,
+    }));
+    setShowCategoryEmojiPicker(false);
   };
 
   return (
@@ -398,16 +429,40 @@ function EditActivity() {
                   <div className="row">
                     <div className="col-md-12">
                       <div className="form-group">
-                        <input
-                          type="text"
-                          className="form-control"
-                          name="title"
-                          value={formData.title}
-                          onChange={handleChange}
-                          placeholder="Activity Title"
-                          required
-                          style={{ borderRadius: "50px" }}
-                        />
+                        <div style={{ position: "relative" }}>
+                          <input
+                            type="text"
+                            className="form-control"
+                            name="title"
+                            value={formData.title}
+                            onChange={handleChange}
+                            placeholder="Activity Title"
+                            required
+                            style={{ borderRadius: "50px" }}
+                            ref={titleInputRef}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowTitleEmojiPicker(!showTitleEmojiPicker)}
+                            style={{
+                              position: "absolute",
+                              top: "10px",
+                              right: "10px",
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              fontSize: "20px",
+                              zIndex: 1000,
+                            }}
+                          >
+                            😊
+                          </button>
+                          {showTitleEmojiPicker && (
+                            <div style={{ position: "absolute", top: "-350px", right: "0", zIndex: 1000 }}>
+                              <EmojiPicker onEmojiClick={handleTitleEmojiClick} />
+                            </div>
+                          )}
+                        </div>
                         <button
                           type="button" style={{ borderRadius: "50px" }}
                           className="theme-btn mt-2"
@@ -421,15 +476,39 @@ function EditActivity() {
 
                     <div className="col-md-12">
                       <div className="form-group">
-                        <textarea
-                          className="form-control"
-                          name="description"
-                          value={formData.description}
-                          onChange={handleChange}
-                          placeholder="Activity Description"
-                          required
-                          rows="3"
-                        ></textarea>
+                        <div style={{ position: "relative" }}>
+                          <textarea
+                            className="form-control"
+                            name="description"
+                            value={formData.description}
+                            onChange={handleChange}
+                            placeholder="Activity Description"
+                            required
+                            rows="3"
+                            ref={descriptionInputRef}
+                          ></textarea>
+                          <button
+                            type="button"
+                            onClick={() => setShowDescEmojiPicker(!showDescEmojiPicker)}
+                            style={{
+                              position: "absolute",
+                              top: "10px",
+                              right: "10px",
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              fontSize: "20px",
+                              zIndex: 1000,
+                            }}
+                          >
+                            😊
+                          </button>
+                          {showDescEmojiPicker && (
+                            <div style={{ position: "absolute", top: "-350px", right: "0", zIndex: 1000 }}>
+                              <EmojiPicker onEmojiClick={handleDescEmojiClick} />
+                            </div>
+                          )}
+                        </div>
                         <button
                           type="button" style={{ borderRadius: "50px" }}
                           className="theme-btn mt-2"
@@ -461,16 +540,40 @@ function EditActivity() {
                       </div>
                       {showNewCategoryInput && (
                         <div className="form-group mt-2">
-                          <input
-                            type="text"
-                            className="form-control"
-                            name="newCategory"
-                            value={formData.newCategory}
-                            onChange={handleChange}
-                            placeholder="Nom de la nouvelle catégorie"
-                            required
-                            style={{ borderRadius: "50px" }}
-                          />
+                          <div style={{ position: "relative" }}>
+                            <input
+                              type="text"
+                              className="form-control"
+                              name="newCategory"
+                              value={formData.newCategory}
+                              onChange={handleChange}
+                              placeholder="Nom de la nouvelle catégorie"
+                              required
+                              style={{ borderRadius: "50px" }}
+                              ref={categoryInputRef}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowCategoryEmojiPicker(!showCategoryEmojiPicker)}
+                              style={{
+                                position: "absolute",
+                                top: "10px",
+                                right: "10px",
+                                background: "none",
+                                border: "none",
+                                cursor: "pointer",
+                                fontSize: "20px",
+                                zIndex: 1000,
+                              }}
+                            >
+                              😊
+                            </button>
+                            {showCategoryEmojiPicker && (
+                              <div style={{ position: "absolute", top: "-350px", right: "0", zIndex: 1000 }}>
+                                <EmojiPicker onEmojiClick={handleCategoryEmojiClick} />
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -517,7 +620,7 @@ function EditActivity() {
         </div>
       </div>
 
-    
+
     </div>
   );
 }
