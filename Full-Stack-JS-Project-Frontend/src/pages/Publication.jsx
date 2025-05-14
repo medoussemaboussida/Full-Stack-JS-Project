@@ -1943,17 +1943,7 @@ function Publication() {
                           ></i>
                           By {post.author_id?.username || "Unknown"}
                         </span>
-                        <span style={{ marginLeft: "15px" }}>
-                          <i
-                            className="far fa-comments"
-                            style={{ marginRight: "5px" }}
-                          ></i>
-                          {post.commentsCount >= 0
-                            ? `${post.commentsCount} Comment${
-                                post.commentsCount !== 1 ? "s" : ""
-                              }`
-                            : "No Comments"}
-                        </span>
+                       
                       </div>
                     </div>
                   </div>
