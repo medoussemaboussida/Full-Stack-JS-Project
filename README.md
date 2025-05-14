@@ -44,13 +44,13 @@ The goal of this project is to provide a structured, secure and efficient platfo
 <img align="right" width=200px height=200px alt="side_sticker" src="https://media.giphy.com/media/TEnXkcsHrP4YedChhA/giphy.gif" />  
 
 ###### Depression Score Detection System:
-✔️ We have implemented a machine learning-based model trained on a dedicated dataset to evaluate a student's depression score based on their activity, responses, and tracked wellbeing data.
+✔️ We have implemented a machine learning-based model trained on a dedicated dataset to evaluate a student's mental health score based on their activity, responses, and tracked wellbeing data.
 
 ###### Dataset Utilization:
-✔️ Our model is trained using a curated dataset that reflects common symptoms and behavioral indicators of depression, ensuring accurate and data-driven assessment.
+✔️ Our model is trained using a curated dataset that reflects common symptoms and behavioral indicators of stress, ensuring accurate and data-driven assessment.
 
 ###### Personalized Recommendations:
-✔️ Based on the calculated depression score, the system generates custom recommendations aligned with the student's current emotional and psychological state.
+✔️ Based on the calculated mental health score, the system generates custom recommendations aligned with the student's current emotional and psychological state.
 
 ###### Goal:
 ✔️ Empower students with early detection, actionable insights, and empathetic support, reducing the stigma and barriers to seeking help.
@@ -93,7 +93,6 @@ Our platform features a modern, clean, and user-friendly interface designed with
 ## 💻 Final solution
 <img align="right" width=200px height=200px alt="side_sticker" src="https://media.giphy.com/media/dRiZq6h7814nhldyza/giphy.gif?cid=ecf05e47e8hcz6ym1zshf9asfpo25pbad0uxg2v4sca9q6if&ep=v1_gifs_search&rid=giphy.gif&ct=g" />    
 <img src="https://github.com/user-attachments/assets/a082a64c-a8a1-460b-bee9-9a4811bae21e" width="630"/>
-<img src="https://github.com/user-attachments/assets/14a63bbf-52a4-4397-8fe6-e490fc5a8479" width="800"/>
 
 ## 🙏 Dedication
 We would like to express our sincere gratitude to **ESPRIT University** for giving us the opportunity to work on this meaningful and innovative project.  
