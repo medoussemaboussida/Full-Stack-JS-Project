@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -75,6 +75,9 @@ function ActivitySchedule() {
   const [prayerTimes, setPrayerTimes] = useState({}); // State to store dynamic prayer times
   const [selectedPrayerDate, setSelectedPrayerDate] = useState(null);
   const [remainingTime, setRemainingTime] = useState("");
+  const [isAzanPlaying, setIsAzanPlaying] = useState(false);
+  const [azanVolume, setAzanVolume] = useState(0.7); // Default volume 70%
+  const azanAudioRef = useRef(null); // Reference to the audio element
   const dates = generateDatesForMonth(currentDate);
   const navigate = useNavigate();
 
@@ -512,6 +515,24 @@ function ActivitySchedule() {
     setShowForumRulesModal(false);
   };
 
+  // Stop Azan playback
+  const stopAzan = () => {
+    if (azanAudioRef.current) {
+      azanAudioRef.current.pause();
+      azanAudioRef.current.currentTime = 0;
+      setIsAzanPlaying(false);
+    }
+  };
+
+  // Change Azan volume
+  const changeAzanVolume = (e) => {
+    const newVolume = parseFloat(e.target.value);
+    setAzanVolume(newVolume);
+    if (azanAudioRef.current) {
+      azanAudioRef.current.volume = newVolume;
+    }
+  };
+
   // Open prayer times modal
   const handleOpenPrayerTimesModal = (date) => {
     setSelectedPrayerDate(date);
@@ -667,39 +688,80 @@ function ActivitySchedule() {
       const today = new Date();
       const dateStr = today.toISOString().split("T")[0]; // YYYY-MM-DD
 
-      // Check if "prayer" is scheduled for today
-      const scheduledForDay = scheduledActivities[dateStr] || [];
+      // Check if "prayer" is scheduled for any day (not just today)
+      // This allows the adhan to play even if prayer is scheduled for future days
+      let isPrayerScheduled = false;
       const prayerActivity = activities.find((act) => act.title.toLowerCase() === "prayer");
-      const isPrayerScheduled = scheduledForDay.some(
-        (act) => act.activityId === prayerActivity?._id
-      );
+
+      if (prayerActivity) {
+        // Check all scheduled days for prayer activity
+        Object.values(scheduledActivities).forEach(activitiesForDay => {
+          if (activitiesForDay.some(act => act.activityId === prayerActivity._id)) {
+            isPrayerScheduled = true;
+          }
+        });
+      }
 
       if (!isPrayerScheduled) return;
 
       // Get current time in minutes for easier comparison
       const currentMinutes = today.getHours() * 60 + today.getMinutes();
+      const currentSeconds = today.getSeconds();
 
-      // Check if current time is close to any prayer time (within 1 minute)
+      // Check if current time is close to any prayer time
       Object.entries(prayerTimes).forEach(([prayerName, prayerTime]) => {
         const [prayerHours, prayerMinutes] = prayerTime.split(':').map(Number);
         const prayerTotalMinutes = prayerHours * 60 + prayerMinutes;
 
-        // Check if we're within 1 minute of prayer time and haven't played adhan for this prayer today
+        // Check if we're exactly at prayer time and haven't played adhan for this prayer today
+        // Also check if seconds are less than 15 to avoid multiple triggers within the same minute
         const timeDifference = Math.abs(currentMinutes - prayerTotalMinutes);
         const uniqueKey = `${dateStr}-${prayerName}`;
 
-        if (timeDifference <= 1 && !playedAdhans.has(uniqueKey)) {
+        if (timeDifference === 0 && currentSeconds < 15 && !playedAdhans.has(uniqueKey)) {
           // Mark this prayer as played for today
           playedAdhans.add(uniqueKey);
 
-          // Play the adhan
-          const azanAudio = new Audio("/assets/sounds/azan.mp3");
-          azanAudio.play().catch((error) => {
-            console.error("Error playing Azan:", error);
-            toast.error("Failed to play Azan sound.");
+          // Stop any currently playing adhan
+          if (azanAudioRef.current) {
+            azanAudioRef.current.pause();
+            azanAudioRef.current.currentTime = 0;
+          }
+
+          // Create new audio element
+          const audio = new Audio("/assets/sounds/azan.mp3");
+          azanAudioRef.current = audio;
+
+          // Set volume based on user preference
+          audio.volume = azanVolume;
+
+          // Update state to show controls
+          setIsAzanPlaying(true);
+
+          // Add event listeners for better user feedback
+          audio.addEventListener('play', () => {
+            toast.info(`Time for ${prayerName} prayer! Azan is playing.`, {
+              autoClose: 10000, // Keep notification visible longer
+            });
           });
 
-          toast.info(`Time for ${prayerName} prayer! Azan is playing.`);
+          audio.addEventListener('ended', () => {
+            toast.info(`${prayerName} prayer time. The Azan has finished.`);
+            setIsAzanPlaying(false);
+          });
+
+          audio.addEventListener('error', (error) => {
+            console.error("Error playing Azan:", error);
+            toast.error("Failed to play Azan sound.");
+            setIsAzanPlaying(false);
+          });
+
+          // Play the adhan
+          audio.play().catch((error) => {
+            console.error("Error playing Azan:", error);
+            toast.error("Failed to play Azan sound. This may be due to browser autoplay restrictions.");
+            setIsAzanPlaying(false);
+          });
 
           // Clean up old entries from playedAdhans (keep only today's entries)
           for (const key of playedAdhans) {
@@ -711,12 +773,20 @@ function ActivitySchedule() {
       });
     };
 
-    // Check every 15 seconds
-    const interval = setInterval(checkPrayerTimes, 15000);
+    // Check every 10 seconds for more precise timing
+    const interval = setInterval(checkPrayerTimes, 10000);
     checkPrayerTimes(); // Check immediately on mount
 
-    return () => clearInterval(interval);
-  }, [scheduledActivities, activities, prayerTimes]);
+    return () => {
+      clearInterval(interval);
+      // Clean up audio if component unmounts while playing
+      if (azanAudioRef.current) {
+        azanAudioRef.current.pause();
+        azanAudioRef.current = null;
+        setIsAzanPlaying(false);
+      }
+    };
+  }, [scheduledActivities, activities, prayerTimes, azanVolume]);
 
   if (isLoading) {
     return <div style={{ textAlign: "center", padding: "20px", fontSize: "18px" }}>Loading...</div>;
@@ -797,6 +867,70 @@ function ActivitySchedule() {
   return (
     <div>
       <ToastContainer position="top-right" autoClose={3000} />
+
+      {/* Azan Controls - Fixed Position at Bottom-Right when playing */}
+      {isAzanPlaying && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "20px",
+            right: "20px",
+            backgroundColor: "#fff",
+            padding: "15px",
+            borderRadius: "10px",
+            boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
+            zIndex: 1001,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "10px",
+            width: "250px",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+            <span style={{ fontWeight: "bold", color: "#333" }}>
+              <FontAwesomeIcon icon={faMosque} style={{ marginRight: "8px", color: "#00aaff" }} />
+              Azan Playing
+            </span>
+            <button
+              onClick={stopAzan}
+              style={{
+                background: "rgba(244, 67, 54, 0.1)",
+                border: "none",
+                borderRadius: "50%",
+                width: "30px",
+                height: "30px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: "#f44336",
+                transition: "background 0.3s ease",
+              }}
+              onMouseEnter={(e) => (e.target.style.background = "rgba(244, 67, 54, 0.3)")}
+              onMouseLeave={(e) => (e.target.style.background = "rgba(244, 67, 54, 0.1)")}
+            >
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+          </div>
+
+          <div style={{ width: "100%" }}>
+            <label htmlFor="volume-slider" style={{ display: "block", marginBottom: "5px", fontSize: "14px" }}>
+              Volume: {Math.round(azanVolume * 100)}%
+            </label>
+            <input
+              id="volume-slider"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={azanVolume}
+              onChange={changeAzanVolume}
+              style={{ width: "100%" }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Forum Rules Button - Fixed Position at Bottom-Left */}
       <button
