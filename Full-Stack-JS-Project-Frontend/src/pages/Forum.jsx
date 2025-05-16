@@ -1390,6 +1390,7 @@ function Forum() {
                               width: "40px",
                               height: "40px",
                               objectFit: "cover",
+                              border: "2px solid #007bff",
                             }}
                           />
                           <h6 className="mb-0 me-3">
@@ -1924,111 +1925,114 @@ function Forum() {
                 </p>
               )}
               {/* Pagination */}
-   {totalPages > 1 && (
-  <div
-    style={{
-      display: "flex",
-      justifyContent: "center",
-      marginTop: "30px",
-      gap: "10px",
-      alignItems: "center",
-    }}
-  >
-    <button className="theme-btn"
-      onClick={() =>
-        paginate(currentPage > 1 ? currentPage - 1 : 1)
-      }
-      style={{
-        padding: "8px 16px",
-        borderRadius: "50px",
-        border: "1px solid #007bff",
-        backgroundColor: currentPage === 1 ? "#e0e0e0" : "white",
-        color: currentPage === 1 ? "#666" : "#007bff",
-        cursor: currentPage === 1 ? "not-allowed" : "pointer",
-        transition: "all 0.3s ease",
-        fontSize: "14px",
-      }}
-      onMouseEnter={(e) => {
-        if (currentPage > 1) {
-          e.currentTarget.style.backgroundColor = "#e6f0ff";
-            e.currentTarget.style.color = "white";
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (currentPage > 1) {
-          e.currentTarget.style.backgroundColor = "white";
-          e.currentTarget.style.color = "#007bff";
-        }
-      }}
-    >
-      ← Previous
-    </button>
-    {Array.from({ length: totalPages }, (_, index) => (
-      <button className="theme-btn"
-        key={index + 1}
-        onClick={() => paginate(index + 1)}
-        style={{
-          padding: "8px 16px",
-          borderRadius: "50px",
-          border: "1px solid #007bff",
-          backgroundColor:
-            currentPage === index + 1 ? "#007bff" : "white",
-          color: currentPage === index + 1 ? "white" : "#007bff",
-          cursor: "pointer",
-          transition: "all 0.3s ease",
-          fontSize: "14px",
-        }}
-        onMouseEnter={(e) => {
-          if (currentPage !== index + 1) {
-            e.currentTarget.style.backgroundColor = "#e6f0ff";
-            e.currentTarget.style.color = "white";
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (currentPage !== index + 1) {
-            e.currentTarget.style.backgroundColor = "white";
-            e.currentTarget.style.color = "#007bff";
-          }
-        }}
-      >
-        {index + 1}
-      </button>
-    ))}
-    <button className="theme-btn"
-      onClick={() =>
-        paginate(
-          currentPage < totalPages ? currentPage + 1 : totalPages
-        )
-      }
-      style={{
-        padding: "8px 16px",
-        borderRadius: "50px",
-        border: "1px solid #007bff",
-        backgroundColor:
-          currentPage === totalPages ? "#e0e0e0" : "white",
-        color: currentPage === totalPages ? "#666" : "#007bff",
-        cursor:
-          currentPage === totalPages ? "not-allowed" : "pointer",
-        transition: "all 0.3s ease",
-        fontSize: "14px",
-      }}
-      onMouseEnter={(e) => {
-        if (currentPage < totalPages) {
-          e.currentTarget.style.backgroundColor = "#e6f0ff";
-          e.currentTarget.style.color = "white";
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (currentPage < totalPages) {
-          e.currentTarget.style.backgroundColor = "white";
-          e.currentTarget.style.color = "#007bff";
-        }
-      }}
-    >
-      Next →
-    </button>
-  </div>
-)}
+              {totalPages > 1 && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    marginTop: "30px",
+                    gap: "10px",
+                    alignItems: "center",
+                  }}
+                >
+                  <button
+                    className="theme-btn"
+                    onClick={() =>
+                      paginate(currentPage > 1 ? currentPage - 1 : 1)
+                    }
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: "50px",
+                      border: "1px solid #007bff",
+                      backgroundColor: currentPage === 1 ? "#e0e0e0" : "white",
+                      color: currentPage === 1 ? "#666" : "#007bff",
+                      cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                      transition: "all 0.3s ease",
+                      fontSize: "14px",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (currentPage > 1) {
+                        e.currentTarget.style.backgroundColor = "#e6f0ff";
+                        e.currentTarget.style.color = "white";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (currentPage > 1) {
+                        e.currentTarget.style.backgroundColor = "white";
+                        e.currentTarget.style.color = "#007bff";
+                      }
+                    }}
+                  >
+                    ← Previous
+                  </button>
+                  {Array.from({ length: totalPages }, (_, index) => (
+                    <button
+                      className="theme-btn"
+                      key={index + 1}
+                      onClick={() => paginate(index + 1)}
+                      style={{
+                        padding: "8px 16px",
+                        borderRadius: "50px",
+                        border: "1px solid #007bff",
+                        backgroundColor:
+                          currentPage === index + 1 ? "#007bff" : "white",
+                        color: currentPage === index + 1 ? "white" : "#007bff",
+                        cursor: "pointer",
+                        transition: "all 0.3s ease",
+                        fontSize: "14px",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (currentPage !== index + 1) {
+                          e.currentTarget.style.backgroundColor = "#e6f0ff";
+                          e.currentTarget.style.color = "white";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (currentPage !== index + 1) {
+                          e.currentTarget.style.backgroundColor = "white";
+                          e.currentTarget.style.color = "#007bff";
+                        }
+                      }}
+                    >
+                      {index + 1}
+                    </button>
+                  ))}
+                  <button
+                    className="theme-btn"
+                    onClick={() =>
+                      paginate(
+                        currentPage < totalPages ? currentPage + 1 : totalPages
+                      )
+                    }
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: "50px",
+                      border: "1px solid #007bff",
+                      backgroundColor:
+                        currentPage === totalPages ? "#e0e0e0" : "white",
+                      color: currentPage === totalPages ? "#666" : "#007bff",
+                      cursor:
+                        currentPage === totalPages ? "not-allowed" : "pointer",
+                      transition: "all 0.3s ease",
+                      fontSize: "14px",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (currentPage < totalPages) {
+                        e.currentTarget.style.backgroundColor = "#e6f0ff";
+                        e.currentTarget.style.color = "white";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (currentPage < totalPages) {
+                        e.currentTarget.style.backgroundColor = "white";
+                        e.currentTarget.style.color = "#007bff";
+                      }
+                    }}
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

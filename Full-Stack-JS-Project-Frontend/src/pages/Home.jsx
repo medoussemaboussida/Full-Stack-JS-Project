@@ -168,7 +168,6 @@ function Home() {
                           width: "250px",
                           fontSize: "16px",
                           boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-                          transition: "all 0.3s ease",
                           position: "relative",
                           overflow: "hidden",
                         }}

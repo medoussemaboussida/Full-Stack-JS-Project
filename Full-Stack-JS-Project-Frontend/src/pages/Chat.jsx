@@ -1402,11 +1402,14 @@ const Chat = () => {
                       onKeyPress={handleRoomKeyPress}
                       placeholder="Enter room code..."
                       className="form-control"
+                      style={{borderRadius:"50px"}}
+                      
                     />
                     <button
                       onClick={joinRoom}
                       disabled={!roomCode.trim()}
                       className="btn btn-primary mt-3"
+                      style={{borderRadius:"50px"}}
                     >
                       Join
                     </button>
@@ -1426,7 +1429,7 @@ const Chat = () => {
                           className="video-button me-2"
                           title="Start Video Call"
                         >
-                          <i className="fas fa-video"></i>
+                          <i className="fas fa-video" style={{color:"white"}}></i>
                         </button>
                         {userRole === 'psychiatrist' && (
                           <>
@@ -1436,14 +1439,14 @@ const Chat = () => {
                               title="Summarize Conversation"
                               disabled={isSummarizing}
                             >
-                              <i className="fas fa-book-open"></i>
+                              <i className="fas fa-book-open" style={{color:"white"}}></i>
                             </button>
                             <button
                               onClick={exportToPDF}
                               className="export-pdf-icon me-2"
                               title="Export to PDF"
                             >
-                              <i className="fas fa-file-pdf"></i>
+                              <i className="fas fa-file-pdf" style={{color:"white"}}></i>
                             </button>
                           </>
                         )}
@@ -1457,7 +1460,7 @@ const Chat = () => {
                           className="leave-room-icon"
                           title="Leave Room"
                         >
-                          <i className="fas fa-sign-out-alt"></i>
+                          <i className="fas fa-sign-out-alt" style={{color:"white"}}></i>
                         </button>
                       </div>
                     </div>
@@ -1493,9 +1496,10 @@ const Chat = () => {
                                 onChange={(e) => setEditMessageContent(e.target.value)}
                                 className="form-control edit-input"
                               />
-                              <button
+                              <button 
                                 onClick={updateMessage}
                                 className="btn btn-primary ms-2"
+                                 style={{borderRadius:"50px",fontSize:"14px"}}
                               >
                                 Save
                               </button>
@@ -1504,7 +1508,8 @@ const Chat = () => {
                                   setEditMessageId(null);
                                   setEditMessageContent('');
                                 }}
-                                className="btn btn-secondary ms-2"
+                                className="btn btn-danger ms-2"
+                                 style={{borderRadius:"50px",fontSize:"14px"}}
                               >
                                 Cancel
                               </button>
@@ -1530,7 +1535,7 @@ const Chat = () => {
                                       onClick={() => toggleEmotionDisplay(msg._id)}
                                       className="emotion-button"
                                     >
-                                      <i className="fas fa-smile"></i>
+                                      <i className="fas fa-smile" style={{color:"white"}}></i>
                                     </button>
                                   )}
                                   {showEmotionForMessage === msg._id &&
@@ -1554,7 +1559,7 @@ const Chat = () => {
                                     type="button"
                                     onClick={() => toggleDropdown(msg._id)}
                                   >
-                                    <i className="fas fa-ellipsis-v"></i>
+                                    <i className="fas fa-ellipsis-v" style={{color:"white"}}></i>
                                   </button>
                                   {activeDropdown === msg._id && (
                                     <ul className="dropdown-menu show">
@@ -1582,13 +1587,13 @@ const Chat = () => {
                                 onClick={() => speakMessage(msg.message)}
                                 className="btn btn-link ms-2"
                               >
-                                <i className="fas fa-volume-up"></i>
+                                <i className="fas fa-volume-up" style={{color:"white"}}></i>
                               </button>
                               <button
                                 onClick={() => handleTranslate(msg._id, msg.message)}
                                 className="btn btn-link ms-2"
                               >
-                                <i className="fas fa-language"></i>
+                                <i className="fas fa-language" style={{color:"white"}}></i>
                               </button>
                             </div>
                           )}
@@ -1608,6 +1613,8 @@ const Chat = () => {
                         value={targetLanguage}
                         onChange={(e) => setTargetLanguage(e.target.value)}
                         className="language-select"
+                         style={{borderRadius:"50px"}}
+
                       >
                         <option value="en">English</option>
                         <option value="fr">French</option>
@@ -1621,6 +1628,7 @@ const Chat = () => {
                         onKeyPress={handleMessageKeyPress}
                         placeholder="Type a message..."
                         className="form-control"
+                        style={{borderRadius:"50px"}}
                       />
                       <button
                         onClick={() => setShowEmojiPicker(!showEmojiPicker)}

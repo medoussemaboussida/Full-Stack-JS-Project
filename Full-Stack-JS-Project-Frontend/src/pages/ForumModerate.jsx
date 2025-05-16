@@ -76,7 +76,8 @@ function ForumModerate() {
     if (cachedResult) {
       return cachedResult;
     }
-    const REACT_APP_HUGGINGFACE_API_TOKEN = "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";
+    const REACT_APP_HUGGINGFACE_API_TOKEN =
+      "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";
     try {
       const response = await fetch(
         "https://api-inference.huggingface.co/models/distilbert-base-uncased-finetuned-sst-2-english",
@@ -320,7 +321,10 @@ function ForumModerate() {
 
   const indexOfLastTopic = currentPage * topicsPerPage;
   const indexOfFirstTopic = indexOfLastTopic - topicsPerPage;
-  const currentTopics = filteredForums.slice(indexOfFirstTopic, indexOfLastTopic);
+  const currentTopics = filteredForums.slice(
+    indexOfFirstTopic,
+    indexOfLastTopic
+  );
   const totalPages = Math.ceil(filteredForums.length / topicsPerPage);
 
   const handleChangeStatus = async (forumId, newStatus) => {
@@ -813,7 +817,13 @@ function ForumModerate() {
 
             <div className="forum-list">
               {currentTopics.length > 0 ? (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "30px" }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, 1fr)",
+                    gap: "30px",
+                  }}
+                >
                   {currentTopics.map((forum) => (
                     <div
                       key={forum._id}
@@ -834,39 +844,49 @@ function ForumModerate() {
                             alt="User"
                             className="rounded-circle"
                             style={{
-                              width: "50px",
-                              height: "50px",
+                              width: "40px",
+                              height: "40px",
                               objectFit: "cover",
                               border: "2px solid #007bff",
                             }}
                           />
                           <div>
-                            <h6 className="mb-1" style={{ fontSize: "16px", fontWeight: "600" }}>
+                            <h6
+                              className="mb-1"
+                              style={{ fontSize: "16px", fontWeight: "600" }}
+                            >
                               {forum.user_id.username || "Utilisateur inconnu"}
                             </h6>
-                            {forum.user_id.level && forum.user_id.speciality && (
-                              <span
-                                className="badge"
-                                style={{
-                                  backgroundColor: "#e6f7ff",
-                                  color: "#007bff",
-                                  padding: "5px 10px",
-                                  borderRadius: "15px",
-                                  fontSize: "12px",
-                                }}
-                              >
-                                {forum.user_id.level} {forum.user_id.speciality}
-                              </span>
-                            )}
+                            {forum.user_id.level &&
+                              forum.user_id.speciality && (
+                                <span
+                                  className="badge"
+                                  style={{
+                                    backgroundColor: "transparent",
+                                    border: "1px solid #00BFFF",
+                                    color: "#00BFFF",
+                                    padding: "5px 10px",
+                                    borderRadius: "15px",
+                                    marginRight: "5px",
+                                    boxShadow:"0 0 10px rgba(0, 191, 255, 0.5)",
+                                    fontSize: "12px",
+                                  }}
+                                >
+                                  {forum.user_id.level}{" "}
+                                  {forum.user_id.speciality}
+                                </span>
+                              )}
                             {forum.tags && forum.tags.length > 0 && (
                               <span
                                 className="badge ms-2"
                                 style={{
-                                  backgroundColor: "#ffe6e6",
-                                  color: "#ff0000",
+                                  backgroundColor: "transparent",
+                                  border: "1px solid #FF0000",
+                                  color: "#FF0000",
                                   padding: "5px 10px",
                                   borderRadius: "15px",
                                   fontSize: "12px",
+                                  boxShadow: "0 0 10px rgba(255, 0, 0, 0.5)",
                                 }}
                               >
                                 {forum.tags.join(", ")}
@@ -879,8 +899,9 @@ function ForumModerate() {
                             className="icon"
                             style={{
                               cursor: "pointer",
-                              fontSize: "20px",
-                              color: forum.status === "actif" ? "orange" : "green",
+                              fontSize: "18px",
+                              color:
+                                forum.status === "actif" ? "orange" : "green",
                             }}
                             onClick={() =>
                               handleChangeStatus(
@@ -888,17 +909,26 @@ function ForumModerate() {
                                 forum.status === "actif" ? "inactif" : "actif"
                               )
                             }
-                            title={forum.status === "actif" ? "Désactiver" : "Activer"}
+                            title={
+                              forum.status === "actif"
+                                ? "Désactiver"
+                                : "Activer"
+                            }
                           >
                             <FontAwesomeIcon
-                              icon={forum.status === "actif" ? faToggleOff : faToggleOn}
+                              icon={
+                                forum.status === "actif"
+                                  ? faToggleOff
+                                  : faToggleOn
+                              }
                             />
                           </span>
+                          <br />
                           <span
                             className="icon"
                             style={{
                               cursor: "pointer",
-                              fontSize: "20px",
+                              fontSize: "18px",
                               color: "red",
                             }}
                             onClick={() => {
@@ -909,60 +939,50 @@ function ForumModerate() {
                           >
                             <FontAwesomeIcon icon={faTrashAlt} />
                           </span>
-                          <button
-                            onClick={() => handleViewReports(forum._id)}
-                            className="view-reports-btn"
+                          <br />
+                          <FontAwesomeIcon
+                            icon={faFlag}
+                            size="lg"
                             style={{
-                              padding: "8px 16px",
-                              backgroundColor: "#ff9800",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "20px",
-                              fontSize: "14px",
-                              fontWeight: "500",
-                              cursor: "pointer",
-                              transition: "all 0.3s ease",
-                              boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
+                              color: "#ff9800",
+                              fontSize: "18px",
                             }}
+                            onClick={() => handleViewReports(forum._id)}
                             onMouseEnter={(e) => {
-                              e.target.style.backgroundColor = "#e68900";
-                              e.target.style.transform = "scale(1.05)";
+                              e.currentTarget.style.color = "#e68900";
+                              e.currentTarget.style.transform = "scale(1.05)";
                             }}
                             onMouseLeave={(e) => {
-                              e.target.style.backgroundColor = "#ff9800";
-                              e.target.style.transform = "scale(1)";
+                              e.currentTarget.style.color = "#ff9800";
+                              e.currentTarget.style.transform = "scale(1)";
                             }}
-                          >
-                            View Reports
-                          </button>
-                          {userId && forum.user_id && userId !== forum.user_id._id && (
-                            <button
-                              onClick={() => handleOpenBanModal(forum.user_id._id)}
-                              className="ban-btn"
-                              style={{
-                                padding: "8px 16px",
-                                backgroundColor: "#dc3545",
-                                color: "white",
-                                border: "none",
-                                borderRadius: "20px",
-                                fontSize: "14px",
-                                fontWeight: "500",
-                                cursor: "pointer",
-                                transition: "all 0.3s ease",
-                                boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
-                              }}
-                              onMouseEnter={(e) => {
-                                e.target.style.backgroundColor = "#c82333";
-                                e.target.style.transform = "scale(1.05)";
-                              }}
-                              onMouseLeave={(e) => {
-                                e.target.style.backgroundColor = "#dc3545";
-                                e.target.style.transform = "scale(1)";
-                              }}
-                            >
-                              Ban User
-                            </button>
-                          )}
+                          />{" "}
+                          <br />
+                          {userId &&
+                            forum.user_id &&
+                            userId !== forum.user_id._id && (
+                              <FontAwesomeIcon
+                                icon={faBan}
+                                size="lg"
+                                style={{
+                                  color: "#dc3545",
+                                  display: "inline-block",
+                                  fontSize: "18px",
+                                }}
+                                onClick={() =>
+                                  handleOpenBanModal(forum.user_id._id)
+                                }
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.color = "#c82333";
+                                  e.currentTarget.style.transform =
+                                    "scale(1.05)";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.color = "#dc3545";
+                                  e.currentTarget.style.transform = "scale(1)";
+                                }}
+                              />
+                            )}
                         </div>
                       </div>
                       <h3
@@ -979,12 +999,15 @@ function ForumModerate() {
                         className="forum-description"
                         style={{
                           fontSize: "16px",
-                          color: "#555",
+                          color: "black",
                           lineHeight: "1.6",
                           marginBottom: "15px",
                         }}
                       >
-                        {truncateDescription(forum.description, expanded[forum._id])}
+                        {truncateDescription(
+                          forum.description,
+                          expanded[forum._id]
+                        )}
                         {forum.description.length > 150 && (
                           <button
                             onClick={() => toggleDescription(forum._id)}
@@ -1017,10 +1040,9 @@ function ForumModerate() {
                       <div className="d-flex justify-content-between align-items-center">
                         <button
                           onClick={() => handleViewComments(forum._id)}
-                          className="view-comments-btn"
+                          className="theme-btn"
                           style={{
                             padding: "8px 16px",
-                            backgroundColor: "#28a745",
                             color: "white",
                             border: "none",
                             borderRadius: "20px",
@@ -1030,19 +1052,14 @@ function ForumModerate() {
                             transition: "all 0.3s ease",
                             boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
                           }}
-                          onMouseEnter={(e) => {
-                            e.target.style.backgroundColor = "#218838";
-                            e.target.style.transform = "scale(1.05)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.target.style.backgroundColor = "#28a745";
-                            e.target.style.transform = "scale(1)";
-                          }}
                         >
                           <FontAwesomeIcon icon={faComment} className="me-2" />
                           View Comments ({commentsCountMap[forum._id] || 0})
                         </button>
-                        <div className="text-muted" style={{ fontSize: "14px" }}>
+                        <div
+                          className="text-muted"
+                          style={{ fontSize: "14px" }}
+                        >
                           <span>
                             <FontAwesomeIcon icon={faClock} className="me-1" />
                             {new Date(forum.createdAt).toLocaleString("fr-FR", {
@@ -1057,7 +1074,8 @@ function ForumModerate() {
                             Status:{" "}
                             <span
                               style={{
-                                color: forum.status === "actif" ? "green" : "red",
+                                color:
+                                  forum.status === "actif" ? "green" : "red",
                                 fontWeight: "500",
                               }}
                             >
@@ -1070,117 +1088,133 @@ function ForumModerate() {
                   ))}
                 </div>
               ) : (
-                <p style={{ textAlign: "center", fontSize: "18px", color: "#666" }}>
+                <p
+                  style={{
+                    textAlign: "center",
+                    fontSize: "18px",
+                    color: "#666",
+                  }}
+                >
                   There are no topics here!
                 </p>
               )}
             </div>
 
-{totalPages > 1 && (
-  <div
-    style={{
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      marginTop: "30px",
-      gap: "10px",
-    }}
-  >
-    <button className="theme-btn"
-      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-      disabled={currentPage === 1}
-      style={{
-        padding: "8px 16px",
-        borderRadius: "50px",
-        border: "1px solid #007bff",
-        backgroundColor: currentPage === 1 ? "#e0e0e0" : "white",
-        color: currentPage === 1 ? "#666" : "#007bff",
-        cursor: currentPage === 1 ? "not-allowed" : "pointer",
-        transition: "all 0.3s ease",
-        fontSize: "14px",
-      }}
-      onMouseEnter={(e) => {
-        if (currentPage > 1) {
-          e.currentTarget.style.backgroundColor = "#e6f0ff";
-          e.currentTarget.style.color = "white";
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (currentPage > 1) {
-          e.currentTarget.style.backgroundColor = "white";
-          e.currentTarget.style.color = "#007bff";
-        }
-      }}
-    >
-      Previous
-    </button>
-    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-      <button className="theme-btn"
-        key={page}
-        onClick={() => setCurrentPage(page)}
-        style={{
-          padding: "8px 14px",
-          borderRadius: "50px",
-          border: "1px solid #007bff",
-          backgroundColor: currentPage === page ? "#007bff" : "white",
-          color: currentPage === page ? "white" : "#007bff",
-          cursor: "pointer",
-          transition: "all 0.3s ease",
-          fontSize: "14px",
-          width: "40px",
-          height: "40px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-        onMouseEnter={(e) => {
-          if (currentPage !== page) {
-            e.currentTarget.style.backgroundColor = "#e6f0ff";
-            e.currentTarget.style.color = "white";
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (currentPage !== page) {
-            e.currentTarget.style.backgroundColor = "white";
-            e.currentTarget.style.color = "#007bff";
-          }
-        }}
-      >
-        {page}
-      </button>
-    ))}
-    <button className="theme-btn"
-      onClick={() =>
-        setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-      }
-      disabled={currentPage === totalPages}
-      style={{
-        padding: "8px 16px",
-        borderRadius: "50px",
-        border: "1px solid #007bff",
-        backgroundColor: currentPage === totalPages ? "#e0e0e0" : "white",
-        color: currentPage === totalPages ? "#666" : "#007bff",
-        cursor: currentPage === totalPages ? "not-allowed" : "pointer",
-        transition: "all 0.3s ease",
-        fontSize: "14px",
-      }}
-      onMouseEnter={(e) => {
-        if (currentPage < totalPages) {
-          e.currentTarget.style.backgroundColor = "#e6f0ff";
-          e.currentTarget.style.color = "white";
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (currentPage < totalPages) {
-          e.currentTarget.style.backgroundColor = "white";
-          e.currentTarget.style.color = "#007bff";
-        }
-      }}
-    >
-      Next
-    </button>
-  </div>
-)}
+            {totalPages > 1 && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  marginTop: "30px",
+                  gap: "10px",
+                }}
+              >
+                <button
+                  className="theme-btn"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(prev - 1, 1))
+                  }
+                  disabled={currentPage === 1}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "50px",
+                    border: "1px solid #007bff",
+                    backgroundColor: currentPage === 1 ? "#e0e0e0" : "white",
+                    color: currentPage === 1 ? "#666" : "#007bff",
+                    cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                    transition: "all 0.3s ease",
+                    fontSize: "14px",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (currentPage > 1) {
+                      e.currentTarget.style.backgroundColor = "#e6f0ff";
+                      e.currentTarget.style.color = "white";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (currentPage > 1) {
+                      e.currentTarget.style.backgroundColor = "white";
+                      e.currentTarget.style.color = "#007bff";
+                    }
+                  }}
+                >
+                  Previous
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                  (page) => (
+                    <button
+                      className="theme-btn"
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      style={{
+                        padding: "8px 14px",
+                        borderRadius: "50px",
+                        border: "1px solid #007bff",
+                        backgroundColor:
+                          currentPage === page ? "#007bff" : "white",
+                        color: currentPage === page ? "white" : "#007bff",
+                        cursor: "pointer",
+                        transition: "all 0.3s ease",
+                        fontSize: "14px",
+                        width: "40px",
+                        height: "40px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (currentPage !== page) {
+                          e.currentTarget.style.backgroundColor = "#e6f0ff";
+                          e.currentTarget.style.color = "white";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (currentPage !== page) {
+                          e.currentTarget.style.backgroundColor = "white";
+                          e.currentTarget.style.color = "#007bff";
+                        }
+                      }}
+                    >
+                      {page}
+                    </button>
+                  )
+                )}
+                <button
+                  className="theme-btn"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                  }
+                  disabled={currentPage === totalPages}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "50px",
+                    border: "1px solid #007bff",
+                    backgroundColor:
+                      currentPage === totalPages ? "#e0e0e0" : "white",
+                    color: currentPage === totalPages ? "#666" : "#007bff",
+                    cursor:
+                      currentPage === totalPages ? "not-allowed" : "pointer",
+                    transition: "all 0.3s ease",
+                    fontSize: "14px",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (currentPage < totalPages) {
+                      e.currentTarget.style.backgroundColor = "#e6f0ff";
+                      e.currentTarget.style.color = "white";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (currentPage < totalPages) {
+                      e.currentTarget.style.backgroundColor = "white";
+                      e.currentTarget.style.color = "#007bff";
+                    }
+                  }}
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -1211,7 +1245,14 @@ function ForumModerate() {
               boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center", fontSize: "22px", fontWeight: "600" }}>
+            <h3
+              style={{
+                marginBottom: "20px",
+                textAlign: "center",
+                fontSize: "22px",
+                fontWeight: "600",
+              }}
+            >
               Reports for this Topic
             </h3>
             <div
@@ -1262,7 +1303,13 @@ function ForumModerate() {
                         />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <p style={{ margin: 0, fontWeight: "600", fontSize: "16px" }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontWeight: "600",
+                            fontSize: "16px",
+                          }}
+                        >
                           {report.user_id.username}
                           <span
                             className="badge ms-3"
@@ -1288,9 +1335,14 @@ function ForumModerate() {
                           Reason: {report.reason}
                         </p>
                         <p
-                          style={{ margin: "5px 0 0 0", fontSize: "12px", color: "#666" }}
+                          style={{
+                            margin: "5px 0 0 0",
+                            fontSize: "12px",
+                            color: "#666",
+                          }}
                         >
-                          Reported at: {new Date(report.createdAt).toLocaleString("fr-FR")}
+                          Reported at:{" "}
+                          {new Date(report.createdAt).toLocaleString("fr-FR")}
                         </p>
                       </div>
                     </div>
@@ -1317,7 +1369,13 @@ function ForumModerate() {
                   </div>
                 ))
               ) : (
-                <p style={{ textAlign: "center", fontSize: "16px", color: "#666" }}>
+                <p
+                  style={{
+                    textAlign: "center",
+                    fontSize: "16px",
+                    color: "#666",
+                  }}
+                >
                   There are no reports for this topic!
                 </p>
               )}
@@ -1377,7 +1435,14 @@ function ForumModerate() {
               boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center", fontSize: "22px", fontWeight: "600" }}>
+            <h3
+              style={{
+                marginBottom: "20px",
+                textAlign: "center",
+                fontSize: "22px",
+                fontWeight: "600",
+              }}
+            >
               Comments
             </h3>
             <div
@@ -1466,7 +1531,13 @@ function ForumModerate() {
                         />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <p style={{ margin: 0, fontWeight: "600", fontSize: "16px" }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontWeight: "600",
+                            fontSize: "16px",
+                          }}
+                        >
                           {comment.user_id.username}
                           <span
                             className="badge ms-3"
@@ -1487,13 +1558,15 @@ function ForumModerate() {
                                 backgroundColor:
                                   commentSentiments[comment._id] === "POSITIVE"
                                     ? "#e6ffe6"
-                                    : commentSentiments[comment._id] === "NEGATIVE"
+                                    : commentSentiments[comment._id] ===
+                                      "NEGATIVE"
                                     ? "#ffe6e6"
                                     : "#f0f0f0",
                                 color:
                                   commentSentiments[comment._id] === "POSITIVE"
                                     ? "#28a745"
-                                    : commentSentiments[comment._id] === "NEGATIVE"
+                                    : commentSentiments[comment._id] ===
+                                      "NEGATIVE"
                                     ? "#dc3545"
                                     : "#6c757d",
                                 padding: "5px 10px",
@@ -1551,25 +1624,35 @@ function ForumModerate() {
                       >
                         <FontAwesomeIcon icon={faTrashAlt} />
                       </span>
-                      {userId && comment.user_id && userId !== comment.user_id._id && (
-                        <span
-                          className="icon"
-                          style={{
-                            cursor: "pointer",
-                            fontSize: "18px",
-                            color: "purple",
-                          }}
-                          onClick={() => handleOpenBanModal(comment.user_id._id)}
-                          title="Ban User"
-                        >
-                          <FontAwesomeIcon icon={faBan} />
-                        </span>
-                      )}
+                      {userId &&
+                        comment.user_id &&
+                        userId !== comment.user_id._id && (
+                          <span
+                            className="icon"
+                            style={{
+                              cursor: "pointer",
+                              fontSize: "18px",
+                              color: "purple",
+                            }}
+                            onClick={() =>
+                              handleOpenBanModal(comment.user_id._id)
+                            }
+                            title="Ban User"
+                          >
+                            <FontAwesomeIcon icon={faBan} />
+                          </span>
+                        )}
                     </div>
                   </div>
                 ))
               ) : (
-                <p style={{ textAlign: "center", fontSize: "16px", color: "#666" }}>
+                <p
+                  style={{
+                    textAlign: "center",
+                    fontSize: "16px",
+                    color: "#666",
+                  }}
+                >
                   There is no comment here!
                 </p>
               )}
@@ -1629,7 +1712,14 @@ function ForumModerate() {
               boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center", fontSize: "22px", fontWeight: "600" }}>
+            <h3
+              style={{
+                marginBottom: "20px",
+                textAlign: "center",
+                fontSize: "22px",
+                fontWeight: "600",
+              }}
+            >
               Reports for this Comment
             </h3>
             <div
@@ -1680,7 +1770,13 @@ function ForumModerate() {
                         />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <p style={{ margin: 0, fontWeight: "600", fontSize: "16px" }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontWeight: "600",
+                            fontSize: "16px",
+                          }}
+                        >
                           {report.user_id.username}
                           <span
                             className="badge ms-3"
@@ -1706,9 +1802,14 @@ function ForumModerate() {
                           Reason: {report.reason}
                         </p>
                         <p
-                          style={{ margin: "5px 0 0 0", fontSize: "12px", color: "#666" }}
+                          style={{
+                            margin: "5px 0 0 0",
+                            fontSize: "12px",
+                            color: "#666",
+                          }}
                         >
-                          Reported at: {new Date(report.createdAt).toLocaleString("fr-FR")}
+                          Reported at:{" "}
+                          {new Date(report.createdAt).toLocaleString("fr-FR")}
                         </p>
                       </div>
                     </div>
@@ -1735,7 +1836,13 @@ function ForumModerate() {
                   </div>
                 ))
               ) : (
-                <p style={{ textAlign: "center", fontSize: "16px", color: "#666" }}>
+                <p
+                  style={{
+                    textAlign: "center",
+                    fontSize: "16px",
+                    color: "#666",
+                  }}
+                >
                   There are no reports for this comment!
                 </p>
               )}
@@ -1795,13 +1902,25 @@ function ForumModerate() {
               boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center", fontSize: "22px", fontWeight: "600" }}>
+            <h3
+              style={{
+                marginBottom: "20px",
+                textAlign: "center",
+                fontSize: "22px",
+                fontWeight: "600",
+              }}
+            >
               Ban User
             </h3>
             <div style={{ marginBottom: "20px" }}>
               <label
                 htmlFor="banDuration"
-                style={{ display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: "500" }}
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
               >
                 Duration (in days):
               </label>
@@ -1825,7 +1944,12 @@ function ForumModerate() {
             <div style={{ marginBottom: "20px" }}>
               <label
                 htmlFor="banReason"
-                style={{ display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: "500" }}
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                }}
               >
                 Reason:
               </label>
@@ -1844,7 +1968,9 @@ function ForumModerate() {
                 }}
               >
                 <option value="">Select a reason</option>
-                <option value="inappropriate_content">Inappropriate Content</option>
+                <option value="inappropriate_content">
+                  Inappropriate Content
+                </option>
                 <option value="spam">Spam</option>
                 <option value="harassment">Harassment</option>
                 <option value="offensive_language">Offensive Language</option>
@@ -1918,7 +2044,14 @@ function ForumModerate() {
               boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center", fontSize: "22px", fontWeight: "600" }}>
+            <h3
+              style={{
+                marginBottom: "20px",
+                textAlign: "center",
+                fontSize: "22px",
+                fontWeight: "600",
+              }}
+            >
               Banned Users List
             </h3>
             <div
@@ -1948,7 +2081,12 @@ function ForumModerate() {
                     }}
                   >
                     <div
-                      style={{ display: "flex", alignItems: "center", flex: 1, gap: "15px" }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        flex: 1,
+                        gap: "15px",
+                      }}
                     >
                       <div style={{ flexShrink: 0 }}>
                         <img
@@ -1964,11 +2102,21 @@ function ForumModerate() {
                         />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <p style={{ margin: 0, fontWeight: "600", fontSize: "16px" }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontWeight: "600",
+                            fontSize: "16px",
+                          }}
+                        >
                           {user.user_id.username}
                         </p>
                         <p
-                          style={{ margin: "5px 0 0 0", fontSize: "12px", color: "#666" }}
+                          style={{
+                            margin: "5px 0 0 0",
+                            fontSize: "12px",
+                            color: "#666",
+                          }}
                         >
                           Reason: {user.reason} | Expires:{" "}
                           {new Date(user.expiresAt).toLocaleString("fr-FR")}
@@ -2007,7 +2155,13 @@ function ForumModerate() {
                   </div>
                 ))
               ) : (
-                <p style={{ textAlign: "center", fontSize: "16px", color: "#666" }}>
+                <p
+                  style={{
+                    textAlign: "center",
+                    fontSize: "16px",
+                    color: "#666",
+                  }}
+                >
                   No banned users found!
                 </p>
               )}
@@ -2067,11 +2221,26 @@ function ForumModerate() {
               boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center", fontSize: "22px", fontWeight: "600" }}>
+            <h3
+              style={{
+                marginBottom: "20px",
+                textAlign: "center",
+                fontSize: "22px",
+                fontWeight: "600",
+              }}
+            >
               Confirm Deletion
             </h3>
-            <p style={{ marginBottom: "20px", textAlign: "center", fontSize: "16px", color: "#333" }}>
-              Are you sure you want to delete this topic? This action cannot be undone.
+            <p
+              style={{
+                marginBottom: "20px",
+                textAlign: "center",
+                fontSize: "16px",
+                color: "#333",
+              }}
+            >
+              Are you sure you want to delete this topic? This action cannot be
+              undone.
             </p>
             <div
               style={{ display: "flex", justifyContent: "center", gap: "15px" }}
@@ -2139,11 +2308,26 @@ function ForumModerate() {
               boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
             }}
           >
-            <h3 style={{ marginBottom: "20px", textAlign: "center", fontSize: "22px", fontWeight: "600" }}>
+            <h3
+              style={{
+                marginBottom: "20px",
+                textAlign: "center",
+                fontSize: "22px",
+                fontWeight: "600",
+              }}
+            >
               Confirm Deletion
             </h3>
-            <p style={{ marginBottom: "20px", textAlign: "center", fontSize: "16px", color: "#333" }}>
-              Are you sure you want to delete this comment? This action cannot be undone.
+            <p
+              style={{
+                marginBottom: "20px",
+                textAlign: "center",
+                fontSize: "16px",
+                color: "#333",
+              }}
+            >
+              Are you sure you want to delete this comment? This action cannot
+              be undone.
             </p>
             <div
               style={{ display: "flex", justifyContent: "center", gap: "15px" }}

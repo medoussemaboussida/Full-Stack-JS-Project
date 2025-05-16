@@ -104,8 +104,8 @@ function Login() {
               <div className="auth-form">
                 <br/>
                 <div className="auth-header">
-                  <img src="assets/img/logo/logo.png" alt="" />
-                </div>
+                  <img src="assets/img/logo/logo.png" alt="" style={{ width: '250px', height: 'auto' }} />
+                </div><br/>
                 <form onSubmit={handleSubmit}>
                   <div className="form-group">
                     <div className="form-icon">

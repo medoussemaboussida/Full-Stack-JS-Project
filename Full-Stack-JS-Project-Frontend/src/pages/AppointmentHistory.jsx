@@ -11,7 +11,8 @@ import '../App.css';
 import { Pie, Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, LineElement, PointElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
 import { jsPDF } from 'jspdf';
-
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faSearch } from "@fortawesome/free-solid-svg-icons";
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, ArcElement, Title, Tooltip, Legend);
 
@@ -35,7 +36,7 @@ const AppointmentHistory = () => {
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
     const [appointmentsPerPage] = useState(5);
-
+const [isSearchOpen, setIsSearchOpen] = useState(false);
     // References for charts
     const pieChartRef = useRef(null);
     const lineChartRef = useRef(null);
@@ -586,7 +587,7 @@ const AppointmentHistory = () => {
             <div className="appointment-history-container">
                 <ToastContainer />
 
-                {role === 'psychiatrist' && (
+                {/* {role === 'psychiatrist' && (
                     <div style={{
                         display: 'flex',
                         justifyContent: 'center',
@@ -610,36 +611,111 @@ const AppointmentHistory = () => {
                             Statistics
                         </Button>
                     </div>
-                )}
+                )} */}
 
-                <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        style={{ padding: '8px', borderRadius: '50px', border: '2px solid #007BFF', outline: 'none', fontSize: '14px' }}
-                    >
-                        <option value="all">All Statuses</option>
-                        <option value="pending">Pending</option>
-                        <option value="confirmed">Confirmed</option>
-                        <option value="completed">Completed</option>
-                        <option value="canceled">Canceled</option>
-                    </select>
-                    <input
-                        type="text"
-                        value={searchName}
-                        onChange={(e) => setSearchName(e.target.value)}
-                        placeholder={role === 'psychiatrist' ? 'Search by student name' : role === 'student' ? 'Search by psychiatrist name' : 'Search by name...'}
-                        style={{ padding: '8px', borderRadius: '50px', border: '2px solid #007BFF', outline: 'none', width: '200px', fontSize: '14px' }}
-                    />
-                    <select
-                        value={dateSort}
-                        onChange={(e) => setDateSort(e.target.value)}
-                        style={{ padding: '8px', borderRadius: '50px', border: '2px solid #007BFF', outline: 'none', fontSize: '14px' }}
-                    >
-                        <option value="recent">Most Recent</option>
-                        <option value="oldest">Oldest</option>
-                    </select>
-                </div>
+           <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', padding: '0 10px' }}>
+  <div style={{ position: "relative", width: isSearchOpen ? "200px" : "40px", transition: "width 0.3s ease-in-out", flexShrink: 0 }}>
+    <i
+      className="fas fa-search"
+      onClick={() => setIsSearchOpen(!isSearchOpen)}
+      style={{
+        position: "absolute",
+        left: "10px",
+        top: "50%",
+        transform: "translateY(-50%)",
+        color: "#007BFF",
+        fontSize: "16px",
+        cursor: "pointer",
+        transition: "left 0.3s ease-in-out",
+      }}
+    />
+    <input
+      type="text"
+      value={searchName}
+      onChange={(e) => setSearchName(e.target.value)}
+      placeholder={
+        role === "psychiatrist"
+          ? "Search by student name"
+          : role === "student"
+          ? "Search by psychiatrist name"
+          : "Search by name..."
+      }
+      style={{
+        padding: "8px 8px 8px 35px",
+        borderRadius: "50px",
+        border: "2px solid #007BFF",
+        outline: "none",
+        width: isSearchOpen ? "200%" : "0px",
+        opacity: isSearchOpen ? 1 : 0,
+        visibility: isSearchOpen ? "visible" : "hidden",
+        fontSize: "14px",
+        transition: "width 0.3s ease-in-out, opacity 0.3s ease-in-out, visibility 0.3s ease-in-out",
+        height: "40px", // Uniform height
+      }}
+    />
+  </div>
+  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexGrow: 1, justifyContent: 'flex-end' }}>
+    {role === 'psychiatrist' && (
+      <div style={{ marginLeft: 'auto' }}>
+        <button
+          onClick={() => setShowStatsModal(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 20px',
+            borderRadius: '50px',
+            backgroundColor: '#007BFF',
+            color: 'white',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '14px',
+            height: '40px', // Uniform height
+            transition: 'transform 0.3s ease-in-out',
+          }}
+          onMouseEnter={(e) => (e.target.style.transform = 'scale(1.05)')}
+          onMouseLeave={(e) => (e.target.style.transform = 'scale(1)')}
+        >
+          <span role="img" aria-label="chart">📊</span>
+          Statistics
+        </button>
+      </div>
+    )}
+    <select
+      value={statusFilter}
+      onChange={(e) => setStatusFilter(e.target.value)}
+      style={{
+        padding: '8px',
+        borderRadius: '50px',
+        border: '2px solid #007BFF',
+        outline: 'none',
+        fontSize: '14px',
+        height: '40px', // Uniform height
+      }}
+    >
+      <option value="all">All Statuses</option>
+      <option value="pending">Pending</option>
+      <option value="confirmed">Confirmed</option>
+      <option value="completed">Completed</option>
+      <option value="canceled">Canceled</option>
+    </select>
+    <select
+      value={dateSort}
+      onChange={(e) => setDateSort(e.target.value)}
+      style={{
+        padding: '8px',
+        borderRadius: '50px',
+        border: '2px solid #007BFF',
+        outline: 'none',
+        fontSize: '14px',
+        height: '40px', // Uniform height
+      }}
+    >
+      <option value="recent">Most Recent</option>
+      <option value="oldest">Oldest</option>
+    </select>
+  </div>
+</div>
 
                 {appointments.length === 0 ? (
                     <p className="no-appointments">No appointments found.</p>
@@ -657,7 +733,7 @@ const AppointmentHistory = () => {
                                                 <button
                                                     className="update-icon"
                                                     onClick={() => handleUpdateTime(appointment)}
-                                                    style={{ position: 'absolute', top: '10px', right: '40px', background: 'none', border: 'none', cursor: 'pointer' }}
+                                                    style={{ position: 'absolute', top: '10px', right: '40px', background: 'none', border: 'none', cursor: 'pointer',borderRadius:"50px" }}
                                                 >
                                                     <i className="fas fa-pencil-alt" style={{ color: '#007BFF' }}></i>
                                                 </button>
@@ -703,12 +779,12 @@ const AppointmentHistory = () => {
                                                                 <option value="canceled">Canceled</option>
                                                             </select>
                                                             <Button variant="primary" style={{ borderRadius: '50px', fontSize: '14px' }} onClick={() => handleStatusChange(appointment._id)}>Save</Button>
-                                                            <Button variant="secondary" style={{ borderRadius: '50px', fontSize: '14px' }} onClick={() => setEditingAppointmentId(null)}>Cancel</Button>
+                                                            <Button variant="danger" style={{ borderRadius: '50px', fontSize: '14px' }} onClick={() => setEditingAppointmentId(null)}>Cancel</Button>
                                                         </div>
                                                     ) : (
                                                         <>
-                                                            <span className={`status ${appointment.status}`}>{appointment.status || 'Not specified'}</span>
-                                                            <Button variant="info" style={{ borderRadius: '50px', fontSize: '14px' }} onClick={() => { setEditingAppointmentId(appointment._id); setNewStatus(appointment.status || ''); }}>Edit</Button>
+                                                            <span  className={`status ${appointment.status}`}  style={{borderRadius:"50px"}}>{appointment.status || 'Not specified'}</span>
+                                                            <Button className='theme-btn' style={{ borderRadius: '50px', fontSize: '14px' }} onClick={() => { setEditingAppointmentId(appointment._id); setNewStatus(appointment.status || ''); }}>Edit</Button>
                                                         </>
                                                     )}
                                                 </div>
@@ -752,7 +828,7 @@ const AppointmentHistory = () => {
                 {showCalendarModal && selectedPsychiatrist && (
                     <div style={{
                         position: 'fixed',
-                        top: 0,
+                        top: 100,
                         left: 0,
                         right: 0,
                         bottom: 0,
@@ -768,7 +844,7 @@ const AppointmentHistory = () => {
                             borderRadius: '10px',
                             width: '90%',
                             maxWidth: '1000px',
-                            maxHeight: '90vh',
+                            maxHeight: '70vh',
                             overflow: 'auto',
                         }}>
                             <h3 style={{ textAlign: 'center', marginBottom: '10px' }}>
@@ -842,7 +918,7 @@ const AppointmentHistory = () => {
                         </div>
                     </Modal.Body>
                     <Modal.Footer>
-                        <Button
+                        <Button className='theme-btn'
                             variant="success"
                             onClick={exportToPDF}
                             style={{
@@ -850,6 +926,7 @@ const AppointmentHistory = () => {
                                 alignItems: 'center',
                                 gap: '8px',
                                 transition: 'transform 0.3s ease-in-out',
+                                borderRadius:"50px",fontSize:"14px"
                             }}
                             onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
                             onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
@@ -857,7 +934,7 @@ const AppointmentHistory = () => {
                             <span role="img" aria-label="download">📥</span>
                             Export to PDF
                         </Button>
-                        <Button variant="secondary" onClick={() => setShowStatsModal(false)}>
+                        <Button className='theme-btn' variant="danger"  style={{borderRadius:"50px",fontSize:"14px"}} onClick={() => setShowStatsModal(false)}>
                             Close
                         </Button>
                     </Modal.Footer>
