@@ -102,6 +102,7 @@ function Login() {
           <div className="container">
             <div className="col-md-5 mx-auto">
               <div className="auth-form">
+                <br/>
                 <div className="auth-header">
                   <img src="assets/img/logo/logo.png" alt="" />
                 </div>
@@ -148,7 +149,7 @@ function Login() {
                         Remember Me
                       </label>
                     </div>
-                    <a href="forgot-password" className="auth-group-link">
+                    <a href="forgot-password" className="auth-group-link" style={{textDecoration: "none" }}>
                       Forgot Password?
                     </a>
                   </div>
@@ -161,7 +162,7 @@ function Login() {
                   <br/>
                   <div className="auth-btn">
                     <button type="submit" className="theme-btn" style={{ borderRadius: "50px", height:"50px",fontSize: "16px" }}>
-                      <span className="far fa-sign-in" ></span> Login
+                      <span className="far fa-sign-in" ></span> Sign in
                     </button>
                   </div>
                 </form>
@@ -181,7 +182,7 @@ function Login() {
                     </div>
                   </div>
                   <p className="auth-bottom-text">
-                    Don't have an account? <Link to="/register">Register</Link>
+                    Don't have an account ? <Link to="/register" style={{textDecoration: "none" }}>Register</Link>
                   </p>
                 </div>
               </div>

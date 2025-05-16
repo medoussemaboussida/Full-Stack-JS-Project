@@ -1245,7 +1245,7 @@ function Forum() {
                 </div>
               </div>
               {/* Scroll Top */}
-              <div>
+              {/* <div>
                 <a
                   href="#"
                   style={{
@@ -1272,7 +1272,7 @@ function Forum() {
                 >
                   <i className="far fa-arrow-up"></i>
                 </a>
-              </div>
+              </div> */}
               {/* Conteneur pour la liste déroulante et les boutons */}
               <div className="d-flex align-items-center">
                 {/* Liste déroulante à gauche */}

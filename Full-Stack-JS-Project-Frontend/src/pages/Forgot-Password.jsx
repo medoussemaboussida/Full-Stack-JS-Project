@@ -132,7 +132,7 @@ function Forgot_Password() {
                     <div className="container">
                         <h2 className="breadcrumb-title">Forgot Password</h2>
                         <ul className="breadcrumb-menu">
-                            <li><a href="/login">Login</a></li>
+                            <li><a href="/login" style={{textDecoration: "none" }}>Login</a></li>
                             <li className="active">Forgot Password</li>
                         </ul>
                     </div>
@@ -165,7 +165,7 @@ function Forgot_Password() {
                                     {message && <div className="alert alert-success">{message}</div>}
                                     {error && <div className="alert alert-danger">{error}</div>}
                                     <div className="auth-btn">
-                                        <button type="submit" className="theme-btn"  style={{ borderRadius: "50px", height:"50px"}}>
+                                        <button type="submit" className="theme-btn"  style={{ borderRadius: "50px", height:"50px",fontSize:"16px"}}>
                                             <span className="far fa-key"></span> Send Reset Link
                                         </button>
                                     </div>
