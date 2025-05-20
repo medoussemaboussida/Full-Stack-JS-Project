@@ -940,10 +940,8 @@ function Publication() {
                     padding: '12px 16px',
                     borderRadius: "50px",
                     border: "none",
-                    backgroundColor: "#ffd700",
                     boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
                     fontSize: "14px",
-                    color: "#333",
                     cursor: "pointer",
                     transition: "all 0.3s ease",
                   }}
@@ -1335,7 +1333,7 @@ function Publication() {
                             display: "inline-flex",
                             alignItems: "center",
                             background: pinnedPublications.includes(post._id)
-                              ? "#ffd700"
+                              ? "red"
                               : "#ff9800",
                             color: "#fff",
                             padding: "12px 14px",
@@ -1354,7 +1352,7 @@ function Publication() {
                           onMouseLeave={(e) =>
                             (e.target.style.background =
                               pinnedPublications.includes(post._id)
-                                ? "#ffd700"
+                                ? "red"
                                 : "#ff9800")
                           }
                         >
@@ -1999,7 +1997,7 @@ function Publication() {
                         display: "inline-flex",
                         alignItems: "center",
                         background: pinnedPublications.includes(post._id)
-                          ? "#ffd700"
+                          ? "red"
                           : "#ff9800",
                         color: "#fff",
                         padding: "8px 14px",
@@ -2017,7 +2015,7 @@ function Publication() {
                       onMouseLeave={(e) =>
                         (e.target.style.background =
                           pinnedPublications.includes(post._id)
-                            ? "#ffd700"
+                            ? "red"
                             : "#ff9800")
                       }
                     >
