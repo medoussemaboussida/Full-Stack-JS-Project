@@ -84,11 +84,11 @@ function Home() {
     <div>
           <style>
         {`
-          .fade-in-up {
-            opacity: 0;
-            transform: translateY(20px);
-            animation: fadeInUp 1s ease-out forwards;
-          }
+          // .fade-in-up {
+          //   opacity: 0;
+          //   transform: translateY(20px);
+          //   animation: fadeInUp 1s ease-out forwards;
+          // }
 
           @keyframes fadeInUp {
             to {
@@ -99,9 +99,9 @@ function Home() {
         `}
       </style>
       {/* Navbar avec bouton de déconnexion à droite, au même niveau que navbar-toggler */}
-      <nav className="navbar navbar-expand-lg navbar-light bg-light">
+      {/* <nav className="navbar navbar-expand-lg navbar-light bg-light"> */}
         <div className="container-fluid d-flex justify-content-between align-items-center">
-          <button
+          {/* <button
             className="navbar-toggler"
             type="button"
             data-bs-toggle="collapse"
@@ -111,7 +111,7 @@ function Home() {
             aria-label="Toggle navigation"
           >
             <span className="navbar-toggler-icon"></span>
-          </button>
+          </button> */}
           <div className="collapse navbar-collapse" id="navbarNav">
             <ul className="navbar-nav ms-auto">
               {/* Bouton de déconnexion à droite */}
@@ -119,7 +119,7 @@ function Home() {
             </ul>
           </div>
         </div>
-      </nav>
+      {/* </nav> */}
       <main className="main">
         {/* Hero area */}
          <div className="hero-section">
@@ -127,18 +127,18 @@ function Home() {
         <div
             ref={heroRef}
             className={`hero-single ${animateHero ? "fade-in-up" : ""}`}
-            style={{ backgroundImage: "url(assets/img/hero/bg.png)" }}
+            style={{ backgroundImage: "url(assets/img/shape/02.png)" }}
           >
             <div className="container">
               <div className="row align-items-center">
-                <div className="col-md-12 col-lg-8">
+                <div className="col-md-12 col-lg-9">
                   <div className="hero-content">
                     <h1 className="hero-title">
                       Nurturing Minds, Empowering Futures – Mental Health Care
                       for ESPRIT Students
                     </h1>
                     <p>
-                      Prioritizing your mental well-being, EspritCare offers the
+                      EspritCare offers the
                       support and tools to help students thrive both
                       academically and emotionally.
                     </p>
@@ -147,7 +147,6 @@ function Home() {
                       style={{
                         display: "flex",
                         flexDirection: "row",
-                        gap: "15px",
                         padding: "10px",
                         alignItems: "center",
                       }}

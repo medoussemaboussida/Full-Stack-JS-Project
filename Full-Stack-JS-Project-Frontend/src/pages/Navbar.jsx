@@ -133,23 +133,27 @@ const Navbar = () => {
       });
   };
 
- return (
+  return (
     <header className="header">
       <div className="main-navigation">
         <nav className="navbar navbar-expand-lg">
           <div className="container position-relative">
             <a className="navbar-brand" href="/Home">
-              <img src="/assets/img/logo/logo.png" alt="logo" />
+              <img
+                src="/assets/img/logo/icon.png"
+                alt="logo"
+                style={{ width: "50px", height: "auto" }}
+              />
             </a>
             <div className="mobile-menu-right">
-              <div className="mobile-menu-btn">
+              {/* <div className="mobile-menu-btn">
                 <button
                   type="button"
                   className="nav-right-link search-box-outer"
                 >
                   <i className="far fa-search"></i>
                 </button>
-              </div>
+              </div> */}
               <button
                 className="navbar-toggler"
                 type="button"
@@ -269,9 +273,25 @@ const Navbar = () => {
                             Problem Management
                           </a>
                         </li>
-                        <li><hr className="dropdown-divider" /></li>
-                                                <li><a className="dropdown-item" href="/mental-health-assessment">Mental Health Assessment</a></li>
-                                                <li><a className="dropdown-item" href="/mental-health-dashboard">Mental Health Dashboard</a></li>
+                        <li>
+                          <hr className="dropdown-divider" />
+                        </li>
+                        <li>
+                          <a
+                            className="dropdown-item"
+                            href="/mental-health-assessment"
+                          >
+                            Mental Health Assessment
+                          </a>
+                        </li>
+                        <li>
+                          <a
+                            className="dropdown-item"
+                            href="/mental-health-dashboard"
+                          >
+                            Mental Health Dashboard
+                          </a>
+                        </li>
                       </ul>
                     </li>
                   ) : (
@@ -308,12 +328,12 @@ const Navbar = () => {
                 </ul>
                 <div className="nav-right">
                   <div className="search-btn">
-                    <button
+                    {/* <button
                       type="button"
                       className="nav-right-link search-box-outer"
                     >
                       <i className="far fa-search"></i>
-                    </button>
+                    </button> */}
                   </div>
                   <div
                     className="notification-bell"
@@ -478,7 +498,10 @@ const Navbar = () => {
                         logout();
                       }}
                     >
-                      <i className="fas fa-sign-out-alt" style={{ fontSize: "14px" }}></i>
+                      <i
+                        className="fas fa-sign-out-alt"
+                        style={{ fontSize: "14px" }}
+                      ></i>
                     </button>
                   </li>
                 </div>
@@ -492,4 +515,3 @@ const Navbar = () => {
 };
 
 export default Navbar;
-

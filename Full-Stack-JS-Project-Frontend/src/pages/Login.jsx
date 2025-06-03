@@ -98,14 +98,15 @@ function Login() {
   return (
     <div>
       <main className="main">
-        <div className="auth-area py-120">
+        <div className="auth-area py-120"  style={{ background: "url(assets/img/hero/bg.png)" }}>
           <div className="container">
             <div className="col-md-5 mx-auto">
               <div className="auth-form">
                 <br/>
                 <div className="auth-header">
-                  <img src="assets/img/logo/logo.png" alt="" style={{ width: '250px', height: 'auto' }} />
-                </div><br/>
+                  <img src="assets/img/logo/logo.png" alt="" />
+                </div>
+                <br/>
                 <form onSubmit={handleSubmit}>
                   <div className="form-group">
                     <div className="form-icon">
