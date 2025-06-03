@@ -92,7 +92,8 @@ Our platform features a modern, clean, and user-friendly interface designed with
 
 ## 💻 Final solution
 <img align="right" width=200px height=200px alt="side_sticker" src="https://media.giphy.com/media/dRiZq6h7814nhldyza/giphy.gif?cid=ecf05e47e8hcz6ym1zshf9asfpo25pbad0uxg2v4sca9q6if&ep=v1_gifs_search&rid=giphy.gif&ct=g" />    
-<img src="https://github.com/user-attachments/assets/a082a64c-a8a1-460b-bee9-9a4811bae21e" width="630"/>
+<img src="https://github.com/user-attachments/assets/9349c53c-2707-45be-8dad-d2381b05268b" width="630"/>
+<img src="https://github.com/user-attachments/assets/bb7d10c5-894c-48eb-a6c1-d3d86d70b43e" width="630"/>
 
 ## 🙏 Dedication
 We would like to express our sincere gratitude to **ESPRIT University** for giving us the opportunity to work on this meaningful and innovative project.  
