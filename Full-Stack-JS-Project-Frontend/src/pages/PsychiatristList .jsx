@@ -333,18 +333,6 @@ const PsychiatristList = () => {
       <ToastContainer />
       <div className="testimonial-area pt-80 pb-60">
         <div className="container">
-          <div className="row">
-            <div className="col-lg-7 mx-auto">
-              <div className="site-heading text-center">
-                <span className="site-title-tagline">
-                  <i className="far fa-hand-heart"></i> Psychiatrists
-                </span>
-                <h2 className="site-title">
-                  Our Available <span>Psychiatrists</span>
-                </h2>
-              </div>
-            </div>
-          </div>
           <div
             className="search-container text-center mb-4"
             style={{

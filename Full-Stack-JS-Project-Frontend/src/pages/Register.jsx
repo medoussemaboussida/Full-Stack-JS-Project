@@ -254,7 +254,7 @@ function Register() {
         pauseOnHover
       />
       <main className="main">
-        <div className="auth-area py-120" style={{ background: "url(assets/img/hero/bg.png)"}}>
+        <div className="auth-area py-120" style={{ background: "url(assets/img/shape/02.png)"}}>
           <div className="container">
             <div className="col-md-5 mx-auto">
               <div className="auth-form">

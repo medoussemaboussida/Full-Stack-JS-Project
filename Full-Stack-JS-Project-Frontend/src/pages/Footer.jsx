@@ -39,12 +39,12 @@ const Footer = () => {
                                 <div className="footer-widget-box list">
                                     <h4 className="footer-widget-title">Company</h4>
                                     <ul className="footer-list">
-                                        <li><a href="/about"><i className="far fa-angle-double-right"></i>About Us</a></li>
-                                        <li><a href="/blog"><i className="far fa-angle-double-right"></i>Update News</a></li>
-                                        <li><a href="/testimonial"><i className="far fa-angle-double-right"></i>Testimonials</a></li>
-                                        <li><a href="/contact"><i className="far fa-angle-double-right"></i>Contact Us</a></li>
-                                        <li><a href="/terms"><i className="far fa-angle-double-right"></i>Terms Of Service</a></li>
-                                        <li><a href="/privacy"><i className="far fa-angle-double-right"></i>Privacy policy</a></li>
+                                        <li><a href="/about"style={{textDecoration: "none" }}><i className="far fa-angle-double-right"></i>About Us</a></li>
+                                        <li><a href="/blog"style={{textDecoration: "none" }}><i className="far fa-angle-double-right"></i>Update News</a></li>
+                                        <li><a href="/testimonial"style={{textDecoration: "none" }}><i className="far fa-angle-double-right"></i>Testimonials</a></li>
+                                        <li><a href="/contact"style={{textDecoration: "none" }}><i className="far fa-angle-double-right"></i>Contact Us</a></li>
+                                        <li><a href="/terms"style={{textDecoration: "none" }}><i className="far fa-angle-double-right"></i>Terms Of Service</a></li>
+                                        <li><a href="/privacy"style={{textDecoration: "none" }}><i className="far fa-angle-double-right"></i>Privacy policy</a></li>
                                     </ul>
                                 </div>
                             </div>
@@ -52,12 +52,12 @@ const Footer = () => {
                                 <div className="footer-widget-box list">
                                     <h4 className="footer-widget-title">Services</h4>
                                     <ul className="footer-list">
-                                        <li><a href="/service"><i className="far fa-angle-double-right"></i>Assisted Living</a></li>
-                                        <li><a href="/service"><i className="far fa-angle-double-right"></i>Nursing Care</a></li>
-                                        <li><a href="/service"><i className="far fa-angle-double-right"></i>Medical & Health</a></li>
-                                        <li><a href="/service"><i className="far fa-angle-double-right"></i>Physical Assistance</a></li>
-                                        <li><a href="/service"><i className="far fa-angle-double-right"></i>Residential Care</a></li>
-                                        <li><a href="/service"><i className="far fa-angle-double-right"></i>Personal Care</a></li>
+                                        <li><a href="/service"style={{textDecoration: "none" }}><i className="far fa-angle-double-right"></i>Assisted Living</a></li>
+                                        <li><a href="/service"style={{textDecoration: "none" }}><i className="far fa-angle-double-right"></i>Nursing Care</a></li>
+                                        <li><a href="/service"style={{textDecoration: "none" }}><i className="far fa-angle-double-right"></i>Medical & Health</a></li>
+                                        <li><a href="/service"style={{textDecoration: "none" }}><i className="far fa-angle-double-right"></i>Physical Assistance</a></li>
+                                        <li><a href="/service"style={{textDecoration: "none" }}><i className="far fa-angle-double-right"></i>Residential Care</a></li>
+                                        <li><a href="/service"style={{textDecoration: "none" }}><i className="far fa-angle-double-right"></i>Personal Care</a></li>
                                     </ul>
                                 </div>
                             </div>
@@ -71,7 +71,7 @@ const Footer = () => {
                                             </div>
                                             <div className="content">
                                                 <h6>Our Address</h6>
-                                                <p>25/AB Milford Road, New York, USA</p>
+                                                <p>Pôle Technologique, 1, 2 rue André Ampère, Cebalat 2083</p>
                                             </div>
                                         </li>
                                         <li>
@@ -80,7 +80,7 @@ const Footer = () => {
                                             </div>
                                             <div className="content">
                                                 <h6>Call Us</h6>
-                                                <a href="tel:+21236547898">+2 123 654 7898</a>
+                                                <a href="tel:+21654007403" style={{textDecoration: "none" }}>+216 54 007 403</a>
                                             </div>
                                         </li>
                                         <li>
@@ -89,7 +89,7 @@ const Footer = () => {
                                             </div>
                                             <div className="content">
                                                 <h6>Mail Us</h6>
-                                                <a href="mailto:info@example.com">info@example.com</a>
+                                                <a href="mailto:info@example.com"style={{textDecoration: "none" }}>EspritCare@esprit.tn</a>
                                             </div>
                                         </li>
                                     </ul>

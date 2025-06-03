@@ -154,6 +154,7 @@ const Navbar = () => {
                   <i className="far fa-search"></i>
                 </button>
               </div> */}
+              
               <button
                 className="navbar-toggler"
                 type="button"
@@ -179,8 +180,10 @@ const Navbar = () => {
                   className="offcanvas-brand"
                   id="offcanvasNavbarLabel"
                 >
-                  <img src="/assets/img/logo/logo.png" alt="" />
+                  <img src="/assets/img/logo/logo.png" alt=""                 style={{ width: "300px", height: "auto" }}
+/>
                 </a>
+                
                 <button
                   type="button"
                   className="btn-close"
@@ -189,6 +192,29 @@ const Navbar = () => {
                 >
                   <i className="far fa-xmark"></i>
                 </button>
+                  <li className="nav-item ms-1">
+                    <button
+                      className="btn btn-danger"
+                      style={{
+                        borderRadius: "50%",
+                        width: "40px",
+                        height: "40px",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        padding: 0, // Supprime le padding par défaut pour un cercle parfait
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        logout();
+                      }}
+                    >
+                      <i
+                        className="fas fa-sign-out-alt"
+                        style={{ fontSize: "14px" }}
+                      ></i>
+                    </button>
+                  </li>
               </div>
               <div className="offcanvas-body gap-xl-4">
                 <ul className="navbar-nav justify-content-end flex-grow-1">
@@ -325,6 +351,7 @@ const Navbar = () => {
                       </li>
                     </ul>
                   </li>
+                  
                 </ul>
                 <div className="nav-right">
                   <div className="search-btn">
