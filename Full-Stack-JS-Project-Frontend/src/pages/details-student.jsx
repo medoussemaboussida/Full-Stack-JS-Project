@@ -712,7 +712,7 @@ function DetailsStudents() {
           <div className="container">
             <h2 className="breadcrumb-title">Profile Details</h2>
             <ul className="breadcrumb-menu">
-              <li><a href="index.html">Home</a></li>
+              <li><a href="index.html" style={{ color: "#fff", textDecoration: "none"}}>Home</a></li>
               <li className="active">Profile Details</li>
             </ul>
           </div>

@@ -142,9 +142,10 @@ const Navbar = () => {
               <img
                 src="/assets/img/logo/icon.png"
                 alt="logo"
-                style={{ width: "50px", height: "auto" }}
+                style={{ width: "40px", height: "auto" }}
               />
             </a>
+
             <div className="mobile-menu-right">
               {/* <div className="mobile-menu-btn">
                 <button
@@ -154,7 +155,7 @@ const Navbar = () => {
                   <i className="far fa-search"></i>
                 </button>
               </div> */}
-              
+
               <button
                 className="navbar-toggler"
                 type="button"
@@ -163,6 +164,7 @@ const Navbar = () => {
                 aria-controls="offcanvasNavbar"
                 aria-label="Toggle navigation"
               >
+                
                 <span></span>
                 <span></span>
                 <span></span>
@@ -174,16 +176,19 @@ const Navbar = () => {
               id="offcanvasNavbar"
               aria-labelledby="offcanvasNavbarLabel"
             >
+              
               <div className="offcanvas-header">
                 <a
                   href="/Home"
                   className="offcanvas-brand"
                   id="offcanvasNavbarLabel"
                 >
-                  <img src="/assets/img/logo/logo.png" alt=""                 style={{ width: "300px", height: "auto" }}
-/>
+                  <img
+                    src="/assets/img/logo/logo.png"
+                    alt=""
+                    style={{ width: "300px", height: "auto" }}
+                  />
                 </a>
-                
                 <button
                   type="button"
                   className="btn-close"
@@ -192,30 +197,148 @@ const Navbar = () => {
                 >
                   <i className="far fa-xmark"></i>
                 </button>
-                  <li className="nav-item ms-1">
+          
+                <img
+                  id="user-avatar"
+                  src={
+                    user?.user_photo
+                      ? `http://localhost:5000${user.user_photo}`
+                      : "/assets/img/user_icon.png"
+                  }
+                  alt="User Avatar"
+                  style={{
+                    width: "45px",
+                    height: "45px",
+                    borderRadius: "50%",
+                    cursor: "pointer",
+                    objectFit: "cover",
+                    marginLeft: "11px",
+                  }}
+                  onClick={() => (window.location.href = "/student")}
+                />
+                <div
+                    className="notification-bell"
+                    style={{ position: "relative", marginLeft: "15px" }}
+                  >
                     <button
-                      className="btn btn-danger"
+                      onClick={() => setShowNotifications(!showNotifications)}
                       style={{
-                        borderRadius: "50%",
-                        width: "40px",
-                        height: "40px",
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        padding: 0, // Supprime le padding par défaut pour un cercle parfait
-                      }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        logout();
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
                       }}
                     >
                       <i
-                        className="fas fa-sign-out-alt"
-                        style={{ fontSize: "14px" }}
+                        className={`fas fa-bell ${
+                          animateBell ? "bell-shake" : ""
+                        }`}
+                        style={{ fontSize: "20px", color: "#007BFF" }}
                       ></i>
+                      {notifications.filter((n) => !n.read).length > 0 && (
+                        <span
+                          className="notification-badge"
+                          style={{
+                            position: "absolute",
+                            top: "-5px",
+                            right: "-5px",
+                            backgroundColor: "red",
+                            color: "white",
+                            borderRadius: "50%",
+                            width: "15px",
+                            height: "15px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "10px",
+                          }}
+                        >
+                          {notifications.filter((n) => !n.read).length}
+                        </span>
+                      )}
                     </button>
-                  </li>
+                    {showNotifications && (
+                      <div
+                        className="notification-dropdown"
+                        style={{
+                          position: "absolute",
+                          top: "30px",
+                          right: 0,
+                          backgroundColor: "white",
+                          border: "1px solid #ddd",
+                          borderRadius: "5px",
+                          boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+                          width: "300px",
+                          maxHeight: "400px",
+                          overflowY: "auto",
+                          zIndex: 1000,
+                        }}
+                      >
+                        <div
+                          className="notification-header"
+                          style={{
+                            padding: "10px",
+                            borderBottom: "1px solid #ddd",
+                          }}
+                        >
+                          <h5 style={{ margin: 0, fontSize: "16px" }}>
+                            Notifications
+                          </h5>
+                          {notifications.filter((n) => !n.read).length > 0 && (
+                            <button
+                              onClick={handleMarkAllNotificationsAsRead}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                color: "#007BFF",
+                                fontSize: "12px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              Mark All as Read
+                            </button>
+                          )}
+                        </div>
+                        {notifications.length === 0 ? (
+                          <p style={{ padding: "10px", margin: 0 }}>
+                            No notifications
+                          </p>
+                        ) : (
+                          notifications.map((notification) => (
+                            <div
+                              key={notification._id}
+                              className={`notification-item ${
+                                notification.read ? "read" : "unread"
+                              }`}
+                              onClick={() =>
+                                handleNotificationClick(notification)
+                              }
+                              style={{
+                                padding: "10px",
+                                borderBottom: "1px solid #eee",
+                                cursor: "pointer",
+                                backgroundColor: notification.read
+                                  ? "#f9f9f9"
+                                  : "#fff",
+                              }}
+                            >
+                              <p style={{ margin: 0, fontSize: "14px" }}>
+                                {notification.message}
+                              </p>
+                              <small
+                                style={{ color: "#888", fontSize: "12px" }}
+                              >
+                                {new Date(
+                                  notification.createdAt
+                                ).toLocaleString()}
+                              </small>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
               </div>
+              
               <div className="offcanvas-body gap-xl-4">
                 <ul className="navbar-nav justify-content-end flex-grow-1">
                   <li className="nav-item">
@@ -351,7 +474,6 @@ const Navbar = () => {
                       </li>
                     </ul>
                   </li>
-                  
                 </ul>
                 <div className="nav-right">
                   <div className="search-btn">
@@ -499,17 +621,18 @@ const Navbar = () => {
                       }
                       alt="User Avatar"
                       style={{
-                        width: "45px",
-                        height: "45px",
+                        width: "50px",
+                        height: "50px",
                         borderRadius: "50%",
                         cursor: "pointer",
                         objectFit: "cover",
+                        marginLeft: "11px",
                       }}
                       onClick={() => (window.location.href = "/student")}
                     />
                   </div>
                   <li className="nav-item ms-3">
-                    <button
+                    {/* <button
                       className="btn btn-danger"
                       style={{
                         borderRadius: "50%",
@@ -524,12 +647,21 @@ const Navbar = () => {
                         e.preventDefault();
                         logout();
                       }}
-                    >
-                      <i
-                        className="fas fa-sign-out-alt"
-                        style={{ fontSize: "14px" }}
-                      ></i>
-                    </button>
+                    > */}
+                    <button
+                      className="fas fa-sign-out-alt"
+                      style={{
+                        fontSize: "25px",
+                        color: "red",
+                        border: "none",
+                        backgroundColor: "white",
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        logout();
+                      }}
+                    ></button>
+                    {/* </button> */}
                   </li>
                 </div>
               </div>

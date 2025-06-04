@@ -727,7 +727,7 @@ function Publication() {
         >
           <div className="container">
             <h2 className="breadcrumb-title">Publications</h2>
-            <ul className="breadcrumb-menu">
+            <ul className="breadcrumb-menu" >
               <li>
                 <a href="index.html">Home</a>
               </li>
@@ -851,7 +851,7 @@ function Publication() {
             >
               {/* Section de la barre de recherche et du tri */}
               <div
-                style={{ display: "flex", gap: "10px", alignItems: "center" }}
+                style={{ display: "flex", gap: "10px", alignItems: "center",flexWrap: "wrap", justifyContent: "center"  }}
               >
                 <input
                   type="text"
@@ -859,7 +859,7 @@ function Publication() {
                   onChange={handleSearchChange}
                   placeholder="Search ..."
                   style={{
-                    width: "400px",
+                    width: "300px",
                    padding: '12px 16px',
                     borderRadius: "50px",
                     border: "none",
