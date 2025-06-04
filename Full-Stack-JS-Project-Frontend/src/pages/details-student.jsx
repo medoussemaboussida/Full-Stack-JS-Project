@@ -721,10 +721,12 @@ function DetailsStudents() {
         <div style={{ padding: "40px 0" }}>
           <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 20px" }}>
             <div style={{ background: "white", borderRadius: "16px", boxShadow: "0 6px 20px rgba(0, 0, 0, 0.08)", padding: "30px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: "40px" }}>
-                <div style={{ borderRadius: "12px", overflow: "hidden" }}>
-                  <img src={previewPhoto} alt="Profile" style={{ width: "100%", display: "block" }} />
+              
+            <div style={{ borderRadius: "12px", overflow: "hidden",marginLeft:"420px" }}>
+                  <img src={previewPhoto} alt="Profile" style={{ width: "40%", display: "block" }} />
                 </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "30px" }}>
+                
 
                 <div style={{ padding: "20px 0" }}>
                   <div style={{ borderBottom: "2px solid #eef2f6", paddingBottom: "20px", marginBottom: "25px" }}>
@@ -735,12 +737,12 @@ function DetailsStudents() {
                           name="username"
                           value={formData.username}
                           onChange={handleChange}
-                          style={{ width: "100%", padding: "12px 15px", borderRadius: "50px", border: "1px solid #e2e8f0", fontSize: "1.5rem", fontWeight: "600", outline: "none" }}
+                          style={{ width: "100%", padding: "12px 15px", borderRadius: "50px", border: "1px solid #e2e8f0", fontSize: "1.5rem", fontWeight: "600", outline: "none",textAlign: "center"}}
                         />
                         {formData.username === "" && <span style={{ color: "red", fontSize: "0.9rem" }}>Username is required</span>}
                       </>
                     ) : (
-                      <h2 style={{ fontSize: "2rem", fontWeight: "700", color: "#2d3748", margin: "0" }}>{user.username}</h2>
+                      <h2 style={{ fontSize: "2rem", fontWeight: "700", color: "#2d3748", margin: "0",textAlign: "center"}}>{user.username}</h2>
                     )}
                   </div>
 
