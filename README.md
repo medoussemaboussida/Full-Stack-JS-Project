@@ -91,9 +91,11 @@ Our platform features a modern, clean, and user-friendly interface designed with
 📱 The interface is fully **responsive**, adapting seamlessly across desktops, tablets, and smartphones for a smooth experience on any device.   
 
 ## 💻 Final solution
-<img align="right" width=200px height=200px alt="side_sticker" src="https://media.giphy.com/media/dRiZq6h7814nhldyza/giphy.gif?cid=ecf05e47e8hcz6ym1zshf9asfpo25pbad0uxg2v4sca9q6if&ep=v1_gifs_search&rid=giphy.gif&ct=g" />    
-<img src="https://github.com/user-attachments/assets/9349c53c-2707-45be-8dad-d2381b05268b" width="630"/>
-<img src="https://github.com/user-attachments/assets/bb7d10c5-894c-48eb-a6c1-d3d86d70b43e" width="630"/>
+<img src="https://github.com/user-attachments/assets/9349c53c-2707-45be-8dad-d2381b05268b" />
+<img src="https://github.com/user-attachments/assets/892918a7-9365-45f7-bfc3-ea4aa00969b9" />
+<img src="https://github.com/user-attachments/assets/3a47b1f0-bdcd-4742-9b74-0d08f7c279f5" />
+<img src="https://github.com/user-attachments/assets/25e9e677-3450-4188-8554-19194b4ffa1f" />
+
 
 ## 🙏 Dedication
 We would like to express our sincere gratitude to **ESPRIT University** for giving us the opportunity to work on this meaningful and innovative project.  
