@@ -234,7 +234,7 @@ const MentalHealthDashboard = () => {
                 Home
               </a>
             </li>
-            <li style={{ color: "#ff5a5f", textDecoration: "none" }}>Mental Health Dashboard</li>
+            <li className="active"style={{ textDecoration: "none" }}>Mental Health Dashboard</li>
           </ul>
         </div>
       </div>

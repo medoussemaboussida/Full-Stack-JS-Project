@@ -143,7 +143,7 @@ function SleepCalculator() {
                 Home
               </a>
             </li>
-            <li style={{ color: "#ff5a5f", textDecoration: "none"}}>
+            <li className="active" style={{ textDecoration: "none"}}>
               Sleep Calculator
             </li>
           </ul>

@@ -206,8 +206,8 @@ const navigate = useNavigate(); // Ajout au début du composant
           <div className="container">
             <h2 className="breadcrumb-title text-white">Add a claim</h2>
             <ul className="breadcrumb-menu">
-              <li><a href="/Home">Home</a></li>
-              <li><a href="/complaint">complaint</a></li>
+              <li><a href="/Home" style={{textDecoration:"none"}}>Home</a></li>
+              <li><a href="/complaint" style={{textDecoration:"none"}}>complaint</a></li>
               <li className="active">Add new complaint</li>
             </ul>
           </div>

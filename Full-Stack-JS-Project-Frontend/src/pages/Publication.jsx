@@ -721,62 +721,72 @@ function Publication() {
       {/* Main Content */}
       <main className="main">
         {/* Breadcrumb */}
+
         <div
           className="site-breadcrumb"
           style={{ background: "url(assets/img/breadcrumb/01.jpg)" }}
         >
           <div className="container">
             <h2 className="breadcrumb-title">Publications</h2>
-            <ul className="breadcrumb-menu" >
+            <ul className="breadcrumb-menu">
               <li>
-                <a href="index.html">Home</a>
+                <a
+                  href="/Home"
+                  style={{ color: "#fff", textDecoration: "none" }}
+                >
+                  Home
+                </a>{" "}
               </li>
               <li className="active">Publications</li>
             </ul>
           </div>
         </div>
-
-        {/* Blog Area */}
-        <div style={{ padding: "100px 0" }}>
-          <div
-            style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 20px" }}
-          >
+        <div className="about-right wow fadeInUp" data-wow-delay=".25s">
+          {/* Blog Area */}
+          <div style={{ padding: "100px 0" }}>
             <div
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "50px",
+                maxWidth: "1200px",
+                margin: "0 auto",
+                padding: "0 20px",
               }}
             >
-              <div style={{ textAlign: "center", flex: 1 }}>
-                <span
-                  style={{
-                    fontSize: "16px",
-                    color: "#0ea5e6",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    gap: "5px",
-                  }}
-                >
-                  <i className="far fa-hand-heart"></i> Our Publications
-                </span>
-                <h2
-                  style={{
-                    fontSize: "32px",
-                    fontWeight: "700",
-                    margin: "10px 0 0",
-                  }}
-                >
-                  Latest Publications &{" "}
-                  <span style={{ color: "#0ea5e6" }}>Updates</span>
-                </h2>
-              </div>
               <div
-                style={{ display: "flex", gap: "15px", alignItems: "center" }}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "50px",
+                }}
               >
-                {/* {userRole === 'student' && (
+                <div style={{ textAlign: "center", flex: 1 }}>
+                  <span
+                    style={{
+                      fontSize: "16px",
+                      color: "#0ea5e6",
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      gap: "5px",
+                    }}
+                  >
+                    <i className="far fa-hand-heart"></i> Our Publications
+                  </span>
+                  <h2
+                    style={{
+                      fontSize: "32px",
+                      fontWeight: "700",
+                      margin: "10px 0 0",
+                    }}
+                  >
+                    Latest Publications &{" "}
+                    <span style={{ color: "#0ea5e6" }}>Updates</span>
+                  </h2>
+                </div>
+                <div
+                  style={{ display: "flex", gap: "15px", alignItems: "center" }}
+                >
+                  {/* {userRole === 'student' && (
                                     <select
                                         value={filterType}
                                         onChange={(e) => setFilterType(e.target.value)}
@@ -836,397 +846,175 @@ function Publication() {
                                         </a>
                                     </div>
                                 )} */}
+                </div>
               </div>
-            </div>
 
-            {/* Conteneur pour la barre de recherche et le tri par date */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: "20px",
-                marginBottom: "30px",
-              }}
-            >
-              {/* Section de la barre de recherche et du tri */}
+              {/* Conteneur pour la barre de recherche et le tri par date */}
               <div
-                style={{ display: "flex", gap: "10px", alignItems: "center",flexWrap: "wrap", justifyContent: "center"  }}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "20px",
+                  marginBottom: "30px",
+                }}
               >
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={handleSearchChange}
-                  placeholder="Search ..."
+                {/* Section de la barre de recherche et du tri */}
+                <div
                   style={{
-                    width: "300px",
-                   padding: '12px 16px',
-                    borderRadius: "50px",
-                    border: "none",
-                    backgroundColor: "#fff",
-                    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
-                    fontSize: "14px",
-                    color: "#333",
-                    outline: "none",
-                    transition: "all 0.3s ease",
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.boxShadow =
-                      "0 6px 20px rgba(14, 165, 230, 0.3)";
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.boxShadow = "0 4px 15px rgba(0, 0, 0, 0.1)";
-                  }}
-                />
-                <select
-                  value={sortOrder}
-                  onChange={handleSortChange}
-                  style={{
-                    padding: '12px 16px',
-                    borderRadius: "25px",
-                    border: "none",
-                    backgroundColor: "#fff",
-                    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
-                    fontSize: "14px",
-                    color: "#333",
-                    outline: "none",
-                    transition: "all 0.3s ease",
-                    width: "200px",
-                    cursor: "pointer",
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.boxShadow =
-                      "0 6px 20px rgba(14, 165, 230, 0.3)";
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.boxShadow = "0 4px 15px rgba(0, 0, 0, 0.1)";
+                    display: "flex",
+                    gap: "10px",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    justifyContent: "center",
                   }}
                 >
-                  <option value="recent">Most Recent</option>
-                  <option value="oldest">Oldest First</option>
-                </select>
-                {userRole === "psychiatrist" && (
-                  <button
-                    onClick={() => setShowCalendarModal(true)}
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={handleSearchChange}
+                    placeholder="Search ..."
                     style={{
-                      padding: "12px",
-                      width: "50px", // Définit une largeur fixe
-                       height: "50px", // Définit une hauteur fixe égale à la largeur
-                      borderRadius: "50%", // Utilise 50% pour un cercle parfait
-                      borderRadius: "200px",
+                      width: "300px",
+                      padding: "12px 16px",
+                      borderRadius: "50px",
                       border: "none",
                       backgroundColor: "#fff",
                       boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
                       fontSize: "14px",
                       color: "#333",
+                      outline: "none",
+                      transition: "all 0.3s ease",
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.boxShadow =
+                        "0 6px 20px rgba(14, 165, 230, 0.3)";
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.boxShadow =
+                        "0 4px 15px rgba(0, 0, 0, 0.1)";
+                    }}
+                  />
+                  <select
+                    value={sortOrder}
+                    onChange={handleSortChange}
+                    style={{
+                      padding: "12px 16px",
+                      borderRadius: "25px",
+                      border: "none",
+                      backgroundColor: "#fff",
+                      boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
+                      fontSize: "14px",
+                      color: "#333",
+                      outline: "none",
+                      transition: "all 0.3s ease",
+                      width: "200px",
+                      cursor: "pointer",
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.boxShadow =
+                        "0 6px 20px rgba(14, 165, 230, 0.3)";
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.boxShadow =
+                        "0 4px 15px rgba(0, 0, 0, 0.1)";
+                    }}
+                  >
+                    <option value="recent">Most Recent</option>
+                    <option value="oldest">Oldest First</option>
+                  </select>
+                  {userRole === "psychiatrist" && (
+                    <button
+                      onClick={() => setShowCalendarModal(true)}
+                      style={{
+                        padding: "12px",
+                        width: "50px", // Définit une largeur fixe
+                        height: "50px", // Définit une hauteur fixe égale à la largeur
+                        borderRadius: "50%", // Utilise 50% pour un cercle parfait
+                        borderRadius: "200px",
+                        border: "none",
+                        backgroundColor: "#fff",
+                        boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
+                        fontSize: "14px",
+                        color: "#333",
+                        cursor: "pointer",
+                        transition: "all 0.3s ease",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.target.style.boxShadow =
+                          "0 6px 20px rgba(14, 165, 230, 0.3)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.target.style.boxShadow =
+                          "0 4px 15px rgba(0, 0, 0, 0.1)")
+                      }
+                    >
+                      <FontAwesomeIcon icon={faCalendarAlt} />
+                    </button>
+                  )}
+                  <button
+                    className="theme-btn"
+                    onClick={() => setShowRecommendedModal(true)}
+                    style={{
+                      padding: "12px 16px",
+                      borderRadius: "50px",
+                      border: "none",
+                      boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
+                      fontSize: "14px",
                       cursor: "pointer",
                       transition: "all 0.3s ease",
                     }}
                     onMouseEnter={(e) =>
                       (e.target.style.boxShadow =
-                        "0 6px 20px rgba(14, 165, 230, 0.3)")
+                        "0 6px 20px rgba(255, 215, 0, 0.3)")
                     }
                     onMouseLeave={(e) =>
                       (e.target.style.boxShadow =
                         "0 4px 15px rgba(0, 0, 0, 0.1)")
                     }
                   >
-                    <FontAwesomeIcon icon={faCalendarAlt} />
+                    Recommended
                   </button>
-                )}
-                <button className="theme-btn"
-                  onClick={() => setShowRecommendedModal(true)}
-                  style={{
-                    padding: '12px 16px',
-                    borderRadius: "50px",
-                    border: "none",
-                    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
-                    fontSize: "14px",
-                    cursor: "pointer",
-                    transition: "all 0.3s ease",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.target.style.boxShadow =
-                      "0 6px 20px rgba(255, 215, 0, 0.3)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.target.style.boxShadow = "0 4px 15px rgba(0, 0, 0, 0.1)")
-                  }
-                >
-                  Recommended
-                </button>
-                {/* Section des filtres et boutons en fonction du rôle */}
-                <div
-                  style={{ display: "flex", gap: "15px", alignItems: "center" }}
-                >
-                  {userRole === "student" && (
-                    <select
-                      value={filterType}
-                      onChange={(e) => setFilterType(e.target.value)}
-                      style={{
-                        padding: "12px",
-                        borderRadius: "50px",
-                        border: "1px solid #ccc",
-                        fontSize: "14px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <option value="all">All Publications</option>
-                      <option value="favorites">Favorite Publications</option>
-                    </select>
-                  )}
-                  {userRole === "psychiatrist" && (
-                    <div style={{ display: "flex", gap: "15px" }}>
-                      <a
-                        href="/AddPublication"
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          background: "#0ea5e6",
-                          color: "#fff",
-                          padding: '12px 16px',
-                          borderRadius: "50px",
-                          textDecoration: "none",
-                          fontSize: "14px",
-                          fontWeight: "600",
-                          transition: "background 0.3s ease",
-                          boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.target.style.background = "#164da6")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.target.style.background = "#0ea5e6")
-                        }
-                      >
-                        <i
-                          className="fas fa-plus"
-                          style={{ marginRight: "8px" }}
-                        ></i>{" "}
-                        Add News
-                      </a>
-                      <a
-                        href="/PublicationPsychiatristAll"
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          background: "#28a745",
-                          color: "#fff",
-                          padding: '12px 16px',
-                          borderRadius: "50px",
-                          textDecoration: "none",
-                          fontSize: "14px",
-                          fontWeight: "600",
-                          transition: "background 0.3s ease",
-                          boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.target.style.background = "#218838")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.target.style.background = "#28a745")
-                        }
-                      >
-                        <i
-                          className="fas fa-book"
-                          style={{ marginRight: "8px" }}
-                        ></i>{" "}
-                        My Publication
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-                gap: "30px",
-              }}
-            >
-              {currentPublications.length > 0 ? (
-                currentPublications.map((post, index) => (
+                  {/* Section des filtres et boutons en fonction du rôle */}
                   <div
-                    key={index}
                     style={{
-                      background: "#fff",
-                      borderRadius: "10px",
-                      overflow: "hidden",
-                      boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
-                      transition: "transform 0.3s ease",
-                      border: pinnedPublications.includes(post._id)
-                        ? "2px solid #ffd700"
-                        : "none",
+                      display: "flex",
+                      gap: "15px",
+                      alignItems: "center",
                     }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.transform = "translateY(-10px)")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.transform = "translateY(0)")
-                    }
                   >
-                    <div style={{ position: "relative" }}>
-                      <img
-                        src={
-                          post.imagePublication
-                            ? `http://localhost:5000${post.imagePublication}`
-                            : "/assets/img/blog/01.jpg"
-                        }
-                        alt="Publication"
+                    {userRole === "student" && (
+                      <select
+                        value={filterType}
+                        onChange={(e) => setFilterType(e.target.value)}
                         style={{
-                          width: "100%",
-                          height: "200px",
-                          objectFit: "cover",
-                        }}
-                      />
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "10px",
-                          left: "10px",
-                          background: "#0ea5e6",
-                          color: "#fff",
-                          padding: "5px 10px",
-                          borderRadius: "5px",
-                          textAlign: "center",
-                        }}
-                      >
-                        <strong>
-                          {new Date(post.datePublication).getDate()}
-                        </strong>
-                        <span style={{ display: "block", fontSize: "12px" }}>
-                          {new Date(post.datePublication).toLocaleString(
-                            "default",
-                            { month: "short" }
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                    <div style={{ padding: "20px" }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          marginBottom: "15px",
+                          padding: "12px",
+                          borderRadius: "50px",
+                          border: "1px solid #ccc",
                           fontSize: "14px",
-                          color: "#666",
-                          flexWrap: "wrap",
+                          cursor: "pointer",
                         }}
                       >
-                        <span>
-                          <i
-                            className="far fa-user-circle"
-                            style={{ marginRight: "5px" }}
-                          ></i>
-                          By {post.author_id?.username || "Unknown"}
-                        </span>
-                        <div style={{ display: "flex", gap: "15px" }}>
-                          <span>
-                            <i
-                              className="far fa-comments"
-                              style={{ marginRight: "5px" }}
-                            ></i>
-                            {post.commentsCount >= 0
-                              ? `${post.commentsCount} Comment${
-                                  post.commentsCount !== 1 ? "s" : ""
-                                }`
-                              : "No Comments"}
-                          </span>
-                          <span>
-                            <i
-                              className="far fa-thumbs-up"
-                              style={{ marginRight: "5px" }}
-                            ></i>
-                            {post.likeCount >= 0
-                              ? `${post.likeCount} Like${
-                                  post.likeCount !== 1 ? "s" : ""
-                                }`
-                              : "No Likes"}
-                          </span>
-                          <span>
-                            <i
-                              className="far fa-thumbs-down"
-                              style={{ marginRight: "5px" }}
-                            ></i>
-                            {post.dislikeCount >= 0
-                              ? `${post.dislikeCount} Dislike${
-                                  post.dislikeCount !== 1 ? "s" : ""
-                                }`
-                              : "No Dislikes"}
-                          </span>
-                        </div>
-                      </div>
-                      <h4
-                        style={{
-                          fontSize: "20px",
-                          fontWeight: "600",
-                          margin: "0 0 15px",
-                          lineHeight: "1.4",
-                          display: "flex",
-                          alignItems: "center",
-                        }}
-                      >
+                        <option value="all">All Publications</option>
+                        <option value="favorites">Favorite Publications</option>
+                      </select>
+                    )}
+                    {userRole === "psychiatrist" && (
+                      <div style={{ display: "flex", gap: "15px" }}>
                         <a
-                          href={`/PublicationDetailPsy/${post._id}`}
-                          style={{ color: "#333", textDecoration: "none" }}
-                        >
-                          {stripHtmlTags(post.titrePublication)}
-                        </a>
-                        {userRole === "student" && (
-                          <button
-                            onClick={() => handleToggleFavorite(post._id)}
-                            style={{
-                              background: "transparent",
-                              border: "none",
-                              cursor: "pointer",
-                              fontSize: "20px",
-                              color: favoritePublications.some(
-                                (fav) => fav._id === post._id
-                              )
-                                ? "#ffd700"
-                                : "#ccc",
-                              marginLeft: "10px",
-                            }}
-                          >
-                            <i className="fas fa-star"></i>
-                          </button>
-                        )}
-                      </h4>
-                      <p
-                        style={{
-                          fontSize: "14px",
-                          color: "#666",
-                          marginBottom: "15px",
-                        }}
-                      >
-                        {stripHtmlTags(post.description).length > 100
-                          ? `${stripHtmlTags(post.description).substring(
-                              0,
-                              100
-                            )}...`
-                          : stripHtmlTags(post.description)}
-                      </p>
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "10px",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <a className="theme-btn"
-                          href={`/PublicationDetailPsy/${post._id}`}
+                          href="/AddPublication"
                           style={{
                             display: "inline-flex",
                             alignItems: "center",
                             background: "#0ea5e6",
                             color: "#fff",
-                            padding: "12px 20px",
+                            padding: "12px 16px",
                             borderRadius: "50px",
                             textDecoration: "none",
-                            fontSize:"14px",
+                            fontSize: "14px",
+                            fontWeight: "600",
                             transition: "background 0.3s ease",
+                            boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
                           }}
                           onMouseEnter={(e) =>
                             (e.target.style.background = "#164da6")
@@ -1235,196 +1023,471 @@ function Publication() {
                             (e.target.style.background = "#0ea5e6")
                           }
                         >
-                          View{" "}
                           <i
-                            className="fas fa-circle-arrow-right"
-                            style={{ marginLeft: "5px" }}
-                          ></i>
+                            className="fas fa-plus"
+                            style={{ marginRight: "8px" }}
+                          ></i>{" "}
+                          Add News
                         </a>
-                        {userRole === "psychiatrist" &&
-                          userId === post.author_id?._id && (
-                            <>
-                              <button className="theme-btn"
-                                onClick={() => handleEdit(post)}
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  background: "#28a745",
-                                  color: "#fff",
-                                  padding: "12px 14px",
-                                  borderRadius: "50px",
-                                  border: "none",
-                                  cursor: "pointer",
-                                  fontSize:"14px",
-                                  transition: "background 0.3s ease",
-                                }}
-                                onMouseEnter={(e) =>
-                                  (e.target.style.background = "#218838")
-                                }
-                                onMouseLeave={(e) =>
-                                  (e.target.style.background = "#28a745")
-                                }
-                              >
-                                Edit{" "}
-                                <i
-                                  className="fas fa-edit"
-                                  style={{ marginLeft: "5px" }}
-                                ></i>
-                              </button>
-                              <button className="theme-btn"
-                                onClick={() => handleDelete(post._id)}
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  background: "#dc3545",
-                                  color: "#fff",
-                                  padding: "12px 14px",
-                                  borderRadius: "50px",
-                                  fontSize:"14px",
-                                  border: "none",
-                                  cursor: "pointer",
-                                  transition: "background 0.3s ease",
-                                }}
-                                onMouseEnter={(e) =>
-                                  (e.target.style.background = "#c82333")
-                                }
-                                onMouseLeave={(e) =>
-                                  (e.target.style.background = "#dc3545")
-                                }
-                              >
-                                Delete{" "}
-                                <i
-                                  className="fas fa-trash"
-                                  style={{ marginLeft: "5px" }}
-                                ></i>
-                              </button>
-                              <button className="theme-btn"
-                                onClick={() => handleArchive(post._id)}
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  background: "#6c757d",
-                                  color: "#fff",
-                                  padding: "12px 14px",
-                                  borderRadius: "50px",
-                                  fontSize:"14px",
-                                  border: "none",
-                                  cursor: "pointer",
-                                  transition: "background 0.3s ease",
-                                }}
-                                onMouseEnter={(e) =>
-                                  (e.target.style.background = "#5a6268")
-                                }
-                                onMouseLeave={(e) =>
-                                  (e.target.style.background = "#6c757d")
-                                }
-                              >
-                                Archive{" "}
-                                <i
-                                  className="fas fa-archive"
-                                  style={{ marginLeft: "5px" }}
-                                ></i>
-                              </button>
-                            </>
-                          )}
-                        <button className="theme-btn"
-                          onClick={() => handlePin(post._id)}
+                        <a
+                          href="/PublicationPsychiatristAll"
                           style={{
                             display: "inline-flex",
                             alignItems: "center",
-                            background: pinnedPublications.includes(post._id)
-                              ? "red"
-                              : "#ff9800",
+                            background: "#28a745",
                             color: "#fff",
-                            padding: "12px 14px",
+                            padding: "12px 16px",
                             borderRadius: "50px",
-                            fontSize:"14px",
-                            border: "none",
-                            cursor: "pointer",
+                            textDecoration: "none",
+                            fontSize: "14px",
+                            fontWeight: "600",
                             transition: "background 0.3s ease",
+                            boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
                           }}
                           onMouseEnter={(e) =>
-                            (e.target.style.background =
-                              pinnedPublications.includes(post._id)
-                                ? "#ffca28"
-                                : "#f57c00")
+                            (e.target.style.background = "#218838")
                           }
                           onMouseLeave={(e) =>
-                            (e.target.style.background =
-                              pinnedPublications.includes(post._id)
-                                ? "red"
-                                : "#ff9800")
+                            (e.target.style.background = "#28a745")
                           }
                         >
-                          {pinnedPublications.includes(post._id)
-                            ? "Unpin"
-                            : "Pin"}{" "}
                           <i
-                            className="fas fa-thumbtack"
-                            style={{ marginLeft: "5px" }}
-                          ></i>
-                        </button>
+                            className="fas fa-book"
+                            style={{ marginRight: "8px" }}
+                          ></i>{" "}
+                          My Publication
+                        </a>
                       </div>
-                    </div>
+                    )}
                   </div>
-                ))
-              ) : (
-                <div style={{ textAlign: "center", gridColumn: "span 3" }}>
-                  <p>No publications available.</p>
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* Pagination */}
-            <div
-              style={{
-                marginTop: "50px",
-                display: "flex",
-                justifyContent: "center",
-              }}
-            >
-              <ul
+              <div
                 style={{
-                  display: "flex",
-                  listStyle: "none",
-                  padding: "0",
-                  gap: "10px",
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+                  gap: "30px",
                 }}
               >
-                <li>
-                  <button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "40px",
-                      height: "40px",
-                      background: currentPage === 1 ? "#e0e0e0" : "#fff",
-                      color: currentPage === 1 ? "#999" : "#333",
-                      borderRadius: "50px",
-                      textDecoration: "none",
-                      boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
-                      border: "none",
-                      cursor: currentPage === 1 ? "not-allowed" : "pointer",
-                      transition: "background 0.3s ease",
-                    }}
-                    onMouseEnter={(e) =>
-                      currentPage !== 1 &&
-                      (e.target.style.background = "#f1f1f1")
-                    }
-                    onMouseLeave={(e) =>
-                      currentPage !== 1 && (e.target.style.background = "#fff")
-                    }
-                  >
-                    <i className="fas fa-arrow-left"></i>
-                  </button>
-                </li>
-                {Array.from({ length: totalPages }, (_, index) => (
-                  <li key={index + 1}>
+                {currentPublications.length > 0 ? (
+                  currentPublications.map((post, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        background: "#fff",
+                        borderRadius: "10px",
+                        overflow: "hidden",
+                        boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
+                        transition: "transform 0.3s ease",
+                        border: pinnedPublications.includes(post._id)
+                          ? "2px solid #ffd700"
+                          : "none",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.transform = "translateY(-10px)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.transform = "translateY(0)")
+                      }
+                    >
+                      <div style={{ position: "relative" }}>
+                        <img
+                          src={
+                            post.imagePublication
+                              ? `http://localhost:5000${post.imagePublication}`
+                              : "/assets/img/blog/01.jpg"
+                          }
+                          alt="Publication"
+                          style={{
+                            width: "100%",
+                            height: "200px",
+                            objectFit: "cover",
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: "10px",
+                            left: "10px",
+                            background: "#0ea5e6",
+                            color: "#fff",
+                            padding: "5px 10px",
+                            borderRadius: "5px",
+                            textAlign: "center",
+                          }}
+                        >
+                          <strong>
+                            {new Date(post.datePublication).getDate()}
+                          </strong>
+                          <span style={{ display: "block", fontSize: "12px" }}>
+                            {new Date(post.datePublication).toLocaleString(
+                              "default",
+                              { month: "short" }
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ padding: "20px" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: "15px",
+                            fontSize: "14px",
+                            color: "#666",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <span>
+                            <i
+                              className="far fa-user-circle"
+                              style={{ marginRight: "5px" }}
+                            ></i>
+                            By {post.author_id?.username || "Unknown"}
+                          </span>
+                          <div style={{ display: "flex", gap: "15px" }}>
+                            <span>
+                              <i
+                                className="far fa-comments"
+                                style={{ marginRight: "5px" }}
+                              ></i>
+                              {post.commentsCount >= 0
+                                ? `${post.commentsCount} Comment${
+                                    post.commentsCount !== 1 ? "s" : ""
+                                  }`
+                                : "No Comments"}
+                            </span>
+                            <span>
+                              <i
+                                className="far fa-thumbs-up"
+                                style={{ marginRight: "5px" }}
+                              ></i>
+                              {post.likeCount >= 0
+                                ? `${post.likeCount} Like${
+                                    post.likeCount !== 1 ? "s" : ""
+                                  }`
+                                : "No Likes"}
+                            </span>
+                            <span>
+                              <i
+                                className="far fa-thumbs-down"
+                                style={{ marginRight: "5px" }}
+                              ></i>
+                              {post.dislikeCount >= 0
+                                ? `${post.dislikeCount} Dislike${
+                                    post.dislikeCount !== 1 ? "s" : ""
+                                  }`
+                                : "No Dislikes"}
+                            </span>
+                          </div>
+                        </div>
+                        <h4
+                          style={{
+                            fontSize: "20px",
+                            fontWeight: "600",
+                            margin: "0 0 15px",
+                            lineHeight: "1.4",
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                        >
+                          <a
+                            href={`/PublicationDetailPsy/${post._id}`}
+                            style={{ color: "#333", textDecoration: "none" }}
+                          >
+                            {stripHtmlTags(post.titrePublication)}
+                          </a>
+                          {userRole === "student" && (
+                            <button
+                              onClick={() => handleToggleFavorite(post._id)}
+                              style={{
+                                background: "transparent",
+                                border: "none",
+                                cursor: "pointer",
+                                fontSize: "20px",
+                                color: favoritePublications.some(
+                                  (fav) => fav._id === post._id
+                                )
+                                  ? "#ffd700"
+                                  : "#ccc",
+                                marginLeft: "10px",
+                              }}
+                            >
+                              <i className="fas fa-star"></i>
+                            </button>
+                          )}
+                        </h4>
+                        <p
+                          style={{
+                            fontSize: "14px",
+                            color: "#666",
+                            marginBottom: "15px",
+                          }}
+                        >
+                          {stripHtmlTags(post.description).length > 100
+                            ? `${stripHtmlTags(post.description).substring(
+                                0,
+                                100
+                              )}...`
+                            : stripHtmlTags(post.description)}
+                        </p>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "10px",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <a
+                            className="theme-btn"
+                            href={`/PublicationDetailPsy/${post._id}`}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              background: "#0ea5e6",
+                              color: "#fff",
+                              padding: "12px 20px",
+                              borderRadius: "50px",
+                              textDecoration: "none",
+                              fontSize: "14px",
+                              transition: "background 0.3s ease",
+                            }}
+                            onMouseEnter={(e) =>
+                              (e.target.style.background = "#164da6")
+                            }
+                            onMouseLeave={(e) =>
+                              (e.target.style.background = "#0ea5e6")
+                            }
+                          >
+                            View{" "}
+                            <i
+                              className="fas fa-circle-arrow-right"
+                              style={{ marginLeft: "5px" }}
+                            ></i>
+                          </a>
+                          {userRole === "psychiatrist" &&
+                            userId === post.author_id?._id && (
+                              <>
+                                <button
+                                  className="theme-btn"
+                                  onClick={() => handleEdit(post)}
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    background: "#28a745",
+                                    color: "#fff",
+                                    padding: "12px 14px",
+                                    borderRadius: "50px",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    fontSize: "14px",
+                                    transition: "background 0.3s ease",
+                                  }}
+                                  onMouseEnter={(e) =>
+                                    (e.target.style.background = "#218838")
+                                  }
+                                  onMouseLeave={(e) =>
+                                    (e.target.style.background = "#28a745")
+                                  }
+                                >
+                                  Edit{" "}
+                                  <i
+                                    className="fas fa-edit"
+                                    style={{ marginLeft: "5px" }}
+                                  ></i>
+                                </button>
+                                <button
+                                  className="theme-btn"
+                                  onClick={() => handleDelete(post._id)}
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    background: "#dc3545",
+                                    color: "#fff",
+                                    padding: "12px 14px",
+                                    borderRadius: "50px",
+                                    fontSize: "14px",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    transition: "background 0.3s ease",
+                                  }}
+                                  onMouseEnter={(e) =>
+                                    (e.target.style.background = "#c82333")
+                                  }
+                                  onMouseLeave={(e) =>
+                                    (e.target.style.background = "#dc3545")
+                                  }
+                                >
+                                  Delete{" "}
+                                  <i
+                                    className="fas fa-trash"
+                                    style={{ marginLeft: "5px" }}
+                                  ></i>
+                                </button>
+                                <button
+                                  className="theme-btn"
+                                  onClick={() => handleArchive(post._id)}
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    background: "#6c757d",
+                                    color: "#fff",
+                                    padding: "12px 14px",
+                                    borderRadius: "50px",
+                                    fontSize: "14px",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    transition: "background 0.3s ease",
+                                  }}
+                                  onMouseEnter={(e) =>
+                                    (e.target.style.background = "#5a6268")
+                                  }
+                                  onMouseLeave={(e) =>
+                                    (e.target.style.background = "#6c757d")
+                                  }
+                                >
+                                  Archive{" "}
+                                  <i
+                                    className="fas fa-archive"
+                                    style={{ marginLeft: "5px" }}
+                                  ></i>
+                                </button>
+                              </>
+                            )}
+                          <button
+                            className="theme-btn"
+                            onClick={() => handlePin(post._id)}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              background: pinnedPublications.includes(post._id)
+                                ? "red"
+                                : "#ff9800",
+                              color: "#fff",
+                              padding: "12px 14px",
+                              borderRadius: "50px",
+                              fontSize: "14px",
+                              border: "none",
+                              cursor: "pointer",
+                              transition: "background 0.3s ease",
+                            }}
+                            onMouseEnter={(e) =>
+                              (e.target.style.background =
+                                pinnedPublications.includes(post._id)
+                                  ? "#ffca28"
+                                  : "#f57c00")
+                            }
+                            onMouseLeave={(e) =>
+                              (e.target.style.background =
+                                pinnedPublications.includes(post._id)
+                                  ? "red"
+                                  : "#ff9800")
+                            }
+                          >
+                            {pinnedPublications.includes(post._id)
+                              ? "Unpin"
+                              : "Pin"}{" "}
+                            <i
+                              className="fas fa-thumbtack"
+                              style={{ marginLeft: "5px" }}
+                            ></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ textAlign: "center", gridColumn: "span 3" }}>
+                    <p>No publications available.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Pagination */}
+              <div
+                style={{
+                  marginTop: "50px",
+                  display: "flex",
+                  justifyContent: "center",
+                }}
+              >
+                <ul
+                  style={{
+                    display: "flex",
+                    listStyle: "none",
+                    padding: "0",
+                    gap: "10px",
+                  }}
+                >
+                  <li>
                     <button
-                      onClick={() => handlePageChange(index + 1)}
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: "40px",
+                        height: "40px",
+                        background: currentPage === 1 ? "#e0e0e0" : "#fff",
+                        color: currentPage === 1 ? "#999" : "#333",
+                        borderRadius: "50px",
+                        textDecoration: "none",
+                        boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
+                        border: "none",
+                        cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                        transition: "background 0.3s ease",
+                      }}
+                      onMouseEnter={(e) =>
+                        currentPage !== 1 &&
+                        (e.target.style.background = "#f1f1f1")
+                      }
+                      onMouseLeave={(e) =>
+                        currentPage !== 1 &&
+                        (e.target.style.background = "#fff")
+                      }
+                    >
+                      <i className="fas fa-arrow-left"></i>
+                    </button>
+                  </li>
+                  {Array.from({ length: totalPages }, (_, index) => (
+                    <li key={index + 1}>
+                      <button
+                        onClick={() => handlePageChange(index + 1)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: "40px",
+                          height: "40px",
+                          background:
+                            currentPage === index + 1 ? "#0ea5e6" : "#fff",
+                          color: currentPage === index + 1 ? "#fff" : "#333",
+                          borderRadius: "50px",
+                          textDecoration: "none",
+                          boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
+                          border: "none",
+                          cursor: "pointer",
+                          transition: "background 0.3s ease",
+                        }}
+                        onMouseEnter={(e) =>
+                          currentPage !== index + 1 &&
+                          (e.target.style.background = "#f1f1f1")
+                        }
+                        onMouseLeave={(e) =>
+                          currentPage !== index + 1 &&
+                          (e.target.style.background = "#fff")
+                        }
+                      >
+                        {index + 1}
+                      </button>
+                    </li>
+                  ))}
+                  <li>
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -1432,62 +1495,32 @@ function Publication() {
                         width: "40px",
                         height: "40px",
                         background:
-                          currentPage === index + 1 ? "#0ea5e6" : "#fff",
-                        color: currentPage === index + 1 ? "#fff" : "#333",
+                          currentPage === totalPages ? "#e0e0e0" : "#fff",
+                        color: currentPage === totalPages ? "#999" : "#333",
                         borderRadius: "50px",
                         textDecoration: "none",
                         boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
                         border: "none",
-                        cursor: "pointer",
+                        cursor:
+                          currentPage === totalPages
+                            ? "not-allowed"
+                            : "pointer",
                         transition: "background 0.3s ease",
                       }}
                       onMouseEnter={(e) =>
-                        currentPage !== index + 1 &&
+                        currentPage !== totalPages &&
                         (e.target.style.background = "#f1f1f1")
                       }
                       onMouseLeave={(e) =>
-                        currentPage !== index + 1 &&
+                        currentPage !== totalPages &&
                         (e.target.style.background = "#fff")
                       }
                     >
-                      {index + 1}
+                      <i className="fas fa-arrow-right"></i>
                     </button>
                   </li>
-                ))}
-                <li>
-                  <button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "40px",
-                      height: "40px",
-                      background:
-                        currentPage === totalPages ? "#e0e0e0" : "#fff",
-                      color: currentPage === totalPages ? "#999" : "#333",
-                      borderRadius: "50px",
-                      textDecoration: "none",
-                      boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
-                      border: "none",
-                      cursor:
-                        currentPage === totalPages ? "not-allowed" : "pointer",
-                      transition: "background 0.3s ease",
-                    }}
-                    onMouseEnter={(e) =>
-                      currentPage !== totalPages &&
-                      (e.target.style.background = "#f1f1f1")
-                    }
-                    onMouseLeave={(e) =>
-                      currentPage !== totalPages &&
-                      (e.target.style.background = "#fff")
-                    }
-                  >
-                    <i className="fas fa-arrow-right"></i>
-                  </button>
-                </li>
-              </ul>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
@@ -1864,7 +1897,7 @@ function Publication() {
               maxWidth: "90%",
               boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
               maxHeight: "80vh", // Hauteur maximale relative à la fenêtre
-        overflowY: "auto", // Défilement vertical si nécessaire
+              overflowY: "auto", // Défilement vertical si nécessaire
             }}
           >
             <h3
@@ -1941,14 +1974,14 @@ function Publication() {
                           ></i>
                           By {post.author_id?.username || "Unknown"}
                         </span>
-                       
                       </div>
                     </div>
                   </div>
                   <div
                     style={{ display: "flex", gap: "10px", marginTop: "10px" }}
                   >
-                    <a className="theme-btn"
+                    <a
+                      className="theme-btn"
                       href={`/PublicationDetailPsy/${post._id}`}
                       style={{
                         display: "inline-flex",
@@ -1991,7 +2024,8 @@ function Publication() {
                         <i className="fas fa-star"></i>
                       </button>
                     )}
-                    <button className="theme-btn"
+                    <button
+                      className="theme-btn"
                       onClick={() => handlePin(post._id)}
                       style={{
                         display: "inline-flex",
@@ -2079,7 +2113,7 @@ function Publication() {
               maxWidth: "95%",
               boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
               maxHeight: "80vh", // Hauteur maximale relative à la fenêtre
-        overflowY: "auto", // Défilement vertical si nécessaire
+              overflowY: "auto", // Défilement vertical si nécessaire
             }}
           >
             <h3
@@ -2095,7 +2129,8 @@ function Publication() {
                 marginBottom: "20px",
               }}
             >
-              <button className="theme-btn"
+              <button
+                className="theme-btn"
                 onClick={handlePreviousMonth}
                 style={{
                   backgroundColor: "#0ea5e6",
@@ -2108,7 +2143,8 @@ function Publication() {
               >
                 Previous
               </button>
-              <button className="theme-btn"
+              <button
+                className="theme-btn"
                 onClick={handleNextMonth}
                 style={{
                   backgroundColor: "#0ea5e6",
@@ -2199,7 +2235,7 @@ function Publication() {
                               cursor: "pointer",
                             }}
                           >
-                        +
+                            +
                           </button>
                           {notes[dateStr] && (
                             <p
@@ -2219,7 +2255,8 @@ function Publication() {
                 });
               })()}
             </div>
-            <button className="theme-btn"
+            <button
+              className="theme-btn"
               onClick={() => setShowCalendarModal(false)}
               style={{
                 backgroundColor: "#f44336",
@@ -2287,7 +2324,8 @@ function Publication() {
                 marginTop: "20px",
               }}
             >
-              <button className="theme-btn"
+              <button
+                className="theme-btn"
                 onClick={handleSaveNote}
                 style={{
                   backgroundColor: "#0ea5e6",
@@ -2300,7 +2338,8 @@ function Publication() {
               >
                 Save
               </button>
-              <button className="theme-btn"
+              <button
+                className="theme-btn"
                 onClick={() => setShowNotesModal(false)}
                 style={{
                   backgroundColor: "#f44336",

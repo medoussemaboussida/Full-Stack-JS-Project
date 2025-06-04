@@ -183,7 +183,7 @@ const Associations = () => {
           <h2 className="breadcrumb-title">Our Associations</h2>
           <ul className="breadcrumb-menu">
             <li>
-              <Link to="/Home">Home</Link>
+              <Link to="/Home" style={{ color: "#fff", textDecoration: "none" }}>Home</Link>
             </li>
             <li className="active">Our Associations</li>
           </ul>

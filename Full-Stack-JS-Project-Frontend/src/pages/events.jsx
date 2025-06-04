@@ -1492,8 +1492,9 @@ const Events = () => {
           <h2 className="breadcrumb-title">Our Events</h2>
           <ul className="breadcrumb-menu">
             <li>
-              <Link to="/Home">Home</Link>
-            </li>
+      <a href="/Home" style={{ color: "#fff", textDecoration: "none"}}>
+                Home
+              </a>            </li>
             <li className="active">Our Events</li>
           </ul>
         </div>

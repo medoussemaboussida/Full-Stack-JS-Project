@@ -81,7 +81,7 @@ const MentalHealthAssessment = () => {
         }));
 
         // Show a message to the user
-        toast.info('Please verify and complete all fields in the form.');
+        // toast.info('Please verify and complete all fields in the form.');
       } catch (error) {
         console.error('Error fetching user data:', error);
 
@@ -216,7 +216,7 @@ const MentalHealthAssessment = () => {
                 Home
               </a>
             </li>
-            <li style={{ color: "#ff5a5f", textDecoration: "none" }}>Mental Health Assessment</li>
+            <li className="active"style={{ textDecoration: "none" }}>Mental Health Assessment</li>
           </ul>
         </div>
       </div>

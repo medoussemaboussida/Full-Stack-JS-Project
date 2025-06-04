@@ -215,7 +215,7 @@ function Exercises() {
                 Home
               </a>
             </li>
-            <li style={{ color: "#ff5a5f", textDecoration: "none"}}>
+            <li className="active" style={{textDecoration: "none"}}>
               Wellness Exercises
             </li>
           </ul>

@@ -820,7 +820,12 @@ function Complaint() {
             <h2 className="breadcrumb-title text-white">My Complaints</h2>
             <ul className="breadcrumb-menu">
               <li>
-                <a href="/Home">Home</a>
+                <a
+                  href="/Home"
+                  style={{ color: "#fff", textDecoration: "none" }}
+                >
+                  Home
+                </a>
               </li>
               <li className="active">Complaints</li>
             </ul>
@@ -832,26 +837,27 @@ function Complaint() {
             className="container"
             style={{ maxWidth: "800px", margin: "0 auto" }}
           >
-            <div className="complaint-header d-flex justify-content-between align-items-center mb-4">
+            <div
+              style={{
+                marginBottom: "30px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "20px",
+                flexWrap: "wrap",
+              }}
+            >
+              {" "}
               <div
                 style={{
                   position: "relative",
+                  maxWidth: "500px",
+                  flex: "1",
+                  minWidth: "250px",
                   width: isSearchOpen ? "400px" : "40px",
-                  transition: "width 0.3s ease",
                 }}
               >
-                {!isSearchOpen ? (
-                  <FontAwesomeIcon
-                    icon={faSearch}
-                    style={{
-                      fontSize: "20px",
-                      color: "#007bff",
-                      cursor: "pointer",
-                    }}
-                    onClick={toggleSearch}
-                  />
-                ) : (
-                  <>
+              
                     <FontAwesomeIcon
                       icon={faSearch}
                       style={{
@@ -863,7 +869,6 @@ function Complaint() {
                         fontSize: "18px",
                         cursor: "pointer",
                       }}
-                      onClick={toggleSearch}
                     />
                     <input
                       type="text"
@@ -875,15 +880,13 @@ function Complaint() {
                         borderRadius: "50px",
                         border: "1px solid #007bff",
                         outline: "none",
-                        width: isSearchOpen ? "100%" : "0%",
+                        maxWidth: "400px",
+                        minWidth:"350px",
                         boxSizing: "border-box",
-                        opacity: isSearchOpen ? 1 : 0,
                         transition: "opacity 0.3s ease, width 0.3s ease",
-                        visibility: isSearchOpen ? "visible" : "hidden",
                       }}
                     />
-                  </>
-                )}
+                
               </div>
               <div className="d-flex align-items-center">
                 <select
@@ -954,8 +957,8 @@ function Complaint() {
                 <span style={{ fontSize: "24px", color: "white" }}>❔</span>
               </div>
             </div>
-              {/* Scroll Top */}
-              {/* <div>
+            {/* Scroll Top */}
+            {/* <div>
                 <a
                   href="#"
                   style={{
@@ -1083,7 +1086,14 @@ function Complaint() {
                           )}
                         </p>
                       </div>
-                      <div className="d-flex align-items-center">
+                      <div
+                        style={{
+                          position: "relative",
+                          maxWidth: "290px",
+                          flex: "1",
+                          minWidth: "150px",
+                        }}
+                      >
                         <button
                           className="theme-btn"
                           style={{
@@ -1097,6 +1107,7 @@ function Complaint() {
                             marginRight: "10px",
                             transition:
                               "background-color 0.3s ease, transform 0.2s ease",
+                            marginBottom: "5px",
                           }}
                           onClick={() => handleOpenResponsesModal(complaint)}
                           onMouseEnter={(e) => {
@@ -1120,9 +1131,10 @@ function Complaint() {
                             border: "none",
                             borderRadius: "50px",
                             padding: "8px 20px",
-                            marginRight: "10px",
+                            marginRight: "12px",
                             transition:
                               "background-color 0.3s ease, transform 0.2s ease",
+                            marginBottom: "5px",
                           }}
                           onClick={() => {
                             setComplaintToUpdate(complaint);
@@ -1153,6 +1165,8 @@ function Complaint() {
                             padding: "8px 20px",
                             transition:
                               "background-color 0.3s ease, transform 0.2s ease",
+                                                          marginBottom: "5px",
+
                           }}
                           onClick={() => {
                             setComplaintToDelete(complaint._id);
@@ -1191,7 +1205,9 @@ function Complaint() {
                 }}
               >
                 <button
-                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(prev - 1, 1))
+                  }
                   disabled={currentPage === 1}
                   style={{
                     padding: "8px 16px",
@@ -1227,9 +1243,11 @@ function Complaint() {
                     padding: "8px 16px",
                     borderRadius: "50px",
                     border: "1px solid #007bff",
-                    backgroundColor: currentPage === totalPages ? "#e0e0e0" : "white",
+                    backgroundColor:
+                      currentPage === totalPages ? "#e0e0e0" : "white",
                     color: currentPage === totalPages ? "#666" : "#007bff",
-                    cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                    cursor:
+                      currentPage === totalPages ? "not-allowed" : "pointer",
                     transition: "all 0.3s ease",
                     fontSize: "14px",
                   }}
@@ -1301,7 +1319,8 @@ function Complaint() {
             <div
               style={{ display: "flex", justifyContent: "center", gap: "10px" }}
             >
-              <button className="theme-btn"
+              <button
+                className="theme-btn"
                 onClick={() => setShowDeleteModal(false)}
                 style={{
                   backgroundColor: "#f44336",
@@ -1314,7 +1333,8 @@ function Complaint() {
               >
                 Cancel
               </button>
-              <button className="theme-btn"
+              <button
+                className="theme-btn"
                 onClick={() => handleDelete(complaintToDelete)}
                 style={{
                   backgroundColor: "#4CAF50",
@@ -1441,7 +1461,8 @@ function Complaint() {
                 marginTop: "20px",
               }}
             >
-              <button className="theme-btn"
+              <button
+                className="theme-btn"
                 onClick={() => setShowUpdateModal(false)}
                 style={{
                   backgroundColor: "#f44336",
@@ -1454,7 +1475,8 @@ function Complaint() {
               >
                 Cancel
               </button>
-              <button className="theme-btn"
+              <button
+                className="theme-btn"
                 onClick={() => handleUpdate(complaintToUpdate._id)}
                 style={{
                   backgroundColor: "#4CAF50",
@@ -1557,7 +1579,8 @@ function Complaint() {
                   outline: "none",
                 }}
               />
-              <button className="theme-btn"
+              <button
+                className="theme-btn"
                 onClick={handleAddResponse}
                 style={{
                   backgroundColor: "#007bff",
@@ -1571,7 +1594,8 @@ function Complaint() {
                 Send
               </button>
             </div>
-            <button className="theme-btn"
+            <button
+              className="theme-btn"
               onClick={handleCloseResponsesModal}
               style={{
                 backgroundColor: "#f44336",
@@ -1624,7 +1648,8 @@ function Complaint() {
                 marginBottom: "10px",
               }}
             >
-              <button className="theme-btn"
+              <button
+                className="theme-btn"
                 onClick={handleMarkAllAsRead}
                 style={{
                   backgroundColor: "#007bff",
@@ -1684,7 +1709,8 @@ function Complaint() {
                         </p>
                       </div>
                       {!notif.read && (
-                        <button className="theme-btn"
+                        <button
+                          className="theme-btn"
                           onClick={() => handleMarkAsRead(notif.id)}
                           style={{
                             backgroundColor: "#28a745",
@@ -1715,7 +1741,8 @@ function Complaint() {
                 marginTop: "20px",
               }}
             >
-              <button className="theme-btn"
+              <button
+                className="theme-btn"
                 onClick={() => setShowNotificationsModal(false)}
                 style={{
                   backgroundColor: "#f44336",
@@ -1799,7 +1826,8 @@ function Complaint() {
               </li>
             </ul>
             <div style={{ display: "flex", justifyContent: "center" }}>
-              <button className="theme-btn"
+              <button
+                className="theme-btn"
                 onClick={() => setShowComplaintRulesModal(false)}
                 style={{
                   backgroundColor: "#f44336",

@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import 'bootstrap/dist/css/bootstrap.min.css';
-import '../App.css';
-import { jwtDecode } from 'jwt-decode';
-import jsPDF from 'jspdf';
-import { Helmet } from 'react-helmet';
+import React, { useState, useEffect } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import "bootstrap/dist/css/bootstrap.min.css";
+import "../App.css";
+import { jwtDecode } from "jwt-decode";
+import jsPDF from "jspdf";
+import { Helmet } from "react-helmet";
 
 const BASE_URL = "http://localhost:5000"; // Local backend URL
 
@@ -23,9 +23,9 @@ const EventDetails = () => {
   const [relatedEvents, setRelatedEvents] = useState([]);
   const [imageSrc, setImageSrc] = useState("/assets/img/event/single.jpg");
   const [showParticipants, setShowParticipants] = useState(false);
-  const [promoContent, setPromoContent] = useState('');
+  const [promoContent, setPromoContent] = useState("");
   const [loadedImages, setLoadedImages] = useState({});
-  const [locationDetails, setLocationDetails] = useState('');
+  const [locationDetails, setLocationDetails] = useState("");
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
@@ -34,8 +34,8 @@ const EventDetails = () => {
     const [imgSrc, setImgSrc] = useState(src);
 
     return (
-      <img 
-        src={imgSrc} 
+      <img
+        src={imgSrc}
         alt={alt}
         onError={() => setImgSrc(fallback)}
         {...props}
@@ -52,7 +52,9 @@ const EventDetails = () => {
         setUserRole(decoded.role);
       } catch (error) {
         console.error("Token decoding error:", error);
-        toast.error("Invalid session, please log in again", { autoClose: 3000 });
+        toast.error("Invalid session, please log in again", {
+          autoClose: 3000,
+        });
         setTimeout(() => navigate("/login"), 3000);
       }
     }
@@ -65,25 +67,31 @@ const EventDetails = () => {
           timeout: 10000,
         });
         const eventData = response.data.event || response.data;
-        console.log('Fetched event data:', eventData);
+        console.log("Fetched event data:", eventData);
         setEvent(eventData);
         setFormData({
-          title: eventData.title || '',
-          description: eventData.description || '',
-          start_date: eventData.start_date ? new Date(eventData.start_date).toISOString().split("T")[0] : '',
-          end_date: eventData.end_date ? new Date(eventData.end_date).toISOString().split("T")[0] : '',
-          event_type: eventData.event_type || 'in-person',
-          localisation: eventData.localisation || '',
-          lieu: eventData.lieu || '',
-          online_link: eventData.online_link || '',
-          contact_email: eventData.contact_email || '',
-          imageUrl: eventData.imageUrl || '',
-          heure: eventData.heure || '',
+          title: eventData.title || "",
+          description: eventData.description || "",
+          start_date: eventData.start_date
+            ? new Date(eventData.start_date).toISOString().split("T")[0]
+            : "",
+          end_date: eventData.end_date
+            ? new Date(eventData.end_date).toISOString().split("T")[0]
+            : "",
+          event_type: eventData.event_type || "in-person",
+          localisation: eventData.localisation || "",
+          lieu: eventData.lieu || "",
+          online_link: eventData.online_link || "",
+          contact_email: eventData.contact_email || "",
+          imageUrl: eventData.imageUrl || "",
+          heure: eventData.heure || "",
           hasPartners: eventData.hasPartners || false,
         });
 
-        const url = eventData.imageUrl ? `${BASE_URL}/${eventData.imageUrl.replace(/^\/+/, '')}` : "/assets/img/event/single.jpg";
-        console.log('Image URL to display:', url);
+        const url = eventData.imageUrl
+          ? `${BASE_URL}/${eventData.imageUrl.replace(/^\/+/, "")}`
+          : "/assets/img/event/single.jpg";
+        console.log("Image URL to display:", url);
         const img = new Image();
         img.src = url;
         img.onload = () => setImageSrc(url);
@@ -95,7 +103,10 @@ const EventDetails = () => {
         await fetchRelatedEvents(eventData.event_type, eventData.localisation);
         setLoading(false);
       } catch (error) {
-        console.error("Error fetching event:", error.response?.data || error.message);
+        console.error(
+          "Error fetching event:",
+          error.response?.data || error.message
+        );
         toast.error(`Loading error: ${error.message}`, { autoClose: 3000 });
         setImageSrc("/assets/img/event/single.jpg");
         setLoading(false);
@@ -152,7 +163,11 @@ const EventDetails = () => {
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", { day: "2-digit", month: "long", year: "numeric" });
+    return date.toLocaleDateString("en-US", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
   };
 
   const handleOrganizerImageError = (e) => {
@@ -188,39 +203,49 @@ const EventDetails = () => {
       formDataToSend.append("contact_email", formData.contact_email);
       formDataToSend.append("hasPartners", formData.hasPartners);
 
-      const response = await axios.put(`${BASE_URL}/events/updateEvent/${id}`, formDataToSend, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
-        },
-        timeout: 10000,
-        validateStatus: (status) => {
-          return status >= 200 && status < 300;
-        },
-      });
+      const response = await axios.put(
+        `${BASE_URL}/events/updateEvent/${id}`,
+        formDataToSend,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+          timeout: 10000,
+          validateStatus: (status) => {
+            return status >= 200 && status < 300;
+          },
+        }
+      );
 
       const updatedEvent = response.data.data || response.data;
       console.log("Update response:", response.status, response.data);
 
       setEvent(updatedEvent);
       setFormData({
-        title: updatedEvent.title || '',
-        description: updatedEvent.description || '',
-        start_date: updatedEvent.start_date ? new Date(updatedEvent.start_date).toISOString().split("T")[0] : '',
-        end_date: updatedEvent.end_date ? new Date(updatedEvent.end_date).toISOString().split("T")[0] : '',
-        event_type: updatedEvent.event_type || 'in-person',
-        localisation: updatedEvent.localisation || '',
-        lieu: updatedEvent.lieu || '',
-        online_link: updatedEvent.online_link || '',
-        contact_email: updatedEvent.contact_email || '',
-        heure: updatedEvent.heure || '',
+        title: updatedEvent.title || "",
+        description: updatedEvent.description || "",
+        start_date: updatedEvent.start_date
+          ? new Date(updatedEvent.start_date).toISOString().split("T")[0]
+          : "",
+        end_date: updatedEvent.end_date
+          ? new Date(updatedEvent.end_date).toISOString().split("T")[0]
+          : "",
+        event_type: updatedEvent.event_type || "in-person",
+        localisation: updatedEvent.localisation || "",
+        lieu: updatedEvent.lieu || "",
+        online_link: updatedEvent.online_link || "",
+        contact_email: updatedEvent.contact_email || "",
+        heure: updatedEvent.heure || "",
         hasPartners: updatedEvent.hasPartners || false,
       });
       setIsEditing(false);
       toast.success("Update successful!", { autoClose: 2000 });
 
-      const url = updatedEvent.imageUrl ? `${BASE_URL}/${updatedEvent.imageUrl.replace(/^\/+/, '')}` : "/assets/img/event/single.jpg";
-      console.log('Image URL to display:', url);
+      const url = updatedEvent.imageUrl
+        ? `${BASE_URL}/${updatedEvent.imageUrl.replace(/^\/+/, "")}`
+        : "/assets/img/event/single.jpg";
+      console.log("Image URL to display:", url);
       const img = new Image();
       img.src = url;
       img.onload = () => setImageSrc(url);
@@ -231,13 +256,23 @@ const EventDetails = () => {
     } catch (error) {
       console.error("Error updating event:", error);
       if (error.code === "ECONNABORTED") {
-        toast.error("Request timed out. Please check your network connection and try again.", { autoClose: 3000 });
+        toast.error(
+          "Request timed out. Please check your network connection and try again.",
+          { autoClose: 3000 }
+        );
       } else if (error.response) {
         const errorMessage = error.response.data?.message || "Update error";
-        console.log("Backend error details:", error.response.status, error.response.data);
+        console.log(
+          "Backend error details:",
+          error.response.status,
+          error.response.data
+        );
         toast.error(errorMessage, { autoClose: 3000 });
       } else {
-        toast.error(error.message || "Network error: Unable to connect to the server", { autoClose: 3000 });
+        toast.error(
+          error.message || "Network error: Unable to connect to the server",
+          { autoClose: 3000 }
+        );
       }
     }
   };
@@ -256,14 +291,19 @@ const EventDetails = () => {
     try {
       const token = localStorage.getItem("jwt-token");
       await axios.delete(`${BASE_URL}/events/deleteEvent/${id}`, {
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         timeout: 10000,
       });
       toast.success("Deletion successful!", { autoClose: 2000 });
       setTimeout(() => navigate("/events"), 2000);
     } catch (error) {
       console.error("Error deleting event:", error);
-      toast.error(error.response?.data?.message || "Deletion error", { autoClose: 3000 });
+      toast.error(error.response?.data?.message || "Deletion error", {
+        autoClose: 3000,
+      });
     }
   };
 
@@ -300,9 +340,9 @@ const EventDetails = () => {
   const handleDownloadPDF = () => {
     try {
       const doc = new jsPDF({
-        orientation: 'portrait',
-        unit: 'pt',
-        format: 'a4',
+        orientation: "portrait",
+        unit: "pt",
+        format: "a4",
       });
 
       const marginLeft = 40;
@@ -311,9 +351,11 @@ const EventDetails = () => {
       const pageHeight = doc.internal.pageSize.height;
       let yPosition = marginTop;
 
-      doc.setFont('Times', 'bold');
+      doc.setFont("Times", "bold");
       doc.setFontSize(16);
-      doc.text('Event Details', doc.internal.pageSize.width / 2, yPosition, { align: 'center' });
+      doc.text("Event Details", doc.internal.pageSize.width / 2, yPosition, {
+        align: "center",
+      });
       yPosition += 40;
 
       getBase64Image(imageSrc, (base64Image) => {
@@ -321,23 +363,34 @@ const EventDetails = () => {
           const imgWidth = 200;
           const imgHeight = (imgWidth * 3) / 4;
           const xPosition = (doc.internal.pageSize.width - imgWidth) / 2;
-          doc.addImage(base64Image, 'JPEG', xPosition, yPosition, imgWidth, imgHeight);
+          doc.addImage(
+            base64Image,
+            "JPEG",
+            xPosition,
+            yPosition,
+            imgWidth,
+            imgHeight
+          );
           yPosition += imgHeight + 20;
         } else {
           yPosition += 20;
         }
 
         const addField = (label, value) => {
-          const sanitizedValue = String(value || 'N/A').replace(/[^\x20-\x7E]/g, '');
+          const sanitizedValue = String(value || "N/A").replace(
+            /[^\x20-\x7E]/g,
+            ""
+          );
           if (yPosition > pageHeight - 40) {
             doc.addPage();
             yPosition = marginTop;
           }
-          doc.setFont('Times', 'bold');
+          doc.setFont("Times", "bold");
           doc.setFontSize(12);
           doc.text(`${label}:`, marginLeft, yPosition);
-          doc.setFont('Times', 'normal');
-          const textWidth = doc.internal.pageSize.width - marginLeft - marginRight - 80;
+          doc.setFont("Times", "normal");
+          const textWidth =
+            doc.internal.pageSize.width - marginLeft - marginRight - 80;
           const splitText = doc.splitTextToSize(sanitizedValue, textWidth);
           splitText.forEach((line, index) => {
             if (yPosition > pageHeight - 40) {
@@ -350,16 +403,36 @@ const EventDetails = () => {
           yPosition += 10;
         };
 
-        addField('Title', event.title);
-        addField('Description', event.description);
-        addField('Start Date', event.start_date ? formatDate(event.start_date) : 'N/A');
-        addField('End Date', event.end_date ? formatDate(event.end_date) : 'N/A');
-        addField('Time', event.heure || 'N/A');
-        addField('Event Type', event.event_type === "in-person" ? 'In-Person' : 'Online');
-        addField('Organizer', event.created_by?.username || 'Unknown Organizer');
-        addField('Contact', event.contact_email || event.created_by?.email || 'N/A');
-        addField('Participants', `${event.participants?.length || 1} / ${event.max_participants || 'No limit'}`);
-        addField('Accept Partners', event.hasPartners ? 'YES' : 'NO');
+        addField("Title", event.title);
+        addField("Description", event.description);
+        addField(
+          "Start Date",
+          event.start_date ? formatDate(event.start_date) : "N/A"
+        );
+        addField(
+          "End Date",
+          event.end_date ? formatDate(event.end_date) : "N/A"
+        );
+        addField("Time", event.heure || "N/A");
+        addField(
+          "Event Type",
+          event.event_type === "in-person" ? "In-Person" : "Online"
+        );
+        addField(
+          "Organizer",
+          event.created_by?.username || "Unknown Organizer"
+        );
+        addField(
+          "Contact",
+          event.contact_email || event.created_by?.email || "N/A"
+        );
+        addField(
+          "Participants",
+          `${event.participants?.length || 1} / ${
+            event.max_participants || "No limit"
+          }`
+        );
+        addField("Accept Partners", event.hasPartners ? "YES" : "NO");
 
         doc.save(`${event.title}_Details.pdf`);
         toast.success("PDF downloaded successfully!", { autoClose: 2000 });
@@ -372,14 +445,23 @@ const EventDetails = () => {
 
   const handleShareOnFacebook = async () => {
     try {
-      const pageId = '239959405871715';
-      const accessToken = 'EAAERIQJ4OLsBO3J726ZAhwQbArFVaktUmoqRUG31WSbWyTZBA0q8KX62LBhx4y2lkG2HgdZAQBqnOZCMYNU2uCPnoZB5Czs4UCZA3k12ls0r08U3Ct3OpoPoQ91ZAKvRhoffm7xPgYCZAlCpqoJX3gaXdrZAXjXd4HZBzJ5NOXpiM9zAwGbM8S7e9YeliiZAkOMUY7GV1ZCGUKWuFYWaYDhFUK0szqAZD';
+      const pageId = "239959405871715";
+      const accessToken =
+        "EAAERIQJ4OLsBO3J726ZAhwQbArFVaktUmoqRUG31WSbWyTZBA0q8KX62LBhx4y2lkG2HgdZAQBqnOZCMYNU2uCPnoZB5Czs4UCZA3k12ls0r08U3Ct3OpoPoQ91ZAKvRhoffm7xPgYCZAlCpqoJX3gaXdrZAXjXd4HZBzJ5NOXpiM9zAwGbM8S7e9YeliiZAkOMUY7GV1ZCGUKWuFYWaYDhFUK0szqAZD";
 
       if (!accessToken) {
-        throw new Error('Facebook access token is missing.');
+        throw new Error("Facebook access token is missing.");
       }
 
-      const message = `${event.title}\n\n${event.description || 'Check out this event!'}\n\nDate: ${formatDate(event.start_date)} at ${event.heure || 'TBD'}\nLocation: ${event.event_type === 'in-person' ? event.lieu || 'TBD' : event.online_link || 'Online'}\n\nVisit our website for more details!`;
+      const message = `${event.title}\n\n${
+        event.description || "Check out this event!"
+      }\n\nDate: ${formatDate(event.start_date)} at ${
+        event.heure || "TBD"
+      }\nLocation: ${
+        event.event_type === "in-person"
+          ? event.lieu || "TBD"
+          : event.online_link || "Online"
+      }\n\nVisit our website for more details!`;
 
       const postData = {
         message: message,
@@ -391,38 +473,59 @@ const EventDetails = () => {
         postData,
         {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           timeout: 10000,
         }
       );
 
-      console.log('Post created successfully:', postResponse.data);
-      toast.success('Event shared successfully on your Facebook page!', { autoClose: 2000 });
+      console.log("Post created successfully:", postResponse.data);
+      toast.success("Event shared successfully on your Facebook page!", {
+        autoClose: 2000,
+      });
     } catch (error) {
-      console.error('Full error response:', JSON.stringify(error.response?.data, null, 2));
-      const errorMessage = error.response?.data?.error?.message || error.message;
-      toast.error(`Failed to share event on Facebook: ${errorMessage}`, { autoClose: 3000 });
+      console.error(
+        "Full error response:",
+        JSON.stringify(error.response?.data, null, 2)
+      );
+      const errorMessage =
+        error.response?.data?.error?.message || error.message;
+      toast.error(`Failed to share event on Facebook: ${errorMessage}`, {
+        autoClose: 3000,
+      });
     }
   };
 
   const generatePromoContent = () => {
     try {
-      const { title, description, start_date, lieu, online_link, event_type, heure } = event;
-      const shortDescription = description?.slice(0, 100) || 'An exciting event awaits!';
-      const location = event_type === 'in-person' ? lieu || 'TBD' : online_link || 'Online';
+      const {
+        title,
+        description,
+        start_date,
+        lieu,
+        online_link,
+        event_type,
+        heure,
+      } = event;
+      const shortDescription =
+        description?.slice(0, 100) || "An exciting event awaits!";
+      const location =
+        event_type === "in-person" ? lieu || "TBD" : online_link || "Online";
       const formattedDate = formatDate(start_date);
-      const time = heure || 'Check details';
+      const time = heure || "Check details";
 
       const promoText = `Join us for "${title}" on ${formattedDate} at ${time}! ${shortDescription} 📍 ${location}. Visit our website for more details! #Event`;
 
-      const finalText = promoText.length > 280 ? `${promoText.slice(0, 275)}...` : promoText;
+      const finalText =
+        promoText.length > 280 ? `${promoText.slice(0, 275)}...` : promoText;
 
       setPromoContent(finalText);
       toast.success("Promotional content generated!", { autoClose: 2000 });
     } catch (error) {
       console.error("Error generating promo content:", error);
-      toast.error("Failed to generate promotional content", { autoClose: 3000 });
+      toast.error("Failed to generate promotional content", {
+        autoClose: 3000,
+      });
     }
   };
 
@@ -430,13 +533,17 @@ const EventDetails = () => {
     try {
       const token = localStorage.getItem("jwt-token");
       if (!token) {
-        toast.error("Please log in to access location details", { autoClose: 3000 });
+        toast.error("Please log in to access location details", {
+          autoClose: 3000,
+        });
         setTimeout(() => navigate("/login"), 3000);
         return;
       }
 
-      if (event.event_type !== 'in-person') {
-        toast.info("Location details are not applicable for online events", { autoClose: 3000 });
+      if (event.event_type !== "in-person") {
+        toast.info("Location details are not applicable for online events", {
+          autoClose: 3000,
+        });
         return;
       }
 
@@ -457,27 +564,38 @@ const EventDetails = () => {
         },
         {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
           timeout: 10000,
         }
       );
 
-      console.log('Backend xAI Response:', JSON.stringify(response.data, null, 2));
-      const details = response.data.choices?.[0]?.message?.content || 'No additional details provided.';
-      console.log('Location Details:', details);
+      console.log(
+        "Backend xAI Response:",
+        JSON.stringify(response.data, null, 2)
+      );
+      const details =
+        response.data.choices?.[0]?.message?.content ||
+        "No additional details provided.";
+      console.log("Location Details:", details);
       setLocationDetails(details);
       setShowLocationModal(true);
-      toast.success("Location details fetched successfully!", { autoClose: 2000 });
+      toast.success("Location details fetched successfully!", {
+        autoClose: 2000,
+      });
     } catch (error) {
       console.error("Error fetching location details:", error);
       let errorMessage = "Failed to fetch location details";
       if (error.response) {
         console.error("Backend Error Response:", error.response.data);
-        errorMessage = error.response.data?.message || `Error ${error.response.status}: ${error.response.statusText}`;
+        errorMessage =
+          error.response.data?.message ||
+          `Error ${error.response.status}: ${error.response.statusText}`;
         if (error.response.status === 401 || error.response.status === 403) {
-          toast.error("Your session has expired. Please log in again.", { autoClose: 3000 });
+          toast.error("Your session has expired. Please log in again.", {
+            autoClose: 3000,
+          });
           localStorage.removeItem("jwt-token");
           setTimeout(() => navigate("/login"), 3000);
           return;
@@ -487,7 +605,8 @@ const EventDetails = () => {
           errorMessage = "Location not found. Please check the location name.";
         }
       } else if (error.request) {
-        errorMessage = "No response from server. Check your network connection.";
+        errorMessage =
+          "No response from server. Check your network connection.";
       } else {
         errorMessage = error.message;
       }
@@ -507,7 +626,10 @@ const EventDetails = () => {
       <Helmet>
         <title>{event.title || "Event Details"}</title>
         <meta property="og:title" content={event.title || "Event Details"} />
-        <meta property="og:description" content={event.description || "Check out this event!"} />
+        <meta
+          property="og:description"
+          content={event.description || "Check out this event!"}
+        />
         <meta
           property="og:image"
           content="https://via.placeholder.com/1200x630.png?text=Event+Image"
@@ -516,11 +638,25 @@ const EventDetails = () => {
         <meta property="og:type" content="website" />
       </Helmet>
 
-      <div className="site-breadcrumb" style={{ background: "url(/assets/img/breadcrumb/01.jpg)" }}>
+      <div
+        className="site-breadcrumb"
+        style={{ background: "url(/assets/img/breadcrumb/01.jpg)" }}
+      >
         <div className="container">
           <h2 className="breadcrumb-title">Event Details</h2>
           <ul className="breadcrumb-menu">
-            <li><Link to="/Home">Home</Link></li>
+            <li>
+              {" "}
+              <a href="/Home" style={{ color: "#fff", textDecoration: "none" }}>
+                Home
+              </a>
+            </li>
+            <li>
+              {" "}
+              <a href="/Events" style={{ color: "#fff", textDecoration: "none" }}>
+                Event
+              </a>
+            </li>
             <li className="active">Event Details</li>
           </ul>
         </div>
@@ -669,7 +805,11 @@ const EventDetails = () => {
                       <button type="submit" className="theme-btn me-2">
                         Save <i className="fas fa-save"></i>
                       </button>
-                      <button type="button" onClick={handleCancel} className="theme-btn btn-danger">
+                      <button
+                        type="button"
+                        onClick={handleCancel}
+                        className="theme-btn btn-danger"
+                      >
                         Cancel <i className="fas fa-times"></i>
                       </button>
                     </form>
@@ -681,27 +821,42 @@ const EventDetails = () => {
                       </div>
                       <div className="mb-4">
                         <h3 className="mb-2">Where is the Event?</h3>
-                        <p>{event.lieu || event.online_link || "No location defined"}</p>
+                        <p>
+                          {event.lieu ||
+                            event.online_link ||
+                            "No location defined"}
+                        </p>
                       </div>
                       <div className="mb-4">
                         <h3 className="mb-2">Who is this Event For?</h3>
                         <p>
-                          This event is open to everyone interested in contributing to{" "}
-                          <strong>{event.title}</strong>. Contact{" "}
-                          {event.created_by?.email || event.contact_email || "organizer unknown"} for more details.
+                          This event is open to everyone interested in
+                          contributing to <strong>{event.title}</strong>.
+                          Contact{" "}
+                          {event.created_by?.email ||
+                            event.contact_email ||
+                            "organizer unknown"}{" "}
+                          for more details.
                         </p>
                       </div>
-                      {event.event_type === "in-person" && event.localisation && (
-                        <div className="event-map mt-5">
-                          <iframe
-                            src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBxDeUBlVhmClKJGU1YLAsa5AzhgddjYJ4&q=${encodeURIComponent(event.localisation)}`}
-                            style={{ border: 0, width: "100%", height: "400px" }}
-                            allowFullScreen=""
-                            loading="lazy"
-                            title="Event Location"
-                          ></iframe>
-                        </div>
-                      )}
+                      {event.event_type === "in-person" &&
+                        event.localisation && (
+                          <div className="event-map mt-5">
+                            <iframe
+                              src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBxDeUBlVhmClKJGU1YLAsa5AzhgddjYJ4&q=${encodeURIComponent(
+                                event.localisation
+                              )}`}
+                              style={{
+                                border: 0,
+                                width: "100%",
+                                height: "400px",
+                              }}
+                              allowFullScreen=""
+                              loading="lazy"
+                              title="Event Location"
+                            ></iframe>
+                          </div>
+                        )}
                     </>
                   )}
                 </div>
@@ -739,14 +894,17 @@ const EventDetails = () => {
                         <h5>Type</h5>
                         <p>
                           <i className="far fa-info-circle"></i>
-                          {event.event_type === "in-person" ? "In-Person" : "Online"}
+                          {event.event_type === "in-person"
+                            ? "In-Person"
+                            : "Online"}
                         </p>
                       </div>
                       <div className="event-single-item">
                         <h5>Participants</h5>
                         <p>
                           <i className="far fa-users"></i>
-                          {event.participants?.length || 1} / {event.max_participants || "No limit"}
+                          {event.participants?.length || 1} /{" "}
+                          {event.max_participants || "No limit"}
                         </p>
                       </div>
                       <div className="event-single-item">
@@ -756,34 +914,46 @@ const EventDetails = () => {
                           {event.hasPartners ? "YES" : "NO"}
                         </p>
                       </div>
-                      {event.hasPartners && userRole === "association_member" && (
-                        <div className="event-single-item">
-                          <div
-                            onClick={() => setShowParticipants(!showParticipants)}
-                            style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
-                          >
-                            <h5 style={{ margin: 0 }}>Participants List</h5>
-                            <i
-                              className={`fas fa-chevron-${showParticipants ? "up" : "down"} ml-2`}
-                              style={{ marginLeft: "8px" }}
-                            ></i>
+                      {event.hasPartners &&
+                        userRole === "association_member" && (
+                          <div className="event-single-item">
+                            <div
+                              onClick={() =>
+                                setShowParticipants(!showParticipants)
+                              }
+                              style={{
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                              }}
+                            >
+                              <h5 style={{ margin: 0 }}>Participants List</h5>
+                              <i
+                                className={`fas fa-chevron-${
+                                  showParticipants ? "up" : "down"
+                                } ml-2`}
+                                style={{ marginLeft: "8px" }}
+                              ></i>
+                            </div>
+                            {showParticipants && (
+                              <>
+                                {event.participants?.length > 0 ? (
+                                  event.participants.map(
+                                    (participant, index) => (
+                                      <p key={index}>
+                                        <i className="far fa-list"></i>
+                                        {index + 1}.{" "}
+                                        {participant.username || "Unknown"}
+                                      </p>
+                                    )
+                                  )
+                                ) : (
+                                  <p>No participants yet.</p>
+                                )}
+                              </>
+                            )}
                           </div>
-                          {showParticipants && (
-                            <>
-                              {event.participants?.length > 0 ? (
-                                event.participants.map((participant, index) => (
-                                  <p key={index}>
-                                    <i className="far fa-list"></i>
-                                    {index + 1}. {participant.username || "Unknown"}
-                                  </p>
-                                ))
-                              ) : (
-                                <p>No participants yet.</p>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )}
+                        )}
                     </div>
                   </div>
                   <div className="widget">
@@ -793,51 +963,94 @@ const EventDetails = () => {
                         <ImageWithFallback
                           src={
                             event.created_by?.imageUrl
-                              ? `${BASE_URL}/${event.created_by.imageUrl.replace(/^\/+/, '')}`
+                              ? `${BASE_URL}/${event.created_by.imageUrl.replace(
+                                  /^\/+/,
+                                  ""
+                                )}`
                               : "/assets/img/event/author.jpg"
                           }
                           alt={event.created_by?.username || "Organizer"}
                           fallback="/assets/img/event/author.jpg"
-                          style={{ width: "200px", height: "200px", objectFit: "cover" }}
+                          style={{
+                            width: "200px",
+                            height: "200px",
+                            objectFit: "cover",
+                          }}
                         />
-                        <h5>{event.created_by?.username || "Unknown Organizer"}</h5>
+                        <h5>
+                          {event.created_by?.username || "Unknown Organizer"}
+                        </h5>
                         <p>
-                          Contact {event.created_by?.email || event.contact_email || "unknown"} for more details.
+                          Contact{" "}
+                          {event.created_by?.email ||
+                            event.contact_email ||
+                            "unknown"}{" "}
+                          for more details.
                         </p>
                         <div className="mt-3">
-                          <button onClick={handleDownloadPDF} className="theme-btn me-2" style={{borderRadius:"50px"}}>
+                          <button
+                            onClick={handleDownloadPDF}
+                            className="theme-btn me-2"
+                            style={{ borderRadius: "50px" }}
+                          >
                             Download PDF <i className="fas fa-file-pdf"></i>
                           </button>
-                          <button onClick={handleShareOnFacebook} className="theme-btn me-2" style={{ backgroundColor: '#3b5998',borderRadius:"50px" }}>
+                          <button
+                            onClick={handleShareOnFacebook}
+                            className="theme-btn me-2"
+                            style={{
+                              backgroundColor: "#3b5998",
+                              borderRadius: "50px",
+                            }}
+                          >
                             Share on FB <i className="fab fa-facebook-f"></i>
                           </button>
-                          <button 
-                            onClick={fetchLocationDetails} 
-                            className="theme-btn me-2" 
-                            style={{ backgroundColor: '#28a745',borderRadius:"50px",top:'10px' }}
+                          <button
+                            onClick={fetchLocationDetails}
+                            className="theme-btn me-2"
+                            style={{
+                              backgroundColor: "#28a745",
+                              borderRadius: "50px",
+                              top: "10px",
+                            }}
                             disabled={isFetchingLocation}
                           >
                             {isFetchingLocation ? (
                               <>
-                                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                <span
+                                  className="spinner-border spinner-border-sm me-2"
+                                  role="status"
+                                  aria-hidden="true"
+                                ></span>
                                 Loading...
                               </>
                             ) : (
                               <>
-                                Location AI <i className="fas fa-map-marked-alt"></i>
+                                Location AI{" "}
+                                <i className="fas fa-map-marked-alt"></i>
                               </>
                             )}
                           </button>
                           {isCreator && !isEditing && (
                             <>
-                              <button onClick={handleUpdate} className="theme-btn me-2">
+                              <button
+                                onClick={handleUpdate}
+                                className="theme-btn me-2"
+                              >
                                 Edit <i className="fas fa-edit"></i>
                               </button>
-                              <button onClick={handleDelete} className="theme-btn btn-danger me-2">
+                              <button
+                                onClick={handleDelete}
+                                className="theme-btn btn-danger me-2"
+                              >
                                 Delete <i className="fas fa-trash"></i>
                               </button>
-                              <button onClick={generatePromoContent} className="theme-btn">
-                                Generate Promo <i className="fas fa-bullhorn"></i>
+                              <button
+                                onClick={generatePromoContent}
+                                className="theme-btn"
+                              >
+                                Generate Promo{" "}
+                                <i className="fas fa-bullhorn"></i>
                               </button>
                             </>
                           )}
@@ -854,7 +1067,15 @@ const EventDetails = () => {
                             />
                             <button
                               className="theme-btn mt-2"
-                              onClick={() => navigator.clipboard.writeText(promoContent).then(() => toast.success("Copied to clipboard!", { autoClose: 2000 }))}
+                              onClick={() =>
+                                navigator.clipboard
+                                  .writeText(promoContent)
+                                  .then(() =>
+                                    toast.success("Copied to clipboard!", {
+                                      autoClose: 2000,
+                                    })
+                                  )
+                              }
                             >
                               Copy Text <i className="fas fa-copy"></i>
                             </button>
@@ -868,27 +1089,43 @@ const EventDetails = () => {
                     {relatedEvents.length > 0 ? (
                       <div className="related-events-container">
                         {relatedEvents.map((relatedEvent) => {
-                          const eventImage = relatedEvent.imageUrl 
-                            ? `${BASE_URL}/${relatedEvent.imageUrl.replace(/^\/+/, '')}`
+                          const eventImage = relatedEvent.imageUrl
+                            ? `${BASE_URL}/${relatedEvent.imageUrl.replace(
+                                /^\/+/,
+                                ""
+                              )}`
                             : "/assets/img/event/single.jpg";
-                          
+
                           return (
-                            <div key={relatedEvent._id} className="related-event-item mb-3">
-                              <Link to={`/events/${relatedEvent._id}`} className="d-flex align-items-start">
+                            <div
+                              key={relatedEvent._id}
+                              className="related-event-item mb-3"
+                            >
+                              <Link
+                                to={`/events/${relatedEvent._id}`}
+                                className="d-flex align-items-start"
+                              >
                                 <ImageWithFallback
                                   src={eventImage}
                                   alt={relatedEvent.title}
                                   fallback="/assets/img/event/single.jpg"
                                   className="me-3"
-                                  style={{ 
-                                    width: "80px", 
-                                    height: "80px", 
-                                    objectFit: "cover", 
+                                  style={{
+                                    width: "80px",
+                                    height: "80px",
+                                    objectFit: "cover",
                                     borderRadius: "4px",
-                                    opacity: loadedImages[relatedEvent._id] ? 1 : 0.7,
-                                    transition: 'opacity 0.3s ease'
+                                    opacity: loadedImages[relatedEvent._id]
+                                      ? 1
+                                      : 0.7,
+                                    transition: "opacity 0.3s ease",
                                   }}
-                                  onLoad={() => setLoadedImages(prev => ({...prev, [relatedEvent._id]: true}))}
+                                  onLoad={() =>
+                                    setLoadedImages((prev) => ({
+                                      ...prev,
+                                      [relatedEvent._id]: true,
+                                    }))
+                                  }
                                 />
                                 <div>
                                   <strong>{relatedEvent.title}</strong>
@@ -896,15 +1133,19 @@ const EventDetails = () => {
                                     <i className="fas fa-map-marker-alt me-2"></i>
                                     {relatedEvent.event_type === "in-person" ? (
                                       <>
-                                        {relatedEvent.localisation || "Location not specified"}
+                                        {relatedEvent.localisation ||
+                                          "Location not specified"}
                                         {relatedEvent.distance === 0
                                           ? " (Same Location)"
                                           : relatedEvent.distance
-                                          ? ` (Nearby, ~${Math.round(relatedEvent.distance)} km)`
+                                          ? ` (Nearby, ~${Math.round(
+                                              relatedEvent.distance
+                                            )} km)`
                                           : ""}
                                       </>
                                     ) : (
-                                      relatedEvent.online_link || "Online link not specified"
+                                      relatedEvent.online_link ||
+                                      "Online link not specified"
                                     )}
                                   </p>
                                   <small className="text-muted">
@@ -928,7 +1169,11 @@ const EventDetails = () => {
       </div>
 
       {showLocationModal && (
-        <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
+        <div
+          className="modal fade show"
+          style={{ display: "block", backgroundColor: "rgba(0,0,0,0.5)" }}
+          tabIndex="-1"
+        >
           <div className="modal-dialog modal-lg">
             <div className="modal-content">
               <div className="modal-header">

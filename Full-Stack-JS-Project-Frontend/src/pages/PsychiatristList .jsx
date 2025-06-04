@@ -12,6 +12,10 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import "../App.css";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faSearch,
+} from "@fortawesome/free-solid-svg-icons";
 
 const PsychiatristList = () => {
   const [psychiatrists, setPsychiatrists] = useState([]);
@@ -339,6 +343,18 @@ const PsychiatristList = () => {
               margin: "30px 0",
             }}
           >
+            <FontAwesomeIcon
+                                  icon={faSearch}
+                                  style={{
+                                    position: "relative",
+                                    left: "30px",
+                                    top:"8px",
+                                    transform: "translateY(-50%)",
+                                    color: "#007bff",
+                                    fontSize: "18px",
+                                    cursor: "pointer",
+                                  }}
+                                />
             <input
               type="text"
               value={searchTerm}
@@ -355,11 +371,7 @@ const PsychiatristList = () => {
                 boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
                 outline: "none",
                 transition: "all 0.3s ease",
-                backgroundImage:
-                  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='currentColor' class='bi bi-search' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.098zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'/%3E%3C/svg%3E\")",
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "10px center",
-                backgroundSize: "16px 16px",
+           
                 marginBottom:"20px"
               }}
               onFocus={(e) => {
