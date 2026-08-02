@@ -32,7 +32,7 @@ const AddForum = () => {
     return text ? text.replace(/\*\*/g, "") : text;
   };
   const interactWithGemini = async (message) => {
-    const GEMINI_API_KEY = "AIzaSyCfw_jacNIo7ORhBYWXr9b6uYDeeOc4C7o";
+    const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
     try {
       const response = await fetch(
