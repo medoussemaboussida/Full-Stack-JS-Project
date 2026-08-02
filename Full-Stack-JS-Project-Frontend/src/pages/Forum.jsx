@@ -97,7 +97,7 @@ function Forum() {
   // Fonction pour interagir avec l'API Gemini
   const interactWithGemini = async (message) => {
     // Clé API Gemini
-    const GEMINI_API_KEY = "AIzaSyCfw_jacNIo7ORhBYWXr9b6uYDeeOc4C7o";
+    const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
     // Liste des tags et de leurs synonymes
     const allowedTagsAndSynonyms = {
